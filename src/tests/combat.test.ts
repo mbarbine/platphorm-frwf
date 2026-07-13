@@ -76,6 +76,18 @@ describe('deterministic combat rules', () => {
     expect(decision.command).toBeNull(); expect(decision.move.x).toBeLessThan(0);
   });
 
+  it('AI pursues and interacts with a real ringside prop in Chaos Circuit', () => {
+    const model = createMatch('atlas', 'brick', 'chaos', 'normal'); model.elapsed = 8; model.opponent.health = 88; model.opponent.position = { x: 4.3, z: -2.4 };
+    const approach = chooseAiDecision(model, fighterById('brick')); expect(approach.command).toBeNull(); expect(approach.move.x).toBeGreaterThan(0);
+    model.opponent.position = { x: 6.9, z: -2.4 }; const pickup = chooseAiDecision(model, fighterById('brick'));
+    expect(pickup.command).toBe('interact');
+  });
+
+  it('AI requests a physical apron transition while pursuing a ringside prop', () => {
+    const model = createMatch('atlas', 'brick', 'chaos', 'normal'); model.elapsed = 8; model.opponent.health = 88; model.opponent.position = { x: 5.3, z: -2.4 };
+    expect(chooseAiDecision(model, fighterById('brick')).command).toBe('context');
+  });
+
   it('AI cannot steal an early pin after a routine knockdown', () => {
     const model = createMatch('atlas', 'vex', 'standard', 'normal'); model.player.state = 'downed'; model.player.health = 20; model.opponent.position = { ...model.player.position };
     expect(isActionLegal(model, 'context', 'opponent')).toBe(false);

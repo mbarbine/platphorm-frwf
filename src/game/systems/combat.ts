@@ -624,7 +624,7 @@ export const advanceMatch = (model: MatchModel, dt: number, playerInput: FrameIn
   for (const command of playerInput.commands) requestCommand(model, 'player', command, playerInput.move);
   model.aiBlockTimer = Math.max(0, model.aiBlockTimer - step);
   model.aiThinkTimer -= step;
-  let aiMove: Vec2 = { x: 0, z: 0 }; let aiRun = false;
+  let aiMove: Vec2 = { ...model.aiMovement }; let aiRun = model.aiRunning;
   if (model.aiThinkTimer <= 0) {
     const decision = chooseAiDecision(model, fighterById(model.opponent.definitionId));
     model.seed = decision.nextSeed; model.aiIntent = decision.command; aiMove = decision.move; aiRun = decision.run;
@@ -633,9 +633,6 @@ export const advanceMatch = (model: MatchModel, dt: number, playerInput: FrameIn
       requestCommand(model, 'opponent', decision.command, decision.move);
       if (decision.command === 'block') model.aiBlockTimer = model.difficulty === 'hard' ? .72 : .48;
     }
-  } else {
-    const delta = { x: model.player.position.x - model.opponent.position.x, z: model.player.position.z - model.opponent.position.z };
-    if (distance(model.player.position, model.opponent.position) > 1.8) aiMove = normalize(delta);
   }
   model.aiMovement = { ...aiMove }; model.aiRunning = aiRun;
   const grappleStep = model.physicsAuthority ? { broken: false, liftEnergy: 0 } : stepGrappleDynamics(model, step, playerInput.move, aiMove);

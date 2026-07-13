@@ -58,6 +58,8 @@ export interface BodyWorksMetrics {
   worldJointCount: number;
   gripCreateCount: number;
   gripInvalidCount: number;
+  propBodyCount: number;
+  propGripCount: number;
   worldBodyCount: number;
   invalidRegisteredBodyCount: number;
   worldRemoveCount: number;
@@ -141,7 +143,7 @@ export class BodyWorksRuntime {
   private readonly pendingLandings = new Map<FighterKey, PendingLanding>();
   private replayAccumulator = 0;
   readonly replay = new PhysicsReplayBuffer(300);
-  readonly metrics: BodyWorksMetrics = { fixedSteps: 0, bodyCount: 0, jointCount: 0, gripCount: 0, nearestGripDistance: 0, maximumGripError: 0, maximumGripLoad: 0, lastGripBreakReason: 'none', worldJointCount: 0, gripCreateCount: 0, gripInvalidCount: 0, worldBodyCount: 0, invalidRegisteredBodyCount: 0, worldRemoveCount: 0, contactCount: 0, emergencyResetCount: 0, lastStepMs: 0, maximumStepMs: 0 };
+  readonly metrics: BodyWorksMetrics = { fixedSteps: 0, bodyCount: 0, jointCount: 0, gripCount: 0, nearestGripDistance: 0, maximumGripError: 0, maximumGripLoad: 0, lastGripBreakReason: 'none', worldJointCount: 0, gripCreateCount: 0, gripInvalidCount: 0, propBodyCount: 0, propGripCount: 0, worldBodyCount: 0, invalidRegisteredBodyCount: 0, worldRemoveCount: 0, contactCount: 0, emergencyResetCount: 0, lastStepMs: 0, maximumStepMs: 0 };
 
   registerFighter(fighter: FighterKey, bodies: Partial<Record<BodySegmentId, RapierRigidBody>>, jointCount: number): () => void {
     this.rigs.set(fighter, { bodies, supportContacts: new Set<BodySegmentId>(), jumpQueued: false, jumpCooldown: 0, ropeContact: null, cornerAnchor: null, apronAnchor: null });
@@ -155,12 +157,14 @@ export class BodyWorksRuntime {
 
   registerProp(id: string, kind: 'chair' | 'sign', body: RapierRigidBody): () => void {
     this.props.set(id, { body, kind });
+    this.metrics.propBodyCount = this.props.size;
     const registeredGeneration = this.generation;
     return () => {
       if (registeredGeneration !== this.generation) return;
       const grip = this.propGrips.get(id);
       if (grip && this.world) this.releasePropGrip(this.world, grip, null);
       this.props.delete(id);
+      this.metrics.propBodyCount = this.props.size;
     };
   }
 
@@ -300,6 +304,11 @@ export class BodyWorksRuntime {
     const ringPelvisY = 1.92 + 1.12 * (definition.physics.standingHeightM / 1.88) - fighter.body.pelvisDrop * .32;
     const onRingsideFloor = isRingside({ x: pelvis.translation().x, z: pelvis.translation().z });
     const targetPelvisY = ringPelvisY - (onRingsideFloor ? 1.5 : 0);
+    const atSideApron = (Math.abs(fighter.position.x) > 5.02 && Math.abs(fighter.position.x) < 5.82 && Math.abs(fighter.position.z) < 2.9)
+      || (Math.abs(fighter.position.z) > 3.52 && Math.abs(fighter.position.z) < 4.32 && Math.abs(fighter.position.x) < 4.25);
+    if (key === 'opponent' && !rig.apronAnchor && model.aiIntent === 'context' && fighter.state === 'locomotion' && atSideApron) {
+      const transition = apronTransitionTarget(fighter.position); rig.apronAnchor = { ...transition, age: 0 }; rig.ropeContact = null;
+    }
     if (key === 'opponent' && !rig.apronAnchor && onRingsideFloor && !isRingside(model.player.position) && ['idle', 'locomotion'].includes(fighter.state)) {
       const transition = apronTransitionTarget(fighter.position);
       rig.apronAnchor = { ...transition, age: 0 };
@@ -451,6 +460,7 @@ export class BodyWorksRuntime {
       const joint = world.createImpulseJoint(JointData.spherical({ x: 0, y: 0, z: 0 }, propAnchor), hand, body, true);
       joint.setContactsEnabled(false);
       this.propGrips.set(propId, { propId, owner: prop.heldBy, joint });
+      this.metrics.propGripCount = this.propGrips.size;
       this.metrics.jointCount = this.rigs.size * 15 + this.grips.length + this.propGrips.size;
     }
   }
@@ -459,6 +469,7 @@ export class BodyWorksRuntime {
     const registration = this.props.get(grip.propId); const rig = this.rigs.get(grip.owner); const hand = rig?.bodies.rightHand;
     if (grip.joint.isValid()) world.removeImpulseJoint(grip.joint, true);
     this.propGrips.delete(grip.propId);
+    this.metrics.propGripCount = this.propGrips.size;
     this.metrics.jointCount = this.rigs.size * 15 + this.grips.length + this.propGrips.size;
     if (!model || !registration?.body.isValid() || !hand) return;
     const fighter = model[grip.owner]; const current = registration.body.linvel(); const handVelocity = hand.linvel(); const throwSpeed = registration.kind === 'chair' ? 7.2 : 8.7;
@@ -663,7 +674,7 @@ export class BodyWorksRuntime {
     this.generation += 1; this.rigs.clear(); this.commands.length = 0; this.contacts.length = 0; this.replay.clear();
     this.pendingLandings.clear(); this.props.clear(); this.propGrips.clear(); this.releasedPropAttacks.clear(); this.replayAccumulator = 0; this.world = null; this.instrumentedWorld = null; this.originalRemoveImpulseJoint = null;
     this.intents.player = EMPTY_INTENT(); this.intents.opponent = EMPTY_INTENT();
-    this.metrics.fixedSteps = 0; this.metrics.bodyCount = 0; this.metrics.jointCount = 0; this.metrics.gripCount = 0; this.metrics.nearestGripDistance = 0; this.metrics.maximumGripError = 0; this.metrics.maximumGripLoad = 0; this.metrics.lastGripBreakReason = 'none'; this.metrics.worldJointCount = 0; this.metrics.gripCreateCount = 0; this.metrics.gripInvalidCount = 0; this.metrics.worldBodyCount = 0; this.metrics.invalidRegisteredBodyCount = 0; this.metrics.worldRemoveCount = 0; this.metrics.contactCount = 0; this.metrics.lastStepMs = 0; this.metrics.maximumStepMs = 0;
+    this.metrics.fixedSteps = 0; this.metrics.bodyCount = 0; this.metrics.jointCount = 0; this.metrics.gripCount = 0; this.metrics.nearestGripDistance = 0; this.metrics.maximumGripError = 0; this.metrics.maximumGripLoad = 0; this.metrics.lastGripBreakReason = 'none'; this.metrics.worldJointCount = 0; this.metrics.gripCreateCount = 0; this.metrics.gripInvalidCount = 0; this.metrics.propBodyCount = 0; this.metrics.propGripCount = 0; this.metrics.worldBodyCount = 0; this.metrics.invalidRegisteredBodyCount = 0; this.metrics.worldRemoveCount = 0; this.metrics.contactCount = 0; this.metrics.lastStepMs = 0; this.metrics.maximumStepMs = 0;
   }
 
   pendingCommandCount(): number { return this.commands.length; }
