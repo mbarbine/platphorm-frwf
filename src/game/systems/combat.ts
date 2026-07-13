@@ -209,13 +209,6 @@ export const applyMoveHit = (model: MatchModel, actorKey: 'player' | 'opponent',
     outcome: collisionOutcome,
     highlight: move.category === 'quick' && impact.force < 7 ? undefined : { label: move.category === 'finisher' ? actorDefinition.signature : move.displayName, score: highlightScore, kind: highlightKind },
   });
-  const table = model.props.find((prop) => prop.kind === 'table' && !prop.broken);
-  if (table && ['finisher', 'grapple', 'aerial'].includes(move.category) && impact.force >= 7 && distance(target.position, table.position) < 2.6) {
-    table.broken = true;
-    model.hype = clamp(model.hype + 28, 0, 100);
-    addImpact(model, table.position, 'table', 2.1, { force: impact.force, outcome: collisionOutcome, highlight: { label: 'Commentary Desk Collapse', score: highlightScore + 24, kind: 'table' } });
-    model.announcement = 'COMMENTARY DESK — WRECKED!'; model.announcementTimer = 2;
-  }
   if (move.category === 'finisher') {
     model.slowMotion = .82;
     model.announcement = `${actorDefinition.signature}!`;
@@ -665,6 +658,24 @@ const expectedContactSegment = (move: MoveDefinition, segment: string): boolean 
   return move.category === 'grapple' || move.category === 'finisher';
 };
 
+const applyPhysicalTableStress = (model: MatchModel, contact: BodyWorksContact, move: MoveDefinition): void => {
+  if (!contact.isLanding || contact.targetSurface !== 'table') return;
+  const table = model.props.find((prop) => prop.kind === 'table' && !prop.broken); if (!table) return;
+  const addedStress = contact.maximumForce * .38 + contact.relativeSpeed * 7 + (move.category === 'finisher' ? 20 : 0);
+  table.stress = Math.round((table.stress + addedStress) * 10) / 10;
+  const nextStage = table.stress >= 82 ? 'failed' : table.stress >= 50 ? 'cracked' : table.stress >= 24 ? 'stressed' : 'intact';
+  if (nextStage === table.failureStage) return;
+  table.failureStage = nextStage;
+  if (nextStage === 'failed') {
+    table.broken = true; model.hype = clamp(model.hype + 28, 0, 100);
+    addImpact(model, table.position, 'table', 2.1, { force: contact.maximumForce, outcome: 'collapse', highlight: { label: 'Commentary Desk Collapse', score: Math.round(table.stress + move.hypeValue + 24), kind: 'table' } });
+    model.announcement = 'COMMENTARY DESK — WRECKED!'; model.announcementTimer = 2;
+  } else {
+    model.hype = clamp(model.hype + (nextStage === 'cracked' ? 12 : 5), 0, 100);
+    model.announcement = nextStage === 'cracked' ? 'COMMENTARY DESK — CRACKING!' : 'DESK BUCKLES UNDER THE IMPACT!'; model.announcementTimer = 1.25;
+  }
+};
+
 export const applyPhysicalContact = (model: MatchModel, contact: BodyWorksContact): boolean => {
   if (!model.physicsAuthority || !contact.sourceFighter || !contact.targetFighter || contact.sourceFighter === contact.targetFighter || contact.attackInstanceId === null || !contact.sourceSegment) return false;
   const actor = model[contact.sourceFighter];
@@ -674,5 +685,7 @@ export const applyPhysicalContact = (model: MatchModel, contact: BodyWorksContac
   const legalContactPhase = actor.attackPhase === 'active' || (contact.isLanding && (move.category === 'grapple' || move.category === 'finisher'));
   if (!legalContactPhase) return false;
   if (!expectedContactSegment(move, contact.sourceSegment) || contact.relativeSpeed < .28 && contact.maximumForce < 45) return false;
-  return applyMoveHit(model, contact.sourceFighter, contact.targetFighter, move, contact);
+  const applied = applyMoveHit(model, contact.sourceFighter, contact.targetFighter, move, contact);
+  if (applied) applyPhysicalTableStress(model, contact, move);
+  return applied;
 };
