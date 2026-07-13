@@ -26,10 +26,10 @@ export const createFighterRuntime = (definitionId: FighterId, position: Vec2, be
 };
 
 const initialProps = (enabled: boolean): PropRuntime[] => enabled ? [
-  { id: 'chair-1', kind: 'chair', position: { x: -7.1, z: 2.8 }, durability: 3, heldBy: null, broken: false },
-  { id: 'sign-1', kind: 'sign', position: { x: 7, z: -2.4 }, durability: 2, heldBy: null, broken: false },
-  { id: 'table-1', kind: 'table', position: { x: 0, z: -7.2 }, durability: 1, heldBy: null, broken: false },
-] : [{ id: 'table-1', kind: 'table', position: { x: 0, z: -7.2 }, durability: 1, heldBy: null, broken: false }];
+  { id: 'chair-1', kind: 'chair', position: { x: -7.1, z: 2.8 }, durability: 3, stress: 0, failureStage: 'intact', heldBy: null, broken: false },
+  { id: 'sign-1', kind: 'sign', position: { x: 7, z: -2.4 }, durability: 2, stress: 0, failureStage: 'intact', heldBy: null, broken: false },
+  { id: 'table-1', kind: 'table', position: { x: 0, z: -7.2 }, durability: 1, stress: 0, failureStage: 'intact', heldBy: null, broken: false },
+] : [{ id: 'table-1', kind: 'table', position: { x: 0, z: -7.2 }, durability: 1, stress: 0, failureStage: 'intact', heldBy: null, broken: false }];
 
 export const createMatch = (playerId: FighterId, opponentId: FighterId, ruleset: Ruleset, difficulty: Difficulty, seed = 1337, playerBeers = 0, opponentBeers = 0): MatchModel => ({
   ruleset, difficulty, elapsed: 0, paused: false, physicsAuthority: false, resolved: false,
@@ -595,7 +595,7 @@ const updateChaos = (model: MatchModel, dt: number): void => {
   model.chaosEvent = { type, remaining: type === 'PROP DROP' ? 5 : 14 };
   model.nextChaosAt = model.elapsed + 35 + roll * 20;
   model.announcement = `CHAOS EVENT — ${type}`; model.announcementTimer = 2.5;
-  if (type === 'PROP DROP') model.props.push({ id: `chair-${model.impactSequence + 9}`, kind: roll > .5 ? 'chair' : 'sign', position: { x: (roll - .5) * 8, z: -5.6 }, durability: 2, heldBy: null, broken: false });
+  if (type === 'PROP DROP') model.props.push({ id: `chair-${model.impactSequence + 9}`, kind: roll > .5 ? 'chair' : 'sign', position: { x: (roll - .5) * 8, z: -5.6 }, durability: 2, stress: 0, failureStage: 'intact', heldBy: null, broken: false });
 };
 
 const replayFighterFrame = (fighter: FighterRuntime): ReplayFighterFrame => ({

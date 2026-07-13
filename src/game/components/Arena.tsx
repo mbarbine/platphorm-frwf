@@ -1,9 +1,8 @@
 import { CuboidCollider, RigidBody } from '@react-three/rapier';
 import type { ContactForcePayload, RapierRigidBody } from '@react-three/rapier';
-import { RigidBodyType } from '@dimforge/rapier3d-compat';
 import { useFrame } from '@react-three/fiber';
 import { useEffect, useMemo, useRef } from 'react';
-import { Color, Euler, Object3D, Quaternion } from 'three';
+import { Color, Object3D } from 'three';
 import type { Group, InstancedMesh, Mesh, MeshStandardMaterial } from 'three';
 import { useMatchStore } from '../state/matchStore';
 import { arenaCollisionGroups, propCollisionGroups } from '../physics/collisionGroups';
@@ -68,10 +67,11 @@ function Post({ x, z }: { x: number; z: number }) {
 
 function Props() {
   const props = useMatchStore((state) => state.model.props);
+  const runtimeId = useMatchStore((state) => state.model.runtimeId);
   const player = useMatchStore((state) => state.model.player);
   const opponent = useMatchStore((state) => state.model.opponent);
   return <>{props.map((prop) => {
-    if (prop.broken) return prop.kind === 'table' ? <BrokenTable key={prop.id} x={prop.position.x} z={prop.position.z} /> : null;
+    if (prop.broken) return prop.kind === 'table' ? <BrokenTable key={`${runtimeId}-${prop.id}`} x={prop.position.x} z={prop.position.z} /> : null;
     const owner = prop.heldBy === 'player' ? player : prop.heldBy === 'opponent' ? opponent : null;
     const position: [number, number, number] = owner
       ? [owner.position.x + Math.sin(owner.facing) * .65 + Math.cos(owner.facing) * .32, 3.25, owner.position.z + Math.cos(owner.facing) * .65 - Math.sin(owner.facing) * .32]
@@ -81,7 +81,7 @@ function Props() {
       {[-1.35, 1.35].flatMap((x) => [-.45, .45].map((z) => <mesh key={`${x}-${z}`} position={[x, -.58, z]}><boxGeometry args={[.12, 1.1, .12]} /><meshStandardMaterial color="#11141b" /></mesh>))}
       <mesh position={[0, .13, 0]}><boxGeometry args={[2.2, .05, .75]} /><meshStandardMaterial color="#27d8ff" emissive="#27d8ff" emissiveIntensity={.8} /></mesh>
     </group></RigidBody>;
-    return <PhysicalProp key={prop.id} prop={prop} initialPosition={position} />;
+    return <PhysicalProp key={`${runtimeId}-${prop.id}`} prop={prop} initialPosition={position} />;
   })}</>;
 }
 
@@ -89,27 +89,15 @@ interface FighterColliderData { bodyWorks: true; fighter: FighterKey; segment: B
 const isFighterColliderData = (value: unknown): value is FighterColliderData => typeof value === 'object' && value !== null && 'bodyWorks' in value && 'fighter' in value && 'segment' in value && 'region' in value;
 
 function PhysicalProp({ prop, initialPosition }: { prop: PropRuntime; initialPosition: [number, number, number] }) {
-  const body = useRef<RapierRigidBody | null>(null); const previousOwner = useRef<FighterKey | null>(prop.heldBy);
-  const rotation = useMemo(() => new Quaternion(), []); const euler = useMemo(() => new Euler(), []);
+  const body = useRef<RapierRigidBody | null>(null);
   useEffect(() => {
-    const rigidBody = body.current; if (!rigidBody) return;
-    const releasedBy = previousOwner.current;
-    rigidBody.setBodyType(prop.heldBy ? RigidBodyType.KinematicPositionBased : RigidBodyType.Dynamic, true);
-    if (!prop.heldBy && releasedBy) {
-      const fighter = useMatchStore.getState().model[releasedBy]; const speed = prop.kind === 'chair' ? 8.4 : 10.2;
-      rigidBody.setLinvel({ x: fighter.velocity.x + Math.sin(fighter.facing) * speed, y: 2.2, z: fighter.velocity.z + Math.cos(fighter.facing) * speed }, true);
-      rigidBody.setAngvel({ x: prop.kind === 'chair' ? 5.5 : 2.8, y: 3.2, z: prop.kind === 'chair' ? -4.2 : 6.4 }, true);
-    }
-    previousOwner.current = prop.heldBy;
-  }, [prop.heldBy, prop.kind]);
+    const rigidBody = body.current; if (!rigidBody || prop.kind === 'table') return;
+    return bodyWorksRuntime.registerProp(prop.id, prop.kind, rigidBody);
+  }, [prop.id, prop.kind]);
   useFrame(() => {
     const rigidBody = body.current; if (!rigidBody) return;
-    const liveProp = useMatchStore.getState().model.props.find((candidate) => candidate.id === prop.id); const heldBy = liveProp?.heldBy;
-    if (heldBy) {
-      const fighter = useMatchStore.getState().model[heldBy]; const activeSwing = fighter.moveId === 'prop' && fighter.attackPhase === 'active'; const reach = activeSwing ? 1.22 : .68;
-      rigidBody.setNextKinematicTranslation({ x: fighter.position.x + Math.sin(fighter.facing) * reach + Math.cos(fighter.facing) * .3, y: activeSwing ? 3.35 : 3.12, z: fighter.position.z + Math.cos(fighter.facing) * reach - Math.sin(fighter.facing) * .3 });
-      euler.set(activeSwing ? -.35 : .08, fighter.facing, activeSwing ? -1.1 : -.32); rotation.setFromEuler(euler); rigidBody.setNextKinematicRotation(rotation);
-    } else if (rigidBody.translation().y < -2) {
+    const liveProp = useMatchStore.getState().model.props.find((candidate) => candidate.id === prop.id);
+    if (!liveProp?.heldBy && rigidBody.translation().y < -2) {
       rigidBody.setTranslation({ x: liveProp?.position.x ?? initialPosition[0], y: initialPosition[1], z: liveProp?.position.z ?? initialPosition[2] }, true);
       rigidBody.setLinvel({ x: 0, y: 0, z: 0 }, true); rigidBody.setAngvel({ x: 0, y: 0, z: 0 }, true);
     }

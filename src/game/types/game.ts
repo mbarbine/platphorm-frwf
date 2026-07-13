@@ -141,6 +141,8 @@ export interface PropRuntime {
   kind: 'chair' | 'sign' | 'table';
   position: Vec2;
   durability: number;
+  stress: number;
+  failureStage: 'intact' | 'stressed' | 'cracked' | 'failed';
   heldBy: 'player' | 'opponent' | null;
   broken: boolean;
 }
