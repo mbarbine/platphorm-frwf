@@ -1,7 +1,7 @@
 {
   "name": "RINGFALL: CHAOS CIRCUIT",
   "short_name": "RINGFALL",
-  "description": "Original offline-ready neon arcade wrestling.",
+  "description": "Original offline-ready 3D neon arcade wrestling with physical grapples, elastic ropes, spatial audio, and optional WebXR.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#080610",
