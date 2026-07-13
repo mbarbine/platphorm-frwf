@@ -34,12 +34,12 @@ test('Bodyworks lab exposes live Rapier diagnostics and drives real jump/walk in
   await page.evaluate(() => {
     const observe = (): void => {
       const deckNode = document.querySelector('[data-testid="control-deck"]');
-      if (/MOVEMENT|SPRINTING/.test(deckNode?.getAttribute('data-control-state') ?? '')) document.documentElement.dataset.sawLocomotionControl = 'true';
+      if (/MOVEMENT|STRAFE|SPRINTING/.test(deckNode?.getAttribute('data-control-state') ?? '')) document.documentElement.dataset.sawLocomotionControl = 'true';
     };
     new MutationObserver(observe).observe(document.body, { subtree: true, attributes: true, childList: true }); observe();
   });
   await page.keyboard.down('w');
-  await expect.poll(async () => Math.hypot(Number(await hud.getAttribute('data-player-x')) - initialX, Number(await hud.getAttribute('data-player-z')) - initialZ), { timeout: 2_800, intervals: [100] }).toBeGreaterThan(.35);
+  await expect.poll(async () => Math.hypot(Number(await hud.getAttribute('data-player-x')) - initialX, Number(await hud.getAttribute('data-player-z')) - initialZ), { timeout: 2_800, intervals: [100] }).toBeGreaterThan(.85);
   await expect(page.locator('html')).toHaveAttribute('data-saw-locomotion-control', 'true');
   await expect(deck.locator('[data-control="quick"]')).toHaveAttribute('data-move-label', 'SKYLINE CROSS');
   await expect(deck.locator('[data-control="heavy"]')).toHaveAttribute('data-move-label', 'VOLTAGE UPPERCUT');
@@ -52,8 +52,9 @@ test('Bodyworks lab exposes live Rapier diagnostics and drives real jump/walk in
     };
     new MutationObserver(observe).observe(document.body, { subtree: true, attributes: true, childList: true }); observe();
   });
-  await expect(lab.getByRole('button', { name: 'JAB TO HEAD' })).toBeEnabled({ timeout: 4_000 }); await lab.getByRole('button', { name: 'JAB TO HEAD' }).click();
+  await expect(lab.getByRole('button', { name: 'JAB TO HEAD' })).toBeEnabled({ timeout: 4_000 }); const healthBeforeJab = Number(await hud.getAttribute('data-opponent-health')); await lab.getByRole('button', { name: 'JAB TO HEAD' }).click();
   await expect(hud).toHaveAttribute('data-player-move', 'jab', { timeout: 2_000 }); await expect(page.locator('html')).toHaveAttribute('data-saw-active-quick-control', 'true'); await expect(page.locator('html')).toHaveAttribute('data-saw-jab-control', 'true');
+  await expect.poll(async () => Number(await hud.getAttribute('data-opponent-health')), { timeout: 4_000, intervals: [80, 120] }).toBeLessThan(healthBeforeJab);
   await expect(lab.getByRole('button', { name: 'ROPE LOAD + STIFF-ARM' })).toBeEnabled({ timeout: 3_000 });
   await page.evaluate(() => {
     const liveHud = document.querySelector('.hud'); const deckNode = document.querySelector('[data-testid="control-deck"]'); if (!liveHud || !deckNode) return;

@@ -605,6 +605,12 @@ const updateFighter = (model: MatchModel, actorKey: 'player' | 'opponent', dt: n
   if (canMove) {
     const running = run && actor.stamina > 3 && inputLength > .08;
     integrateLocomotion(actor, definition, movement, running, dt);
+    const targetDistance = distance(actor.position, target.position);
+    if (!running && targetDistance < 4.8) {
+      const desiredFacing = Math.atan2(target.position.x - actor.position.x, target.position.z - actor.position.z);
+      const facingError = Math.atan2(Math.sin(desiredFacing - actor.facing), Math.cos(desiredFacing - actor.facing));
+      actor.facing += clamp(facingError, -dt * 7.5, dt * 7.5);
+    }
     actor.state = inputLength > .08 ? 'locomotion' : 'idle';
     if (running) actor.stamina = clamp(actor.stamina - dt * 8, 0, actor.staminaCap);
     else actor.stamina = clamp(actor.stamina + dt * (inputLength > .08 ? 8 : 13), 0, actor.staminaCap);

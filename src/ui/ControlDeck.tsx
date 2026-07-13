@@ -99,7 +99,7 @@ export function buildControlReadout(player: FighterRuntime, opponent: FighterRun
   else if (!paused && player.state === 'jumping') state = 'AIRBORNE · BODY UNDER CONTROL';
   else if (!paused && player.state === 'blocking') state = 'GUARD UP · REVERSAL READY';
   else if (!paused && (runHeld || speed > 3.75) && movementHeld) state = 'SPRINTING · RUNNING ATTACK READY';
-  else if (!paused && (movementHeld || speed > .08)) state = `${combatDirection(direction).toUpperCase()} MOVEMENT · CAMERA-RELATIVE`;
+  else if (!paused && (movementHeld || speed > .08)) state = distance < 4.8 && !runHeld ? `${combatDirection(direction).toUpperCase()} STRAFE · OPPONENT LOCKED` : `${combatDirection(direction).toUpperCase()} MOVEMENT · CAMERA-RELATIVE`;
 
   const keys = DEVICE_KEYS[device]; const actionKey = keys.context; const directionId = combatDirection(direction).toUpperCase();
   const nearCorner = Math.abs(player.position.x) > 4.35 && Math.abs(player.position.z) > 2.95;
@@ -118,6 +118,7 @@ export function buildControlReadout(player: FighterRuntime, opponent: FighterRun
   else if (canTransitionThroughRopes(player.position)) callout = `${actionKey} · ${ringside ? 'ENTER' : 'EXIT'} THROUGH CENTER ROPE`;
   else if (player.counterWindow > 0) callout = `${keys.counter} NOW · REVERSE THE ATTACK`;
   else if (distance < 1.8) callout = `${keys.grapple} LOCK UP · HOLD DIRECTION TO CHOOSE THE THROW`;
+  else if (distance < 4.8 && movementHeld && !runHeld) callout = `LOCK-ON ACTIVE · ${keys.quick} / ${keys.heavy} STRIKE TOWARD YOUR RIVAL`;
 
   return { active, callout, labels, state };
 }

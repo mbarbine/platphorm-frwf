@@ -98,7 +98,7 @@ describe('Rapier-backed Bodyworks integration', () => {
   it('answers directional input promptly without destabilizing the articulated rig', () => {
     const { world, runtime, model } = makeHarness(); const initialX = model.player.position.x;
     for (let frame = 0; frame < 33; frame += 1) stepHarness(world, runtime, model, { x: 1, z: 0 });
-    expect(model.player.position.x - initialX).toBeGreaterThan(.32);
+    expect(model.player.position.x - initialX).toBeGreaterThan(1.25);
     expect(runtime.fighterSnapshot('player').upright).toBeGreaterThan(.62);
     expect(runtime.metrics.emergencyResetCount).toBe(0); world.free();
   });

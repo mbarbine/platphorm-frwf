@@ -41,7 +41,7 @@ describe('live wrestling control deck', () => {
   it('lights the physical key intent immediately before the rig reaches full speed', () => {
     const model = createMatch('atlas', 'nova', 'standard', 'normal');
     const walking = buildControlReadout(model.player, model.opponent, 0, 3, false, 'keyboard', { x: 0, z: -1 });
-    expect(walking.state).toContain('MOVEMENT'); expect(walking.active.has('move')).toBe(true);
+    expect(walking.state).toContain('STRAFE'); expect(walking.state).toContain('OPPONENT LOCKED'); expect(walking.active.has('move')).toBe(true);
     const running = buildControlReadout(model.player, model.opponent, 0, 3, false, 'keyboard', { x: 1, z: 0 }, true);
     expect(running.state).toContain('SPRINTING'); expect(running.active.has('run')).toBe(true);
   });

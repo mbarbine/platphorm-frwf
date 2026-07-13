@@ -4,6 +4,7 @@ import { Physics, useAfterPhysicsStep, useBeforePhysicsStep } from '@react-three
 import { Component, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import type { ErrorInfo, ReactNode } from 'react';
 import { Vector3 } from 'three';
+import type { Group } from 'three';
 import type { WebGLRenderer } from 'three';
 import { Arena } from './Arena';
 import { PhysicalFighterRig } from './PhysicalFighterRig';
@@ -82,6 +83,24 @@ function Fighters() {
   return <group key={runtimeId} visible={!replayActive}><PhysicalFighterRig runtime={player} side="player" /><PhysicalFighterRig runtime={opponent} side="opponent" /></group>;
 }
 
+function PlayerControlBeacon() {
+  const beacon = useRef<Group | null>(null);
+  useFrame(({ clock }) => {
+    const group = beacon.current; if (!group) return;
+    const intent = bodyWorksRuntime.intentSnapshot('player'); const model = useMatchStore.getState().model;
+    const magnitude = Math.hypot(intent.move.x, intent.move.z); const controllable = ['idle', 'locomotion'].includes(model.player.state) && !model.paused && !model.resolved;
+    group.visible = controllable && magnitude > .08;
+    if (!group.visible) return;
+    group.position.set(model.player.position.x, Math.abs(model.player.position.x) <= 5.82 && Math.abs(model.player.position.z) <= 4.32 ? 1.94 : .08, model.player.position.z);
+    group.rotation.y = Math.atan2(intent.move.x, intent.move.z);
+    const pulse = 1 + Math.sin(clock.elapsedTime * 10) * .055; group.scale.setScalar(intent.run ? pulse * 1.16 : pulse);
+  });
+  return <group ref={beacon} visible={false}>
+    <mesh rotation={[-Math.PI / 2, 0, 0]}><torusGeometry args={[.4, .025, 5, 28]} /><meshBasicMaterial color="#dfff38" transparent opacity={.72} depthWrite={false} /></mesh>
+    <mesh position={[0, .028, .5]} rotation={[Math.PI / 2, 0, 0]}><coneGeometry args={[.14, .36, 3]} /><meshBasicMaterial color="#49efff" transparent opacity={.92} depthWrite={false} /></mesh>
+  </group>;
+}
+
 export function GameScene(props: Props) {
   const paused = useMatchStore((state) => state.model.paused);
   const replayActive = useMatchStore((state) => state.replayActive);
@@ -101,7 +120,7 @@ export function GameScene(props: Props) {
       renderer.current = gl; gl.xr.enabled = true;
       if (navigator.xr) void navigator.xr.isSessionSupported('immersive-vr').then(setXrAvailable).catch(() => setXrAvailable(false));
     }}>
-      <Suspense fallback={null}><Physics gravity={[0, -18, 0]} timeStep={1 / 60} paused={paused || replayActive} interpolate numSolverIterations={8} numInternalPgsIterations={2} maxCcdSubsteps={2}><Arena /><Fighters /><ImpactEffects /><Simulation {...props} /></Physics><ReplayDirector /><CameraRig /><AdaptiveDpr pixelated />{!lab && <BakeShadows />}</Suspense>
+      <Suspense fallback={null}><Physics gravity={[0, -18, 0]} timeStep={1 / 60} paused={paused || replayActive} interpolate numSolverIterations={8} numInternalPgsIterations={2} maxCcdSubsteps={2}><Arena /><Fighters /><PlayerControlBeacon /><ImpactEffects /><Simulation {...props} /></Physics><ReplayDirector /><CameraRig /><AdaptiveDpr pixelated />{!lab && <BakeShadows />}</Suspense>
     </Canvas>
     {xrAvailable && <button type="button" className="xr-entry" data-testid="xr-entry" onClick={() => void (xrPresenting ? exitXR() : enterXR())}>{xrPresenting ? 'EXIT ARENA XR' : 'ENTER ARENA XR'}<small>QUEST · STEAM FRAME · OPENXR</small></button>}
     {xrError && <div className="xr-error" role="status">XR UNAVAILABLE · {xrError}</div>}

@@ -376,14 +376,24 @@ export class BodyWorksRuntime {
     const inputLength = Math.min(1, Math.hypot(intent.move.x, intent.move.z)) * movementControl;
     const desiredX = intent.move.x * desiredSpeed * inputLength; const desiredZ = intent.move.z * desiredSpeed * inputLength;
     const acceleration = (inputLength <= .08 ? locomotion.braking : intent.run ? locomotion.runAcceleration : locomotion.acceleration) * (movementControl === 1 ? 1 : .24);
-    const velocityGain = inputLength <= .08 ? 8.5 : intent.run ? 7.4 : 8;
-    if (movementControl > 0) pelvis.addForce({ x: clamp((desiredX - velocity.x) * velocityGain, -acceleration, acceleration) * fighter.body.mass, y: 0, z: clamp((desiredZ - velocity.z) * velocityGain, -acceleration, acceleration) * fighter.body.mass }, true);
-    if (inputLength > .08) {
-      const desiredFacing = Math.atan2(intent.move.x, intent.move.z);
+    if (movementControl > 0) {
+      const maximumChange = acceleration * dt * (inputLength > .08 ? 1.72 : 2.05);
+      for (const body of Object.values(rig.bodies)) {
+        if (!body?.isValid()) continue;
+        const bodyVelocity = body.linvel();
+        body.applyImpulse({
+          x: body.mass() * clamp(desiredX - bodyVelocity.x, -maximumChange, maximumChange),
+          y: 0,
+          z: body.mass() * clamp(desiredZ - bodyVelocity.z, -maximumChange, maximumChange),
+        }, true);
+      }
+    }
+    if (inputLength > .08 || Math.hypot(fighter.position.x - model[key === 'player' ? 'opponent' : 'player'].position.x, fighter.position.z - model[key === 'player' ? 'opponent' : 'player'].position.z) < 4.8) {
+      const desiredFacing = fighter.facing;
       const rotation = pelvis.rotation();
       const currentFacing = Math.atan2(2 * (rotation.w * rotation.y + rotation.x * rotation.z), 1 - 2 * (rotation.y * rotation.y + rotation.x * rotation.x));
       const error = Math.atan2(Math.sin(desiredFacing - currentFacing), Math.cos(desiredFacing - currentFacing));
-      pelvis.applyTorqueImpulse({ x: 0, y: clamp(error * fighter.body.inertia * .015 - pelvis.angvel().y * .04, -.75, .75), z: 0 }, true);
+      pelvis.applyTorqueImpulse({ x: 0, y: clamp(error * fighter.body.inertia * .022 - pelvis.angvel().y * .055, -1.1, 1.1), z: 0 }, true);
     }
     if (rig.jumpQueued) {
       const grounded = rig.supportContacts.size > 0 || pelvis.translation().y <= targetPelvisY + .16;
@@ -397,7 +407,7 @@ export class BodyWorksRuntime {
       }
       rig.jumpQueued = false;
     }
-    this.applyFootPlantDrive(rig, fighter);
+    this.applyFootPlantDrive(rig, fighter, { x: desiredX, z: desiredZ }, inputLength);
     this.applyRopeController(rig, fighter, model);
     this.applyPhysicalStrike(key, rig, fighter, model);
     this.applyPoseDrive(rig, fighter);
@@ -414,14 +424,15 @@ export class BodyWorksRuntime {
     player.addForce({ x: -nx * force, y: 0, z: -nz * force }, true); opponent.addForce({ x: nx * force, y: 0, z: nz * force }, true);
   }
 
-  private applyFootPlantDrive(rig: FighterRigRegistration, fighter: FighterRuntime): void {
+  private applyFootPlantDrive(rig: FighterRigRegistration, fighter: FighterRuntime, desiredVelocity: Vec2, inputLength: number): void {
     if (!['idle', 'locomotion', 'blocking', 'recovering'].includes(fighter.state)) return;
     const entries: readonly [BodySegmentId, boolean][] = [['leftFoot', fighter.body.leftFoot.planted], ['rightFoot', fighter.body.rightFoot.planted]];
     for (const [id, planted] of entries) {
       if (!planted) continue;
       const foot = rig.bodies[id]; if (!foot) continue;
-      const velocity = foot.linvel(); const mass = foot.mass(); const strength = fighter.state === 'locomotion' ? 6.5 : 22;
-      foot.addForce({ x: clamp(-velocity.x * mass * strength, -180, 180), y: 0, z: clamp(-velocity.z * mass * strength, -180, 180) }, true);
+      const velocity = foot.linvel(); const mass = foot.mass(); const strength = fighter.state === 'locomotion' ? 3.2 : 18;
+      const plantedTarget = fighter.state === 'locomotion' && inputLength > .08 ? { x: desiredVelocity.x * .68, z: desiredVelocity.z * .68 } : { x: 0, z: 0 };
+      foot.addForce({ x: clamp((plantedTarget.x - velocity.x) * mass * strength, -180, 180), y: 0, z: clamp((plantedTarget.z - velocity.z) * mass * strength, -180, 180) }, true);
     }
   }
 
@@ -592,7 +603,7 @@ export class BodyWorksRuntime {
         // articulated bodies a few centimetres apart. Give the second hand a
         // slightly wider catch envelope so a visually valid two-hand lock does
         // not fail because the first constraint moved the hips mid-frame.
-        const catchDistance = acquiredHands > 0 ? .86 : .66;
+        const catchDistance = acquiredHands > 0 ? 1.04 : .82;
         if (distance > catchDistance) continue;
         const joint = world.createImpulseJoint(JointData.rope(.24, { x: 0, y: 0, z: 0 }, { x: targetAnchorX, y: 0, z: 0 }), hand, target, true);
         joint.setContactsEnabled(false);
@@ -723,7 +734,6 @@ export class BodyWorksRuntime {
     if (![position.x, position.y, position.z, velocity.x, velocity.y, velocity.z].every(Number.isFinite)) { this.metrics.emergencyResetCount += 1; return; }
     fighter.position.x = position.x; fighter.position.z = position.z;
     fighter.velocity.x = velocity.x; fighter.velocity.z = velocity.z;
-    fighter.facing = Math.atan2(2 * (rotation.w * rotation.y + rotation.x * rotation.z), 1 - 2 * (rotation.y * rotation.y + rotation.x * rotation.x));
     const upright = clamp(1 - (Math.abs(rotation.x) + Math.abs(rotation.z)) * 1.7, 0, 1);
     fighter.body.balance = clamp((rig.supportContacts.size > 0 ? 52 : 12) + upright * 48 - Math.hypot(velocity.x, velocity.z) * 1.1, 0, 100);
     fighter.body.verticalOffset = Math.max(0, position.y - 3.02);
