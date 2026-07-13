@@ -1,7 +1,8 @@
 import { CuboidCollider, RigidBody } from '@react-three/rapier';
 import { useFrame } from '@react-three/fiber';
 import { useMemo, useRef } from 'react';
-import { Color, Group, InstancedMesh, Mesh, MeshStandardMaterial, Object3D } from 'three';
+import { Color, Object3D } from 'three';
+import type { Group, InstancedMesh, Mesh, MeshStandardMaterial } from 'three';
 import { useMatchStore } from '../state/matchStore';
 
 function Crowd() {
@@ -53,9 +54,10 @@ function Post({ x, z }: { x: number; z: number }) {
 
 function Props() {
   const props = useMatchStore((state) => state.model.props);
-  const fighters = useMatchStore((state) => ({ player: state.model.player, opponent: state.model.opponent }));
+  const player = useMatchStore((state) => state.model.player);
+  const opponent = useMatchStore((state) => state.model.opponent);
   return <>{props.filter((prop) => !prop.broken).map((prop) => {
-    const owner = prop.heldBy ? fighters[prop.heldBy] : null;
+    const owner = prop.heldBy === 'player' ? player : prop.heldBy === 'opponent' ? opponent : null;
     const position: [number, number, number] = owner ? [owner.position.x + .5, 2.4, owner.position.z] : [prop.position.x, prop.kind === 'table' ? .72 : .55, prop.position.z];
     if (prop.kind === 'table') return <RigidBody key={prop.id} type="fixed" position={position} colliders={false}><CuboidCollider args={[1.7, .55, .65]} /><group>
       <mesh castShadow><boxGeometry args={[3.4, .2, 1.3]} /><meshStandardMaterial color="#2a3140" metalness={.6} roughness={.3} /></mesh>

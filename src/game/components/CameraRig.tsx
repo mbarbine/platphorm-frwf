@@ -1,6 +1,7 @@
 import { useFrame, useThree } from '@react-three/fiber';
 import { useMemo } from 'react';
-import { PerspectiveCamera, Vector3 } from 'three';
+import { Vector3 } from 'three';
+import type { PerspectiveCamera } from 'three';
 import { useMatchStore } from '../state/matchStore';
 import { useSettings } from '../state/settings';
 

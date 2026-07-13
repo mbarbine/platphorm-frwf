@@ -78,4 +78,14 @@ describe('deterministic combat rules', () => {
     for (let index = 0; index < 90; index += 1) { advanceMatch(a, 1 / 30, none); advanceMatch(b, 1 / 30, none); }
     expect(a).toEqual(b);
   });
+
+  it('completes a finisher knockout and resets for an immediate rematch', () => {
+    const model = createMatch('brick', 'atlas', 'chaos', 'hard'); model.player.position = { x: 0, z: 0 }; model.opponent.position = { x: 1, z: 0 };
+    model.player.momentum = 100; model.opponent.health = 18; model.opponent.state = 'staggered';
+    expect(requestCommand(model, 'player', 'context')).toBe(true); model.player.attackPhase = 'active';
+    expect(applyMoveHit(model, 'player', 'opponent', getMove('finisher'))).toBe(true);
+    expect(model.result).toMatchObject({ winner: 'player', method: 'KNOCKOUT' });
+    const rematch = resetTransientState(model);
+    expect(rematch.resolved).toBe(false); expect(rematch.result).toBeNull(); expect(rematch.player.health).toBe(100); expect(rematch.opponent.health).toBe(100);
+  });
 });
