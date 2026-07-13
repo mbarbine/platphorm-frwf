@@ -10,6 +10,7 @@ import { PhysicsReplayBuffer } from './replayBuffer';
 import { getMove } from '../data/moves';
 import { fighterById } from '../data/fighters';
 import { getPairedPose, getStrikePose } from '../animation/choreography';
+import { applyBodyLanguage } from '../animation/bodyLanguage';
 import { POSES } from '../animation/poses';
 import type { Pose } from '../animation/poses';
 import type { QuaternionValue, Vector3Value } from './motorController';
@@ -889,7 +890,8 @@ const targetPoseFor = (fighter: FighterRuntime): Pose => {
   if (fighter.state === 'downed' || fighter.state === 'defeated') return POSES.downed;
   if (fighter.state === 'recovering') return POSES.recovery;
   if (fighter.state === 'victorious') return POSES.victory;
-  return fighter.state === 'locomotion' ? locomotionPoseFor(fighter) : POSES.combatIdle;
+  const neutralPose = fighter.state === 'locomotion' ? locomotionPoseFor(fighter) : POSES.combatIdle;
+  return applyBodyLanguage(neutralPose, fighter);
 };
 
 const physicalPoseTargets = (pose: Pose, facing: number): Record<BodySegmentId, QuaternionValue> => {

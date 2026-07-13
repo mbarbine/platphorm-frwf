@@ -61,17 +61,30 @@ const matVictim = pose({
 });
 
 const SLAM_ACTOR: readonly PoseKeyframe[] = [
-  { at: 0, pose: POSES.combatIdle }, { at: .14, pose: lockActor },
-  { at: .36, pose: pose({ torso: [.5, 0, 0], leftArm: [-.55, 0, -.52], rightArm: [-.55, 0, .52], leftForearm: [-1.35, 0, 0], rightForearm: [-1.35, 0, 0], leftLeg: [.62, 0, 0], rightLeg: [.62, 0, 0], leftShin: [-1.05, 0, 0], rightShin: [-1.05, 0, 0], rootY: -.28, rootTilt: .3 }) },
-  { at: .61, pose: pose({ torso: [-.12, 0, 0], leftArm: [-1.45, -.15, -.35], rightArm: [-1.45, .15, .35], leftForearm: [-1.1, 0, 0], rightForearm: [-1.1, 0, 0], rootY: .2, rootTilt: -.12 }) },
-  { at: .77, pose: pose({ torso: [.82, 0, 0], leftArm: [-.18, 0, -.75], rightArm: [-.18, 0, .75], leftLeg: [.55, 0, 0], leftShin: [-1.12, 0, 0], rootY: -.3, rootTilt: .62 }) },
+  { at: 0, pose: POSES.combatIdle },
+  { at: .1, pose: pose({ ...lockActor, leftArm: [-1.14, 0, -.42], rightArm: [-1.14, 0, .42], rootZ: .08 }) },
+  { at: .21, pose: lockActor },
+  { at: .34, pose: pose({ ...lockActor, torso: [.34, .18, -.08], leftArm: [-.82, -.22, -.5], rightArm: [-.98, .18, .48], leftForearm: [-1.28, 0, -.18], rightForearm: [-1.18, 0, .16], leftLeg: [.16, 0, -.14], rightLeg: [-.22, 0, .14], rootZ: -.1, rootYaw: .16, rootRoll: -.08 }) },
+  { at: .47, pose: pose({ torso: [.58, 0, 0], leftArm: [-.56, 0, -.52], rightArm: [-.56, 0, .52], leftForearm: [-1.38, 0, 0], rightForearm: [-1.38, 0, 0], leftLeg: [.7, 0, 0], rightLeg: [.68, 0, 0], leftShin: [-1.12, 0, 0], rightShin: [-1.08, 0, 0], rootY: -.32, rootTilt: .38 }) },
+  { at: .6, pose: pose({ torso: [-.14, 0, 0], leftArm: [-1.5, -.16, -.35], rightArm: [-1.5, .16, .35], leftForearm: [-1.08, 0, 0], rightForearm: [-1.08, 0, 0], leftLeg: [.14, 0, 0], rightLeg: [.12, 0, 0], rootY: .18, rootTilt: -.14 }) },
+  { at: .69, pose: pose({ torso: [-.28, 0, 0], leftArm: [-1.72, -.12, -.3], rightArm: [-1.72, .12, .3], leftForearm: [-.86, 0, 0], rightForearm: [-.86, 0, 0], leftLeg: [-.12, 0, 0], rightLeg: [-.08, 0, 0], rootY: .24, rootTilt: -.2 }) },
+  { at: .79, pose: pose({ torso: [.88, 0, 0], leftArm: [-.16, 0, -.78], rightArm: [-.16, 0, .78], leftForearm: [-.42, 0, 0], rightForearm: [-.42, 0, 0], leftLeg: [.62, 0, 0], rightLeg: [.58, 0, 0], leftShin: [-1.16, 0, 0], rightShin: [-1.1, 0, 0], rootY: -.34, rootTilt: .7 }) },
+  { at: .86, pose: pose({ torso: [.72, 0, 0], leftArm: [-.38, 0, -.68], rightArm: [-.38, 0, .68], leftLeg: [.58, 0, 0], rightLeg: [.42, 0, 0], leftShin: [-1.12, 0, 0], rightShin: [-.86, 0, 0], rootY: -.3, rootTilt: .58 }) },
+  { at: .93, pose: pose({ ...POSES.recovery, torso: [.34, 0, 0], leftArm: [-.45, 0, -.54], rightArm: [-.32, 0, .52], rootY: -.14, rootTilt: .3 }) },
   { at: 1, pose: POSES.combatIdle },
 ];
 const SLAM_VICTIM: readonly PoseKeyframe[] = [
-  { at: 0, pose: POSES.stagger }, { at: .14, pose: lockVictim },
-  { at: .36, pose: pose({ ...lockVictim, rootY: .55, rootTilt: -.45, rootZ: -.12, leftLeg: [-.45, 0, 0], rightLeg: [.35, 0, 0] }) },
-  { at: .61, pose: pose({ torso: [-.25, 0, 0], leftArm: [.72, 0, -.55], rightArm: [.72, 0, .55], leftForearm: [-.25, 0, 0], rightForearm: [-.25, 0, 0], leftLeg: [-.72, 0, 0], rightLeg: [.45, 0, 0], rootY: 1.48, rootZ: -.42, rootTilt: -1.42 }) },
-  { at: .77, pose: matVictim }, { at: 1, pose: POSES.downed },
+  { at: 0, pose: POSES.combatIdle },
+  { at: .1, pose: pose({ ...lockVictim, leftArm: [-.9, 0, -.52], rightArm: [-.9, 0, .52], rootZ: -.04 }) },
+  { at: .21, pose: lockVictim },
+  { at: .34, pose: pose({ ...lockVictim, torso: [-.18, -.16, .08], leftArm: [-1.18, .22, -.5], rightArm: [-1.28, -.18, .5], leftForearm: [-1.32, 0, 0], rightForearm: [-1.3, 0, 0], leftLeg: [-.24, 0, -.12], rightLeg: [.28, 0, .12], leftShin: [-.38, 0, 0], rightShin: [-.62, 0, 0], rootZ: .12, rootYaw: -.14, rootRoll: .08 }) },
+  { at: .47, pose: pose({ ...lockVictim, torso: [.18, 0, 0], rootY: .32, rootZ: -.18, rootTilt: -.34, leftLeg: [-.5, 0, 0], rightLeg: [.42, 0, 0], leftShin: [-.64, 0, 0], rightShin: [-.42, 0, 0] }) },
+  { at: .6, pose: pose({ torso: [-.2, 0, 0], leftArm: [.42, 0, -.58], rightArm: [.42, 0, .58], leftForearm: [-.5, 0, 0], rightForearm: [-.5, 0, 0], leftLeg: [-.68, 0, 0], rightLeg: [.5, 0, 0], rootY: 1.05, rootZ: -.34, rootTilt: -1.05 }) },
+  { at: .69, pose: pose({ torso: [-.28, 0, 0], leftArm: [.78, 0, -.6], rightArm: [.78, 0, .6], leftForearm: [-.18, 0, 0], rightForearm: [-.18, 0, 0], leftLeg: [-.78, 0, 0], rightLeg: [.52, 0, 0], leftShin: [-.56, 0, 0], rightShin: [-.78, 0, 0], rootY: 1.5, rootZ: -.44, rootTilt: -1.46 }) },
+  { at: .79, pose: pose({ ...matVictim, rootY: -.48, rootTilt: -1.38 }) },
+  { at: .86, pose: pose({ ...matVictim, leftArm: [.92, 0, -.62], rightArm: [.92, 0, .62], leftLeg: [-.72, 0, -.14], rightLeg: [.62, 0, .14], rootY: -.58, rootTilt: -1.54 }) },
+  { at: .93, pose: matVictim },
+  { at: 1, pose: POSES.downed },
 ];
 
 const SUPLEX_ACTOR: readonly PoseKeyframe[] = [
