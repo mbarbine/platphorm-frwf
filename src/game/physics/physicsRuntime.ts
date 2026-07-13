@@ -92,6 +92,17 @@ interface PhysicalGrip {
   createdAt: number;
 }
 
+interface RegisteredProp {
+  body: RapierRigidBody;
+  kind: 'chair' | 'sign';
+}
+
+interface PhysicalPropGrip {
+  propId: string;
+  owner: FighterKey;
+  joint: ImpulseJoint;
+}
+
 interface PendingLanding { attacker: FighterKey; defender: FighterKey; attackInstanceId: number; moveId: string; expiresAt: number }
 
 const EMPTY_INTENT = (): IntentState => ({ move: { x: 0, z: 0 }, run: false, block: false });
@@ -122,7 +133,10 @@ export class BodyWorksRuntime {
   private instrumentedWorld: World | null = null;
   private originalRemoveImpulseJoint: World['removeImpulseJoint'] | null = null;
   private readonly grips: PhysicalGrip[] = [];
+  private readonly props = new Map<string, RegisteredProp>();
+  private readonly propGrips = new Map<string, PhysicalPropGrip>();
   private readonly pendingLandings = new Map<FighterKey, PendingLanding>();
+  private replayAccumulator = 0;
   readonly replay = new PhysicsReplayBuffer(300);
   readonly metrics: BodyWorksMetrics = { fixedSteps: 0, bodyCount: 0, jointCount: 0, gripCount: 0, nearestGripDistance: 0, maximumGripError: 0, maximumGripLoad: 0, lastGripBreakReason: 'none', worldJointCount: 0, gripCreateCount: 0, gripInvalidCount: 0, worldBodyCount: 0, invalidRegisteredBodyCount: 0, worldRemoveCount: 0, contactCount: 0, emergencyResetCount: 0, lastStepMs: 0, maximumStepMs: 0 };
 
@@ -133,6 +147,17 @@ export class BodyWorksRuntime {
     return () => {
       if (registeredGeneration === this.generation) this.rigs.delete(fighter);
       this.recount(0);
+    };
+  }
+
+  registerProp(id: string, kind: 'chair' | 'sign', body: RapierRigidBody): () => void {
+    this.props.set(id, { body, kind });
+    const registeredGeneration = this.generation;
+    return () => {
+      if (registeredGeneration !== this.generation) return;
+      const grip = this.propGrips.get(id);
+      if (grip && this.world) this.releasePropGrip(this.world, grip, null);
+      this.props.delete(id);
     };
   }
 
@@ -249,6 +274,7 @@ export class BodyWorksRuntime {
     for (const rig of this.rigs.values()) this.capRigVelocity(rig);
     this.applyFighterController('player', model.player, dt, model);
     this.applyFighterController('opponent', model.opponent, dt, model);
+    if (this.world) this.syncPhysicalProps(this.world, model);
     if (this.world) this.advancePhysicalGrapple(this.world, model, dt);
     for (const [fighter, landing] of this.pendingLandings) if (landing.expiresAt < model.elapsed) this.pendingLandings.delete(fighter);
     this.metrics.fixedSteps += 1;
@@ -382,6 +408,56 @@ export class BodyWorksRuntime {
     else pelvis.setLinvel({ x: current.x, y: current.y, z: -contact.side * Math.max(releaseSpeed, Math.abs(current.z)) }, true);
     fighter.ropeRebound = 1.35;
     rig.ropeContact = null;
+  }
+
+  private syncPhysicalProps(world: World, model: MatchModel): void {
+    for (const [propId, registration] of this.props) {
+      const prop = model.props.find((candidate) => candidate.id === propId);
+      const existing = this.propGrips.get(propId);
+      if (!prop || prop.broken) {
+        if (existing) this.releasePropGrip(world, existing, null);
+        continue;
+      }
+      if (!prop.heldBy) {
+        if (existing) this.releasePropGrip(world, existing, model);
+        continue;
+      }
+      if (existing && existing.owner !== prop.heldBy) this.releasePropGrip(world, existing, null);
+      if (this.propGrips.has(propId)) continue;
+      const rig = this.rigs.get(prop.heldBy); const hand = rig?.bodies.rightHand; const body = registration.body;
+      if (!hand || !body.isValid()) continue;
+      const handPosition = hand.translation(); const propPosition = body.translation();
+      const dx = handPosition.x - propPosition.x; const dy = handPosition.y - propPosition.y; const dz = handPosition.z - propPosition.z;
+      const distance = Math.max(.001, Math.hypot(dx, dy, dz));
+      if (distance > .52) {
+        const handVelocity = hand.linvel(); const propVelocity = body.linvel(); const desiredSpeed = clamp(distance * 9, 2.4, 7.2);
+        const force = {
+          x: clamp((handVelocity.x + dx / distance * desiredSpeed - propVelocity.x) * body.mass() * 15, -260, 260),
+          y: clamp((handVelocity.y + dy / distance * desiredSpeed - propVelocity.y) * body.mass() * 15, -260, 260),
+          z: clamp((handVelocity.z + dz / distance * desiredSpeed - propVelocity.z) * body.mass() * 15, -260, 260),
+        };
+        body.addForce(force, true); hand.addForce({ x: -force.x * .12, y: -force.y * .12, z: -force.z * .12 }, true);
+        continue;
+      }
+      const propAnchor = registration.kind === 'chair' ? { x: 0, y: -.42, z: .2 } : { x: 0, y: -.25, z: 0 };
+      const joint = world.createImpulseJoint(JointData.spherical({ x: 0, y: 0, z: 0 }, propAnchor), hand, body, true);
+      joint.setContactsEnabled(false);
+      this.propGrips.set(propId, { propId, owner: prop.heldBy, joint });
+    }
+  }
+
+  private releasePropGrip(world: World, grip: PhysicalPropGrip, model: MatchModel | null): void {
+    const registration = this.props.get(grip.propId); const rig = this.rigs.get(grip.owner); const hand = rig?.bodies.rightHand;
+    if (grip.joint.isValid()) world.removeImpulseJoint(grip.joint, true);
+    this.propGrips.delete(grip.propId);
+    if (!model || !registration?.body.isValid() || !hand) return;
+    const fighter = model[grip.owner]; const current = registration.body.linvel(); const handVelocity = hand.linvel(); const throwSpeed = registration.kind === 'chair' ? 7.2 : 8.7;
+    registration.body.setLinvel({
+      x: current.x * .28 + handVelocity.x * .72 + Math.sin(fighter.facing) * throwSpeed,
+      y: Math.max(1.8, current.y * .3 + handVelocity.y * .7 + 1.7),
+      z: current.z * .28 + handVelocity.z * .72 + Math.cos(fighter.facing) * throwSpeed,
+    }, true);
+    registration.body.setAngvel(registration.kind === 'chair' ? { x: 5.2, y: 2.7, z: -4.4 } : { x: 2.2, y: 3.8, z: 6.4 }, true);
   }
 
   private capRigVelocity(rig: FighterRigRegistration): void {
@@ -531,6 +607,30 @@ export class BodyWorksRuntime {
     if (model.paused) return;
     this.syncFighter('player', model.player);
     this.syncFighter('opponent', model.opponent);
+    this.replayAccumulator += 1 / 60;
+    if (this.replayAccumulator >= 1 / 30) {
+      this.replayAccumulator %= 1 / 30;
+      this.captureReplayFrame(model.elapsed);
+    }
+  }
+
+  private captureReplayFrame(time: number): void {
+    const fighters = { player: {}, opponent: {} } as Record<FighterKey, Partial<Record<BodySegmentId, { position: Vector3Value; rotation: QuaternionValue }>>>;
+    for (const key of ['player', 'opponent'] as const) {
+      const rig = this.rigs.get(key); if (!rig) continue;
+      for (const [segment, body] of Object.entries(rig.bodies) as [BodySegmentId, RapierRigidBody][]) {
+        if (!body.isValid()) continue;
+        const position = body.translation(); const rotation = body.rotation();
+        fighters[key][segment] = { position: { x: position.x, y: position.y, z: position.z }, rotation: { x: rotation.x, y: rotation.y, z: rotation.z, w: rotation.w } };
+      }
+    }
+    const props: Record<string, { position: Vector3Value; rotation: QuaternionValue }> = {};
+    for (const [id, registration] of this.props) {
+      if (!registration.body.isValid()) continue;
+      const position = registration.body.translation(); const rotation = registration.body.rotation();
+      props[id] = { position: { x: position.x, y: position.y, z: position.z }, rotation: { x: rotation.x, y: rotation.y, z: rotation.z, w: rotation.w } };
+    }
+    this.replay.push({ time, fighters, props });
   }
 
   private syncFighter(key: FighterKey, fighter: FighterRuntime): void {
@@ -547,9 +647,10 @@ export class BodyWorksRuntime {
 
   reset(): void {
     if (this.world) this.releaseAllGrips(this.world);
+    if (this.world) for (const grip of [...this.propGrips.values()]) this.releasePropGrip(this.world, grip, null);
     if (this.instrumentedWorld && this.originalRemoveImpulseJoint) this.instrumentedWorld.removeImpulseJoint = this.originalRemoveImpulseJoint;
     this.generation += 1; this.rigs.clear(); this.commands.length = 0; this.contacts.length = 0; this.replay.clear();
-    this.pendingLandings.clear(); this.world = null; this.instrumentedWorld = null; this.originalRemoveImpulseJoint = null;
+    this.pendingLandings.clear(); this.props.clear(); this.propGrips.clear(); this.replayAccumulator = 0; this.world = null; this.instrumentedWorld = null; this.originalRemoveImpulseJoint = null;
     this.intents.player = EMPTY_INTENT(); this.intents.opponent = EMPTY_INTENT();
     this.metrics.fixedSteps = 0; this.metrics.bodyCount = 0; this.metrics.jointCount = 0; this.metrics.gripCount = 0; this.metrics.nearestGripDistance = 0; this.metrics.maximumGripError = 0; this.metrics.maximumGripLoad = 0; this.metrics.lastGripBreakReason = 'none'; this.metrics.worldJointCount = 0; this.metrics.gripCreateCount = 0; this.metrics.gripInvalidCount = 0; this.metrics.worldBodyCount = 0; this.metrics.invalidRegisteredBodyCount = 0; this.metrics.worldRemoveCount = 0; this.metrics.contactCount = 0; this.metrics.lastStepMs = 0; this.metrics.maximumStepMs = 0;
   }
