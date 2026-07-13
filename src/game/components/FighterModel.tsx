@@ -56,7 +56,7 @@ export function FighterModel({ runtime, fighterId, preview = false, side = 'play
     if (runtime) {
       root.current.parent?.position.set(runtime.position.x, 2.05, runtime.position.z);
       if (root.current.parent) root.current.parent.rotation.y = runtime.facing;
-    } else root.current.rotation.y += delta * .25;
+    } else root.current.rotation.y = Math.sin(t * .45) * .16;
     if (flash.current) { const material = flash.current.material as MeshBasicMaterial; material.opacity = Math.max(0, material.opacity - delta * 3.5); }
   });
 
@@ -83,7 +83,7 @@ export function FighterModel({ runtime, fighterId, preview = false, side = 'play
     <mesh position={[0, -1.28, -.1]}><boxGeometry args={[.4 * width, .36, .62]} />{limbMaterial('#11131d', fighter.palette.emissive)}</mesh>
   </group>;
 
-  return <group><group ref={root} scale={preview ? 1.15 : 1}>
+  return <group><group ref={root} scale={preview ? 1.05 : 1}>
     <group ref={torso}>
       <mesh position={[0, 1.62 * height, 0]}><boxGeometry args={geometry.torso} />{limbMaterial(fighter.palette.primary, fighter.palette.emissive)}</mesh>
       <mesh position={[0, 1.42 * height, -.41 * width]}><boxGeometry args={[.62 * width, .16, .06]} />{limbMaterial(fighter.palette.emissive, fighter.palette.emissive)}</mesh>

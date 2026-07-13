@@ -25,7 +25,9 @@ export function App() {
   const enter = (): void => { audioEngine.unlock(settings); setScreen('main'); };
   const start = (): void => { configure(selected, opponentId, rules, difficulty); setPaused(false); confirm('match'); audioEngine.play('bell', settings); };
   const togglePause = useCallback(() => {
-    setPaused((current) => { const next = !current; useMatchStore.getState().pause(next); return next; });
+    const next = !useMatchStore.getState().model.paused;
+    useMatchStore.getState().pause(next);
+    setPaused(next);
   }, []);
   const finish = useCallback(() => setScreen('results'), []);
   const doRematch = (): void => { rematch(); setPaused(false); confirm('match'); audioEngine.play('bell', settings); };

@@ -88,4 +88,10 @@ describe('deterministic combat rules', () => {
     const rematch = resetTransientState(model);
     expect(rematch.resolved).toBe(false); expect(rematch.result).toBeNull(); expect(rematch.player.health).toBe(100); expect(rematch.opponent.health).toBe(100);
   });
+
+  it('registers The Claw as a complete playable fighter', () => {
+    const chad = fighterById('chad'); const model = createMatch('chad', 'atlas', 'standard', 'hard');
+    expect(chad.name).toContain('THE CLAW'); expect(chad.signature).toBe('CLAW HAMMER'); expect(chad.stats.charisma).toBeGreaterThan(90);
+    expect(model.player.definitionId).toBe('chad'); expect(chooseAiDecision(createMatch('atlas', 'chad', 'chaos', 'hard'), chad).nextSeed).not.toBe(1337);
+  });
 });
