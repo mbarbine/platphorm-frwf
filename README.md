@@ -2,7 +2,7 @@
 
 An original, local-first 3D arcade wrestling game built with React, TypeScript, Vite, Three.js, React Three Fiber, Rapier, Zustand, and Vitest.
 
-Five original fighters collide in **The Volt Dome** across two-to-four-minute matches. Combat is deterministic and phase-based; rendering, procedural animation, physics props, camera motion, particles, and Web Audio provide the spectacle without owning match authority.
+Five original fighters collide in **The Volt Dome** across two-to-four-minute matches. Combat rules are deterministic and phase-based, while a 16-body articulated Rapier rig per fighter owns locomotion, hand contact, two-hand grips, lift weight, knockback, and mat landings.
 
 ## Run locally
 
@@ -56,6 +56,8 @@ Strikes and throws use authored phase keyframes rather than one animation pose f
 
 Grapples are paired two-fighter sequences. The attacker owns the victim through a visible lock, load, lift, contact, and safe release. Powerbombs, front slams, suplexes, chokes, spinebusters, arm drags, side tosses, trips, and Irish whips have distinct victim orientation and attacker leverage. Major landings add restrained slow motion, hit-stop, a mat shock ring, a layered synthesized thump, crowd response, and a higher/wider broadcast camera cut. AI commits to its selected throw instead of changing moves during the lock.
 
+The core body slam is deliberately staged: reach, two-hand grip, pull, visible resistance, foot adjustment, lowered hips, lift, peak, drive, shoulder/back landing, impact pause, and recovery. The ring deck flexes in a bounded wave whose strength follows the same presentation hierarchy as the camera and audio. Healthy, hurt, exhausted, and high-momentum fighters carry different posture even before the HUD is read.
+
 Every fighter receives five optional pre-match beers. Drinking one adds five points to that match's stamina cap; unopened cans stay on the bench. Chad “The Claw” Kinsey deliberately has the roster's lowest base stamina, so choosing how much to drink is a meaningful part of his high-power, low-gas identity. Rematches preserve the selected allotment.
 
 ## Match structure
@@ -86,7 +88,7 @@ src/
   tests/        WebGL-free deterministic combat tests
 ```
 
-Combat advances at a fixed 30 Hz step. Moves have anticipation, active, and recovery phases. A target can be damaged only in the active phase and only once per move unless a move explicitly opts into multi-hit behavior. The player and AI call the same command validation and execution functions.
+Combat and Rapier advance at a fixed 60 Hz step. Moves have anticipation, active, and recovery phases. A stance-anchored swept hurt volume makes a visually valid strike reliable even when a distal hand joint trails by a few milliseconds; eligibility still exists only during active frames and retains one-hit-per-attack deduplication. The player and AI call the same command validation and execution functions.
 
 ### Adjustable balance rubric
 
@@ -101,7 +103,11 @@ All match-shaping constants live in `src/game/data/balance.ts` instead of being 
 | Grapple readability | Visible lock, directional selection window, lift/contact/landing sequence |
 | Crowd Hype | Variety beats repetition; counters, finishers, near falls, and environment spike it |
 
-Visual simulation is deliberately subordinate to the match model. Authored poses handle knockdowns rather than unstable full-body ragdolls. Crowd geometry is instanced, particles are capped, the initial shell is code-split from the Three/Rapier arena, and device pixel ratio is adaptive.
+Deterministic rules remain separate from presentation, but physical contacts are authoritative in the shipping match. The articulated rigs use bounded muscle motors and authored target poses rather than uncontrolled ragdoll impulses. Crowd and ring-deck geometry are instanced, particles are capped, the initial shell is code-split from the Three/Rapier arena, and device pixel ratio is adaptive.
+
+### UI-free Toy Test
+
+Append `?toyTest=1` to the local URL and start a match to run the feel gate. The HUD, tutorial, touch overlay, and crowd are removed; crowd audio is muted; health, Momentum, Hype, stats, pinfall, and knockout progression are frozen. Movement, stamina, AI pressure, strikes, guards, reactions, grapples, slams, ropes, camera, impact effects, and spatial impact audio remain active. This mode exists to answer one question honestly: is controlling the wrestler fun without scoring or interface rewards?
 
 ## Testing
 
@@ -123,8 +129,9 @@ Vitest covers:
 - paired grapple choreography, phase interpolation, articulated strike contact/reactions, the five-direction strike grid, directional grapple selection, visual kick-up, staged turnbuckles, three aerials, elastic rebound stiff-arms, and center-rope traversal
 - a fifty-slam weight/approach soak that proves clean release without a stuck attacker
 - standard and WebXR gamepad axis normalization, including alternate XR thumbstick axes and missing-button fallbacks
+- UI-free Toy Test isolation for health, score, Hype, Momentum, and result progression
 
-Playwright covers the production-preview full match plus controlled Bodyworks and mobile journeys: initialization, Chad selection, five-beer setup, Chaos Circuit, exact situational controls, movement, jumping, a live kick-up, elastic rope load, stiff-arm, observed grapple lock/impact, three-stage climb, top-rope options, real pin/KO resolution, clean console output, and instant rematch.
+Playwright covers the production-preview full match plus controlled Bodyworks, Toy Test, and mobile journeys: initialization, Chad selection, five-beer setup, Chaos Circuit, exact situational controls, movement and braking, jumping, punch and directional-kick damage, visible guard, a live kick-up, elastic rope load, stiff-arm knockdown, observed two-hand grapple and physical slam landing, three-stage climb, top-rope options, real pin/KO resolution, clean console output, and instant rematch.
 
 ```bash
 npm run test:e2e
