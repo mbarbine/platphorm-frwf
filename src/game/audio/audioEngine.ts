@@ -8,6 +8,7 @@ class AudioEngine {
   private master: GainNode | null = null;
   private effects: GainNode | null = null;
   private crowd: GainNode | null = null;
+  private noiseBuffer: AudioBuffer | null = null;
 
   unlock(settings: Settings): void {
     if (!this.context) {
@@ -20,6 +21,7 @@ class AudioEngine {
       const source = this.context.createBufferSource(); const filter = this.context.createBiquadFilter(); const bed = this.context.createGain();
       source.buffer = buffer; source.loop = true; filter.type = 'lowpass'; filter.frequency.value = 520; bed.gain.value = .055;
       source.connect(filter); filter.connect(bed); bed.connect(this.crowd); source.start();
+      this.noiseBuffer = buffer;
     }
     void this.context.resume(); this.configure(settings); this.play('confirm', settings);
   }
@@ -51,6 +53,21 @@ class AudioEngine {
   impact(event: ImpactEvent, settings: Settings): void {
     const map: Record<ImpactEvent['kind'], SoundName> = { light: 'impact', heavy: 'heavy', blocked: 'rope', counter: 'nearfall', grapple: 'slam', weapon: 'prop', finisher: 'finisher', table: 'slam', nearfall: 'nearfall', ko: 'bell', rope: 'rope' };
     this.play(map[event.kind], settings);
+    if (['heavy', 'grapple', 'weapon', 'finisher', 'table', 'ko'].includes(event.kind)) this.impactTransient(event.intensity);
+    if (['finisher', 'table', 'nearfall', 'ko'].includes(event.kind)) this.play('cheer', settings);
+  }
+
+  private impactTransient(intensity: number): void {
+    if (!this.context || !this.effects || !this.noiseBuffer) return;
+    const now = this.context.currentTime;
+    const noise = this.context.createBufferSource(); const noiseFilter = this.context.createBiquadFilter(); const noiseGain = this.context.createGain();
+    noise.buffer = this.noiseBuffer; noiseFilter.type = 'bandpass'; noiseFilter.frequency.value = 170 + intensity * 85; noiseFilter.Q.value = .7;
+    noiseGain.gain.setValueAtTime(Math.min(.24, .08 + intensity * .055), now); noiseGain.gain.exponentialRampToValueAtTime(.0001, now + .13);
+    noise.connect(noiseFilter); noiseFilter.connect(noiseGain); noiseGain.connect(this.effects); noise.start(now); noise.stop(now + .15);
+    const sub = this.context.createOscillator(); const subGain = this.context.createGain();
+    sub.type = 'sine'; sub.frequency.setValueAtTime(78 + intensity * 8, now); sub.frequency.exponentialRampToValueAtTime(34, now + .2);
+    subGain.gain.setValueAtTime(Math.min(.3, .1 + intensity * .07), now); subGain.gain.exponentialRampToValueAtTime(.0001, now + .21);
+    sub.connect(subGain); subGain.connect(this.effects); sub.start(now); sub.stop(now + .23);
   }
 }
 

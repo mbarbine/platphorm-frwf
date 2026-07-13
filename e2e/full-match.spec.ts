@@ -23,6 +23,17 @@ test('fighter select through guarded combat, grapple, result, and rematch', asyn
   await expect(page.getByTestId('game-canvas')).toBeVisible();
   await expect(page.locator('html')).toHaveAttribute('data-game-input-ready', 'true');
   await expect(hud).toHaveAttribute('data-player-stamina', /^98\./);
+  await page.evaluate(() => {
+    const grappleMoves = new Set(['slam', 'suplex', 'takedown', 'whip', 'arm_drag', 'skyhook', 'powerbomb', 'clutch', 'spinebuster', 'side_toss', 'mountain_drop']);
+    const observe = (): void => {
+      const liveHud = document.querySelector('.hud'); if (!liveHud) return;
+      const playerMove = liveHud.getAttribute('data-player-move') ?? ''; const opponentMove = liveHud.getAttribute('data-opponent-move') ?? '';
+      const playerState = liveHud.getAttribute('data-player-state'); const opponentState = liveHud.getAttribute('data-opponent-state');
+      if (playerState === 'grappling' || opponentState === 'grappling') document.documentElement.dataset.sawGrappleLock = 'true';
+      if ((grappleMoves.has(playerMove) && liveHud.getAttribute('data-player-phase') === 'active') || (grappleMoves.has(opponentMove) && liveHud.getAttribute('data-opponent-phase') === 'active')) document.documentElement.dataset.sawGrappleImpact = 'true';
+    };
+    new MutationObserver(observe).observe(document.body, { subtree: true, attributes: true }); observe();
+  });
   await page.keyboard.down('i');
   await expect(hud).toHaveAttribute('data-player-state', 'blocking');
   const guardedStamina = Number(await hud.getAttribute('data-player-stamina'));
@@ -56,6 +67,8 @@ test('fighter select through guarded combat, grapple, result, and rematch', asyn
   await expect(page.getByRole('button', { name: 'INSTANT REMATCH' })).toBeVisible({ timeout: 180_000 });
   await page.evaluate((intervalId) => window.clearInterval(intervalId), automationId);
   await expect(page.getByText(/WINS BY (PINFALL|KNOCKOUT)/)).toBeVisible();
+  await expect(page.locator('html')).toHaveAttribute('data-saw-grapple-lock', 'true');
+  await expect(page.locator('html')).toHaveAttribute('data-saw-grapple-impact', 'true');
   await page.getByRole('button', { name: 'INSTANT REMATCH' }).click();
   await expect(page.getByTestId('game-canvas')).toBeVisible();
   await expect(hud).toHaveAttribute('data-player-health', '100.0');

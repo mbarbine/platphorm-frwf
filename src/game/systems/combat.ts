@@ -135,6 +135,7 @@ export const applyMoveHit = (model: MatchModel, actorKey: 'player' | 'opponent',
     target.downTimer = 1.6 + (100 - target.health) / 75 + (move.category === 'finisher' ? 1.2 : 0);
     target.moveId = null;
     target.attackPhase = null;
+    target.finisherPrimed = move.category === 'finisher';
   } else {
     target.state = 'staggered';
     target.stateElapsed = 0;
@@ -152,11 +153,14 @@ export const applyMoveHit = (model: MatchModel, actorKey: 'player' | 'opponent',
     model.announcement = 'COMMENTARY DESK — WRECKED!'; model.announcementTimer = 2;
   }
   if (move.category === 'finisher') {
-    model.slowMotion = .65;
+    model.slowMotion = .82;
     model.announcement = `${actorDefinition.signature}!`;
-    model.announcementTimer = 1.8;
+    model.announcementTimer = 2.1;
   }
-  if (move.category === 'grapple') { model.announcement = move.displayName.toUpperCase(); model.announcementTimer = .9; }
+  if (move.category === 'grapple') {
+    if (move.damage >= 18) model.slowMotion = Math.max(model.slowMotion, .24);
+    model.announcement = move.displayName.toUpperCase(); model.announcementTimer = 1.2;
+  }
   const majorImpact = move.category === 'finisher' || move.category === 'heavy' || move.category === 'grapple' || move.category === 'prop' || move.category === 'aerial';
   const exhaustionKnockout = model.elapsed >= BALANCE.knockout.earliestSeconds
     && target.health <= BALANCE.knockout.healthThreshold
@@ -263,7 +267,14 @@ export const requestCommand = (model: MatchModel, actorKey: 'player' | 'opponent
       }
       return false;
     }
-    if (actor.momentum >= 100 && ['staggered', 'downed'].includes(target.state)) return startMove(actor, target, getMove('finisher'));
+    if (actor.momentum >= 100 && ['staggered', 'downed'].includes(target.state)) {
+      const started = startMove(actor, target, getMove('finisher'));
+      if (started) {
+        target.state = 'grabbed'; target.stateElapsed = 0; target.velocity = { x: 0, z: 0 };
+        target.moveId = null; target.attackPhase = null;
+      }
+      return started;
+    }
     const nearCorner = Math.abs(actor.position.x) > 4.65 && Math.abs(actor.position.z) > 3.2;
     if (nearCorner) {
       actor.state = 'climbing'; actor.stateElapsed = 0; actor.velocity = { x: 0, z: 0 };
@@ -360,7 +371,9 @@ const updateFighter = (model: MatchModel, actorKey: 'player' | 'opponent', dt: n
   }
   if (actor.state === 'grabbed') {
     const holdingMove = target.moveId ? getMove(target.moveId) : null;
-    if (target.state !== 'grappling' || holdingMove?.category !== 'grapple') { actor.state = 'idle'; actor.stateElapsed = 0; }
+    const holding = holdingMove && (holdingMove.category === 'grapple' || holdingMove.category === 'finisher')
+      && (target.state === 'grappling' || target.state === 'attacking');
+    if (!holding) { actor.state = 'idle'; actor.stateElapsed = 0; }
     else {
       const forward = { x: Math.sin(target.facing), z: Math.cos(target.facing) };
       actor.position = { x: target.position.x + forward.x * .72, z: target.position.z + forward.z * .72 };

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { chooseAiDecision, isActionLegal } from '../game/ai/utilityAI';
+import { cinematicProgress, getPairedPose, getStrikePose, getStrikeReactionPose } from '../game/animation/choreography';
 import { FIGHTERS, fighterById } from '../game/data/fighters';
 import { getMove } from '../game/data/moves';
 import { advanceMatch, applyMoveHit, createMatch, getAttackPhase, requestCommand, resetTransientState, selectDirectionalGrapple, startMove } from '../game/systems/combat';
@@ -80,7 +81,51 @@ describe('deterministic combat rules', () => {
     expect(requestCommand(model, 'player', 'grapple')).toBe(true); expect(model.opponent.state).toBe('grabbed');
     model.player.attackPhase = 'active'; expect(applyMoveHit(model, 'player', 'opponent', getMove(model.player.moveId ?? 'slam'))).toBe(true);
     expect(model.opponent.state).toBe('airborne');
-    model.hitStop = 0; advanceMatch(model, .4, none); expect(model.opponent.state).toBe('downed');
+    model.hitStop = 0; model.slowMotion = 0; advanceMatch(model, .4, none); expect(model.opponent.state).toBe('downed');
+  });
+
+  it('authors every grapple as a paired actor and victim sequence', () => {
+    const grappleIds = ['slam', 'suplex', 'takedown', 'whip', 'arm_drag', 'skyhook', 'powerbomb', 'clutch', 'spinebuster', 'side_toss', 'mountain_drop'];
+    for (const id of grappleIds) {
+      const move = getMove(id);
+      expect(getPairedPose(move, 'actor', 'anticipation', move.anticipationDuration * .8, 'atlas')).not.toBeNull();
+      expect(getPairedPose(move, 'victim', 'active', move.anticipationDuration + move.activeDuration * .5, 'atlas')).not.toBeNull();
+    }
+  });
+
+  it('gives powerbombs, chokes, and suplexes visibly different victim staging', () => {
+    const powerbomb = getMove('powerbomb'); const choke = getMove('clutch'); const suplex = getMove('suplex');
+    const powerbombPose = getPairedPose(powerbomb, 'victim', 'active', powerbomb.anticipationDuration + .01, 'atlas');
+    const chokePose = getPairedPose(choke, 'victim', 'active', choke.anticipationDuration + .01, 'chad');
+    const suplexPose = getPairedPose(suplex, 'victim', 'active', suplex.anticipationDuration + .01, 'nova');
+    expect(powerbombPose?.rootY).toBeGreaterThan(1.5); expect(chokePose?.rootY).toBeLessThan(1);
+    expect(suplexPose?.rootTilt).not.toBe(powerbombPose?.rootTilt);
+  });
+
+  it('stages punch windup, contact, and articulated elbow follow-through', () => {
+    const jab = getMove('jab');
+    const windup = getStrikePose(jab, 'anticipation', jab.anticipationDuration * .7);
+    const contact = getStrikePose(jab, 'active', jab.anticipationDuration + jab.activeDuration * .55);
+    expect(windup).not.toBeNull(); expect(contact).not.toBeNull();
+    expect(contact?.rightArm[0]).toBeLessThan(windup?.rightArm[0] ?? 0);
+    expect(contact?.rightForearm).not.toEqual(windup?.rightForearm);
+  });
+
+  it('snaps the victim into distinct light and heavy contact reactions', () => {
+    const jab = getMove('jab'); const heavy = getMove('heavy');
+    const jabReaction = getStrikeReactionPose(jab, 'active', jab.anticipationDuration + jab.activeDuration * .6);
+    const heavyReaction = getStrikeReactionPose(heavy, 'active', heavy.anticipationDuration + heavy.activeDuration * .6);
+    expect(jabReaction).not.toBeNull(); expect(heavyReaction).not.toBeNull();
+    expect(Math.abs(heavyReaction?.rootTilt ?? 0)).toBeGreaterThan(Math.abs(jabReaction?.rootTilt ?? 0));
+    expect(heavyReaction?.leftLeg).not.toEqual(jabReaction?.leftLeg);
+  });
+
+  it('keeps cinematic phase progress monotonic across anticipation, contact, and recovery', () => {
+    const slam = getMove('slam');
+    const anticipation = cinematicProgress(slam, 'anticipation', slam.anticipationDuration * .5);
+    const contact = cinematicProgress(slam, 'active', slam.anticipationDuration + slam.activeDuration * .5);
+    const recovery = cinematicProgress(slam, 'recovery', slam.anticipationDuration + slam.activeDuration + slam.recoveryDuration * .5);
+    expect(anticipation).toBeLessThan(contact); expect(contact).toBeLessThan(recovery); expect(recovery).toBeLessThanOrEqual(1);
   });
 
   it('reports explicit anticipation, active, recovery phases', () => {
@@ -102,6 +147,13 @@ describe('deterministic combat rules', () => {
     expect(model.result).toMatchObject({ winner: 'player', method: 'KNOCKOUT' });
     const rematch = resetTransientState(model);
     expect(rematch.resolved).toBe(false); expect(rematch.result).toBeNull(); expect(rematch.player.health).toBe(100); expect(rematch.opponent.health).toBe(100);
+  });
+
+  it('locks the victim into a paired signature sequence before finisher contact', () => {
+    const model = createMatch('chad', 'atlas', 'standard', 'normal'); model.player.position = { x: 0, z: 0 }; model.opponent.position = { x: 1, z: 0 };
+    model.player.momentum = 100; model.opponent.state = 'staggered';
+    expect(requestCommand(model, 'player', 'context')).toBe(true); expect(model.opponent.state).toBe('grabbed');
+    advanceMatch(model, .2, none); expect(model.opponent.state).toBe('grabbed'); expect(model.player.moveId).toBe('finisher');
   });
 
   it('registers The Claw as a complete playable fighter', () => {
@@ -143,6 +195,20 @@ describe('deterministic combat rules', () => {
       selectDirectionalGrapple({ x: -1, z: 0 }, 'quick'), selectDirectionalGrapple({ x: 1, z: 0 }, 'quick'), selectDirectionalGrapple({ x: 0, z: 1 }, 'grapple'),
     ]);
     expect(moveIds.size).toBe(6); for (const id of moveIds) expect(getMove(id).category).toBe('grapple');
+  });
+
+  it('makes AI choose a directional finish while it owns a grapple lock', () => {
+    const model = createMatch('atlas', 'nova', 'standard', 'hard', 99); model.player.position = { x: 0, z: 0 }; model.opponent.position = { x: 1, z: 0 };
+    expect(requestCommand(model, 'opponent', 'grapple', { x: 0, z: -1 })).toBe(true);
+    const decision = chooseAiDecision(model, fighterById('nova'));
+    expect(['quick', 'heavy', 'grapple']).toContain(decision.command); expect(Math.hypot(decision.move.x, decision.move.z)).toBe(1);
+    expect(decision.command && isActionLegal(model, decision.command, 'opponent')).toBe(true);
+  });
+
+  it('adds a restrained slow-motion beat to major grapple impacts', () => {
+    const model = createMatch('atlas', 'vex', 'standard', 'normal'); model.player.position = { x: 0, z: 0 }; model.opponent.position = { x: 1, z: 0 };
+    expect(startMove(model.player, model.opponent, getMove('skyhook'))).toBe(true); model.player.attackPhase = 'active';
+    expect(applyMoveHit(model, 'player', 'opponent', getMove('skyhook'))).toBe(true); expect(model.slowMotion).toBeGreaterThan(0);
   });
 
   it('allows a grapple selection during the visible lock without duplicate base cost', () => {

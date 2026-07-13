@@ -37,7 +37,7 @@ function Simulation({ onPause, onDevice, onFinished }: Props) {
 
 function Fighters() {
   const player = useMatchStore((state) => state.model.player); const opponent = useMatchStore((state) => state.model.opponent);
-  return <><FighterModel runtime={player} side="player" /><FighterModel runtime={opponent} side="opponent" /></>;
+  return <><FighterModel runtime={player} counterpart={opponent} side="player" /><FighterModel runtime={opponent} counterpart={player} side="opponent" /></>;
 }
 
 export function GameScene(props: Props) {

@@ -5,12 +5,19 @@ import type { FighterDefinition, GameCommand, MatchModel } from '../types/game';
 
 export interface AiDecision { command: GameCommand | null; move: { x: number; z: number }; run: boolean; nextSeed: number }
 
+const grappleDirectionFor = (tendency: FighterDefinition['tendency'], roll: number): { x: number; z: number } => {
+  if (tendency === 'aggressive') return roll < .65 ? { x: 0, z: -1 } : { x: 0, z: 1 };
+  if (tendency === 'technical') return roll < .5 ? { x: -1, z: 0 } : { x: 0, z: 1 };
+  return roll < .5 ? { x: 1, z: 0 } : { x: 0, z: -1 };
+};
+
 export const isActionLegal = (model: MatchModel, command: GameCommand, actorKey: 'player' | 'opponent'): boolean => {
   const actor = model[actorKey];
   const target = actorKey === 'player' ? model.opponent : model.player;
   if (model.paused || model.resolved || actor.state === 'pinned' || actor.state === 'pinning' || actor.state === 'defeated' || actor.state === 'victorious') return false;
   const targetDistance = distance(actor.position, target.position);
   if (command === 'block') return actor.stamina > 2 && ['idle', 'locomotion', 'blocking', 'staggered'].includes(actor.state);
+  if (actor.state === 'grappling' && actor.attackPhase === 'anticipation' && ['quick', 'heavy', 'grapple'].includes(command)) return true;
   if (command === 'dodge') return actor.stamina >= 8 && ['idle', 'locomotion', 'climbing', 'staggered', 'grabbed'].includes(actor.state);
   if (command === 'taunt') return ['idle', 'locomotion'].includes(actor.state);
   if (command === 'interact') return model.ruleset === 'chaos' && ['idle', 'locomotion'].includes(actor.state);
@@ -38,6 +45,11 @@ export const chooseAiDecision = (model: MatchModel, definition: FighterDefinitio
   const magnitude = Math.max(.001, Math.hypot(delta.x, delta.z));
   const toward = { x: delta.x / magnitude, z: delta.z / magnitude };
   const [roll, nextSeed] = seededRandom(model.seed);
+  if (actor.state === 'grappling' && actor.attackPhase === 'anticipation') {
+    if (actor.phaseElapsed > .12) return { command: null, move: { x: 0, z: 0 }, run: false, nextSeed };
+    const command: GameCommand = roll < .34 ? 'quick' : roll < .7 ? 'heavy' : 'grapple';
+    return { command, move: grappleDirectionFor(definition.tendency, roll), run: false, nextSeed };
+  }
   const hard = model.difficulty === 'hard';
   const counterChance = hard ? .68 : .38;
   const incomingMajor = target.attackPhase === 'anticipation' && target.moveId !== 'jab' && separation < 2.2;
@@ -57,5 +69,6 @@ export const chooseAiDecision = (model: MatchModel, definition: FighterDefinitio
     : bias === 'technical' && roll < .5 ? 'grapple'
     : bias === 'opportunistic' && roll > .62 ? 'heavy'
     : roll < .48 ? 'quick' : roll < .75 ? 'grapple' : 'heavy';
-  return { command: isActionLegal(model, command, 'opponent') ? command : 'quick', move: { x: 0, z: 0 }, run: false, nextSeed };
+  const legal = isActionLegal(model, command, 'opponent') ? command : 'quick';
+  return { command: legal, move: legal === 'grapple' ? grappleDirectionFor(definition.tendency, roll) : { x: 0, z: 0 }, run: false, nextSeed };
 };
