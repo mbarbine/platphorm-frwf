@@ -606,7 +606,9 @@ const updateFighter = (model: MatchModel, actorKey: 'player' | 'opponent', dt: n
     const running = run && actor.stamina > 3 && inputLength > .08;
     integrateLocomotion(actor, definition, movement, running, dt);
     const targetDistance = distance(actor.position, target.position);
-    if (!running && targetDistance < 4.8) {
+    const physicalSpeed = Math.hypot(actor.velocity.x, actor.velocity.z);
+    if (actor.ropeRebound > 0 && physicalSpeed > 1.2) actor.facing = Math.atan2(actor.velocity.x, actor.velocity.z);
+    else if (!running && targetDistance < 4.8) {
       const desiredFacing = Math.atan2(target.position.x - actor.position.x, target.position.z - actor.position.z);
       const facingError = Math.atan2(Math.sin(desiredFacing - actor.facing), Math.cos(desiredFacing - actor.facing));
       actor.facing += clamp(facingError, -dt * 7.5, dt * 7.5);
