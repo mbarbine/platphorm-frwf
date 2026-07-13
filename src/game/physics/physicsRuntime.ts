@@ -349,7 +349,7 @@ export class BodyWorksRuntime {
         y: clamp((targetY - position.y) * fighter.body.mass * 31 - transitionVelocity.y * fighter.body.mass * 7.2, -4_800, 5_400),
         z: clamp(dz * fighter.body.mass * 34 - transitionVelocity.z * fighter.body.mass * 7.5, -4_800, 4_800),
       }, true);
-      this.applyPoseDrive(rig, fighter);
+      this.applyPoseDrive(rig, fighter, CENTER_ROPE_POSE);
       if ((planarDistance < .28 && Math.abs(targetY - position.y) < .45) || anchor.age > 1.55) rig.apronAnchor = null;
       return;
     }
@@ -666,13 +666,13 @@ export class BodyWorksRuntime {
 
   private releaseAllGrips(world: World): void { for (const grip of [...this.grips]) this.removeGrip(world, grip); this.metrics.gripCount = 0; this.metrics.jointCount = this.rigs.size * 15 + this.propGrips.size; }
 
-  private applyPoseDrive(rig: FighterRigRegistration, fighter: FighterRuntime): void {
+  private applyPoseDrive(rig: FighterRigRegistration, fighter: FighterRuntime, overridePose?: Pose): void {
     const falling = ['airborne', 'downed', 'defeated'].includes(fighter.state);
     const definition = fighterById(fighter.definitionId);
     const recoveryStrength = .38 + clamp(fighter.stateElapsed / .7, 0, 1) * .56;
     const strength = fighter.state === 'defeated' ? .02 : falling ? .13 : fighter.state === 'recovering' ? recoveryStrength : fighter.state === 'grabbed' ? .34 : fighter.state === 'staggered' ? .48 : .94;
     const fatigue = 1 - fighter.body.muscle;
-    const pose = targetPoseFor(fighter); const targets = physicalPoseTargets(pose, fighter.facing);
+    const pose = overridePose ?? targetPoseFor(fighter); const targets = physicalPoseTargets(pose, fighter.facing);
     for (const [segment, body] of Object.entries(rig.bodies) as [BodySegmentId, RapierRigidBody][]) {
       const isCore = segment === 'pelvis' || segment === 'chest' || segment === 'abdomen'; const isDistal = segment.includes('Hand') || segment.includes('Foot'); const isLeg = segment.includes('Thigh') || segment.includes('Shin');
       const stiffnessScale = definition.physics.jointStiffness;
@@ -818,6 +818,12 @@ const tauntPoseFor = (fighter: FighterRuntime): Pose => {
   if (fighter.definitionId === 'nova') return { ...base, leftArm: [-1.62, -.65, -.54], rightArm: [-1.62, .65, .54], leftForearm: [-1.22, 0, 0], rightForearm: [-1.22, 0, 0], rootYaw: .2 };
   if (fighter.definitionId === 'brick') return { ...base, leftArm: [-.72, .25, -.5], rightArm: [-.72, -.25, .5], leftForearm: [-1.5, 0, 0], rightForearm: [-1.5, 0, 0], rootTilt: .12 };
   return { ...base, leftArm: [-2.78, 0, -.18], rightArm: [-1.08, 0, .62], leftForearm: [-.25, 0, 0], rightForearm: [-.5, 0, 0], rootRoll: .08 };
+};
+
+const CENTER_ROPE_POSE: Pose = {
+  ...POSES.combatIdle,
+  torso: [.62, 0, 0], leftArm: [-1.42, 0, -.64], rightArm: [-1.42, 0, .64], leftForearm: [-.48, 0, 0], rightForearm: [-.48, 0, 0],
+  leftLeg: [.48, 0, -.12], rightLeg: [.48, 0, .12], leftShin: [-.92, 0, 0], rightShin: [-.92, 0, 0], rootTilt: .52, rootRoll: .08,
 };
 
 const targetPoseFor = (fighter: FighterRuntime): Pose => {

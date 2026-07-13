@@ -366,6 +366,12 @@ export const requestCommand = (model: MatchModel, actorKey: 'player' | 'opponent
   }
   if (command === 'dodge') {
     if (actor.state === 'downed') return startKickUp(actor, target);
+    if (actor.state === 'climbing') {
+      if (actor.climbStage > 1) { actor.climbStage = (actor.climbStage - 1) as 1 | 2; actor.stateElapsed = 0; return true; }
+      const inward = normalize({ x: -(Math.sign(actor.position.x) || 1), z: -(Math.sign(actor.position.z) || 1) });
+      actor.state = 'locomotion'; actor.climbStage = 0; actor.stateElapsed = 0; actor.invulnerability = .28; actor.velocity = scale(inward, 1.35);
+      return true;
+    }
     if (performCounter(model, actorKey, targetKey)) return true;
     actor.state = 'locomotion'; actor.climbStage = 0; actor.invulnerability = .32; actor.stamina = clamp(actor.stamina - 8, 0, actor.staminaCap);
     const away = normalize({ x: actor.position.x - target.position.x, z: actor.position.z - target.position.z });
