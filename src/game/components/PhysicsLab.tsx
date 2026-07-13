@@ -9,7 +9,7 @@ const tap = (code: string, at = 0, duration = 90): readonly KeyStep[] => [{ at, 
 const hold = (code: string, at: number, duration: number): readonly KeyStep[] => [{ at, code, down: true }, { at: at + duration, code, down: false }];
 const SCENARIOS: readonly LabScenario[] = [
   { id: 'stand', label: 'STANDING STABILITY', steps: [], duration: 3_000 },
-  { id: 'walk', label: 'WALK + STOP', steps: hold('KeyW', 0, 1_250), duration: 2_300 },
+  { id: 'walk', label: 'WALK + STOP', steps: hold('KeyW', 0, 2_000), duration: 3_000 },
   { id: 'turn', label: 'RAPID TURN', steps: [...hold('KeyA', 0, 500), ...hold('KeyD', 560, 650)], duration: 1_800 },
   { id: 'ropes', label: 'RUN INTO ROPES', steps: [...hold('KeyD', 0, 2_050), ...hold('ShiftLeft', 0, 2_050)], duration: 2_800 },
   { id: 'ropeStrike', label: 'ROPE LOAD + STIFF-ARM', steps: [...hold('KeyD', 0, 680), ...hold('ShiftLeft', 0, 680), ...tap('KeyK', 860)], duration: 2_300 },
