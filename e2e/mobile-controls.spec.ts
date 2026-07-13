@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 test.use({ hasTouch: true, viewport: { width: 390, height: 844 } });
 
 test('mobile player can enter a match, move, guard, and attack', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?physicsLab=1');
   await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
   await page.getByRole('button', { name: 'PLAY', exact: true }).click();
   await page.getByRole('button', { name: /LOCK IN ATLAS/ }).click();
