@@ -161,8 +161,8 @@ export const applyMoveHit = (model: MatchModel, actorKey: 'player' | 'opponent',
   if (move.category === 'grapple') stats.grapples += 1;
   if (move.category === 'finisher') stats.finishers += 1;
   if (move.category === 'prop') stats.propImpacts += 1;
-  if (move.category === 'prop' && actor.heldPropId) {
-    const prop = model.props.find((candidate) => candidate.id === actor.heldPropId);
+  if (move.category === 'prop' && (actor.heldPropId || contact?.sourceObjectId)) {
+    const prop = model.props.find((candidate) => candidate.id === (actor.heldPropId ?? contact?.sourceObjectId));
     if (prop) {
       prop.durability -= 1;
       if (prop.durability <= 0) { prop.broken = true; prop.heldBy = null; actor.heldPropId = null; }
@@ -277,8 +277,10 @@ const useProp = (model: MatchModel, actorKey: 'player' | 'opponent'): boolean =>
   if (actor.heldPropId) {
     if (distance(actor.position, target.position) <= 2.3) return startMove(actor, target, getMove('prop'));
     const prop = model.props.find((candidate) => candidate.id === actor.heldPropId);
+    const started = startMove(actor, target, getMove('prop_throw')); if (!started) return false;
     if (prop) { prop.heldBy = null; prop.position = { x: actor.position.x + Math.sin(actor.facing) * 2.5, z: actor.position.z + Math.cos(actor.facing) * 2.5 }; }
     actor.heldPropId = null;
+    model.announcement = 'AIR MAIL — PROP THROWN!'; model.announcementTimer = .9;
     return true;
   }
   const prop = model.props.filter((candidate) => !candidate.broken && !candidate.heldBy && candidate.kind !== 'table').sort((a, b) => distance(actor.position, a.position) - distance(actor.position, b.position))[0];
@@ -668,7 +670,7 @@ const applyPhysicalTableStress = (model: MatchModel, contact: BodyWorksContact, 
   table.failureStage = nextStage;
   if (nextStage === 'failed') {
     table.broken = true; model.hype = clamp(model.hype + 28, 0, 100);
-    addImpact(model, table.position, 'table', 2.1, { force: contact.maximumForce, outcome: 'collapse', highlight: { label: 'Commentary Desk Collapse', score: Math.round(table.stress + move.hypeValue + 24), kind: 'table' } });
+    addImpact(model, table.position, 'table', 2.1, { force: contact.maximumForce, outcome: 'fall', highlight: { label: 'Commentary Desk Collapse', score: Math.round(table.stress + move.hypeValue + 24), kind: 'table' } });
     model.announcement = 'COMMENTARY DESK — WRECKED!'; model.announcementTimer = 2;
   } else {
     model.hype = clamp(model.hype + (nextStage === 'cracked' ? 12 : 5), 0, 100);

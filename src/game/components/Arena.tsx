@@ -72,17 +72,29 @@ function Props() {
   const opponent = useMatchStore((state) => state.model.opponent);
   return <>{props.map((prop) => {
     if (prop.broken) return prop.kind === 'table' ? <BrokenTable key={`${runtimeId}-${prop.id}`} x={prop.position.x} z={prop.position.z} /> : null;
+    if (prop.kind === 'table') return <CommentaryTable key={`${runtimeId}-${prop.id}`} prop={prop} />;
     const owner = prop.heldBy === 'player' ? player : prop.heldBy === 'opponent' ? opponent : null;
     const position: [number, number, number] = owner
       ? [owner.position.x + Math.sin(owner.facing) * .65 + Math.cos(owner.facing) * .32, 3.25, owner.position.z + Math.cos(owner.facing) * .65 - Math.sin(owner.facing) * .32]
-      : [prop.position.x, prop.kind === 'table' ? .72 : .55, prop.position.z];
-    if (prop.kind === 'table') return <RigidBody key={prop.id} type="fixed" position={position} colliders={false} collisionGroups={propCollisionGroups} solverGroups={propCollisionGroups} userData={{ surface: true, prop: prop.id, kind: prop.kind }}><CuboidCollider args={[1.7, .12, .65]} /><CuboidCollider args={[.08, .55, .08]} position={[-1.35, -.58, -.45]} /><CuboidCollider args={[.08, .55, .08]} position={[-1.35, -.58, .45]} /><CuboidCollider args={[.08, .55, .08]} position={[1.35, -.58, -.45]} /><CuboidCollider args={[.08, .55, .08]} position={[1.35, -.58, .45]} /><group>
-      <mesh castShadow><boxGeometry args={[3.4, .2, 1.3]} /><meshStandardMaterial color="#2a3140" metalness={.6} roughness={.3} /></mesh>
-      {[-1.35, 1.35].flatMap((x) => [-.45, .45].map((z) => <mesh key={`${x}-${z}`} position={[x, -.58, z]}><boxGeometry args={[.12, 1.1, .12]} /><meshStandardMaterial color="#11141b" /></mesh>))}
-      <mesh position={[0, .13, 0]}><boxGeometry args={[2.2, .05, .75]} /><meshStandardMaterial color="#27d8ff" emissive="#27d8ff" emissiveIntensity={.8} /></mesh>
-    </group></RigidBody>;
+      : [prop.position.x, .55, prop.position.z];
     return <PhysicalProp key={`${runtimeId}-${prop.id}`} prop={prop} initialPosition={position} />;
   })}</>;
+}
+
+function CommentaryTable({ prop }: { prop: PropRuntime }) {
+  const bend = prop.failureStage === 'cracked' ? .095 : prop.failureStage === 'stressed' ? .035 : 0;
+  const accent = prop.failureStage === 'cracked' ? '#ff3c64' : prop.failureStage === 'stressed' ? '#ffc83d' : '#27d8ff';
+  return <RigidBody type="fixed" position={[prop.position.x, .72, prop.position.z]} colliders={false} collisionGroups={propCollisionGroups} solverGroups={propCollisionGroups} userData={{ surface: true, prop: prop.id, kind: prop.kind }}>
+    <CuboidCollider args={[1.7, .12, .65]} rotation={[0, 0, bend]} />
+    <CuboidCollider args={[.08, .55, .08]} position={[-1.35, -.58, -.45]} /><CuboidCollider args={[.08, .55, .08]} position={[-1.35, -.58, .45]} />
+    <CuboidCollider args={[.08, .55, .08]} position={[1.35, -.58, -.45]} /><CuboidCollider args={[.08, .55, .08]} position={[1.35, -.58, .45]} />
+    <group rotation={[0, 0, bend]}>
+      <mesh castShadow><boxGeometry args={[3.4, .2, 1.3]} /><meshStandardMaterial color="#2a3140" metalness={.6} roughness={.3} /></mesh>
+      <mesh position={[0, .13, 0]}><boxGeometry args={[2.2, .05, .75]} /><meshStandardMaterial color={accent} emissive={accent} emissiveIntensity={prop.failureStage === 'intact' ? .8 : 1.8} /></mesh>
+      {prop.failureStage === 'cracked' && <mesh position={[.18, .125, 0]} rotation={[0, .2, -.22]}><boxGeometry args={[.08, .035, 1.18]} /><meshStandardMaterial color="#fff0b8" emissive="#ff4d63" emissiveIntensity={2.6} /></mesh>}
+    </group>
+    {[-1.35, 1.35].flatMap((x) => [-.45, .45].map((z) => <mesh key={`${x}-${z}`} position={[x, -.58, z]} rotation={[0, 0, x < 0 ? bend * 1.8 : -bend * .5]}><boxGeometry args={[.12, 1.1, .12]} /><meshStandardMaterial color="#11141b" /></mesh>))}
+  </RigidBody>;
 }
 
 interface FighterColliderData { bodyWorks: true; fighter: FighterKey; segment: BodySegmentId; region: 'head' | 'chest' | 'ribs' | 'pelvis' | 'leftArm' | 'rightArm' | 'leftLeg' | 'rightLeg' }
@@ -103,11 +115,13 @@ function PhysicalProp({ prop, initialPosition }: { prop: PropRuntime; initialPos
     }
   });
   const onContactForce = (payload: ContactForcePayload): void => {
-    const liveProp = useMatchStore.getState().model.props.find((candidate) => candidate.id === prop.id); const heldBy = liveProp?.heldBy; if (!heldBy) return;
-    const model = useMatchStore.getState().model; const actor = model[heldBy]; const targetData = payload.other.rigidBodyObject?.userData;
-    if (!isFighterColliderData(targetData) || targetData.fighter === heldBy || actor.moveId !== 'prop' || actor.attackPhase !== 'active') return;
+    const model = useMatchStore.getState().model; const liveProp = model.props.find((candidate) => candidate.id === prop.id); const heldBy = liveProp?.heldBy;
+    const released = heldBy ? null : bodyWorksRuntime.propAttackSource(prop.id, model.elapsed); const source = heldBy ?? released?.owner; if (!source) return;
+    const actor = model[source]; const targetData = payload.other.rigidBodyObject?.userData;
+    const moveId = heldBy ? 'prop' : released?.moveId; const attackInstanceId = heldBy ? actor.attackInstanceId : released?.attackInstanceId;
+    if (!isFighterColliderData(targetData) || targetData.fighter === source || !moveId || attackInstanceId === undefined || actor.moveId !== moveId || actor.attackPhase !== 'active') return;
     const propVelocity = body.current?.linvel() ?? { x: 0, y: 0, z: 0 }; const targetVelocity = payload.other.rigidBody?.linvel() ?? { x: 0, y: 0, z: 0 };
-    bodyWorksRuntime.recordContact({ time: model.elapsed, sourceFighter: heldBy, sourceSegment: 'rightHand', targetFighter: targetData.fighter, targetSegment: targetData.segment, targetRegion: targetData.region, totalForce: payload.totalForceMagnitude, maximumForce: payload.maxForceMagnitude, forceDirection: [payload.maxForceDirection.x, payload.maxForceDirection.y, payload.maxForceDirection.z], relativeSpeed: Math.hypot(propVelocity.x - targetVelocity.x, propVelocity.y - targetVelocity.y, propVelocity.z - targetVelocity.z), attackInstanceId: actor.attackInstanceId, moveId: 'prop', targetSurface: null, isLanding: false });
+    bodyWorksRuntime.recordContact({ time: model.elapsed, sourceFighter: source, sourceSegment: 'rightHand', targetFighter: targetData.fighter, targetSegment: targetData.segment, targetRegion: targetData.region, totalForce: payload.totalForceMagnitude, maximumForce: payload.maxForceMagnitude, forceDirection: [payload.maxForceDirection.x, payload.maxForceDirection.y, payload.maxForceDirection.z], relativeSpeed: Math.hypot(propVelocity.x - targetVelocity.x, propVelocity.y - targetVelocity.y, propVelocity.z - targetVelocity.z), attackInstanceId, moveId, sourceObjectId: prop.id, targetSurface: null, isLanding: false });
   };
   return <RigidBody ref={body} type="dynamic" position={initialPosition} colliders="cuboid" mass={prop.kind === 'chair' ? 3.4 : .75} linearDamping={1.15} angularDamping={1.05} restitution={prop.kind === 'chair' ? .2 : .34} collisionGroups={propCollisionGroups} solverGroups={propCollisionGroups} userData={{ surface: true, prop: prop.id, kind: prop.kind }} onContactForce={onContactForce}>
     {prop.kind === 'chair' ? <group><mesh><boxGeometry args={[.9, .12, .85]} /><meshStandardMaterial color="#9099aa" metalness={.82} roughness={.2} /></mesh><mesh position={[0, .7, .36]}><boxGeometry args={[.9, 1.2, .12]} /><meshStandardMaterial color="#4cdcff" emissive="#157c8c" emissiveIntensity={.4} /></mesh></group>

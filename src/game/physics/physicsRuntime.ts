@@ -41,6 +41,7 @@ export interface BodyWorksContact {
   relativeSpeed: number;
   attackInstanceId: number | null;
   moveId: string | null;
+  sourceObjectId: string | null;
   targetSurface: string | null;
   isLanding: boolean;
 }
@@ -104,6 +105,7 @@ interface PhysicalPropGrip {
 }
 
 interface PendingLanding { attacker: FighterKey; defender: FighterKey; attackInstanceId: number; moveId: string; expiresAt: number }
+interface ReleasedPropAttack { owner: FighterKey; attackInstanceId: number; moveId: 'prop_throw'; expiresAt: number }
 
 const EMPTY_INTENT = (): IntentState => ({ move: { x: 0, z: 0 }, run: false, block: false });
 const MAX_COMMANDS = 32;
@@ -135,6 +137,7 @@ export class BodyWorksRuntime {
   private readonly grips: PhysicalGrip[] = [];
   private readonly props = new Map<string, RegisteredProp>();
   private readonly propGrips = new Map<string, PhysicalPropGrip>();
+  private readonly releasedPropAttacks = new Map<string, ReleasedPropAttack>();
   private readonly pendingLandings = new Map<FighterKey, PendingLanding>();
   private replayAccumulator = 0;
   readonly replay = new PhysicsReplayBuffer(300);
@@ -248,6 +251,12 @@ export class BodyWorksRuntime {
 
   isAwaitingLanding(fighter: FighterKey): boolean { return this.pendingLandings.has(fighter); }
 
+  propAttackSource(propId: string, now: number): ReleasedPropAttack | null {
+    const source = this.releasedPropAttacks.get(propId);
+    if (!source || source.expiresAt < now) { this.releasedPropAttacks.delete(propId); return null; }
+    return source;
+  }
+
   beforeFixedStep(dt: number, model: MatchModel, world?: World): void {
     const startedAt = performance.now();
     if (world) {
@@ -277,6 +286,7 @@ export class BodyWorksRuntime {
     if (this.world) this.syncPhysicalProps(this.world, model);
     if (this.world) this.advancePhysicalGrapple(this.world, model, dt);
     for (const [fighter, landing] of this.pendingLandings) if (landing.expiresAt < model.elapsed) this.pendingLandings.delete(fighter);
+    for (const [propId, attack] of this.releasedPropAttacks) if (attack.expiresAt < model.elapsed) this.releasedPropAttacks.delete(propId);
     this.metrics.fixedSteps += 1;
     const elapsed = performance.now() - startedAt;
     this.metrics.lastStepMs = elapsed; this.metrics.maximumStepMs = Math.max(this.metrics.maximumStepMs, elapsed);
@@ -329,8 +339,8 @@ export class BodyWorksRuntime {
     const desiredSpeed = (intent.run ? 5.4 : 3.25) * (.78 + fighterBySpeed(fighter) / 235) * (fighter.body.muscle < .3 ? .72 : 1) * movementControl;
     const inputLength = Math.min(1, Math.hypot(intent.move.x, intent.move.z)) * movementControl;
     const desiredX = intent.move.x * desiredSpeed * inputLength; const desiredZ = intent.move.z * desiredSpeed * inputLength;
-    const acceleration = (intent.run ? 9.4 : 12.5) * clamp(105 / fighter.body.mass, .72, 1.3);
-    pelvis.addForce({ x: clamp(desiredX - velocity.x, -acceleration, acceleration) * fighter.body.mass, y: 0, z: clamp(desiredZ - velocity.z, -acceleration, acceleration) * fighter.body.mass }, true);
+    const acceleration = (intent.run ? 9.4 : 12.5) * clamp(105 / fighter.body.mass, .72, 1.3) * (movementControl === 1 ? 1 : .24);
+    if (movementControl > 0) pelvis.addForce({ x: clamp(desiredX - velocity.x, -acceleration, acceleration) * fighter.body.mass, y: 0, z: clamp(desiredZ - velocity.z, -acceleration, acceleration) * fighter.body.mass }, true);
     if (inputLength > .08) {
       const desiredFacing = Math.atan2(intent.move.x, intent.move.z);
       const rotation = pelvis.rotation();
@@ -443,6 +453,7 @@ export class BodyWorksRuntime {
       const joint = world.createImpulseJoint(JointData.spherical({ x: 0, y: 0, z: 0 }, propAnchor), hand, body, true);
       joint.setContactsEnabled(false);
       this.propGrips.set(propId, { propId, owner: prop.heldBy, joint });
+      this.metrics.jointCount = this.rigs.size * 15 + this.grips.length + this.propGrips.size;
     }
   }
 
@@ -450,8 +461,10 @@ export class BodyWorksRuntime {
     const registration = this.props.get(grip.propId); const rig = this.rigs.get(grip.owner); const hand = rig?.bodies.rightHand;
     if (grip.joint.isValid()) world.removeImpulseJoint(grip.joint, true);
     this.propGrips.delete(grip.propId);
+    this.metrics.jointCount = this.rigs.size * 15 + this.grips.length + this.propGrips.size;
     if (!model || !registration?.body.isValid() || !hand) return;
     const fighter = model[grip.owner]; const current = registration.body.linvel(); const handVelocity = hand.linvel(); const throwSpeed = registration.kind === 'chair' ? 7.2 : 8.7;
+    if (fighter.moveId === 'prop_throw') this.releasedPropAttacks.set(grip.propId, { owner: grip.owner, attackInstanceId: fighter.attackInstanceId, moveId: 'prop_throw', expiresAt: model.elapsed + 1.05 });
     registration.body.setLinvel({
       x: current.x * .28 + handVelocity.x * .72 + Math.sin(fighter.facing) * throwSpeed,
       y: Math.max(1.8, current.y * .3 + handVelocity.y * .7 + 1.7),
@@ -536,7 +549,7 @@ export class BodyWorksRuntime {
       else if (!acquisitionGrace && load > grip.strength * 24) this.removeGrip(world, grip, 'load-break');
     }
     grapple.gripCount = this.grips.filter((grip) => grip.attacker === grapple.attacker).length;
-    this.metrics.gripCount = this.grips.length; this.metrics.jointCount = this.rigs.size * 15 + this.grips.length;
+    this.metrics.gripCount = this.grips.length; this.metrics.jointCount = this.rigs.size * 15 + this.grips.length + this.propGrips.size;
     if (grapple.gripCount < 2) {
       if (grapple.age > 1.8) {
         grapple.phase = 'failed'; this.releaseAllGrips(world); model.grapple = null;
@@ -580,7 +593,7 @@ export class BodyWorksRuntime {
     if (grip.joint.isValid()) world.removeImpulseJoint(grip.joint, true);
   }
 
-  private releaseAllGrips(world: World): void { for (const grip of [...this.grips]) this.removeGrip(world, grip); this.metrics.gripCount = 0; this.metrics.jointCount = this.rigs.size * 15; }
+  private releaseAllGrips(world: World): void { for (const grip of [...this.grips]) this.removeGrip(world, grip); this.metrics.gripCount = 0; this.metrics.jointCount = this.rigs.size * 15 + this.propGrips.size; }
 
   private applyPoseDrive(rig: FighterRigRegistration, fighter: FighterRuntime): void {
     const falling = ['airborne', 'downed', 'defeated'].includes(fighter.state);
@@ -650,7 +663,7 @@ export class BodyWorksRuntime {
     if (this.world) for (const grip of [...this.propGrips.values()]) this.releasePropGrip(this.world, grip, null);
     if (this.instrumentedWorld && this.originalRemoveImpulseJoint) this.instrumentedWorld.removeImpulseJoint = this.originalRemoveImpulseJoint;
     this.generation += 1; this.rigs.clear(); this.commands.length = 0; this.contacts.length = 0; this.replay.clear();
-    this.pendingLandings.clear(); this.props.clear(); this.propGrips.clear(); this.replayAccumulator = 0; this.world = null; this.instrumentedWorld = null; this.originalRemoveImpulseJoint = null;
+    this.pendingLandings.clear(); this.props.clear(); this.propGrips.clear(); this.releasedPropAttacks.clear(); this.replayAccumulator = 0; this.world = null; this.instrumentedWorld = null; this.originalRemoveImpulseJoint = null;
     this.intents.player = EMPTY_INTENT(); this.intents.opponent = EMPTY_INTENT();
     this.metrics.fixedSteps = 0; this.metrics.bodyCount = 0; this.metrics.jointCount = 0; this.metrics.gripCount = 0; this.metrics.nearestGripDistance = 0; this.metrics.maximumGripError = 0; this.metrics.maximumGripLoad = 0; this.metrics.lastGripBreakReason = 'none'; this.metrics.worldJointCount = 0; this.metrics.gripCreateCount = 0; this.metrics.gripInvalidCount = 0; this.metrics.worldBodyCount = 0; this.metrics.invalidRegisteredBodyCount = 0; this.metrics.worldRemoveCount = 0; this.metrics.contactCount = 0; this.metrics.lastStepMs = 0; this.metrics.maximumStepMs = 0;
   }

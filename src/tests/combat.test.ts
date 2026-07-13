@@ -221,7 +221,7 @@ describe('deterministic combat rules', () => {
   it('progressively fails the table only from a measured physical landing contact', () => {
     const model = createMatch('atlas', 'vex', 'chaos', 'normal'); model.physicsAuthority = true; model.player.position = { x: 0, z: -7.1 }; model.opponent.position = { x: .8, z: -7.1 };
     startMove(model.player, model.opponent, getMove('skyhook')); model.player.attackPhase = 'recovery';
-    const contact = { id: 1, time: 2, sourceFighter: 'player' as const, sourceSegment: 'chest' as const, targetFighter: 'opponent' as const, targetSegment: 'chest' as const, targetRegion: 'chest' as const, totalForce: 330, maximumForce: 250, forceDirection: [0, -1, 0] as const, relativeSpeed: 4.8, attackInstanceId: model.player.attackInstanceId, moveId: 'skyhook', targetSurface: 'table', isLanding: true };
+    const contact = { id: 1, time: 2, sourceFighter: 'player' as const, sourceSegment: 'chest' as const, targetFighter: 'opponent' as const, targetSegment: 'chest' as const, targetRegion: 'chest' as const, totalForce: 330, maximumForce: 250, forceDirection: [0, -1, 0] as const, relativeSpeed: 4.8, attackInstanceId: model.player.attackInstanceId, moveId: 'skyhook', sourceObjectId: null, targetSurface: 'table', isLanding: true };
     expect(applyPhysicalContact(model, contact)).toBe(true);
     expect(model.props.find((prop) => prop.kind === 'table')).toMatchObject({ failureStage: 'failed', broken: true });
     expect(model.highlights.some((moment) => moment.kind === 'table')).toBe(true);
@@ -248,6 +248,16 @@ describe('deterministic combat rules', () => {
   it('converts an elastic rope rebound into the named stiff-arm', () => {
     const model = createMatch('atlas', 'nova', 'standard', 'normal'); model.player.position = { x: 4.8, z: 0 }; model.opponent.position = { x: 3.3, z: 0 }; model.player.ropeRebound = 1.1;
     expect(requestCommand(model, 'player', 'heavy')).toBe(true); expect(model.player.moveId).toBe('stiff_arm');
+  });
+
+  it('turns a distant prop release into a bounded physical throw window', () => {
+    const model = createMatch('brick', 'vex', 'chaos', 'normal'); const chair = model.props.find((prop) => prop.kind === 'chair');
+    if (!chair) throw new Error('Chaos match must provide a chair');
+    model.player.position = { ...chair.position }; expect(requestCommand(model, 'player', 'interact')).toBe(true);
+    model.opponent.position = { x: 1, z: 0 }; model.player.position = { x: -2, z: 0 };
+    expect(requestCommand(model, 'player', 'interact')).toBe(true);
+    expect(model.player).toMatchObject({ heldPropId: null, moveId: 'prop_throw', attackPhase: 'anticipation' });
+    expect(chair.heldBy).toBeNull();
   });
 
   it('preserves beer choice but clears guard, climb, AI, and impact transients on rematch', () => {
