@@ -26,7 +26,7 @@ test('mobile player can enter a match, move, guard, and attack', async ({ page }
   if (!box) return;
   const before = { x: Number(await hud.getAttribute('data-player-x')), z: Number(await hud.getAttribute('data-player-z')) };
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2); await page.mouse.down(); await page.mouse.move(box.x + box.width * .82, box.y + box.height / 2);
-  await expect(page.locator('.context-hint')).toContainText('TOUCH ACTIVE'); await page.waitForTimeout(750); await page.mouse.up(); await page.waitForTimeout(250);
+  await expect(page.locator('.context-hint')).toContainText('TOUCH ACTIVE'); await page.waitForTimeout(750);
   const after = { x: Number(await hud.getAttribute('data-player-x')), z: Number(await hud.getAttribute('data-player-z')) };
   expect(Math.hypot(after.x - before.x, after.z - before.z)).toBeGreaterThan(.12);
 
@@ -35,6 +35,7 @@ test('mobile player can enter a match, move, guard, and attack', async ({ page }
     const opponentX = Number(await hud.getAttribute('data-opponent-x')); const opponentZ = Number(await hud.getAttribute('data-opponent-z'));
     return Math.hypot(playerX - opponentX, playerZ - opponentZ);
   }, { timeout: 15_000 }).toBeLessThan(1.85);
+  await page.mouse.up(); await page.waitForTimeout(250);
   await expect.poll(async () => await hud.getAttribute('data-player-state'), { timeout: 20_000, intervals: [100, 200] }).toMatch(/idle|locomotion/);
   await page.evaluate(() => {
     const hudNode = document.querySelector('.hud'); if (!hudNode) return;

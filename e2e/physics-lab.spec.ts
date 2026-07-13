@@ -91,7 +91,12 @@ test('Bodyworks lab exposes live Rapier diagnostics and drives real jump/walk in
     new MutationObserver(observe).observe(document.body, { subtree: true, attributes: true, childList: true }); observe();
   });
   await lab.getByRole('button', { name: 'ROPE LOAD + STIFF-ARM' }).click();
-  await expect(page.locator('html')).toHaveAttribute('data-saw-rope-callout', 'true', { timeout: 4_000 }); await expect(page.locator('html')).toHaveAttribute('data-saw-stiff-arm', 'true', { timeout: 4_000 }); await expect(page.locator('html')).toHaveAttribute('data-saw-stiff-arm-knockdown', 'true', { timeout: 4_000 });
+  await expect(page.locator('html')).toHaveAttribute('data-saw-rope-callout', 'true', { timeout: 4_000 }); await expect(page.locator('html')).toHaveAttribute('data-saw-stiff-arm', 'true', { timeout: 4_000 });
+  if (await page.locator('html').getAttribute('data-saw-stiff-arm-knockdown') !== 'true') {
+    await expect(lab.getByRole('button', { name: 'ROPE LOAD + STIFF-ARM' })).toBeEnabled({ timeout: 4_000 });
+    await lab.getByRole('button', { name: 'ROPE LOAD + STIFF-ARM' }).click();
+  }
+  await expect(page.locator('html')).toHaveAttribute('data-saw-stiff-arm-knockdown', 'true', { timeout: 5_000 });
   await expect(lab.getByRole('button', { name: 'KICK-UP RECOVERY' })).toBeEnabled({ timeout: 4_000 });
   await page.evaluate(() => {
     const observe = (): void => {

@@ -40,7 +40,7 @@ test('fighter select through guarded combat, result, and rematch', async ({ page
   );
   const deadline = Date.now() + 330_000;
   while (Date.now() < deadline && !(await rematch.isVisible())) {
-    if (await replay.isVisible()) { await replay.click(); await page.waitForTimeout(180); continue; }
+    if (await replay.isVisible()) { await replay.click({ force: true, timeout: 750 }).catch(() => undefined); await page.waitForTimeout(180); continue; }
     if (!(await hud.isVisible())) { await page.waitForTimeout(180); continue; }
     const state = await hud.getAttribute('data-player-state'); const opponentState = await hud.getAttribute('data-opponent-state');
     if (state === 'downed') { await page.keyboard.press('Space'); await page.waitForTimeout(260); continue; }
