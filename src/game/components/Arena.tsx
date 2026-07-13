@@ -12,13 +12,14 @@ import type { BodySegmentId } from '../physics/bodySchema';
 import type { PropRuntime } from '../types/game';
 
 function Crowd() {
-  const ref = useRef<InstancedMesh>(null); const dummy = useMemo(() => new Object3D(), []); const count = 180;
-  useFrame(({ clock }) => {
+  const ref = useRef<InstancedMesh>(null); const dummy = useMemo(() => new Object3D(), []); const elapsed = useRef(0); const count = 180;
+  useFrame((_, dt) => {
+    elapsed.current += dt;
     if (!ref.current) return;
     const hype = useMatchStore.getState().model.hype;
     for (let index = 0; index < count; index += 1) {
       const row = Math.floor(index / 36); const col = index % 36; const angle = (col / 36) * Math.PI * 2;
-      const radius = 9.5 + row * 1.25; const bounce = Math.sin(clock.elapsedTime * (2 + hype / 30) + index * .71) * (.04 + hype / 700);
+      const radius = 9.5 + row * 1.25; const bounce = Math.sin(elapsed.current * (2 + hype / 30) + index * .71) * (.04 + hype / 700);
       dummy.position.set(Math.cos(angle) * radius, 1.3 + row * .55 + bounce, Math.sin(angle) * radius);
       dummy.rotation.y = -angle + Math.PI / 2; dummy.scale.set(.42, .7 + (index % 3) * .12, .32); dummy.updateMatrix(); ref.current.setMatrixAt(index, dummy.matrix);
     }
@@ -30,8 +31,9 @@ function Crowd() {
 }
 
 function RopeSide({ axis, side, color, emissive }: { axis: 'x' | 'z'; side: -1 | 1; color: string; emissive: string }) {
-  const group = useRef<Group>(null);
-  useFrame(({ clock }) => {
+  const group = useRef<Group>(null); const elapsed = useRef(0);
+  useFrame((_, dt) => {
+    elapsed.current += dt;
     if (!group.current) return;
     const model = useMatchStore.getState().model; const overdrive = model.chaosEvent?.type === 'OVERDRIVE ROPES';
     const edge = axis === 'x' ? 5.2 : 3.7; const visualEdge = axis === 'x' ? 5.75 : 4.25;
@@ -39,7 +41,7 @@ function RopeSide({ axis, side, color, emissive }: { axis: 'x' | 'z'; side: -1 |
     const opponentEdge = (axis === 'x' ? model.opponent.position.x : model.opponent.position.z) * side;
     const compression = Math.max(0, Math.min(1, (Math.max(playerEdge, opponentEdge) - edge) / .54));
     const rebound = Math.max(playerEdge > edge - .6 ? model.player.ropeRebound : 0, opponentEdge > edge - .6 ? model.opponent.ropeRebound : 0);
-    const pulse = Math.sin(clock.elapsedTime * (overdrive ? 26 : 18)) * compression;
+    const pulse = Math.sin(elapsed.current * (overdrive ? 26 : 18)) * compression;
     if (axis === 'x') { group.current.position.x = side * (visualEdge + compression * (.035 + pulse * .045)); group.current.scale.z = 1 + compression * .035; }
     else { group.current.position.z = side * (visualEdge + compression * (.035 + pulse * .045)); group.current.scale.x = 1 + compression * .035; }
     group.current.scale.y = 1 + pulse * .035 + rebound * .012;
@@ -102,6 +104,7 @@ const isFighterColliderData = (value: unknown): value is FighterColliderData => 
 
 function PhysicalProp({ prop, initialPosition }: { prop: PropRuntime; initialPosition: [number, number, number] }) {
   const body = useRef<RapierRigidBody | null>(null);
+  const replayActive = useMatchStore((state) => state.replayActive);
   useEffect(() => {
     const rigidBody = body.current; if (!rigidBody || prop.kind === 'table') return;
     return bodyWorksRuntime.registerProp(prop.id, prop.kind, rigidBody);
@@ -124,8 +127,8 @@ function PhysicalProp({ prop, initialPosition }: { prop: PropRuntime; initialPos
     bodyWorksRuntime.recordContact({ time: model.elapsed, sourceFighter: source, sourceSegment: 'rightHand', targetFighter: targetData.fighter, targetSegment: targetData.segment, targetRegion: targetData.region, totalForce: payload.totalForceMagnitude, maximumForce: payload.maxForceMagnitude, forceDirection: [payload.maxForceDirection.x, payload.maxForceDirection.y, payload.maxForceDirection.z], relativeSpeed: Math.hypot(propVelocity.x - targetVelocity.x, propVelocity.y - targetVelocity.y, propVelocity.z - targetVelocity.z), attackInstanceId, moveId, sourceObjectId: prop.id, targetSurface: null, isLanding: false });
   };
   return <RigidBody ref={body} type="dynamic" position={initialPosition} colliders="cuboid" mass={prop.kind === 'chair' ? 3.4 : .75} linearDamping={1.15} angularDamping={1.05} restitution={prop.kind === 'chair' ? .2 : .34} collisionGroups={propCollisionGroups} solverGroups={propCollisionGroups} userData={{ surface: true, prop: prop.id, kind: prop.kind }} onContactForce={onContactForce}>
-    {prop.kind === 'chair' ? <group><mesh><boxGeometry args={[.9, .12, .85]} /><meshStandardMaterial color="#9099aa" metalness={.82} roughness={.2} /></mesh><mesh position={[0, .7, .36]}><boxGeometry args={[.9, 1.2, .12]} /><meshStandardMaterial color="#4cdcff" emissive="#157c8c" emissiveIntensity={.4} /></mesh></group>
-      : <group rotation={[0, 0, .1]}><mesh><boxGeometry args={[1.35, .85, .1]} /><meshStandardMaterial color="#ff3c91" emissive="#951654" emissiveIntensity={.4} /></mesh><mesh position={[0, -.82, 0]}><boxGeometry args={[.08, .85, .08]} /><meshStandardMaterial color="#d8e3eb" /></mesh></group>}
+    <group visible={!replayActive}>{prop.kind === 'chair' ? <group><mesh><boxGeometry args={[.9, .12, .85]} /><meshStandardMaterial color="#9099aa" metalness={.82} roughness={.2} /></mesh><mesh position={[0, .7, .36]}><boxGeometry args={[.9, 1.2, .12]} /><meshStandardMaterial color="#4cdcff" emissive="#157c8c" emissiveIntensity={.4} /></mesh></group>
+      : <group rotation={[0, 0, .1]}><mesh><boxGeometry args={[1.35, .85, .1]} /><meshStandardMaterial color="#ff3c91" emissive="#951654" emissiveIntensity={.4} /></mesh><mesh position={[0, -.82, 0]}><boxGeometry args={[.08, .85, .08]} /><meshStandardMaterial color="#d8e3eb" /></mesh></group>}</group>
   </RigidBody>;
 }
 

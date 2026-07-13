@@ -28,6 +28,24 @@ function RecordedFighter({ side, frameRef }: { side: FighterKey; frameRef: React
   return <group>{schema.map((segment) => <group key={segment.id} ref={(node) => { if (node) segments.current[segment.id] = node; }}><SegmentVisual schema={segment} fighterId={fighterId} /></group>)}</group>;
 }
 
+function RecordedProps({ frameRef }: { frameRef: React.RefObject<PhysicsReplayFrame | null> }) {
+  const matchProps = useMatchStore((state) => state.model.props); const props = useMemo(() => matchProps.filter((prop) => prop.kind !== 'table'), [matchProps]);
+  const bodies = useRef<Record<string, Group | null>>({});
+  useFrame(() => {
+    const transforms = frameRef.current?.props; if (!transforms) return;
+    for (const prop of props) {
+      const group = bodies.current[prop.id]; const transform = transforms[prop.id]; if (!group || !transform) continue;
+      group.position.set(transform.position.x, transform.position.y, transform.position.z);
+      group.quaternion.set(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
+      group.visible = true;
+    }
+  }, -1);
+  return <group>{props.map((prop) => <group key={prop.id} ref={(node) => { bodies.current[prop.id] = node; }} visible={false}>
+    {prop.kind === 'chair' ? <group><mesh><boxGeometry args={[.9, .12, .85]} /><meshStandardMaterial color="#9099aa" metalness={.82} roughness={.2} /></mesh><mesh position={[0, .7, .36]}><boxGeometry args={[.9, 1.2, .12]} /><meshStandardMaterial color="#4cdcff" emissive="#157c8c" emissiveIntensity={.5} /></mesh></group>
+      : <group rotation={[0, 0, .1]}><mesh><boxGeometry args={[1.35, .85, .1]} /><meshStandardMaterial color="#ff3c91" emissive="#951654" emissiveIntensity={.5} /></mesh><mesh position={[0, -.82, 0]}><boxGeometry args={[.08, .85, .08]} /><meshStandardMaterial color="#d8e3eb" /></mesh></group>}
+  </group>)}</group>;
+}
+
 export function ReplayDirector() {
   const active = useMatchStore((state) => state.replayActive); const lastImpact = useMatchStore((state) => state.model.lastImpact);
   const reducedMotion = useSettings((state) => state.reducedMotion);
@@ -52,5 +70,5 @@ export function ReplayDirector() {
     frame.current = frames.current[Math.min(frames.current.length - 1, index)] ?? null;
     if (elapsed.current >= PLAYBACK_SECONDS) useMatchStore.getState().stopReplay();
   }, -2);
-  return <group visible={active}><RecordedFighter side="player" frameRef={frame} /><RecordedFighter side="opponent" frameRef={frame} /></group>;
+  return <group visible={active}><RecordedFighter side="player" frameRef={frame} /><RecordedFighter side="opponent" frameRef={frame} /><RecordedProps frameRef={frame} /></group>;
 }
