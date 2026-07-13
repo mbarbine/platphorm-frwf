@@ -14,20 +14,23 @@ test('Bodyworks lab exposes live Rapier diagnostics and drives real jump/walk in
   for (const label of ['MOVE', 'RUN', 'QUICK', 'POWER', 'GRAPPLE', 'GUARD', 'COUNTER', 'JUMP', 'PROP', 'PIN / FINISH', 'TAUNT']) await expect(deck).toContainText(label);
   await expect(hud).toHaveAttribute('data-player-state', 'idle');
   await page.waitForTimeout(2_500);
-  const initialY = Number(await hud.getAttribute('data-player-pelvis-y')); let apex = initialY;
-  await page.evaluate(() => {
+  const initialY = Number(await hud.getAttribute('data-player-pelvis-y'));
+  await page.evaluate((startingY) => {
     const deckNode = document.querySelector('[data-testid="control-deck"]'); if (!deckNode) return;
+    document.documentElement.dataset.maxJumpPelvisY = String(startingY);
     const observe = (): void => {
       if (deckNode.getAttribute('data-control-state')?.includes('AIRBORNE')) document.documentElement.dataset.sawAirborneControl = 'true';
       if (deckNode.querySelector('[data-control="jump"]')?.classList.contains('is-active')) document.documentElement.dataset.sawActiveJumpControl = 'true';
+      const liveY = Number(document.querySelector('.hud')?.getAttribute('data-player-pelvis-y')); const maximum = Number(document.documentElement.dataset.maxJumpPelvisY);
+      if (Number.isFinite(liveY) && liveY > maximum) document.documentElement.dataset.maxJumpPelvisY = String(liveY);
     };
-    new MutationObserver(observe).observe(deckNode, { subtree: true, attributes: true }); observe();
-  });
+    new MutationObserver(observe).observe(document.body, { subtree: true, attributes: true }); observe();
+  }, initialY);
   const jump = lab.getByRole('button', { name: 'STANDING JUMP' }); await expect(jump).toBeEnabled(); await jump.click();
   await expect(hud).toHaveAttribute('data-player-state', 'jumping', { timeout: 2_500 });
   await expect(page.locator('html')).toHaveAttribute('data-saw-active-jump-control', 'true'); await expect(page.locator('html')).toHaveAttribute('data-saw-airborne-control', 'true');
-  await expect.poll(async () => { apex = Math.max(apex, Number(await hud.getAttribute('data-player-pelvis-y'))); return apex; }, { timeout: 7_000, intervals: [50, 100] }).toBeGreaterThan(initialY + .2);
   await expect(lab.getByRole('button', { name: 'WALK + STOP' })).toBeEnabled({ timeout: 3_000 });
+  expect(Number(await page.locator('html').getAttribute('data-max-jump-pelvis-y'))).toBeGreaterThan(initialY + .2);
   const initialX = Number(await hud.getAttribute('data-player-x')); const initialZ = Number(await hud.getAttribute('data-player-z'));
   await lab.getByRole('button', { name: 'WALK + STOP' }).click();
   await expect.poll(async () => Math.hypot(Number(await hud.getAttribute('data-player-x')) - initialX, Number(await hud.getAttribute('data-player-z')) - initialZ), { timeout: 2_100, intervals: [100] }).toBeGreaterThan(.35);
