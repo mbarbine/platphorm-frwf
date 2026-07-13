@@ -1,8 +1,9 @@
 import type { FighterState } from '../types/game';
 
 const LEGAL_TRANSITIONS: Readonly<Record<FighterState, readonly FighterState[]>> = {
-  idle: ['locomotion', 'attacking', 'grappling', 'staggered', 'downed', 'grabbed', 'pinned', 'victorious', 'defeated'],
-  locomotion: ['idle', 'attacking', 'grappling', 'staggered', 'downed', 'grabbed', 'victorious', 'defeated'],
+  idle: ['locomotion', 'blocking', 'attacking', 'grappling', 'staggered', 'downed', 'grabbed', 'pinned', 'victorious', 'defeated'],
+  locomotion: ['idle', 'blocking', 'attacking', 'grappling', 'staggered', 'downed', 'grabbed', 'victorious', 'defeated'],
+  blocking: ['idle', 'locomotion', 'staggered', 'grabbed', 'downed', 'defeated'],
   attacking: ['idle', 'staggered', 'downed', 'grabbed', 'victorious', 'defeated'],
   grappling: ['idle', 'staggered', 'downed', 'victorious', 'defeated'],
   grabbed: ['airborne', 'staggered', 'downed', 'idle', 'defeated'],

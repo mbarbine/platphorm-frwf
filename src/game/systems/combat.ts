@@ -1,18 +1,24 @@
 import { fighterById } from '../data/fighters';
 import { getMove } from '../data/moves';
+import { BALANCE } from '../data/balance';
 import { chooseAiDecision, isActionLegal } from '../ai/utilityAI';
 import { clamp, distance, normalize, scale, seededRandom } from '../utils/math';
 import type { Difficulty, FighterId, FighterRuntime, GameCommand, ImpactEvent, MatchModel, MatchResult, MatchStats, MoveDefinition, PropRuntime, Ruleset, Vec2 } from '../types/game';
 
-export interface FrameInput { move: Vec2; run: boolean; commands: readonly GameCommand[] }
+export interface FrameInput { move: Vec2; run: boolean; block: boolean; commands: readonly GameCommand[] }
 const EMPTY_STATS = (): MatchStats => ({ damageDealt: 0, counters: 0, grapples: 0, finishers: 0, nearFalls: 0, propImpacts: 0 });
 
-export const createFighterRuntime = (definitionId: FighterId, position: Vec2): FighterRuntime => ({
-  definitionId, position, velocity: { x: 0, z: 0 }, facing: 0, health: 100, stamina: 100, momentum: 0,
+export const createFighterRuntime = (definitionId: FighterId, position: Vec2, beersDrunk = 0): FighterRuntime => {
+  const definition = fighterById(definitionId);
+  const beers = clamp(Math.round(beersDrunk), 0, BALANCE.stamina.beersPerFighter);
+  const staminaCap = Math.round((BALANCE.stamina.baseCap + definition.stats.stamina * BALANCE.stamina.statScale + beers * BALANCE.stamina.beerCapBoost) * 10) / 10;
+  return ({
+  definitionId, position, velocity: { x: 0, z: 0 }, facing: 0, health: 100, stamina: staminaCap, staminaCap, beersDrunk: beers, momentum: 0,
   state: 'idle', moveId: null, attackPhase: null, phaseElapsed: 0, stateElapsed: 0, hitTargets: [], downTimer: 0,
   counterWindow: 0, invulnerability: 0, pinCount: 0, pinEscape: 0, heldPropId: null, comboStep: 0, recentMoves: [],
   lastActionAt: 0, ropeRebound: 0, finisherPrimed: false,
-});
+  });
+};
 
 const initialProps = (enabled: boolean): PropRuntime[] => enabled ? [
   { id: 'chair-1', kind: 'chair', position: { x: -7.1, z: 2.8 }, durability: 3, heldBy: null, broken: false },
@@ -20,15 +26,15 @@ const initialProps = (enabled: boolean): PropRuntime[] => enabled ? [
   { id: 'table-1', kind: 'table', position: { x: 0, z: -7.2 }, durability: 1, heldBy: null, broken: false },
 ] : [{ id: 'table-1', kind: 'table', position: { x: 0, z: -7.2 }, durability: 1, heldBy: null, broken: false }];
 
-export const createMatch = (playerId: FighterId, opponentId: FighterId, ruleset: Ruleset, difficulty: Difficulty, seed = 1337): MatchModel => ({
+export const createMatch = (playerId: FighterId, opponentId: FighterId, ruleset: Ruleset, difficulty: Difficulty, seed = 1337, playerBeers = 0, opponentBeers = 0): MatchModel => ({
   ruleset, difficulty, elapsed: 0, paused: false, resolved: false,
-  player: createFighterRuntime(playerId, { x: -2.3, z: 0 }), opponent: createFighterRuntime(opponentId, { x: 2.3, z: 0 }),
+  player: createFighterRuntime(playerId, { x: -2.3, z: 0 }, playerBeers), opponent: createFighterRuntime(opponentId, { x: 2.3, z: 0 }, opponentBeers),
   hype: 8, props: initialProps(ruleset === 'chaos'), chaosEvent: null, nextChaosAt: 38, lastImpact: null, impactSequence: 0,
   announcement: 'ROUND ONE — FIGHT!', announcementTimer: 2.2, hitStop: 0, slowMotion: 0, result: null,
-  playerStats: EMPTY_STATS(), opponentStats: EMPTY_STATS(), aiThinkTimer: .35, aiIntent: null, seed,
+  playerStats: EMPTY_STATS(), opponentStats: EMPTY_STATS(), aiThinkTimer: .35, aiIntent: null, aiBlockTimer: 0, seed,
 });
 
-export const resetTransientState = (model: MatchModel): MatchModel => createMatch(model.player.definitionId, model.opponent.definitionId, model.ruleset, model.difficulty, model.seed + 97);
+export const resetTransientState = (model: MatchModel): MatchModel => createMatch(model.player.definitionId, model.opponent.definitionId, model.ruleset, model.difficulty, model.seed + 97, model.player.beersDrunk, model.opponent.beersDrunk);
 
 export const getAttackPhase = (move: MoveDefinition, elapsed: number): 'anticipation' | 'active' | 'recovery' | null => {
   if (elapsed < move.anticipationDuration) return 'anticipation';
@@ -54,7 +60,7 @@ export const startMove = (actor: FighterRuntime, target: FighterRuntime, move: M
   actor.phaseElapsed = 0;
   actor.stateElapsed = 0;
   actor.hitTargets = [];
-  actor.stamina = clamp(actor.stamina - move.staminaCost, 0, 100);
+  actor.stamina = clamp(actor.stamina - move.staminaCost, 0, actor.staminaCap);
   actor.finisherPrimed = move.category === 'finisher';
   if (move.category === 'finisher') actor.momentum = 0;
   return true;

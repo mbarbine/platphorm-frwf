@@ -1,18 +1,18 @@
 export type FighterId = 'atlas' | 'vex' | 'nova' | 'brick' | 'chad';
 export type FighterState =
   | 'idle' | 'locomotion' | 'attacking' | 'grappling' | 'grabbed' | 'airborne'
-  | 'staggered' | 'downed' | 'recovering' | 'pinning' | 'pinned' | 'victorious' | 'defeated';
+  | 'blocking' | 'staggered' | 'downed' | 'recovering' | 'pinning' | 'pinned' | 'victorious' | 'defeated';
 export type AttackPhase = 'anticipation' | 'active' | 'recovery' | null;
 export type MoveCategory = 'quick' | 'heavy' | 'grapple' | 'ground' | 'aerial' | 'prop' | 'finisher' | 'utility';
 export type AnimationKey =
   | 'idle' | 'combatIdle' | 'walk' | 'run' | 'jab' | 'heavyStrike' | 'kick' | 'grappleEntry'
   | 'lift' | 'slam' | 'throw' | 'stagger' | 'knockdown' | 'downed' | 'recovery' | 'dodge'
-  | 'counter' | 'taunt' | 'pin' | 'kickout' | 'victory' | 'defeat' | 'finisher';
+  | 'counter' | 'block' | 'taunt' | 'pin' | 'kickout' | 'victory' | 'defeat' | 'finisher';
 export type Ruleset = 'standard' | 'chaos';
 export type Difficulty = 'normal' | 'hard';
 export type Tendencies = 'aggressive' | 'technical' | 'opportunistic';
 export type ControlDevice = 'keyboard' | 'gamepad';
-export type GameCommand = 'quick' | 'heavy' | 'grapple' | 'dodge' | 'interact' | 'context' | 'taunt';
+export type GameCommand = 'quick' | 'heavy' | 'grapple' | 'block' | 'dodge' | 'interact' | 'context' | 'taunt';
 
 export interface Vec2 { x: number; z: number }
 
@@ -59,6 +59,8 @@ export interface FighterRuntime {
   facing: number;
   health: number;
   stamina: number;
+  staminaCap: number;
+  beersDrunk: number;
   momentum: number;
   state: FighterState;
   moveId: string | null;
@@ -109,7 +111,7 @@ export interface MatchResult {
 export interface ImpactEvent {
   id: number;
   position: Vec2;
-  kind: 'light' | 'heavy' | 'counter' | 'grapple' | 'weapon' | 'finisher' | 'table' | 'nearfall' | 'ko' | 'rope';
+  kind: 'light' | 'heavy' | 'blocked' | 'counter' | 'grapple' | 'weapon' | 'finisher' | 'table' | 'nearfall' | 'ko' | 'rope';
   intensity: number;
 }
 
@@ -141,5 +143,6 @@ export interface MatchModel {
   opponentStats: MatchStats;
   aiThinkTimer: number;
   aiIntent: GameCommand | null;
+  aiBlockTimer: number;
   seed: number;
 }
