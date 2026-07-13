@@ -364,10 +364,12 @@ export const requestCommand = (model: MatchModel, actorKey: 'player' | 'opponent
     if (target.state === 'downed') return startPin(actor, target);
     const nearXApron = Math.abs(actor.position.x) > 5.05 && Math.abs(actor.position.x) < 6.9 && Math.abs(actor.position.z) < 4.4;
     const nearZApron = Math.abs(actor.position.z) > 3.55 && Math.abs(actor.position.z) < 5.6 && Math.abs(actor.position.x) < 5.9;
-    if (!model.physicsAuthority && (nearXApron || nearZApron)) {
+    if (nearXApron || nearZApron) {
       const inside = Math.abs(actor.position.x) <= 5.8 && Math.abs(actor.position.z) <= 4.3;
-      if (nearXApron) actor.position.x = Math.sign(actor.position.x) * (inside ? 6.45 : 5.05);
-      else actor.position.z = Math.sign(actor.position.z) * (inside ? 5.05 : 3.55);
+      if (!model.physicsAuthority) {
+        if (nearXApron) actor.position.x = Math.sign(actor.position.x) * (inside ? 6.45 : 5.05);
+        else actor.position.z = Math.sign(actor.position.z) * (inside ? 5.05 : 3.55);
+      }
       actor.velocity = { x: 0, z: 0 }; actor.state = 'locomotion'; actor.invulnerability = .35;
       model.announcement = inside ? 'THROUGH THE ROPES — RINGSIDE!' : 'BACK BETWEEN THE ROPES!'; model.announcementTimer = 1.15;
       return true;

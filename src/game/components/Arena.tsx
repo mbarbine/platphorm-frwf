@@ -66,15 +66,6 @@ function Post({ x, z }: { x: number; z: number }) {
   </RigidBody>;
 }
 
-function RingSafetyBoundary() {
-  return <RigidBody type="fixed" colliders={false} collisionGroups={arenaCollisionGroups} solverGroups={arenaCollisionGroups} userData={{ surface: true, kind: 'elastic-rope-wall' }}>
-    <CuboidCollider args={[.1, 1.55, 3.88]} position={[-5.84, 3.12, 0]} friction={.12} restitution={.34} />
-    <CuboidCollider args={[.1, 1.55, 3.88]} position={[5.84, 3.12, 0]} friction={.12} restitution={.34} />
-    <CuboidCollider args={[5.34, 1.55, .1]} position={[0, 3.12, -4.34]} friction={.12} restitution={.34} />
-    <CuboidCollider args={[5.34, 1.55, .1]} position={[0, 3.12, 4.34]} friction={.12} restitution={.34} />
-  </RigidBody>;
-}
-
 function Props() {
   const props = useMatchStore((state) => state.model.props);
   const player = useMatchStore((state) => state.model.player);
@@ -174,7 +165,7 @@ export function Arena() {
       <mesh position={[0, 1.48, -4.66]}><boxGeometry args={[5.4, .2, .03]} /><meshStandardMaterial color="#6a35ff" emissive="#6a35ff" emissiveIntensity={1.7} /></mesh>
       <mesh position={[0, 1.48, 4.66]}><boxGeometry args={[5.4, .2, .03]} /><meshStandardMaterial color="#ff388b" emissive="#ff388b" emissiveIntensity={1.7} /></mesh>
     </group>
-    <RingSafetyBoundary /><Ropes /><Post x={-5.75} z={-4.25} /><Post x={5.75} z={-4.25} /><Post x={-5.75} z={4.25} /><Post x={5.75} z={4.25} />
+    <Ropes /><Post x={-5.75} z={-4.25} /><Post x={5.75} z={-4.25} /><Post x={-5.75} z={4.25} /><Post x={5.75} z={4.25} />
     <group position={[6.65, .36, 4.65]}>{[0, .28, .56].map((y, index) => <mesh key={y} position={[index * .18, y, 0]}><boxGeometry args={[1.15 - index * .12, .22, 1.2]} /><meshStandardMaterial color="#394151" metalness={.75} roughness={.24} /></mesh>)}</group>
     <RigidBody type="fixed" colliders="hull" position={[0, .2, 0]} collisionGroups={arenaCollisionGroups} solverGroups={arenaCollisionGroups} userData={{ surface: true, kind: 'floor' }}><mesh receiveShadow><cylinderGeometry args={[15, 15, .4, 48]} /><meshStandardMaterial color="#100d1c" roughness={.8} /></mesh></RigidBody>
     <Crowd /><Props />

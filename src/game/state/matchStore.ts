@@ -30,10 +30,14 @@ export const useMatchStore = create<MatchStore>((set) => ({
     bodyWorksRuntime.captureInput('player', input, model.elapsed);
     bodyWorksRuntime.resolveCommands('player', model.elapsed, (buffered) => {
       const wasClimbing = model.player.state === 'climbing';
+      const wasNearApron = ((Math.abs(model.player.position.x) > 5.05 && Math.abs(model.player.position.x) < 6.9 && Math.abs(model.player.position.z) < 4.4)
+        || (Math.abs(model.player.position.z) > 3.55 && Math.abs(model.player.position.z) < 5.6 && Math.abs(model.player.position.x) < 5.9))
+        && model.opponent.state !== 'downed' && model.player.momentum < 100;
       const accepted = requestCommand(model, 'player', buffered.command, buffered.direction);
       if (accepted && buffered.command === 'jump') bodyWorksRuntime.requestJump('player');
       if (accepted && buffered.command === 'context' && !wasClimbing && model.player.state === 'climbing') bodyWorksRuntime.requestCornerClimb('player', model.player.position);
       if (accepted && buffered.command === 'context' && wasClimbing && model.player.moveId === 'aerial') bodyWorksRuntime.requestCornerDive('player', model.opponent.position);
+      if (accepted && buffered.command === 'context' && !wasClimbing && wasNearApron && model.player.state === 'locomotion') bodyWorksRuntime.requestApronTransition('player', model.player.position);
       return accepted;
     });
     advanceMatch(model, dt, { ...input, commands: [] });

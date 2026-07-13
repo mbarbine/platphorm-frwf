@@ -31,7 +31,7 @@ export const isActionLegal = (model: MatchModel, command: GameCommand, actorKey:
     if (pinEligible && target.state === 'downed' && targetDistance <= 1.6) return true;
     const nearApron = (Math.abs(actor.position.x) > 5.05 && Math.abs(actor.position.x) < 6.9 && Math.abs(actor.position.z) < 4.4)
       || (Math.abs(actor.position.z) > 3.55 && Math.abs(actor.position.z) < 5.6 && Math.abs(actor.position.x) < 5.9);
-    return actorKey === 'player' && nearApron && ['idle', 'locomotion'].includes(actor.state);
+    return nearApron && ['idle', 'locomotion'].includes(actor.state);
   }
   const move = command === 'quick' ? MOVES.jab : command === 'heavy' ? MOVES.heavy : MOVES.slam;
   if (!move) return false;
@@ -47,6 +47,9 @@ export const chooseAiDecision = (model: MatchModel, definition: FighterDefinitio
   const toward = { x: delta.x / magnitude, z: delta.z / magnitude };
   const [roll, nextSeed] = seededRandom(model.seed);
   const personality = definition.personality;
+  const actorRingside = Math.abs(actor.position.x) > 5.82 || Math.abs(actor.position.z) > 4.32;
+  const targetInRing = Math.abs(target.position.x) <= 5.72 && Math.abs(target.position.z) <= 4.22;
+  if (actorRingside && targetInRing && isActionLegal(model, 'context', 'opponent')) return { command: 'context', move: { x: 0, z: 0 }, run: false, nextSeed };
   if (actor.state === 'grappling' && actor.attackPhase === 'anticipation') {
     if (actor.phaseElapsed > .12) return { command: null, move: { x: 0, z: 0 }, run: false, nextSeed };
     const command: GameCommand = roll < .34 ? 'quick' : roll < .7 ? 'heavy' : 'grapple';

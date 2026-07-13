@@ -13,7 +13,7 @@ import { getPairedPose, getStrikePose } from '../animation/choreography';
 import { POSES } from '../animation/poses';
 import type { Pose } from '../animation/poses';
 import type { QuaternionValue, Vector3Value } from './motorController';
-import { solveRopeResponse } from './ringDynamics';
+import { apronTransitionTarget, isRingside, solveRopeResponse } from './ringDynamics';
 import { computeStrikeForce, strikeDriveProfile } from './strikeDynamics';
 
 export type FighterKey = 'player' | 'opponent';
@@ -75,6 +75,7 @@ interface FighterRigRegistration {
   jumpCooldown: number;
   ropeContact: { axis: 'x' | 'z'; side: -1 | 1; peakCompression: number; entrySpeed: number } | null;
   cornerAnchor: Vec2 | null;
+  apronAnchor: { target: Vec2; inside: boolean; age: number } | null;
 }
 
 interface IntentState { move: Vec2; run: boolean; block: boolean }
@@ -126,7 +127,7 @@ export class BodyWorksRuntime {
   readonly metrics: BodyWorksMetrics = { fixedSteps: 0, bodyCount: 0, jointCount: 0, gripCount: 0, nearestGripDistance: 0, maximumGripError: 0, maximumGripLoad: 0, lastGripBreakReason: 'none', worldJointCount: 0, gripCreateCount: 0, gripInvalidCount: 0, worldBodyCount: 0, invalidRegisteredBodyCount: 0, worldRemoveCount: 0, contactCount: 0, emergencyResetCount: 0, lastStepMs: 0, maximumStepMs: 0 };
 
   registerFighter(fighter: FighterKey, bodies: Partial<Record<BodySegmentId, RapierRigidBody>>, jointCount: number): () => void {
-    this.rigs.set(fighter, { bodies, supportContacts: new Set<BodySegmentId>(), jumpQueued: false, jumpCooldown: 0, ropeContact: null, cornerAnchor: null });
+    this.rigs.set(fighter, { bodies, supportContacts: new Set<BodySegmentId>(), jumpQueued: false, jumpCooldown: 0, ropeContact: null, cornerAnchor: null, apronAnchor: null });
     this.recount(jointCount);
     const registeredGeneration = this.generation;
     return () => {
@@ -182,6 +183,13 @@ export class BodyWorksRuntime {
     pelvis.applyImpulse({ x: direction.x * mass * 6.7, y: mass * 5.15, z: direction.z * mass * 6.7 }, true);
     chest?.applyImpulse({ x: direction.x * mass * 1.25, y: mass * 1.2, z: direction.z * mass * 1.25 }, true);
     pelvis.applyTorqueImpulse({ x: -mass * .014, y: 0, z: direction.x * mass * .006 }, true);
+  }
+
+  requestApronTransition(fighter: FighterKey, from: Vec2): void {
+    const rig = this.rigs.get(fighter); if (!rig) return;
+    const transition = apronTransitionTarget(from);
+    rig.apronAnchor = { ...transition, age: 0 };
+    rig.ropeContact = null; rig.cornerAnchor = null;
   }
 
   setFootContact(fighter: FighterKey, foot: BodySegmentId, touching: boolean): void {
@@ -255,7 +263,27 @@ export class BodyWorksRuntime {
     const intent = this.intents[key];
     const velocity = pelvis.linvel();
     const definition = fighterById(fighter.definitionId);
-    const targetPelvisY = 1.92 + 1.12 * (definition.physics.standingHeightM / 1.88) - fighter.body.pelvisDrop * .32;
+    const ringPelvisY = 1.92 + 1.12 * (definition.physics.standingHeightM / 1.88) - fighter.body.pelvisDrop * .32;
+    const onRingsideFloor = isRingside({ x: pelvis.translation().x, z: pelvis.translation().z });
+    const targetPelvisY = ringPelvisY - (onRingsideFloor ? 1.5 : 0);
+    if (key === 'opponent' && !rig.apronAnchor && onRingsideFloor && !isRingside(model.player.position) && ['idle', 'locomotion'].includes(fighter.state)) {
+      const transition = apronTransitionTarget(fighter.position);
+      rig.apronAnchor = { ...transition, age: 0 };
+    }
+    if (rig.apronAnchor) {
+      const anchor = rig.apronAnchor; anchor.age += dt;
+      const position = pelvis.translation(); const targetY = anchor.inside ? ringPelvisY + .04 : ringPelvisY - 1.46;
+      const transitionVelocity = pelvis.linvel(); const dx = anchor.target.x - position.x; const dz = anchor.target.z - position.z;
+      const planarDistance = Math.hypot(dx, dz);
+      pelvis.addForce({
+        x: clamp(dx * fighter.body.mass * 34 - transitionVelocity.x * fighter.body.mass * 7.5, -4_800, 4_800),
+        y: clamp((targetY - position.y) * fighter.body.mass * 31 - transitionVelocity.y * fighter.body.mass * 7.2, -4_800, 5_400),
+        z: clamp(dz * fighter.body.mass * 34 - transitionVelocity.z * fighter.body.mass * 7.5, -4_800, 4_800),
+      }, true);
+      this.applyPoseDrive(rig, fighter);
+      if ((planarDistance < .28 && Math.abs(targetY - position.y) < .45) || anchor.age > 1.55) rig.apronAnchor = null;
+      return;
+    }
     if (fighter.state === 'climbing' && rig.cornerAnchor) {
       const position = pelvis.translation(); const target = rig.cornerAnchor;
       pelvis.addForce({ x: clamp((target.x - position.x) * fighter.body.mass * 36 - velocity.x * fighter.body.mass * 8, -4_600, 4_600), y: clamp((4.28 - position.y) * fighter.body.mass * 38 - velocity.y * fighter.body.mass * 8.5, -5_200, 5_200), z: clamp((target.z - position.z) * fighter.body.mass * 36 - velocity.z * fighter.body.mass * 8, -4_600, 4_600) }, true);
@@ -263,14 +291,17 @@ export class BodyWorksRuntime {
       return;
     }
     if (fighter.state !== 'climbing') rig.cornerAnchor = null;
-    const groundedControl = ['idle', 'locomotion', 'blocking', 'attacking', 'grappling', 'victorious'].includes(fighter.state);
+    const groundedControl = ['idle', 'locomotion', 'blocking', 'attacking', 'grappling', 'recovering', 'victorious'].includes(fighter.state);
     if (groundedControl) {
-      const contactMultiplier = rig.supportContacts.size > 0 ? 1 : pelvis.translation().y < targetPelvisY ? .72 : 0;
-      const supportAcceleration = clamp(18 + (targetPelvisY - pelvis.translation().y) * 42 - velocity.y * 8.5, 0, 48) * fighter.body.muscle * contactMultiplier;
+      const recoveryBlend = fighter.state === 'recovering' ? clamp(fighter.stateElapsed / .7, 0, 1) : 1;
+      const recoveryTargetY = targetPelvisY - (1 - recoveryBlend) * .62;
+      const contactMultiplier = rig.supportContacts.size > 0 ? 1 : pelvis.translation().y < recoveryTargetY + .2 ? .72 : 0;
+      const supportAcceleration = clamp(18 + (recoveryTargetY - pelvis.translation().y) * 42 - velocity.y * 8.5, 0, 48) * fighter.body.muscle * contactMultiplier * (.42 + recoveryBlend * .58);
       pelvis.addForce({ x: 0, y: fighter.body.mass * supportAcceleration, z: 0 }, true);
     }
-    const desiredSpeed = (intent.run ? 5.4 : 3.25) * (.78 + fighterBySpeed(fighter) / 235) * (fighter.body.muscle < .3 ? .72 : 1);
-    const inputLength = Math.min(1, Math.hypot(intent.move.x, intent.move.z));
+    const movementControl = ['idle', 'locomotion'].includes(fighter.state) ? 1 : fighter.state === 'recovering' ? .08 : 0;
+    const desiredSpeed = (intent.run ? 5.4 : 3.25) * (.78 + fighterBySpeed(fighter) / 235) * (fighter.body.muscle < .3 ? .72 : 1) * movementControl;
+    const inputLength = Math.min(1, Math.hypot(intent.move.x, intent.move.z)) * movementControl;
     const desiredX = intent.move.x * desiredSpeed * inputLength; const desiredZ = intent.move.z * desiredSpeed * inputLength;
     const acceleration = (intent.run ? 9.4 : 12.5) * clamp(105 / fighter.body.mass, .72, 1.3);
     pelvis.addForce({ x: clamp(desiredX - velocity.x, -acceleration, acceleration) * fighter.body.mass, y: 0, z: clamp(desiredZ - velocity.z, -acceleration, acceleration) * fighter.body.mass }, true);
@@ -478,7 +509,8 @@ export class BodyWorksRuntime {
   private applyPoseDrive(rig: FighterRigRegistration, fighter: FighterRuntime): void {
     const falling = ['airborne', 'downed', 'defeated'].includes(fighter.state);
     const definition = fighterById(fighter.definitionId);
-    const strength = fighter.state === 'defeated' ? .02 : falling ? .13 : fighter.state === 'grabbed' ? .34 : fighter.state === 'staggered' ? .48 : .94;
+    const recoveryStrength = .38 + clamp(fighter.stateElapsed / .7, 0, 1) * .56;
+    const strength = fighter.state === 'defeated' ? .02 : falling ? .13 : fighter.state === 'recovering' ? recoveryStrength : fighter.state === 'grabbed' ? .34 : fighter.state === 'staggered' ? .48 : .94;
     const fatigue = 1 - fighter.body.muscle;
     const pose = targetPoseFor(fighter); const targets = physicalPoseTargets(pose, fighter.facing);
     for (const [segment, body] of Object.entries(rig.bodies) as [BodySegmentId, RapierRigidBody][]) {

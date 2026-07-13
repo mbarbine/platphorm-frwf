@@ -2,6 +2,7 @@ import type { Vec2 } from '../types/game';
 
 export const RING_ROPE_LIMIT = { x: 5.2, z: 3.7 } as const;
 export const RING_HARD_LIMIT = { x: 5.72, z: 4.22 } as const;
+export const RINGSIDE_THRESHOLD = { x: 5.82, z: 4.32 } as const;
 
 export interface RopeResponse {
   engaged: boolean;
@@ -11,6 +12,26 @@ export interface RopeResponse {
   outwardSpeed: number;
   force: Vec2;
 }
+
+export interface ApronTransitionTarget {
+  target: Vec2;
+  /** True when this transition finishes on the raised ring mat. */
+  inside: boolean;
+}
+
+export const isRingside = (position: Vec2): boolean => Math.abs(position.x) > RINGSIDE_THRESHOLD.x || Math.abs(position.z) > RINGSIDE_THRESHOLD.z;
+
+/** Select the nearest rope opening. The runtime reaches it with forces. */
+export const apronTransitionTarget = (position: Vec2): ApronTransitionTarget => {
+  const inside = isRingside(position);
+  const useX = Math.abs(position.x) / RING_ROPE_LIMIT.x >= Math.abs(position.z) / RING_ROPE_LIMIT.z;
+  if (useX) {
+    const side = Math.sign(position.x) || 1;
+    return { target: { x: side * (inside ? 4.72 : 6.42), z: Math.max(-3.3, Math.min(3.3, position.z)) }, inside };
+  }
+  const side = Math.sign(position.z) || 1;
+  return { target: { x: Math.max(-4.65, Math.min(4.65, position.x)), z: side * (inside ? 3.28 : 4.96) }, inside };
+};
 
 export const solveRopeResponse = (position: Vec2, velocity: Vec2, overdrive = false): RopeResponse => {
   const xCompression = Math.max(0, Math.abs(position.x) - RING_ROPE_LIMIT.x);

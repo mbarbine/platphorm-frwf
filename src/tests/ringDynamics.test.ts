@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { RING_HARD_LIMIT, RING_ROPE_LIMIT, solveRopeResponse } from '../game/physics/ringDynamics';
+import { apronTransitionTarget, isRingside, RING_HARD_LIMIT, RING_ROPE_LIMIT, solveRopeResponse } from '../game/physics/ringDynamics';
 
 describe('elastic ring boundary', () => {
   it('stays passive in the playable center', () => {
@@ -18,5 +18,18 @@ describe('elastic ring boundary', () => {
     const standard = solveRopeResponse(position, { x: 3.2, z: 1 });
     const overdrive = solveRopeResponse(position, { x: 3.2, z: 1 }, true);
     expect(standard.axis).toBe('x'); expect(overdrive.force.x).toBeLessThan(standard.force.x);
+  });
+});
+
+describe('physical apron transitions', () => {
+  it('targets ringside from inside without mutating the source position', () => {
+    const source = { x: 5.3, z: .4 }; const target = apronTransitionTarget(source);
+    expect(target.inside).toBe(false); expect(target.target.x).toBeGreaterThan(RING_HARD_LIMIT.x); expect(source).toEqual({ x: 5.3, z: .4 });
+  });
+
+  it('targets the raised mat when a fighter is ringside', () => {
+    expect(isRingside({ x: 6.4, z: 0 })).toBe(true);
+    const target = apronTransitionTarget({ x: 6.4, z: 0 });
+    expect(target.inside).toBe(true); expect(target.target.x).toBeLessThan(RING_ROPE_LIMIT.x);
   });
 });
