@@ -65,12 +65,14 @@ test('fighter select through guarded combat, grapple, result, and rematch', asyn
     let exchange = 0;
     const send = (type: 'keydown' | 'keyup', key: string, code: string): void => { window.dispatchEvent(new KeyboardEvent(type, { key, code, bubbles: true })); };
     const strike = (key: string, code: string, directional = false): void => {
-      if (directional) send('keydown', 'w', 'KeyW'); send('keydown', key, code); send('keyup', key, code); if (directional) send('keyup', 'w', 'KeyW');
+      if (directional) send('keydown', 'w', 'KeyW');
+      send('keydown', key, code); send('keyup', key, code);
+      if (directional) send('keyup', 'w', 'KeyW');
     };
     return window.setInterval(() => {
       const liveHud = document.querySelector('.hud'); if (!liveHud) return;
       const state = liveHud.getAttribute('data-player-state') ?? ''; const opponentState = liveHud.getAttribute('data-opponent-state') ?? '';
-      const stamina = Number(liveHud.getAttribute('data-player-stamina')); const momentum = Number((liveHud.textContent ?? '').match(/MOMENTUM(\d+)/)?.[1] ?? 0);
+      const stamina = Number(liveHud.getAttribute('data-player-stamina')); const momentum = Number(liveHud.querySelector('[data-player-momentum]')?.getAttribute('data-player-momentum'));
       const px = Number(liveHud.getAttribute('data-player-x')); const pz = Number(liveHud.getAttribute('data-player-z')); const ox = Number(liveHud.getAttribute('data-opponent-x')); const oz = Number(liveHud.getAttribute('data-opponent-z'));
       const separation = Math.hypot(px - ox, pz - oz);
       if (state === 'grappling') { strike('k', 'KeyK', true); return; }
