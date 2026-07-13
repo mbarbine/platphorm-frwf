@@ -14,6 +14,7 @@ interface MatchStore {
   advance: (dt: number, input: FrameInput) => void;
   pause: (paused: boolean) => void;
   setLabMode: (active: boolean) => void;
+  setToyTestMode: (active: boolean) => void;
   prepareLabScenario: (playerPosition: Vec2, opponentPosition: Vec2, playerState?: Extract<FighterState, 'idle' | 'downed'>) => void;
   setPhysicsAuthority: (active: boolean) => void;
   resolvePhysicsContacts: (contacts: readonly BodyWorksContact[]) => void;
@@ -38,7 +39,7 @@ export const useMatchStore = create<MatchStore>((set) => ({
       const wasDowned = model.player.state === 'downed';
       const wasNearApron = ((Math.abs(model.player.position.x) > 4.62 && Math.abs(model.player.position.x) < 6.9 && Math.abs(model.player.position.z) < 3.55)
         || (Math.abs(model.player.position.z) > 3.05 && Math.abs(model.player.position.z) < 5.6 && Math.abs(model.player.position.x) < 5.15));
-      const accepted = requestCommand(model, 'player', buffered.command, buffered.direction);
+      const accepted = requestCommand(model, 'player', buffered.command, buffered.direction, buffered.running);
       if (accepted && buffered.command === 'jump') bodyWorksRuntime.requestJump('player');
       if (accepted && buffered.command === 'dodge' && wasDowned && model.player.moveId === 'kick_up') bodyWorksRuntime.requestJump('player');
       if (accepted && buffered.command === 'dodge' && wasClimbing && model.player.state === 'climbing') bodyWorksRuntime.requestCornerClimb('player', model.player.position, model.player.climbStage || 1);
@@ -59,6 +60,7 @@ export const useMatchStore = create<MatchStore>((set) => ({
   }),
   pause: (paused) => set((state) => ({ model: { ...state.model, paused }, revision: state.revision + 1 })),
   setLabMode: (active) => set((state) => ({ model: { ...state.model, labMode: active, aiIntent: null, aiMovement: { x: 0, z: 0 }, aiRunning: false, aiBlockTimer: 0 }, revision: state.revision + 1 })),
+  setToyTestMode: (active) => set((state) => ({ model: { ...state.model, toyTestMode: active }, revision: state.revision + 1 })),
   prepareLabScenario: (playerPosition, opponentPosition, playerState = 'idle') => set((state) => {
     if (!state.model.labMode) return state;
     bodyWorksRuntime.prepareLabPositions(playerPosition, opponentPosition);

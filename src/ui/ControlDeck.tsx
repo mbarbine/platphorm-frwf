@@ -29,14 +29,14 @@ const BASE_LABELS: Readonly<Record<ControlId, string>> = {
 
 const moveLabel = (moveId: string): string => getMove(moveId).displayName.toUpperCase();
 
-export function buildControlLabels(player: FighterRuntime, opponent: FighterRuntime, speed: number, distance: number, direction: Vec2 = { x: 0, z: 0 }): Readonly<Record<ControlId, string>> {
+export function buildControlLabels(player: FighterRuntime, opponent: FighterRuntime, speed: number, distance: number, direction: Vec2 = { x: 0, z: 0 }, running = false): Readonly<Record<ControlId, string>> {
   const labels: Record<ControlId, string> = { ...BASE_LABELS };
   const nearCorner = Math.abs(player.position.x) > 4.35 && Math.abs(player.position.z) > 2.95;
   const ringside = Math.abs(player.position.x) > 5.82 || Math.abs(player.position.z) > 4.32;
 
   labels.quick = opponent.state === 'downed' ? moveLabel('ground') : moveLabel(selectDirectionalStrike(direction, 'quick', player.comboStep));
   labels.heavy = player.heldPropId ? moveLabel('prop')
-    : player.ropeRebound > 0 || speed > 3.6 ? moveLabel('stiff_arm')
+    : player.ropeRebound > 0 || running && speed > 3.6 ? moveLabel('stiff_arm')
       : moveLabel(selectDirectionalStrike(direction, 'heavy', player.comboStep));
 
   if (player.state === 'grappling') {
@@ -69,7 +69,7 @@ export function buildControlLabels(player: FighterRuntime, opponent: FighterRunt
 
 export function buildControlReadout(player: FighterRuntime, opponent: FighterRuntime, speed: number, distance: number, paused: boolean, device: ControlDevice = 'keyboard', direction: Vec2 = { x: 0, z: 0 }, runHeld = false): ControlReadout {
   const active = new Set<ControlId>();
-  const labels = buildControlLabels(player, opponent, speed, distance, direction);
+  const labels = buildControlLabels(player, opponent, speed, distance, direction, runHeld);
   const movementHeld = Math.hypot(direction.x, direction.z) > .08;
   if (player.state === 'locomotion' || movementHeld) active.add(runHeld || speed > 3.75 ? 'run' : 'move');
   if (player.state === 'jumping' || player.state === 'airborne') active.add('jump');

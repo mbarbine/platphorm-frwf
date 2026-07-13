@@ -11,7 +11,7 @@ import { fighterCollisionGroups } from '../physics/collisionGroups';
 import { bodyWorksRuntime } from '../physics/physicsRuntime';
 import type { FighterKey } from '../physics/physicsRuntime';
 
-interface Props { runtime: FighterRuntime; side: FighterKey }
+interface Props { runtime: FighterRuntime; side: FighterKey; showVisuals?: boolean }
 interface RigUserData { bodyWorks: true; fighter: FighterKey; segment: BodySegmentId; region: BodySegmentSchema['bodyRegion']; surface?: boolean }
 interface SurfaceUserData { surface: true; kind: string }
 
@@ -54,24 +54,26 @@ interface SegmentBodyProps {
   bodyRef: RefObject<RapierRigidBody | null>;
   onContactForce: (segment: BodySegmentSchema, bodyRef: RefObject<RapierRigidBody | null>, payload: ContactForcePayload) => void;
   onFootContact: (foot: BodySegmentId, touching: boolean, payload: CollisionEnterPayload) => void;
+  showVisuals: boolean;
 }
 
-function SegmentBody({ schema, fighterId, side, base, bodyRef, onContactForce, onFootContact }: SegmentBodyProps) {
+function SegmentBody({ schema, fighterId, side, base, bodyRef, onContactForce, onFootContact, showVisuals }: SegmentBodyProps) {
   const position: [number, number, number] = [base[0] + schema.localPosition[0], base[1] + schema.localPosition[1], base[2] + schema.localPosition[2]];
   const userData: RigUserData = { bodyWorks: true, fighter: side, segment: schema.id, region: schema.bodyRegion };
   const isFoot = schema.id === 'leftFoot' || schema.id === 'rightFoot'; const isHand = schema.id === 'leftHand' || schema.id === 'rightHand'; const isHead = schema.id === 'head';
   const collider: ReactNode = isHead ? <BallCollider args={[schema.radius]} mass={schema.massKg} />
     : isFoot || isHand ? <CuboidCollider args={[schema.radius, isFoot ? schema.radius * .5 : schema.halfLength, isFoot ? schema.halfLength * 1.35 : schema.radius]} mass={schema.massKg} friction={isFoot ? 1.45 : .72} restitution={.02} />
     : <CapsuleCollider args={[schema.halfLength, schema.radius]} mass={schema.massKg} friction={.76} restitution={.015} />;
-  return <RigidBody ref={bodyRef} name={`${side}-${schema.id}`} type="dynamic" position={position} colliders={false} collisionGroups={fighterCollisionGroups(side)} solverGroups={fighterCollisionGroups(side)} canSleep={false} linearDamping={.42} angularDamping={1.8} additionalSolverIterations={4} ccd={schema.attackEligible || isHead} userData={userData}
+  const isCore = schema.id === 'pelvis' || schema.id === 'abdomen' || schema.id === 'chest';
+  return <RigidBody ref={bodyRef} name={`${side}-${schema.id}`} type="dynamic" position={position} colliders={false} collisionGroups={fighterCollisionGroups(side)} solverGroups={fighterCollisionGroups(side)} canSleep={false} linearDamping={.42} angularDamping={1.8} additionalSolverIterations={4} ccd={schema.attackEligible || isHead || isCore} userData={userData}
     onContactForce={(payload) => onContactForce(schema, bodyRef, payload)}
     onCollisionEnter={isFoot ? (payload) => onFootContact(schema.id, true, payload) : undefined}
     onCollisionExit={isFoot ? (payload) => onFootContact(schema.id, false, payload as CollisionEnterPayload) : undefined}>
-    {collider}<SegmentVisual schema={schema} fighterId={fighterId} />
+    {collider}{showVisuals && <SegmentVisual schema={schema} fighterId={fighterId} />}
   </RigidBody>;
 }
 
-export function PhysicalFighterRig({ runtime, side }: Props) {
+export function PhysicalFighterRig({ runtime, side, showVisuals = true }: Props) {
   const fighter = fighterById(runtime.definitionId); const schema = useMemo(() => buildBodySchema(fighter), [fighter]);
   const byId = useMemo(() => new Map(schema.map((entry) => [entry.id, entry])), [schema]);
   const pelvis = useRef<RapierRigidBody | null>(null); const abdomen = useRef<RapierRigidBody | null>(null); const chest = useRef<RapierRigidBody | null>(null); const head = useRef<RapierRigidBody | null>(null);
@@ -134,5 +136,5 @@ export function PhysicalFighterRig({ runtime, side }: Props) {
     if (!isRigUserData(otherData) || otherData.fighter !== side) bodyWorksRuntime.setFootContact(side, foot, touching);
   }, [side]);
   const base = useMemo(() => [runtime.position.x, 1.92, runtime.position.z] as const, [runtime.position.x, runtime.position.z]);
-  return <group>{schema.map((entry) => <SegmentBody key={entry.id} schema={entry} fighterId={runtime.definitionId} side={side} base={base} bodyRef={refs[entry.id]} onContactForce={onContactForce} onFootContact={onFootContact} />)}</group>;
+  return <group>{schema.map((entry) => <SegmentBody key={entry.id} schema={entry} fighterId={runtime.definitionId} side={side} base={base} bodyRef={refs[entry.id]} onContactForce={onContactForce} onFootContact={onFootContact} showVisuals={showVisuals} />)}</group>;
 }

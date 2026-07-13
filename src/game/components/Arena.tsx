@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { Color, Object3D } from 'three';
 import type { InstancedMesh, MeshStandardMaterial } from 'three';
 import { useMatchStore } from '../state/matchStore';
+import { useSettings } from '../state/settings';
 import { arenaCollisionGroups, propCollisionGroups } from '../physics/collisionGroups';
 import { bodyWorksRuntime } from '../physics/physicsRuntime';
 import type { FighterKey } from '../physics/physicsRuntime';
@@ -67,6 +68,34 @@ function RopeSide({ axis, side, color, emissive }: { axis: 'x' | 'z'; side: -1 |
 
 function Ropes() {
   return <><RopeSide axis="z" side={-1} color="#5cf8ff" emissive="#39d8ff" /><RopeSide axis="z" side={1} color="#ff4fa3" emissive="#ff298d" /><RopeSide axis="x" side={-1} color="#d9ff47" emissive="#a6ed2f" /><RopeSide axis="x" side={1} color="#ff763b" emissive="#ff4b28" /></>;
+}
+
+function ReactiveMat() {
+  const mat = useRef<InstancedMesh>(null); const dummy = useMemo(() => new Object3D(), []); const lastImpactId = useRef(0); const impactAge = useRef(10); const amplitude = useRef(0); const epicenter = useRef({ x: 0, z: 0 });
+  const reducedMotion = useSettings((state) => state.reducedMotion); const lab = useMemo(() => new URLSearchParams(window.location.search).get('physicsLab') === '1', []); const columns = lab ? 6 : 12; const rows = lab ? 5 : 9; const count = columns * rows; const width = 11.3; const depth = 8.3; const tileWidth = width / columns; const tileDepth = depth / rows;
+  useFrame((_, dt) => {
+    const mesh = mat.current; if (!mesh) return;
+    const impact = useMatchStore.getState().model.lastImpact;
+    if (impact && impact.id !== lastImpactId.current && Math.abs(impact.position.x) < 6.1 && Math.abs(impact.position.z) < 4.6) {
+      lastImpactId.current = impact.id; impactAge.current = 0; epicenter.current = impact.position;
+      const hierarchy = impact.kind === 'finisher' || impact.kind === 'ko' ? .24 : impact.kind === 'grapple' ? .17 : impact.kind === 'heavy' || impact.kind === 'weapon' ? .1 : impact.kind === 'light' || impact.kind === 'blocked' ? .035 : .07;
+      amplitude.current = hierarchy * Math.min(1.45, .55 + impact.intensity * .42) * (reducedMotion ? .38 : 1);
+    }
+    impactAge.current += dt;
+    const decay = Math.exp(-impactAge.current * 4.8); const waveFront = impactAge.current * 8.5;
+    for (let row = 0; row < rows; row += 1) for (let column = 0; column < columns; column += 1) {
+      const index = row * columns + column; const x = -width / 2 + tileWidth * (column + .5); const z = -depth / 2 + tileDepth * (row + .5);
+      const distance = Math.hypot(x - epicenter.current.x, z - epicenter.current.z);
+      const contactDimple = -amplitude.current * Math.exp(-distance * distance * 1.15) * Math.exp(-impactAge.current * 8);
+      const travellingWave = amplitude.current * .38 * Math.sin((waveFront - distance) * 2.1) * Math.exp(-Math.abs(waveFront - distance) * .48) * decay;
+      const displacement = contactDimple + travellingWave;
+      dummy.position.set(x, displacement, z); dummy.rotation.set((z - epicenter.current.z) * displacement * .025, 0, -(x - epicenter.current.x) * displacement * .025); dummy.scale.set(1, 1 + Math.abs(displacement) * 1.8, 1); dummy.updateMatrix(); mesh.setMatrixAt(index, dummy.matrix);
+    }
+    mesh.instanceMatrix.needsUpdate = true;
+  });
+  return <instancedMesh ref={mat} args={[undefined, undefined, count]} position={[0, 1.86, 0]} receiveShadow>
+    <boxGeometry args={[tileWidth + .012, .08, tileDepth + .012]} /><meshStandardMaterial color="#e9ebf4" emissive="#1a0e32" emissiveIntensity={.08} roughness={.72} />
+  </instancedMesh>;
 }
 
 function Post({ x, z }: { x: number; z: number }) {
@@ -187,6 +216,7 @@ function BroadcastSet() {
 
 export function Arena() {
   const spotlight = useMatchStore((state) => state.model.chaosEvent?.type === 'SPOTLIGHT SHOWDOWN');
+  const toyTest = useMatchStore((state) => state.model.toyTestMode);
   return <>
     <color attach="background" args={[spotlight ? '#020106' : '#070611']} />
     <fog attach="fog" args={[new Color('#090715'), 15, 30]} />
@@ -196,7 +226,7 @@ export function Arena() {
     <spotLight position={[-7, 11, -5]} intensity={spotlight ? 8 : 3} color="#4be7ff" angle={.42} penumbra={.65} castShadow />
     <spotLight position={[7, 10, 4]} intensity={spotlight ? 8 : 3} color="#ff3a95" angle={.42} penumbra={.7} />
     <RigidBody type="fixed" colliders="cuboid" position={[0, 1.52, 0]} collisionGroups={arenaCollisionGroups} solverGroups={arenaCollisionGroups} userData={{ surface: true, kind: 'ring' }}><mesh receiveShadow><boxGeometry args={[12, .65, 9]} /><meshStandardMaterial color="#202437" roughness={.68} /></mesh></RigidBody>
-    <mesh position={[0, 1.86, 0]} receiveShadow><boxGeometry args={[11.3, .08, 8.3]} /><meshStandardMaterial color="#e9ebf4" emissive="#1a0e32" emissiveIntensity={.08} roughness={.72} /></mesh>
+    <ReactiveMat />
     <group position={[0, 1.915, 0]}>
       <mesh position={[0, 0, -3.78]}><boxGeometry args={[10.7, .025, .045]} /><meshStandardMaterial color="#48e7ff" emissive="#48e7ff" emissiveIntensity={1.25} /></mesh><mesh position={[0, 0, 3.78]}><boxGeometry args={[10.7, .025, .045]} /><meshStandardMaterial color="#ff3f8f" emissive="#ff3f8f" emissiveIntensity={1.25} /></mesh>
       <mesh position={[-5.12, 0, 0]}><boxGeometry args={[.045, .025, 7.55]} /><meshStandardMaterial color="#dcff46" emissive="#a8dc2c" emissiveIntensity={1.1} /></mesh><mesh position={[5.12, 0, 0]}><boxGeometry args={[.045, .025, 7.55]} /><meshStandardMaterial color="#ff6e32" emissive="#ff4c2b" emissiveIntensity={1.1} /></mesh>
@@ -214,7 +244,7 @@ export function Arena() {
     <Ropes /><Post x={-5.75} z={-4.25} /><Post x={5.75} z={-4.25} /><Post x={-5.75} z={4.25} /><Post x={5.75} z={4.25} />
     <group position={[6.65, .36, 4.65]}>{[0, .28, .56].map((y, index) => <mesh key={y} position={[index * .18, y, 0]}><boxGeometry args={[1.15 - index * .12, .22, 1.2]} /><meshStandardMaterial color="#394151" metalness={.75} roughness={.24} /></mesh>)}</group>
     <RigidBody type="fixed" colliders="hull" position={[0, .2, 0]} collisionGroups={arenaCollisionGroups} solverGroups={arenaCollisionGroups} userData={{ surface: true, kind: 'floor' }}><mesh receiveShadow><cylinderGeometry args={[15, 15, .4, 48]} /><meshStandardMaterial color="#100d1c" roughness={.8} /></mesh></RigidBody>
-    <Barricades /><Crowd /><Props />
+    <Barricades />{!toyTest && <Crowd />}<Props />
     <group position={[0, 13, 0]}>
       {[0, Math.PI / 2, Math.PI, Math.PI * 1.5].map((angle) => <group key={angle} rotation={[0, angle, 0]}>
         <mesh position={[0, -.65, -7.75]} rotation={[.15, 0, 0]}><cylinderGeometry args={[.18, .36, .65, 10]} /><meshStandardMaterial color="#8eeeff" emissive="#41dcff" emissiveIntensity={2.4} /></mesh>

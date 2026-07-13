@@ -229,6 +229,7 @@ export interface ChaosEvent {
 }
 
 export interface MatchModel {
+  toyTestMode: boolean;
   labMode: boolean;
   ruleset: Ruleset;
   difficulty: Difficulty;
