@@ -4,6 +4,7 @@ import { bodyWorksRuntime } from '../game/physics/physicsRuntime';
 import { useMatchStore } from '../game/state/matchStore';
 import type { ControlDevice } from '../game/types/game';
 import { mobileInput } from '../game/input/mobileInput';
+import { ControlDeck } from './ControlDeck';
 
 const Meter = ({ label, value, kind, max = 100 }: { label: string; value: number; kind: string; max?: number }) => <div className={`meter meter--${kind}`}><div className="meter__label"><span>{label}</span><b>{Math.round(value)}{max !== 100 ? ` / ${Math.round(max)}` : ''}</b></div><div className="meter__track"><i style={{ width: `${Math.max(0, Math.min(100, value / max * 100))}%` }} /></div></div>;
 
@@ -43,6 +44,7 @@ export function HUD({ device, paused }: { device: ControlDevice; paused: boolean
       <header><span>COLLAR &amp; ELBOW CONTROL</span><b>{model.player.moveId ? getMove(model.player.moveId).displayName : 'CHOOSE THE FINISH'}</b></header>
       {GRAPPLE_GUIDE.map((row) => <div key={row.direction}><strong>{row.direction}</strong>{row.moves.map((moveId, index) => <span className={model.player.moveId === moveId ? 'active' : ''} key={`${row.direction}-${moveId}-${index}`}><kbd>{['J', 'K', 'L'][index]}</kbd>{getMove(moveId).displayName}</span>)}</div>)}
     </div>}
+    <ControlDeck device={device} player={model.player} opponent={model.opponent} speed={playerPhysics.speed} distance={distance} paused={paused} />
     <div className="context-hint"><span className="device-dot" />{hint}<small>{touch ? 'TOUCH ACTIVE' : device === 'gamepad' ? 'GAMEPAD ACTIVE' : 'KEYBOARD ACTIVE'}</small></div>
     {paused && <div className="pause-chip">SIMULATION PAUSED</div>}
   </div>;
