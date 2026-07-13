@@ -11,6 +11,16 @@ const grappleDirectionFor = (tendency: FighterDefinition['tendency'], roll: numb
   return roll < .5 ? { x: 1, z: 0 } : { x: 0, z: -1 };
 };
 
+const strikeDirectionFor = (command: 'quick' | 'heavy', tendency: FighterDefinition['tendency'], roll: number, stamina: number): { x: number; z: number } => {
+  if (command === 'quick') {
+    if (stamina < 8) return { x: 0, z: 0 };
+    return roll < .5 ? { x: 0, z: -1 } : { x: 0, z: 1 };
+  }
+  if (tendency === 'aggressive' && stamina >= 19 && roll < .58) return { x: -1, z: 0 };
+  if (tendency === 'technical') return { x: 0, z: -1 };
+  return { x: 1, z: 0 };
+};
+
 export const isActionLegal = (model: MatchModel, command: GameCommand, actorKey: 'player' | 'opponent'): boolean => {
   const actor = model[actorKey];
   const target = actorKey === 'player' ? model.opponent : model.player;
@@ -19,7 +29,11 @@ export const isActionLegal = (model: MatchModel, command: GameCommand, actorKey:
   if (command === 'block') return actor.stamina > 2 && ['idle', 'locomotion', 'blocking', 'staggered'].includes(actor.state);
   if (command === 'jump') return actor.stamina >= 8 && actor.body.verticalOffset <= .32 && ['idle', 'locomotion'].includes(actor.state);
   if (actor.state === 'grappling' && actor.attackPhase === 'anticipation' && ['quick', 'heavy', 'grapple'].includes(command)) return true;
-  if (command === 'dodge') return actor.stamina >= 8 && ['idle', 'locomotion', 'climbing', 'staggered', 'grabbed'].includes(actor.state);
+  if (actor.state === 'climbing' && actor.climbStage === 3 && (command === 'quick' || command === 'heavy')) {
+    const move = command === 'quick' ? MOVES.aerial_elbow : MOVES.aerial_kick;
+    return Boolean(move && actor.stamina >= move.staminaCost && targetDistance <= move.maximumRange && !['defeated', 'victorious'].includes(target.state));
+  }
+  if (command === 'dodge') return actor.stamina >= (actor.state === 'downed' ? 12 : 8) && ['idle', 'locomotion', 'climbing', 'staggered', 'grabbed', 'downed'].includes(actor.state);
   if (command === 'taunt') return ['idle', 'locomotion', 'climbing'].includes(actor.state);
   if (command === 'interact') return model.ruleset === 'chaos' && ['idle', 'locomotion'].includes(actor.state);
   if (command === 'context') {
@@ -29,11 +43,11 @@ export const isActionLegal = (model: MatchModel, command: GameCommand, actorKey:
     if (pinEligible && target.state === 'downed' && targetDistance <= 1.6) return true;
     const nearCorner = Math.abs(actor.position.x) > 4.35 && Math.abs(actor.position.z) > 2.95;
     if (nearCorner && ['idle', 'locomotion'].includes(actor.state)) return true;
-    const nearApron = (Math.abs(actor.position.x) > 5.05 && Math.abs(actor.position.x) < 6.9 && Math.abs(actor.position.z) < 4.4)
-      || (Math.abs(actor.position.z) > 3.55 && Math.abs(actor.position.z) < 5.6 && Math.abs(actor.position.x) < 5.9);
+    const nearApron = (Math.abs(actor.position.x) > 4.62 && Math.abs(actor.position.x) < 6.9 && Math.abs(actor.position.z) < 3.55)
+      || (Math.abs(actor.position.z) > 3.05 && Math.abs(actor.position.z) < 5.6 && Math.abs(actor.position.x) < 5.15);
     return nearApron && ['idle', 'locomotion'].includes(actor.state);
   }
-  const move = command === 'quick' ? MOVES.jab : command === 'heavy' ? MOVES.heavy : MOVES.slam;
+  const move = command === 'quick' ? target.state === 'downed' ? MOVES.ground : MOVES.jab : command === 'heavy' ? actor.ropeRebound > 0 ? MOVES.stiff_arm : MOVES.heavy : MOVES.slam;
   if (!move) return false;
   return move.requiredActorStates.includes(actor.state) && actor.stamina >= move.staminaCost && (command !== 'grapple' || targetDistance <= move.maximumRange);
 };
@@ -49,6 +63,13 @@ export const chooseAiDecision = (model: MatchModel, definition: FighterDefinitio
   const personality = definition.personality;
   const actorRingside = Math.abs(actor.position.x) > 5.82 || Math.abs(actor.position.z) > 4.32;
   const targetInRing = Math.abs(target.position.x) <= 5.72 && Math.abs(target.position.z) <= 4.22;
+  if (actor.state === 'downed') return { command: isActionLegal(model, 'dodge', 'opponent') && roll < (model.difficulty === 'hard' ? .72 : .48) ? 'dodge' : null, move: { x: 0, z: 0 }, run: false, nextSeed };
+  if (actor.state === 'climbing') {
+    if (actor.climbStage < 3) return { command: 'context', move: { x: 0, z: 0 }, run: false, nextSeed };
+    const aerialCommand: GameCommand = roll < .4 ? 'quick' : roll < .78 ? 'heavy' : 'context';
+    const legalAerial = isActionLegal(model, aerialCommand, 'opponent') ? aerialCommand : isActionLegal(model, 'context', 'opponent') ? 'context' : null;
+    return { command: legalAerial, move: toward, run: false, nextSeed };
+  }
   if (actorRingside && targetInRing && isActionLegal(model, 'context', 'opponent')) return { command: 'context', move: { x: 0, z: 0 }, run: false, nextSeed };
   if (actor.state === 'grappling' && actor.attackPhase === 'anticipation') {
     if (actor.phaseElapsed > .12) return { command: null, move: { x: 0, z: 0 }, run: false, nextSeed };
@@ -61,6 +82,7 @@ export const chooseAiDecision = (model: MatchModel, definition: FighterDefinitio
   if (incomingMajor && roll < counterChance && isActionLegal(model, 'dodge', 'opponent')) return { command: 'dodge', move: { x: 0, z: 0 }, run: false, nextSeed };
   if (target.attackPhase === 'anticipation' && separation < 2.05 && roll < (hard ? .88 : .67) && isActionLegal(model, 'block', 'opponent')) return { command: 'block', move: { x: 0, z: 0 }, run: false, nextSeed };
   if (actor.heldPropId && separation <= 2.2 && isActionLegal(model, 'heavy', 'opponent')) return { command: 'heavy', move: { x: 0, z: 0 }, run: false, nextSeed };
+  if (actor.ropeRebound > 0 && separation <= 2.4 && isActionLegal(model, 'heavy', 'opponent')) return { command: 'heavy', move: toward, run: true, nextSeed };
   const physicallyCompromised = actor.stamina < 24 || actor.body.balance < 34 || actor.body.muscle < .36;
   if (physicallyCompromised) {
     if (actor.stamina < 18) return { command: null, move: separation < 2.6 ? { x: -toward.x * .72, z: -toward.z * .72 } : { x: 0, z: 0 }, run: false, nextSeed };
@@ -80,6 +102,8 @@ export const chooseAiDecision = (model: MatchModel, definition: FighterDefinitio
     if (propDistance <= 2.15 && isActionLegal(model, 'interact', 'opponent')) return { command: 'interact', move: { x: 0, z: 0 }, run: false, nextSeed };
     return { command: null, move: towardProp, run: propDistance > 4.2, nextSeed };
   }
+  const atCorner = Math.abs(actor.position.x) > 4.35 && Math.abs(actor.position.z) > 2.95;
+  if (target.state === 'downed' && atCorner && separation > 2.4 && roll < (.12 + personality.athletic * .28) && isActionLegal(model, 'context', 'opponent')) return { command: 'context', move: { x: 0, z: 0 }, run: false, nextSeed };
   if (target.state === 'downed' && separation < 1.7 && isActionLegal(model, 'context', 'opponent')) return { command: 'context', move: { x: 0, z: 0 }, run: false, nextSeed };
   if (actor.momentum >= 100 && isActionLegal(model, 'context', 'opponent')) return { command: 'context', move: { x: 0, z: 0 }, run: false, nextSeed };
   if (separation > 1.65) {
@@ -94,8 +118,10 @@ export const chooseAiDecision = (model: MatchModel, definition: FighterDefinitio
     : bias === 'technical' && roll < grappleThreshold + .16 ? 'grapple'
     : bias === 'opportunistic' && roll > heavyThreshold ? 'heavy'
     : roll < .4 ? 'quick' : roll < .4 + grappleThreshold ? 'grapple' : 'heavy';
-  const legal = isActionLegal(model, command, 'opponent') ? command : 'quick';
-  return { command: legal, move: legal === 'grapple' ? grappleDirectionFor(definition.tendency, roll) : { x: 0, z: 0 }, run: false, nextSeed };
+  const legal = isActionLegal(model, command, 'opponent') ? command : isActionLegal(model, 'quick', 'opponent') ? 'quick' : null;
+  const move = legal === 'grapple' ? grappleDirectionFor(definition.tendency, roll)
+    : legal === 'quick' || legal === 'heavy' ? strikeDirectionFor(legal, definition.tendency, roll, actor.stamina) : { x: 0, z: 0 };
+  return { command: legal, move, run: false, nextSeed };
 };
 
 function clampChance(value: number): number { return Math.max(.05, Math.min(.95, value)); }

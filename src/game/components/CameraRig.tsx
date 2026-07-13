@@ -7,10 +7,11 @@ import { useMatchStore } from '../state/matchStore';
 import { useSettings } from '../state/settings';
 
 export function CameraRig() {
-  const { camera } = useThree(); const target = useMemo(() => new Vector3(), []); const desired = useMemo(() => new Vector3(), []);
+  const { camera, gl } = useThree(); const target = useMemo(() => new Vector3(), []); const desired = useMemo(() => new Vector3(), []);
   const impactId = useRef(0); const impactImpulse = useRef(0); const elapsed = useRef(0);
   const lastImpact = useMatchStore((state) => state.model.lastImpact); const shake = useSettings((state) => state.shake); const reduced = useSettings((state) => state.reducedMotion);
   useFrame((_, dt) => {
+    if (gl.xr.isPresenting) return;
     elapsed.current += dt;
     const state = useMatchStore.getState(); const model = state.model; const replayActive = state.replayActive; const a = model.player.position; const b = model.opponent.position;
     const prediction = reduced ? .08 : model.player.attackPhase === 'anticipation' || model.opponent.attackPhase === 'anticipation' ? .34 : .2;

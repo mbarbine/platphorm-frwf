@@ -27,7 +27,8 @@ test('controlled Bodyworks scenarios prove a physical slam, staged climb, taunt,
   await expect(climb).toBeEnabled({ timeout: 12_000 }); await climb.click();
   await expect.poll(async () => Number(await telemetry.getAttribute('data-player-climb-stage')), { timeout: 10_000, intervals: [100, 200] }).toBe(3);
   await expect.poll(async () => await hud.getAttribute('data-player-move'), { timeout: 8_000, intervals: [100, 150] }).toBe('taunt');
-  await expect(deck.locator('[data-control="taunt"]')).toHaveClass(/is-active/); await expect(deck).toContainText('TOP-ROPE DIVE');
+  await expect(deck.locator('[data-control="taunt"]')).toHaveClass(/is-active/);
+  for (const move of ['NEON DROP ELBOW', 'TOP-ROPE MISSILE KICK', 'DOMEFALL DIVE', 'CLIMB DOWN']) await expect(deck).toContainText(move);
   await page.screenshot({ path: '/tmp/frwf-wrestling-upgrade.png' });
   await expect.poll(async () => Number(await momentum.getAttribute('data-player-momentum')), { timeout: 25_000, intervals: [200, 400] }).toBeGreaterThan(0);
 

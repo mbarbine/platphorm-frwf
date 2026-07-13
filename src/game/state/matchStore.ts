@@ -2,8 +2,9 @@ import { create } from 'zustand';
 import { advanceMatch, applyPhysicalContact, createFighterRuntime, createMatch, requestCommand, resetTransientState } from '../systems/combat';
 import type { FrameInput } from '../systems/combat';
 import { bodyWorksRuntime } from '../physics/physicsRuntime';
+import { getMove } from '../data/moves';
 import type { BodyWorksContact } from '../physics/physicsRuntime';
-import type { Difficulty, FighterId, MatchModel, Ruleset, Vec2 } from '../types/game';
+import type { Difficulty, FighterId, FighterState, MatchModel, Ruleset, Vec2 } from '../types/game';
 
 interface MatchStore {
   model: MatchModel;
@@ -13,7 +14,7 @@ interface MatchStore {
   advance: (dt: number, input: FrameInput) => void;
   pause: (paused: boolean) => void;
   setLabMode: (active: boolean) => void;
-  prepareLabScenario: (playerPosition: Vec2, opponentPosition: Vec2) => void;
+  prepareLabScenario: (playerPosition: Vec2, opponentPosition: Vec2, playerState?: Extract<FighterState, 'idle' | 'downed'>) => void;
   setPhysicsAuthority: (active: boolean) => void;
   resolvePhysicsContacts: (contacts: readonly BodyWorksContact[]) => void;
   rematch: () => void;
@@ -34,18 +35,18 @@ export const useMatchStore = create<MatchStore>((set) => ({
     bodyWorksRuntime.captureInput('player', input, model.elapsed);
     bodyWorksRuntime.resolveCommands('player', model.elapsed, (buffered) => {
       const wasClimbing = model.player.state === 'climbing';
-      const wasNearApron = ((Math.abs(model.player.position.x) > 5.05 && Math.abs(model.player.position.x) < 6.9 && Math.abs(model.player.position.z) < 4.4)
-        || (Math.abs(model.player.position.z) > 3.55 && Math.abs(model.player.position.z) < 5.6 && Math.abs(model.player.position.x) < 5.9))
-        && model.opponent.state !== 'downed' && model.player.momentum < 100;
+      const wasDowned = model.player.state === 'downed';
+      const wasNearApron = ((Math.abs(model.player.position.x) > 4.62 && Math.abs(model.player.position.x) < 6.9 && Math.abs(model.player.position.z) < 3.55)
+        || (Math.abs(model.player.position.z) > 3.05 && Math.abs(model.player.position.z) < 5.6 && Math.abs(model.player.position.x) < 5.15));
       const accepted = requestCommand(model, 'player', buffered.command, buffered.direction);
       if (accepted && buffered.command === 'jump') bodyWorksRuntime.requestJump('player');
+      if (accepted && buffered.command === 'dodge' && wasDowned && model.player.moveId === 'kick_up') bodyWorksRuntime.requestJump('player');
+      if (accepted && buffered.command === 'dodge' && wasClimbing && model.player.state === 'climbing') bodyWorksRuntime.requestCornerClimb('player', model.player.position, model.player.climbStage || 1);
       if (accepted && buffered.command === 'context' && !wasClimbing && model.player.state === 'climbing') bodyWorksRuntime.requestCornerClimb('player', model.player.position);
       if (accepted && buffered.command === 'context' && wasClimbing && model.player.state === 'climbing') bodyWorksRuntime.requestCornerClimb('player', model.player.position, model.player.climbStage || 1);
-      if (accepted && buffered.command === 'context' && wasClimbing && model.player.moveId === 'aerial') bodyWorksRuntime.requestCornerDive('player', model.opponent.position);
+      if (accepted && wasClimbing && model.player.moveId && getMove(model.player.moveId).category === 'aerial') bodyWorksRuntime.requestCornerDive('player', model.opponent.position);
       if (accepted && buffered.command === 'context' && !wasClimbing && wasNearApron && model.player.state === 'locomotion') bodyWorksRuntime.requestApronTransition('player', model.player.position);
       return accepted;
-    }, (buffered) => {
-      if (!model.resolved) { model.announcement = `${buffered.command.toUpperCase()} — NO OPENING`; model.announcementTimer = .45; }
     });
     advanceMatch(model, dt, { ...input, commands: [] });
     publishAccumulator += dt;
@@ -58,11 +59,12 @@ export const useMatchStore = create<MatchStore>((set) => ({
   }),
   pause: (paused) => set((state) => ({ model: { ...state.model, paused }, revision: state.revision + 1 })),
   setLabMode: (active) => set((state) => ({ model: { ...state.model, labMode: active, aiIntent: null, aiMovement: { x: 0, z: 0 }, aiRunning: false, aiBlockTimer: 0 }, revision: state.revision + 1 })),
-  prepareLabScenario: (playerPosition, opponentPosition) => set((state) => {
+  prepareLabScenario: (playerPosition, opponentPosition, playerState = 'idle') => set((state) => {
     if (!state.model.labMode) return state;
     bodyWorksRuntime.prepareLabPositions(playerPosition, opponentPosition);
     const player = createFighterRuntime(state.model.player.definitionId, { ...playerPosition }, state.model.player.beersDrunk);
     const opponent = createFighterRuntime(state.model.opponent.definitionId, { ...opponentPosition }, state.model.opponent.beersDrunk);
+    player.state = playerState; player.downTimer = playerState === 'downed' ? 5 : 0;
     return { model: { ...state.model, player, opponent, grapple: null, lastImpact: null, hitStop: 0, slowMotion: 0, announcement: 'LAB RESET — INPUT LIVE', announcementTimer: .65, aiIntent: null, aiMovement: { x: 0, z: 0 }, aiRunning: false, aiBlockTimer: 0 }, revision: state.revision + 1, replayActive: false };
   }),
   setPhysicsAuthority: (active) => set((state) => ({ model: { ...state.model, physicsAuthority: active }, revision: state.revision + 1 })),

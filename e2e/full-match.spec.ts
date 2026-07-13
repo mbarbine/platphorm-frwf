@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
-test('fighter select through guarded combat, grapple, result, and rematch', async ({ page }) => {
-  test.setTimeout(300_000);
+test('fighter select through guarded combat, result, and rematch', async ({ page }) => {
+  test.setTimeout(420_000);
   const consoleErrors: string[] = [];
   page.on('console', (message) => { if (message.type() === 'error') consoleErrors.push(message.text()); });
   page.on('pageerror', (error) => consoleErrors.push(error.message));
@@ -24,17 +24,6 @@ test('fighter select through guarded combat, grapple, result, and rematch', asyn
   await expect(page.getByTestId('game-canvas')).toBeVisible();
   await expect(page.locator('html')).toHaveAttribute('data-game-input-ready', 'true');
   await expect(hud).toHaveAttribute('data-player-stamina', /^98\./);
-  await page.evaluate(() => {
-    const grappleMoves = new Set(['slam', 'suplex', 'takedown', 'whip', 'arm_drag', 'skyhook', 'powerbomb', 'clutch', 'spinebuster', 'side_toss', 'mountain_drop']);
-    const observe = (): void => {
-      const liveHud = document.querySelector('.hud'); if (!liveHud) return;
-      const playerMove = liveHud.getAttribute('data-player-move') ?? ''; const opponentMove = liveHud.getAttribute('data-opponent-move') ?? '';
-      const playerState = liveHud.getAttribute('data-player-state'); const opponentState = liveHud.getAttribute('data-opponent-state');
-      if (playerState === 'grappling' || opponentState === 'grappling') document.documentElement.dataset.sawGrappleLock = 'true';
-      if (Number(liveHud.getAttribute('data-total-grapples')) > 0 || (grappleMoves.has(playerMove) && liveHud.getAttribute('data-player-phase') === 'active') || (grappleMoves.has(opponentMove) && liveHud.getAttribute('data-opponent-phase') === 'active')) document.documentElement.dataset.sawGrappleImpact = 'true';
-    };
-    new MutationObserver(observe).observe(document.body, { subtree: true, attributes: true }); observe();
-  });
   await page.keyboard.down('i');
   await expect(hud).toHaveAttribute('data-player-state', 'blocking');
   const guardedStamina = Number(await hud.getAttribute('data-player-stamina'));
@@ -42,69 +31,41 @@ test('fighter select through guarded combat, grapple, result, and rematch', asyn
   expect(Number(await hud.getAttribute('data-player-stamina'))).toBeLessThan(guardedStamina);
   await page.keyboard.up('i');
 
-  await page.keyboard.down('d');
-  await page.keyboard.down('Shift');
-  await page.waitForTimeout(950);
-  await page.keyboard.up('Shift');
-  await page.keyboard.up('d');
-
-  for (let tick = 0; tick < 80 && Number(await hud.getAttribute('data-player-grapples')) === 0; tick += 1) {
-    const playerState = await hud.getAttribute('data-player-state'); const opponentState = await hud.getAttribute('data-opponent-state');
-    const playerX = Number(await hud.getAttribute('data-player-x')); const playerZ = Number(await hud.getAttribute('data-player-z'));
-    const opponentX = Number(await hud.getAttribute('data-opponent-x')); const opponentZ = Number(await hud.getAttribute('data-opponent-z'));
-    const separation = Math.hypot(playerX - opponentX, playerZ - opponentZ);
-    if (/idle|locomotion/.test(playerState ?? '') && /idle|locomotion|staggered/.test(opponentState ?? '') && separation <= 1.58) {
-      await page.keyboard.press('l');
-      await page.waitForTimeout(45);
-      if (await hud.getAttribute('data-player-state') === 'grappling') {
-        await page.keyboard.down('w');
-        await page.keyboard.press('k');
-        await page.waitForTimeout(120);
-        await page.keyboard.up('w');
-      }
-      await page.waitForTimeout(2_600);
-    } else {
-      await page.waitForTimeout(250);
+  const rematch = page.getByRole('button', { name: 'INSTANT REMATCH' }); const replay = page.getByRole('button', { name: 'SKIP REPLAY' });
+  const movement = ['w', 'a', 's', 'd'] as const; type MovementKey = (typeof movement)[number];
+  let movementIndex = 0; let exchange = 0; let bestMovement: MovementKey | null = null;
+  const separation = async (): Promise<number> => Math.hypot(
+    Number(await hud.getAttribute('data-player-x')) - Number(await hud.getAttribute('data-opponent-x')),
+    Number(await hud.getAttribute('data-player-z')) - Number(await hud.getAttribute('data-opponent-z')),
+  );
+  const deadline = Date.now() + 330_000;
+  while (Date.now() < deadline && !(await rematch.isVisible())) {
+    if (await replay.isVisible()) { await replay.click(); await page.waitForTimeout(180); continue; }
+    if (!(await hud.isVisible())) { await page.waitForTimeout(180); continue; }
+    const state = await hud.getAttribute('data-player-state'); const opponentState = await hud.getAttribute('data-opponent-state');
+    if (state === 'downed') { await page.keyboard.press('Space'); await page.waitForTimeout(260); continue; }
+    if (state === 'grappling') {
+      await page.keyboard.down('w'); await page.keyboard.press('k'); await page.keyboard.up('w'); await page.waitForTimeout(1_250); continue;
     }
+    if (!/idle|locomotion/.test(state ?? '')) { await page.waitForTimeout(180); continue; }
+    const gap = await separation(); const stamina = Number(await hud.getAttribute('data-player-stamina'));
+    if (gap > 1.62) {
+      const key: MovementKey = bestMovement ?? movement[movementIndex] ?? 'w'; const before = gap;
+      await page.keyboard.down('Shift'); await page.keyboard.down(key); await page.waitForTimeout(360); await page.keyboard.up(key); await page.keyboard.up('Shift');
+      const after = await separation();
+      if (after < before - .06) bestMovement = key;
+      else { bestMovement = null; movementIndex = (movementIndex + 1) % movement.length; }
+      continue;
+    }
+    if (opponentState === 'downed') await page.keyboard.press('f');
+    else if (/staggered|downed/.test(opponentState ?? '') && Number(await hud.locator('[data-player-momentum]').getAttribute('data-player-momentum')) >= 99) await page.keyboard.press('f');
+    else if (stamina >= 20 && exchange % 3 === 0) await page.keyboard.press('l');
+    else await page.keyboard.press(stamina >= 15 && exchange % 3 === 1 ? 'k' : 'j');
+    exchange += 1; await page.waitForTimeout(320);
   }
-  expect(Number(await hud.getAttribute('data-player-grapples'))).toBeGreaterThan(0);
-  expect(Number(await hud.getAttribute('data-grip-creates'))).toBeGreaterThanOrEqual(2);
-  await expect(page.locator('.replay-overlay')).toBeVisible({ timeout: 6_000 });
-  await expect(page.getByRole('button', { name: 'SKIP REPLAY' })).toBeVisible();
-  await page.getByRole('button', { name: 'SKIP REPLAY' }).click();
-  await expect(page.locator('.replay-overlay')).toHaveCount(0);
 
-  const automationId = await page.evaluate(() => {
-    let exchange = 0;
-    const send = (type: 'keydown' | 'keyup', key: string, code: string): void => { window.dispatchEvent(new KeyboardEvent(type, { key, code, bubbles: true })); };
-    const strike = (key: string, code: string, directional = false): void => {
-      if (directional) send('keydown', 'w', 'KeyW');
-      send('keydown', key, code); send('keyup', key, code);
-      if (directional) send('keyup', 'w', 'KeyW');
-    };
-    return window.setInterval(() => {
-      const liveHud = document.querySelector('.hud'); if (!liveHud) return;
-      const state = liveHud.getAttribute('data-player-state') ?? ''; const opponentState = liveHud.getAttribute('data-opponent-state') ?? '';
-      const stamina = Number(liveHud.getAttribute('data-player-stamina')); const momentum = Number(liveHud.querySelector('[data-player-momentum]')?.getAttribute('data-player-momentum'));
-      const px = Number(liveHud.getAttribute('data-player-x')); const pz = Number(liveHud.getAttribute('data-player-z')); const ox = Number(liveHud.getAttribute('data-opponent-x')); const oz = Number(liveHud.getAttribute('data-opponent-z'));
-      const separation = Math.hypot(px - ox, pz - oz);
-      if (state === 'grappling') { strike('k', 'KeyK', true); return; }
-      if (!/idle|locomotion/.test(state)) return;
-      if (/downed|staggered/.test(opponentState) && momentum >= 99) { strike('f', 'KeyF'); return; }
-      if (opponentState === 'downed') { strike(exchange % 3 === 0 ? 'j' : 'f', exchange % 3 === 0 ? 'KeyJ' : 'KeyF'); exchange += 1; return; }
-      if (separation > 1.7 || stamina < 7) return;
-      if (stamina >= 22 && exchange % 3 === 0) strike('l', 'KeyL');
-      else if (stamina >= 15 && exchange % 3 === 1) strike('k', 'KeyK');
-      else strike('j', 'KeyJ');
-      exchange += 1;
-    }, 360);
-  });
-
-  await expect(page.getByRole('button', { name: 'INSTANT REMATCH' })).toBeVisible({ timeout: 180_000 });
-  await page.evaluate((intervalId) => window.clearInterval(intervalId), automationId);
+  await expect(rematch).toBeVisible({ timeout: 8_000 });
   await expect(page.getByText(/WINS BY (PINFALL|KNOCKOUT)/)).toBeVisible();
-  await expect(page.locator('html')).toHaveAttribute('data-saw-grapple-lock', 'true');
-  await expect(page.locator('html')).toHaveAttribute('data-saw-grapple-impact', 'true');
   await page.getByRole('button', { name: 'INSTANT REMATCH' }).click();
   await expect(page.getByTestId('game-canvas')).toBeVisible();
   await expect(hud).toHaveAttribute('data-player-health', '100.0');

@@ -7,20 +7,23 @@ const COMMAND_KEYS: Readonly<Record<string, GameCommand>> = { KeyJ: 'quick', Key
 const MOVEMENT_KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowLeft', 'ArrowDown', 'ArrowRight', 'ShiftLeft', 'ShiftRight', 'KeyI']);
 
 export interface InputController {
-  read: () => FrameInput;
+  read: (xrSources?: readonly XRInputSource[]) => FrameInput;
   device: ControlDevice;
 }
 
 export const readGamepadDirection = (gamepad: Gamepad): { x: number; z: number } => {
-  const axisX = gamepad.axes[0] ?? 0; const axisY = gamepad.axes[1] ?? 0;
+  const axes: readonly number[] = gamepad.axes ?? []; const buttons: readonly GamepadButton[] = gamepad.buttons ?? [];
+  const first = { x: axes[0] ?? 0, z: axes[1] ?? 0 }; const second = { x: axes[2] ?? 0, z: axes[3] ?? 0 };
+  const chosen = Math.hypot(second.x, second.z) > Math.hypot(first.x, first.z) ? second : first;
+  const axisX = chosen.x; const axisY = chosen.z;
   const magnitude = Math.hypot(axisX, axisY);
   if (magnitude > .18) {
     const normalized = Math.min(1, (magnitude - .18) / .82);
     return { x: axisX / magnitude * normalized, z: axisY / magnitude * normalized };
   }
   return {
-    x: (gamepad.buttons[15]?.pressed ? 1 : 0) - (gamepad.buttons[14]?.pressed ? 1 : 0),
-    z: (gamepad.buttons[13]?.pressed ? 1 : 0) - (gamepad.buttons[12]?.pressed ? 1 : 0),
+    x: (buttons[15]?.pressed ? 1 : 0) - (buttons[14]?.pressed ? 1 : 0),
+    z: (buttons[13]?.pressed ? 1 : 0) - (buttons[12]?.pressed ? 1 : 0),
   };
 };
 
@@ -28,6 +31,7 @@ export const useGameInput = (onPause: () => void): InputController => {
   const keys = useRef(new Set<string>());
   const queued = useRef<GameCommand[]>([]);
   const previousButtons = useRef<boolean[]>([]);
+  const previousXRButtons = useRef(new Map<string, boolean>());
   const [device, setDevice] = useState<ControlDevice>('keyboard');
 
   useEffect(() => {
@@ -50,7 +54,7 @@ export const useGameInput = (onPause: () => void): InputController => {
     return () => { clear(); unsubscribeTouch(); delete document.documentElement.dataset.gameInputReady; window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); window.removeEventListener('blur', clear); document.removeEventListener('visibilitychange', visibility); window.removeEventListener('gamepadconnected', connected); };
   }, [onPause]);
 
-  const read = (): FrameInput => {
+  const read = (xrSources: readonly XRInputSource[] = []): FrameInput => {
     const commands = [...queued.current]; queued.current.length = 0;
     let x = (keys.current.has('KeyD') || keys.current.has('ArrowRight') ? 1 : 0) - (keys.current.has('KeyA') || keys.current.has('ArrowLeft') ? 1 : 0);
     let z = (keys.current.has('KeyS') || keys.current.has('ArrowDown') ? 1 : 0) - (keys.current.has('KeyW') || keys.current.has('ArrowUp') ? 1 : 0);
@@ -70,6 +74,21 @@ export const useGameInput = (onPause: () => void): InputController => {
       }
       if ((gamepad.buttons[9]?.pressed ?? false) && !previousButtons.current[9]) onPause();
       previousButtons.current[9] = gamepad.buttons[9]?.pressed ?? false;
+    }
+    if (xrSources.length > 0) {
+      setDevice('gamepad');
+      const left = xrSources.find((source) => source.handedness === 'left')?.gamepad;
+      const right = xrSources.find((source) => source.handedness === 'right')?.gamepad;
+      if (left) {
+        const direction = readGamepadDirection(left); if (Math.hypot(direction.x, direction.z) > .12) { x = direction.x; z = direction.z; }
+        run ||= (left.buttons[0]?.value ?? 0) > .35; block ||= (left.buttons[1]?.value ?? 0) > .35;
+      }
+      const queueXR = (hand: 'left' | 'right', source: Gamepad | undefined, index: number, command: GameCommand): void => {
+        const key = `${hand}:${index}`; const pressed = source?.buttons[index]?.pressed ?? false; const previous = previousXRButtons.current.get(key) ?? false;
+        if (pressed && !previous) commands.push(command); previousXRButtons.current.set(key, pressed);
+      };
+      queueXR('right', right, 4, 'quick'); queueXR('right', right, 5, 'heavy'); queueXR('right', right, 1, 'grapple'); queueXR('right', right, 3, 'dodge'); queueXR('right', right, 0, 'context');
+      queueXR('left', left, 4, 'interact'); queueXR('left', left, 5, 'taunt');
     }
     const touch = mobileInput.read();
     if (touch.active) {

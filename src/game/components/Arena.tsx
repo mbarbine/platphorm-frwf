@@ -3,7 +3,7 @@ import type { ContactForcePayload, RapierRigidBody } from '@react-three/rapier';
 import { useFrame } from '@react-three/fiber';
 import { useEffect, useMemo, useRef } from 'react';
 import { Color, Object3D } from 'three';
-import type { Group, InstancedMesh, Mesh, MeshStandardMaterial } from 'three';
+import type { InstancedMesh, MeshStandardMaterial } from 'three';
 import { useMatchStore } from '../state/matchStore';
 import { arenaCollisionGroups, propCollisionGroups } from '../physics/collisionGroups';
 import { bodyWorksRuntime } from '../physics/physicsRuntime';
@@ -32,26 +32,37 @@ function Crowd() {
 }
 
 function RopeSide({ axis, side, color, emissive }: { axis: 'x' | 'z'; side: -1 | 1; color: string; emissive: string }) {
-  const group = useRef<Group>(null); const elapsed = useRef(0);
+  const rope = useRef<InstancedMesh>(null); const material = useRef<MeshStandardMaterial>(null); const dummy = useMemo(() => new Object3D(), []); const elapsed = useRef(0);
+  const segmentCount = 7; const length = axis === 'x' ? 8.5 : 11.5; const segmentLength = length / segmentCount; const ropeCount = 3;
   useFrame((_, dt) => {
     elapsed.current += dt;
-    if (!group.current) return;
+    if (!rope.current) return;
     const model = useMatchStore.getState().model; const overdrive = model.chaosEvent?.type === 'OVERDRIVE ROPES';
-    const edge = axis === 'x' ? 5.2 : 3.7; const visualEdge = axis === 'x' ? 5.75 : 4.25;
+    const edge = axis === 'x' ? 5.2 : 3.7;
     const playerEdge = (axis === 'x' ? model.player.position.x : model.player.position.z) * side;
     const opponentEdge = (axis === 'x' ? model.opponent.position.x : model.opponent.position.z) * side;
-    const compression = Math.max(0, Math.min(1, (Math.max(playerEdge, opponentEdge) - edge) / .54));
-    const rebound = Math.max(playerEdge > edge - .6 ? model.player.ropeRebound : 0, opponentEdge > edge - .6 ? model.opponent.ropeRebound : 0);
-    const pulse = Math.sin(elapsed.current * (overdrive ? 26 : 18)) * compression;
-    if (axis === 'x') { group.current.position.x = side * (visualEdge + compression * (.035 + pulse * .045)); group.current.scale.z = 1 + compression * .035; }
-    else { group.current.position.z = side * (visualEdge + compression * (.035 + pulse * .045)); group.current.scale.x = 1 + compression * .035; }
-    group.current.scale.y = 1 + pulse * .035 + rebound * .012;
-    for (const child of group.current.children) {
-      const mesh = child as Mesh; const material = mesh.material as MeshStandardMaterial;
-      material.emissiveIntensity = overdrive ? 2.6 : .78 + compression * 1.2;
+    const contactFighter = playerEdge >= opponentEdge ? model.player : model.opponent;
+    const contactEdge = Math.max(playerEdge, opponentEdge);
+    const compression = Math.max(0, Math.min(1, (contactEdge - edge) / .54));
+    const rebound = Math.max(playerEdge > edge - 1.55 ? model.player.ropeRebound : 0, opponentEdge > edge - 1.55 ? model.opponent.ropeRebound : 0);
+    const contactAlong = axis === 'x' ? contactFighter.position.z : contactFighter.position.x;
+    const pulse = Math.sin(elapsed.current * (overdrive ? 29 : 21)) * (compression + rebound * .34);
+    for (let ropeIndex = 0; ropeIndex < ropeCount; ropeIndex += 1) {
+      const y = 2.5 + ropeIndex * .55;
+      for (let index = 0; index < segmentCount; index += 1) {
+        const along = -length / 2 + segmentLength * (index + .5); const distanceFromContact = Math.abs(along - contactAlong);
+        const envelope = Math.exp(-distanceFromContact * distanceFromContact * .42);
+        const travellingWave = Math.sin(elapsed.current * 25 - distanceFromContact * 2.2) * rebound * .075 * envelope;
+        const deflection = side * (compression * (.34 + pulse * .1) * envelope + travellingWave);
+        dummy.position.set(axis === 'x' ? deflection : along, y + pulse * .008 * (ropeIndex + 1), axis === 'x' ? along : deflection);
+        dummy.rotation.set(0, axis === 'x' ? Math.sin((along - contactAlong) * .72) * compression * .055 * side : 0, axis === 'z' ? -Math.sin((along - contactAlong) * .72) * compression * .055 * side : 0);
+        dummy.scale.set(1, 1 + pulse * .025, 1); dummy.updateMatrix(); rope.current.setMatrixAt(ropeIndex * segmentCount + index, dummy.matrix);
+      }
     }
+    rope.current.instanceMatrix.needsUpdate = true;
+    if (material.current) material.current.emissiveIntensity = overdrive ? 2.6 : .78 + compression * 1.2;
   });
-  return <group ref={group} position={axis === 'x' ? [side * 5.75, 0, 0] : [0, 0, side * 4.25]}>{[2.5, 3.05, 3.6].map((y) => <mesh key={y} position={[0, y, 0]} castShadow><boxGeometry args={axis === 'x' ? [.07, .07, 8.5] : [11.5, .07, .07]} /><meshStandardMaterial color={color} emissive={emissive} emissiveIntensity={.78} roughness={.3} metalness={.28} /></mesh>)}</group>;
+  return <instancedMesh ref={rope} args={[undefined, undefined, segmentCount * ropeCount]} position={axis === 'x' ? [side * 5.75, 0, 0] : [0, 0, side * 4.25]} castShadow><boxGeometry args={axis === 'x' ? [.075, .075, segmentLength + .06] : [segmentLength + .06, .075, .075]} /><meshStandardMaterial ref={material} color={color} emissive={emissive} emissiveIntensity={.78} roughness={.3} metalness={.28} /></instancedMesh>;
 }
 
 function Ropes() {

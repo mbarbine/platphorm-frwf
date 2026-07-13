@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createMatch } from '../game/systems/combat';
-import { buildControlReadout } from '../ui/ControlDeck';
+import { buildControlLabels, buildControlReadout } from '../ui/ControlDeck';
 
 describe('live wrestling control deck', () => {
   it('makes a rope rebound and stiff-arm window explicit', () => {
@@ -24,7 +24,7 @@ describe('live wrestling control deck', () => {
 
     model.player.climbStage = 3;
     const top = buildControlReadout(model.player, model.opponent, 0, 4, false, 'gamepad');
-    expect(top.callout).toContain('R3 DIVE');
+    expect(top.callout).toContain('R3 DOMEFALL');
     expect(top.callout).toContain('RB POSE');
     expect(top.active.has('taunt')).toBe(true);
   });
@@ -36,5 +36,39 @@ describe('live wrestling control deck', () => {
     const paused = buildControlReadout(model.player, model.opponent, 0, 2.5, true);
     expect(paused.state).toBe('MATCH PAUSED');
     expect(paused.callout).toContain('SIMULATION STOPPED');
+  });
+
+  it('lights the physical key intent immediately before the rig reaches full speed', () => {
+    const model = createMatch('atlas', 'nova', 'standard', 'normal');
+    const walking = buildControlReadout(model.player, model.opponent, 0, 3, false, 'keyboard', { x: 0, z: -1 });
+    expect(walking.state).toContain('STRAFE'); expect(walking.state).toContain('OPPONENT LOCKED'); expect(walking.active.has('move')).toBe(true);
+    const running = buildControlReadout(model.player, model.opponent, 0, 3, false, 'keyboard', { x: 1, z: 0 }, true);
+    expect(running.state).toContain('SPRINTING'); expect(running.active.has('run')).toBe(true);
+  });
+
+  it('shows the exact directional strikes instead of generic quick and power labels', () => {
+    const model = createMatch('vex', 'atlas', 'standard', 'normal');
+    const up = buildControlLabels(model.player, model.opponent, 0, 1.4, { x: 0, z: -1 });
+    expect(up.quick).toBe('SKYLINE CROSS'); expect(up.heavy).toBe('VOLTAGE UPPERCUT');
+    const left = buildControlLabels(model.player, model.opponent, 0, 1.4, { x: -1, z: 0 });
+    expect(left.heavy).toBe('ARC ROUNDHOUSE');
+    const right = buildControlLabels(model.player, model.opponent, 0, 1.4, { x: 1, z: 0 });
+    expect(right.heavy).toBe('HALO HIGH KICK');
+    const down = buildControlLabels(model.player, model.opponent, 0, 1.4, { x: 0, z: 1 });
+    expect(down.quick).toBe('CIRCUIT LOW KICK');
+  });
+
+  it('switches the whole action deck for grapple, turnbuckle, rope exit, and kick-up states', () => {
+    const model = createMatch('chad', 'atlas', 'standard', 'normal');
+    model.player.state = 'grappling'; model.player.moveId = 'slam'; model.player.attackPhase = 'anticipation';
+    const grapple = buildControlLabels(model.player, model.opponent, 0, 1, { x: 1, z: 0 });
+    expect(grapple.quick).toBe('SIDEWINDER TOSS'); expect(grapple.heavy).toBe('VOLTAGE SLAM'); expect(grapple.grapple).toBe('ARC SUPLEX');
+    model.player.state = 'climbing'; model.player.climbStage = 3; model.player.moveId = null;
+    const corner = buildControlLabels(model.player, model.opponent, 0, 4);
+    expect(corner.quick).toBe('NEON DROP ELBOW'); expect(corner.heavy).toBe('TOP-ROPE MISSILE KICK'); expect(corner.context).toBe('DOMEFALL DIVE');
+    model.player.state = 'downed'; model.player.climbStage = 0;
+    expect(buildControlLabels(model.player, model.opponent, 0, 2).counter).toBe('LIVEWIRE KICK-UP');
+    model.player.state = 'idle'; model.player.position = { x: 4.9, z: 0 };
+    expect(buildControlLabels(model.player, model.opponent, 0, 2).context).toBe('EXIT CENTER ROPE');
   });
 });
