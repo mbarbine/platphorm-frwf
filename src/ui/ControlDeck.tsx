@@ -67,10 +67,11 @@ export function buildControlLabels(player: FighterRuntime, opponent: FighterRunt
   return labels;
 }
 
-export function buildControlReadout(player: FighterRuntime, opponent: FighterRuntime, speed: number, distance: number, paused: boolean, device: ControlDevice = 'keyboard', direction: Vec2 = { x: 0, z: 0 }): ControlReadout {
+export function buildControlReadout(player: FighterRuntime, opponent: FighterRuntime, speed: number, distance: number, paused: boolean, device: ControlDevice = 'keyboard', direction: Vec2 = { x: 0, z: 0 }, runHeld = false): ControlReadout {
   const active = new Set<ControlId>();
   const labels = buildControlLabels(player, opponent, speed, distance, direction);
-  if (player.state === 'locomotion') active.add(speed > 3.75 ? 'run' : 'move');
+  const movementHeld = Math.hypot(direction.x, direction.z) > .08;
+  if (player.state === 'locomotion' || movementHeld) active.add(runHeld || speed > 3.75 ? 'run' : 'move');
   if (player.state === 'jumping' || player.state === 'airborne') active.add('jump');
   if (player.state === 'blocking') active.add('block');
   if (player.state === 'grappling') active.add('grapple');
@@ -97,8 +98,8 @@ export function buildControlReadout(player: FighterRuntime, opponent: FighterRun
   else if (!paused && player.ropeRebound > 0) state = 'ROPES LOADED · REBOUND WINDOW OPEN';
   else if (!paused && player.state === 'jumping') state = 'AIRBORNE · BODY UNDER CONTROL';
   else if (!paused && player.state === 'blocking') state = 'GUARD UP · REVERSAL READY';
-  else if (!paused && speed > 3.75) state = 'SPRINTING · RUNNING ATTACK READY';
-  else if (!paused && speed > .2) state = `${combatDirection(direction).toUpperCase()} MOVEMENT · CAMERA-RELATIVE`;
+  else if (!paused && (runHeld || speed > 3.75) && movementHeld) state = 'SPRINTING · RUNNING ATTACK READY';
+  else if (!paused && (movementHeld || speed > .08)) state = `${combatDirection(direction).toUpperCase()} MOVEMENT · CAMERA-RELATIVE`;
 
   const keys = DEVICE_KEYS[device]; const actionKey = keys.context; const directionId = combatDirection(direction).toUpperCase();
   const nearCorner = Math.abs(player.position.x) > 4.35 && Math.abs(player.position.z) > 2.95;
@@ -121,8 +122,8 @@ export function buildControlReadout(player: FighterRuntime, opponent: FighterRun
   return { active, callout, labels, state };
 }
 
-export function ControlDeck({ device, player, opponent, speed, distance, paused, direction = { x: 0, z: 0 } }: { device: ControlDevice; player: FighterRuntime; opponent: FighterRuntime; speed: number; distance: number; paused: boolean; direction?: Vec2 }) {
-  const readout = buildControlReadout(player, opponent, speed, distance, paused, device, direction);
+export function ControlDeck({ device, player, opponent, speed, distance, paused, direction = { x: 0, z: 0 }, runHeld = false }: { device: ControlDevice; player: FighterRuntime; opponent: FighterRuntime; speed: number; distance: number; paused: boolean; direction?: Vec2; runHeld?: boolean }) {
+  const readout = buildControlReadout(player, opponent, speed, distance, paused, device, direction, runHeld);
   const controls: readonly ControlDefinition[] = (Object.keys(BASE_LABELS) as ControlId[]).map((id) => ({ id, key: DEVICE_KEYS[device][id], label: readout.labels[id] }));
 
   return <aside className={`control-deck${paused ? ' control-deck--paused' : ''}`} aria-label="Live wrestling controls" data-testid="control-deck" data-control-state={readout.state} data-control-direction={combatDirection(direction)}>
