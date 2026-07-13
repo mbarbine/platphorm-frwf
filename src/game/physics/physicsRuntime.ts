@@ -565,7 +565,7 @@ export class BodyWorksRuntime {
         const delta = { x: targetPosition.x - handPosition.x, y: targetPosition.y - handPosition.y, z: targetPosition.z - handPosition.z };
         const distance = Math.hypot(delta.x, delta.y, delta.z);
         nearestGripDistance = Math.min(nearestGripDistance, distance);
-        if (distance > 1.38) continue;
+        if (distance > 1.5) continue;
         const handVelocity = hand.linvel(); const targetVelocity = target.linvel(); const inverseDistance = 1 / Math.max(.001, distance);
         const desiredSpeed = clamp(distance * 11, 2.5, 8.5);
         const desiredVelocity = { x: targetVelocity.x + delta.x * inverseDistance * desiredSpeed, y: targetVelocity.y + delta.y * inverseDistance * desiredSpeed, z: targetVelocity.z + delta.z * inverseDistance * desiredSpeed };
@@ -581,8 +581,14 @@ export class BodyWorksRuntime {
         // The hand and target colliders already account for roughly .28 m of
         // this separation. Closing the remaining reach with a short rope joint
         // gives the lock-up a visible hand-to-body snap without teleporting.
-        if (distance > .58) continue;
-        const joint = world.createImpulseJoint(JointData.rope(.22, { x: 0, y: 0, z: 0 }, { x: targetAnchorX, y: 0, z: 0 }), hand, target, true);
+        const acquiredHands = this.grips.filter((grip) => grip.attacker === grapple.attacker).length;
+        // The first hand establishes the collar tie and can rotate two large
+        // articulated bodies a few centimetres apart. Give the second hand a
+        // slightly wider catch envelope so a visually valid two-hand lock does
+        // not fail because the first constraint moved the hips mid-frame.
+        const catchDistance = acquiredHands > 0 ? .86 : .66;
+        if (distance > catchDistance) continue;
+        const joint = world.createImpulseJoint(JointData.rope(.24, { x: 0, y: 0, z: 0 }, { x: targetAnchorX, y: 0, z: 0 }), hand, target, true);
         joint.setContactsEnabled(false);
         this.metrics.gripCreateCount += 1;
         this.grips.push({ joint, attacker: grapple.attacker, defender: grapple.defender, hand: handId, target: targetId, targetAnchorX, moveId: move.id, strength: gripCapacity(attacker), createdAt: model.elapsed });
@@ -610,7 +616,7 @@ export class BodyWorksRuntime {
     grapple.gripCount = this.grips.filter((grip) => grip.attacker === grapple.attacker).length;
     this.metrics.gripCount = this.grips.length; this.metrics.jointCount = this.rigs.size * 15 + this.grips.length + this.propGrips.size;
     if (grapple.gripCount < 2) {
-      if (grapple.age > 1.8) {
+      if (grapple.age > 2.25) {
         grapple.phase = 'failed'; this.releaseAllGrips(world); model.grapple = null;
         attacker.state = 'staggered'; attacker.stateElapsed = 0; attacker.moveId = null; attacker.attackPhase = null;
         if (defender.state === 'grabbed') defender.state = 'idle';
@@ -748,6 +754,7 @@ const fighterPower = (fighter: FighterRuntime): number => fighter.definitionId =
 const gripCapacity = (fighter: FighterRuntime): number => fighter.body.muscle * (fighter.definitionId === 'nova' ? .98 : fighter.definitionId === 'chad' ? .97 : fighter.definitionId === 'atlas' ? .91 : fighter.definitionId === 'brick' ? .84 : .7);
 const liftDriveForMove = (moveId: string): number => ['powerbomb', 'mountain_drop', 'skyhook', 'finisher'].includes(moveId) ? 1.2 : ['slam', 'suplex', 'spinebuster'].includes(moveId) ? 1 : .7;
 const gripPreferences = (moveId: string): readonly [BodySegmentId, BodySegmentId, number][] => {
+  if (moveId === 'slam') return [['leftHand', 'chest', -.18], ['rightHand', 'chest', .18]];
   if (moveId === 'suplex' || moveId === 'skyhook') return [['leftHand', 'pelvis', -.14], ['rightHand', 'pelvis', .14]];
   if (moveId === 'clutch') return [['leftHand', 'chest', -.16], ['rightHand', 'head', .08]];
   if (moveId === 'whip' || moveId === 'arm_drag') return [['leftHand', 'rightForearm', -.06], ['rightHand', 'rightUpperArm', .06]];
