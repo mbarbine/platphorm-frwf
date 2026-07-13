@@ -46,6 +46,9 @@ export const mobileInput = {
       active: performance.now() - state.lastActiveAt < 2_500,
     };
   },
+  isActive(): boolean {
+    return performance.now() - state.lastActiveAt < 2_500;
+  },
   reset(): void {
     state.move.x = 0;
     state.move.z = 0;
