@@ -27,8 +27,9 @@ test('Bodyworks lab exposes live Rapier diagnostics and drives real jump/walk in
   }, initialY);
   const jump = lab.getByRole('button', { name: 'STANDING JUMP' }); await expect(jump).toBeEnabled(); await jump.click();
   await page.waitForTimeout(100);
-  const resetJumpY = Number(await hud.getAttribute('data-player-pelvis-y'));
-  await page.locator('html').evaluate((node, startingY) => { node.dataset.maxJumpPelvisY = String(startingY); }, resetJumpY);
+  const resetJumpY = Number(await page.locator('html').getAttribute('data-lab-reset-pelvis-y'));
+  const observedJumpY = Number(await hud.getAttribute('data-player-pelvis-y'));
+  await page.locator('html').evaluate((node, startingY) => { node.dataset.maxJumpPelvisY = String(startingY); }, Math.max(resetJumpY, observedJumpY));
   await expect(page.locator('html')).toHaveAttribute('data-saw-active-jump-control', 'true');
   await expect(lab.getByRole('button', { name: 'WALK + STOP' })).toBeEnabled({ timeout: 3_000 });
   expect(Number(await page.locator('html').getAttribute('data-max-jump-pelvis-y'))).toBeGreaterThan(resetJumpY + .2);
@@ -74,7 +75,7 @@ test('Bodyworks lab exposes live Rapier diagnostics and drives real jump/walk in
     const observe = (): void => {
       const liveHud = document.querySelector('.hud'); const liveDeck = document.querySelector('[data-testid="control-deck"]');
       if (liveHud?.getAttribute('data-player-state') === 'blocking') document.documentElement.dataset.sawGuardState = 'true';
-      if (liveDeck?.querySelector('[data-control="guard"]')?.classList.contains('is-active')) document.documentElement.dataset.sawActiveGuardControl = 'true';
+      if (liveDeck?.querySelector('[data-control="block"]')?.classList.contains('is-active')) document.documentElement.dataset.sawActiveGuardControl = 'true';
     };
     new MutationObserver(observe).observe(document.body, { subtree: true, attributes: true, childList: true }); observe();
   });

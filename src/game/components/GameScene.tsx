@@ -8,6 +8,7 @@ import type { Group } from 'three';
 import type { WebGLRenderer } from 'three';
 import { Arena } from './Arena';
 import { PhysicalFighterRig } from './PhysicalFighterRig';
+import { FighterModel } from './FighterModel';
 import { CameraRig } from './CameraRig';
 import { ImpactEffects } from './ImpactEffects';
 import { useMatchStore } from '../state/matchStore';
@@ -79,9 +80,14 @@ function Simulation({ onPause, onDevice, onFinished }: Props) {
 
 function Fighters() {
   const player = useMatchStore((state) => state.model.player); const opponent = useMatchStore((state) => state.model.opponent);
+  const physicsLab = useMatchStore((state) => state.model.labMode);
   const runtimeId = useMatchStore((state) => state.model.runtimeId);
   const replayActive = useMatchStore((state) => state.replayActive);
-  return <group key={runtimeId} visible={!replayActive}><PhysicalFighterRig runtime={player} side="player" /><PhysicalFighterRig runtime={opponent} side="opponent" /></group>;
+  return <group key={runtimeId} visible={!replayActive}>
+    <PhysicalFighterRig runtime={player} side="player" showVisuals={physicsLab} />
+    <PhysicalFighterRig runtime={opponent} side="opponent" showVisuals={physicsLab} />
+    {!physicsLab && <><FighterModel runtime={player} counterpart={opponent} side="player" /><FighterModel runtime={opponent} counterpart={player} side="opponent" /></>}
+  </group>;
 }
 
 function PlayerControlBeacon() {
