@@ -35,7 +35,8 @@ export const useGameInput = (onPause: () => void): InputController => {
       if (event.repeat && COMMAND_KEYS[event.code]) return;
       keys.current.add(event.code); setDevice('keyboard');
       const command = COMMAND_KEYS[event.code];
-      if (command) { queued.current.push(command); event.preventDefault(); }
+      if (command) queued.current.push(command);
+      if (command || MOVEMENT_KEYS.has(event.code)) event.preventDefault();
       if (event.code === 'Escape') onPause();
     };
     const up = (event: KeyboardEvent): void => { keys.current.delete(event.code); };
