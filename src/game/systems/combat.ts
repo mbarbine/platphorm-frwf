@@ -684,6 +684,7 @@ export const applyPhysicalContact = (model: MatchModel, contact: BodyWorksContac
   const moveId = contact.moveId ?? actor.moveId;
   if (actor.attackInstanceId !== contact.attackInstanceId || !moveId) return false;
   const move = getMove(moveId);
+  if ((move.category === 'grapple' || move.category === 'finisher') && !contact.isLanding) return false;
   const legalContactPhase = actor.attackPhase === 'active' || (contact.isLanding && (move.category === 'grapple' || move.category === 'finisher'));
   if (!legalContactPhase) return false;
   if (!expectedContactSegment(move, contact.sourceSegment) || contact.relativeSpeed < .28 && contact.maximumForce < 45) return false;

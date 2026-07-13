@@ -229,7 +229,7 @@ export class BodyWorksRuntime {
     const pending = contact.sourceFighter ? this.pendingLandings.get(contact.sourceFighter) : undefined;
     const torsoLanding = contact.sourceSegment === 'chest' || contact.sourceSegment === 'abdomen' || contact.sourceSegment === 'pelvis';
     const validLandingSurface = contact.targetSurface === 'ring' || contact.targetSurface === 'floor' || contact.targetSurface === 'table';
-    if (pending && contact.targetFighter === null && torsoLanding && validLandingSurface && contact.maximumForce > 90) {
+    if (pending && contact.targetFighter === null && torsoLanding && validLandingSurface && contact.maximumForce > 55) {
       contact = {
         ...contact,
         sourceFighter: pending.attacker,
@@ -582,7 +582,7 @@ export class BodyWorksRuntime {
       defenderPelvis.applyImpulse({ x: direction.x * defender.body.mass * 1.7, y: -defender.body.mass * 4.15, z: direction.z * defender.body.mass * 1.7 }, true);
       defenderChest.applyTorqueImpulse({ x: move.id.includes('suplex') || move.id === 'skyhook' ? -.16 : -.08, y: 0, z: grapple.position === 'overhook' ? .12 : -.08 }, true);
       defender.state = 'airborne'; defender.stateElapsed = 0; defender.downTimer = 1.5 + (100 - defender.health) / 85;
-      this.pendingLandings.set(grapple.defender, { attacker: grapple.attacker, defender: grapple.defender, attackInstanceId: attacker.attackInstanceId, moveId: move.id, expiresAt: model.elapsed + 1.4 });
+      this.pendingLandings.set(grapple.defender, { attacker: grapple.attacker, defender: grapple.defender, attackInstanceId: attacker.attackInstanceId, moveId: move.id, expiresAt: model.elapsed + 2.2 });
       grapple.phase = 'impact'; grapple.gripCount = 0;
     }
   }

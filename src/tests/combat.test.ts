@@ -70,6 +70,12 @@ describe('deterministic combat rules', () => {
     if (decision.command) expect(isActionLegal(model, decision.command, 'opponent')).toBe(true);
   });
 
+  it('AI deliberately disengages to recover instead of guard-looping at empty stamina', () => {
+    const model = createMatch('atlas', 'nova', 'standard', 'normal'); model.opponent.stamina = 4; model.opponent.position = { x: 0, z: 0 }; model.player.position = { x: 1, z: 0 };
+    const decision = chooseAiDecision(model, fighterById('nova'));
+    expect(decision.command).toBeNull(); expect(decision.move.x).toBeLessThan(0);
+  });
+
   it('AI cannot steal an early pin after a routine knockdown', () => {
     const model = createMatch('atlas', 'vex', 'standard', 'normal'); model.player.state = 'downed'; model.player.health = 20; model.opponent.position = { ...model.player.position };
     expect(isActionLegal(model, 'context', 'opponent')).toBe(false);
@@ -225,6 +231,13 @@ describe('deterministic combat rules', () => {
     expect(applyPhysicalContact(model, contact)).toBe(true);
     expect(model.props.find((prop) => prop.kind === 'table')).toMatchObject({ failureStage: 'failed', broken: true });
     expect(model.highlights.some((moment) => moment.kind === 'table')).toBe(true);
+  });
+
+  it('does not score a grapple from incidental body contact before the landing', () => {
+    const model = createMatch('atlas', 'vex', 'standard', 'normal'); model.physicsAuthority = true; model.player.position = { x: 0, z: 0 }; model.opponent.position = { x: 1, z: 0 };
+    startMove(model.player, model.opponent, getMove('slam')); model.player.attackPhase = 'active'; const health = model.opponent.health;
+    const contact = { id: 1, time: 1, sourceFighter: 'player' as const, sourceSegment: 'chest' as const, targetFighter: 'opponent' as const, targetSegment: 'chest' as const, targetRegion: 'chest' as const, totalForce: 120, maximumForce: 90, forceDirection: [1, 0, 0] as const, relativeSpeed: 2, attackInstanceId: model.player.attackInstanceId, moveId: 'slam', sourceObjectId: null, targetSurface: null, isLanding: false };
+    expect(applyPhysicalContact(model, contact)).toBe(false); expect(model.opponent.health).toBe(health);
   });
 
   it('allows a grapple selection during the visible lock without duplicate base cost', () => {

@@ -64,12 +64,25 @@ test('fighter select through guarded combat, grapple, result, and rematch', asyn
   const automationId = await page.evaluate(() => {
     let exchange = 0;
     const send = (type: 'keydown' | 'keyup', key: string, code: string): void => { window.dispatchEvent(new KeyboardEvent(type, { key, code, bubbles: true })); };
-    const attacks = [['l', 'KeyL'], ['k', 'KeyK'], ['j', 'KeyJ'], ['f', 'KeyF'], ['j', 'KeyJ'], ['k', 'KeyK'], ['f', 'KeyF']] as const;
+    const strike = (key: string, code: string, directional = false): void => {
+      if (directional) send('keydown', 'w', 'KeyW'); send('keydown', key, code); send('keyup', key, code); if (directional) send('keyup', 'w', 'KeyW');
+    };
     return window.setInterval(() => {
-      const attack = attacks[exchange % attacks.length] ?? attacks[0];
-      send('keydown', attack[0], attack[1]); send('keyup', attack[0], attack[1]);
+      const liveHud = document.querySelector('.hud'); if (!liveHud) return;
+      const state = liveHud.getAttribute('data-player-state') ?? ''; const opponentState = liveHud.getAttribute('data-opponent-state') ?? '';
+      const stamina = Number(liveHud.getAttribute('data-player-stamina')); const momentum = Number((liveHud.textContent ?? '').match(/MOMENTUM(\d+)/)?.[1] ?? 0);
+      const px = Number(liveHud.getAttribute('data-player-x')); const pz = Number(liveHud.getAttribute('data-player-z')); const ox = Number(liveHud.getAttribute('data-opponent-x')); const oz = Number(liveHud.getAttribute('data-opponent-z'));
+      const separation = Math.hypot(px - ox, pz - oz);
+      if (state === 'grappling') { strike('k', 'KeyK', true); return; }
+      if (!/idle|locomotion/.test(state)) return;
+      if (/downed|staggered/.test(opponentState) && momentum >= 99) { strike('f', 'KeyF'); return; }
+      if (opponentState === 'downed') { strike(exchange % 3 === 0 ? 'j' : 'f', exchange % 3 === 0 ? 'KeyJ' : 'KeyF'); exchange += 1; return; }
+      if (separation > 1.7 || stamina < 7) return;
+      if (stamina >= 22 && exchange % 3 === 0) strike('l', 'KeyL');
+      else if (stamina >= 15 && exchange % 3 === 1) strike('k', 'KeyK');
+      else strike('j', 'KeyJ');
       exchange += 1;
-    }, 420);
+    }, 360);
   });
 
   await expect(page.getByRole('button', { name: 'INSTANT REMATCH' })).toBeVisible({ timeout: 180_000 });
