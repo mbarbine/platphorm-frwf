@@ -14,7 +14,7 @@ export interface ImpactCalculation {
 }
 
 export const createBodyDynamics = (definition: FighterDefinition): BodyDynamicsRuntime => {
-  const mass = Math.round((52 + definition.proportions.width * 31 + definition.proportions.height * 18 + definition.stats.power * .14) * 10) / 10;
+  const mass = definition.physics.massKg;
   return {
     mass,
     inertia: Math.round(mass * (.72 + definition.proportions.height * .28) * 10) / 10,

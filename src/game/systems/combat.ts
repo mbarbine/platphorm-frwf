@@ -303,6 +303,11 @@ export const requestCommand = (model: MatchModel, actorKey: 'player' | 'opponent
     const away = normalize({ x: actor.position.x - target.position.x, z: actor.position.z - target.position.z });
     actor.velocity = scale(away, 3.2); return true;
   }
+  if (command === 'jump') {
+    actor.state = 'jumping'; actor.stateElapsed = 0; actor.stamina = clamp(actor.stamina - 8, 0, actor.staminaCap);
+    actor.body.verticalVelocity = Math.max(actor.body.verticalVelocity, 5.8);
+    return true;
+  }
   if (command === 'interact') return useProp(model, actorKey);
   if (command === 'taunt') return startMove(actor, target, getMove('taunt'));
   if (command === 'context') {
@@ -468,6 +473,9 @@ const updateFighter = (model: MatchModel, actorKey: 'player' | 'opponent', dt: n
   if (actor.state === 'airborne' && actor.body.verticalOffset <= .001 && actor.body.verticalVelocity <= .01) {
     actor.state = 'downed'; actor.stateElapsed = 0;
     actor.downTimer = Math.max(actor.downTimer, 1.25 + (100 - actor.health) / 90);
+  }
+  if (actor.state === 'jumping' && actor.body.verticalOffset <= .001 && actor.body.verticalVelocity <= .01 && actor.stateElapsed > .12) {
+    actor.state = 'idle'; actor.stateElapsed = 0;
   }
   if (actor.state === 'downed') {
     actor.downTimer -= dt; actor.stamina = clamp(actor.stamina + dt * 10, 0, actor.staminaCap);

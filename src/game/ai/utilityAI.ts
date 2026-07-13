@@ -17,6 +17,7 @@ export const isActionLegal = (model: MatchModel, command: GameCommand, actorKey:
   if (model.paused || model.resolved || actor.state === 'pinned' || actor.state === 'pinning' || actor.state === 'defeated' || actor.state === 'victorious') return false;
   const targetDistance = distance(actor.position, target.position);
   if (command === 'block') return actor.stamina > 2 && ['idle', 'locomotion', 'blocking', 'staggered'].includes(actor.state);
+  if (command === 'jump') return actor.stamina >= 8 && actor.body.verticalOffset <= .05 && ['idle', 'locomotion'].includes(actor.state);
   if (actor.state === 'grappling' && actor.attackPhase === 'anticipation' && ['quick', 'heavy', 'grapple'].includes(command)) return true;
   if (command === 'dodge') return actor.stamina >= 8 && ['idle', 'locomotion', 'climbing', 'staggered', 'grabbed'].includes(actor.state);
   if (command === 'taunt') return ['idle', 'locomotion'].includes(actor.state);
@@ -45,30 +46,40 @@ export const chooseAiDecision = (model: MatchModel, definition: FighterDefinitio
   const magnitude = Math.max(.001, Math.hypot(delta.x, delta.z));
   const toward = { x: delta.x / magnitude, z: delta.z / magnitude };
   const [roll, nextSeed] = seededRandom(model.seed);
+  const personality = definition.personality;
   if (actor.state === 'grappling' && actor.attackPhase === 'anticipation') {
     if (actor.phaseElapsed > .12) return { command: null, move: { x: 0, z: 0 }, run: false, nextSeed };
     const command: GameCommand = roll < .34 ? 'quick' : roll < .7 ? 'heavy' : 'grapple';
     return { command, move: grappleDirectionFor(definition.tendency, roll), run: false, nextSeed };
   }
   const hard = model.difficulty === 'hard';
-  const counterChance = hard ? .68 : .38;
+  const counterChance = clampChance((hard ? .58 : .3) + personality.technical * .24 + personality.athletic * .08);
   const incomingMajor = target.attackPhase === 'anticipation' && target.moveId !== 'jab' && separation < 2.2;
   if (incomingMajor && roll < counterChance && isActionLegal(model, 'dodge', 'opponent')) return { command: 'dodge', move: { x: 0, z: 0 }, run: false, nextSeed };
   if (target.attackPhase === 'anticipation' && separation < 2.05 && roll < (hard ? .88 : .67) && isActionLegal(model, 'block', 'opponent')) return { command: 'block', move: { x: 0, z: 0 }, run: false, nextSeed };
-  if (actor.stamina < 24) return { command: separation < 2.5 ? 'dodge' : null, move: { x: -toward.x * .45, z: -toward.z * .45 }, run: false, nextSeed };
+  const physicallyCompromised = actor.stamina < 24 || actor.body.balance < 34 || actor.body.muscle < .36;
+  if (physicallyCompromised) {
+    const guard = separation < 2.25 && isActionLegal(model, 'block', 'opponent') && roll < .62;
+    return { command: guard ? 'block' : separation < 1.5 && isActionLegal(model, 'dodge', 'opponent') ? 'dodge' : null, move: { x: -toward.x * .55, z: -toward.z * .55 }, run: false, nextSeed };
+  }
   if (target.state === 'downed' && separation < 1.7 && isActionLegal(model, 'context', 'opponent')) return { command: 'context', move: { x: 0, z: 0 }, run: false, nextSeed };
   if (actor.momentum >= 100 && isActionLegal(model, 'context', 'opponent')) return { command: 'context', move: { x: 0, z: 0 }, run: false, nextSeed };
   if (separation > 1.65) {
-    const propBias = model.ruleset === 'chaos' && !actor.heldPropId && roll > .82;
+    if (separation > 3.1 && actor.health > 48 && roll < personality.showman * .13 && isActionLegal(model, 'taunt', 'opponent')) return { command: 'taunt', move: { x: 0, z: 0 }, run: false, nextSeed };
+    const propBias = model.ruleset === 'chaos' && !actor.heldPropId && roll > .92 - personality.dirty * .16 - personality.reckless * .08;
     if (propBias && isActionLegal(model, 'interact', 'opponent')) return { command: 'interact', move: toward, run: false, nextSeed };
     return { command: null, move: toward, run: separation > 3.4, nextSeed };
   }
   const bias = definition.tendency;
+  const grappleThreshold = clampChance(.31 + personality.technical * .25 + personality.powerhouse * .16);
+  const heavyThreshold = clampChance(.7 - personality.aggressive * .12 - personality.reckless * .1);
   const command: GameCommand = target.state === 'downed'
     ? (roll > .55 ? 'quick' : 'context')
-    : bias === 'technical' && roll < .5 ? 'grapple'
-    : bias === 'opportunistic' && roll > .62 ? 'heavy'
-    : roll < .48 ? 'quick' : roll < .75 ? 'grapple' : 'heavy';
+    : bias === 'technical' && roll < grappleThreshold + .16 ? 'grapple'
+    : bias === 'opportunistic' && roll > heavyThreshold ? 'heavy'
+    : roll < .4 ? 'quick' : roll < .4 + grappleThreshold ? 'grapple' : 'heavy';
   const legal = isActionLegal(model, command, 'opponent') ? command : 'quick';
   return { command: legal, move: legal === 'grapple' ? grappleDirectionFor(definition.tendency, roll) : { x: 0, z: 0 }, run: false, nextSeed };
 };
+
+function clampChance(value: number): number { return Math.max(.05, Math.min(.95, value)); }

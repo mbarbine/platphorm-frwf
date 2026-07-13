@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { FrameInput } from '../systems/combat';
 import type { ControlDevice, GameCommand } from '../types/game';
 
-const COMMAND_KEYS: Readonly<Record<string, GameCommand>> = { KeyJ: 'quick', KeyK: 'heavy', KeyL: 'grapple', Space: 'dodge', KeyE: 'interact', KeyF: 'context', KeyQ: 'taunt' };
+const COMMAND_KEYS: Readonly<Record<string, GameCommand>> = { KeyJ: 'quick', KeyK: 'heavy', KeyL: 'grapple', Space: 'dodge', KeyC: 'jump', KeyE: 'interact', KeyF: 'context', KeyQ: 'taunt' };
 
 export interface InputController {
   read: () => FrameInput;
@@ -51,7 +51,7 @@ export const useGameInput = (onPause: () => void): InputController => {
       if (Math.hypot(direction.x, direction.z) > .18) { x = direction.x; z = direction.z; setDevice('gamepad'); }
       run ||= (gamepad.buttons[7]?.value ?? 0) > .35;
       block ||= (gamepad.buttons[6]?.value ?? 0) > .35;
-      const mappings: readonly [number, GameCommand][] = [[2, 'quick'], [3, 'heavy'], [1, 'grapple'], [0, 'dodge'], [4, 'interact'], [5, 'taunt'], [11, 'context']];
+      const mappings: readonly [number, GameCommand][] = [[2, 'quick'], [3, 'heavy'], [1, 'grapple'], [0, 'dodge'], [10, 'jump'], [4, 'interact'], [5, 'taunt'], [11, 'context']];
       for (const [index, command] of mappings) {
         const pressed = gamepad.buttons[index]?.pressed ?? false;
         if (pressed && !previousButtons.current[index]) commands.push(command);

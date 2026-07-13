@@ -33,6 +33,7 @@ export function FighterModel({ runtime, counterpart, fighterId, preview = false,
       }
       else if (runtime.state === 'locomotion') key = Math.hypot(runtime.velocity.x, runtime.velocity.z) > 3.8 ? 'run' : 'walk';
       else if (runtime.state === 'blocking') key = 'block';
+      else if (runtime.state === 'jumping') key = 'aerial';
       else if (runtime.state === 'climbing') key = 'climb';
       else if (runtime.state === 'grabbed') key = 'stagger';
       else if (runtime.state === 'airborne') key = 'knockdown';

@@ -1,6 +1,6 @@
 export type FighterId = 'atlas' | 'vex' | 'nova' | 'brick' | 'chad';
 export type FighterState =
-  | 'idle' | 'locomotion' | 'attacking' | 'grappling' | 'grabbed' | 'airborne'
+  | 'idle' | 'locomotion' | 'jumping' | 'attacking' | 'grappling' | 'grabbed' | 'airborne'
   | 'blocking' | 'climbing' | 'staggered' | 'downed' | 'recovering' | 'pinning' | 'pinned' | 'victorious' | 'defeated';
 export type AttackPhase = 'anticipation' | 'active' | 'recovery' | null;
 export type MoveCategory = 'quick' | 'heavy' | 'grapple' | 'ground' | 'aerial' | 'prop' | 'finisher' | 'utility';
@@ -12,7 +12,7 @@ export type Ruleset = 'standard' | 'chaos';
 export type Difficulty = 'normal' | 'hard';
 export type Tendencies = 'aggressive' | 'technical' | 'opportunistic';
 export type ControlDevice = 'keyboard' | 'gamepad';
-export type GameCommand = 'quick' | 'heavy' | 'grapple' | 'block' | 'dodge' | 'interact' | 'context' | 'taunt';
+export type GameCommand = 'quick' | 'heavy' | 'grapple' | 'block' | 'dodge' | 'jump' | 'interact' | 'context' | 'taunt';
 export type BodyRegion = 'head' | 'chest' | 'ribs' | 'pelvis' | 'leftArm' | 'rightArm' | 'leftLeg' | 'rightLeg';
 export type CollisionOutcome = 'absorbed' | 'stagger' | 'spin' | 'trip' | 'fall' | 'launch';
 export type GrapplePosition = 'collarTie' | 'overhook' | 'underhook' | 'headlock' | 'waistLock' | 'rearWaistLock' | 'frontFacelock' | 'armControl';
@@ -31,7 +31,24 @@ export interface FighterDefinition {
   personality: { cowardly: number; showman: number; technical: number; aggressive: number; reckless: number; dirty: number; athletic: number; powerhouse: number };
   palette: { primary: string; secondary: string; skin: string; emissive: string };
   proportions: { height: number; width: number; headwear: 'crown' | 'mohawk' | 'mask' | 'bandana' | 'mullet' };
+  physics: FighterPhysicsProfile;
   stats: { power: number; speed: number; stamina: number; technique: number; charisma: number };
+}
+
+export interface FighterPhysicsProfile {
+  massKg: number;
+  standingHeightM: number;
+  shoulderWidthM: number;
+  hipWidthM: number;
+  armLength: number;
+  legLength: number;
+  torsoLength: number;
+  centerOfMassBias: number;
+  reachM: number;
+  muscleStrength: number;
+  gripStrength: number;
+  balanceRecovery: number;
+  jointStiffness: number;
 }
 
 export interface FootPlantRuntime {

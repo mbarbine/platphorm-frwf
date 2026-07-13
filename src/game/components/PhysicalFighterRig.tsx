@@ -1,0 +1,119 @@
+import { BallCollider, CapsuleCollider, CuboidCollider, RigidBody, useRevoluteJoint, useSphericalJoint } from '@react-three/rapier';
+import type { CollisionEnterPayload, ContactForcePayload, RapierRigidBody } from '@react-three/rapier';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
+import type { ReactNode, RefObject } from 'react';
+import { fighterById } from '../data/fighters';
+import { useMatchStore } from '../state/matchStore';
+import type { FighterRuntime } from '../types/game';
+import { buildBodySchema } from '../physics/bodySchema';
+import type { BodySegmentId, BodySegmentSchema } from '../physics/bodySchema';
+import { fighterCollisionGroups } from '../physics/collisionGroups';
+import { bodyWorksRuntime } from '../physics/physicsRuntime';
+import type { FighterKey } from '../physics/physicsRuntime';
+
+interface Props { runtime: FighterRuntime; side: FighterKey }
+interface RigUserData { bodyWorks: true; fighter: FighterKey; segment: BodySegmentId; region: BodySegmentSchema['bodyRegion']; surface?: boolean }
+
+const isRigUserData = (value: unknown): value is RigUserData => typeof value === 'object' && value !== null && 'bodyWorks' in value;
+
+function SegmentVisual({ schema, fighterId }: { schema: BodySegmentSchema; fighterId: FighterRuntime['definitionId'] }) {
+  const fighter = fighterById(fighterId); const arm = schema.id.includes('Arm') || schema.id.includes('Forearm') || schema.id.includes('Hand'); const leg = schema.id.includes('Thigh') || schema.id.includes('Shin') || schema.id.includes('Foot');
+  const costume = schema.id.includes('Forearm') || schema.id.includes('Shin') || schema.id.includes('Foot');
+  const color = schema.id === 'pelvis' ? fighter.palette.secondary : schema.id === 'chest' || costume ? fighter.palette.primary : arm || leg || schema.id === 'head' || schema.id === 'abdomen' ? fighter.palette.skin : fighter.palette.primary;
+  const material = <meshStandardMaterial color={color} roughness={.5} metalness={costume ? .28 : .08} emissive={fighter.palette.emissive} emissiveIntensity={costume ? .16 : .035} />;
+  if (schema.id === 'head') return <group>
+    <mesh castShadow><dodecahedronGeometry args={[schema.radius * 1.08, 1]} />{material}</mesh>
+    <mesh position={[-.065, .035, .17]}><sphereGeometry args={[.025, 6, 5]} /><meshBasicMaterial color="#f8fbff" /></mesh><mesh position={[.065, .035, .17]}><sphereGeometry args={[.025, 6, 5]} /><meshBasicMaterial color="#f8fbff" /></mesh>
+    <Headwear fighterId={fighterId} />
+  </group>;
+  if (schema.id.includes('Hand')) return <mesh castShadow><boxGeometry args={[schema.radius * 1.8, schema.halfLength * 1.8, schema.radius * 1.6]} />{material}</mesh>;
+  if (schema.id.includes('Foot')) return <group><mesh castShadow position={[0, 0, .07]}><boxGeometry args={[schema.radius * 2.05, schema.radius, schema.halfLength * 2.7]} />{material}</mesh><mesh position={[0, -.065, .11]}><boxGeometry args={[schema.radius * 2.15, .035, schema.halfLength * 2.8]} /><meshStandardMaterial color={fighter.palette.emissive} emissive={fighter.palette.emissive} emissiveIntensity={.65} /></mesh></group>;
+  if (['pelvis', 'abdomen', 'chest'].includes(schema.id)) return <group>
+    <mesh castShadow scale={[schema.id === 'chest' ? 1.45 : 1.15, 1, schema.id === 'chest' ? 1.05 : .9]}><capsuleGeometry args={[schema.radius, schema.halfLength * 1.35, 6, 10]} />{material}</mesh>
+    {schema.id === 'chest' && <><mesh position={[0, .03, schema.radius * 1.02]}><boxGeometry args={[schema.radius * 1.85, .08, .035]} /><meshStandardMaterial color={fighter.palette.secondary} emissive={fighter.palette.emissive} emissiveIntensity={.32} /></mesh><mesh position={[0, -.1, schema.radius * 1.02]}><octahedronGeometry args={[.11, 0]} /><meshStandardMaterial color={fighter.palette.emissive} emissive={fighter.palette.emissive} emissiveIntensity={.7} /></mesh></>}
+  </group>;
+  return <group><mesh castShadow><capsuleGeometry args={[schema.radius, schema.halfLength * 1.72, 6, 9]} />{material}</mesh>{costume && <mesh position={[0, schema.halfLength * .48, 0]}><torusGeometry args={[schema.radius * 1.03, .025, 5, 10]} /><meshStandardMaterial color={fighter.palette.secondary} emissive={fighter.palette.emissive} emissiveIntensity={.25} /></mesh>}</group>;
+}
+
+function Headwear({ fighterId }: { fighterId: FighterRuntime['definitionId'] }) {
+  const fighter = fighterById(fighterId); const color = fighter.palette.emissive;
+  if (fighter.proportions.headwear === 'mohawk') return <mesh position={[0, .22, 0]}><boxGeometry args={[.09, .24, .28]} /><meshStandardMaterial color={color} emissive={color} emissiveIntensity={.55} /></mesh>;
+  if (fighter.proportions.headwear === 'crown') return <group position={[0, .2, 0]}>{[-.1, 0, .1].map((x) => <mesh key={x} position={[x, .08, 0]}><coneGeometry args={[.065, .22, 4]} /><meshStandardMaterial color={color} emissive={color} emissiveIntensity={.5} /></mesh>)}</group>;
+  if (fighter.proportions.headwear === 'mask') return <mesh position={[0, .025, .18]}><boxGeometry args={[.3, .13, .035]} /><meshStandardMaterial color={color} emissive={color} emissiveIntensity={.45} /></mesh>;
+  if (fighter.proportions.headwear === 'mullet') return <group><mesh position={[0, .16, -.04]}><sphereGeometry args={[.2, 8, 6]} /><meshStandardMaterial color="#382720" /></mesh><mesh position={[0, -.05, -.17]}><boxGeometry args={[.28, .33, .09]} /><meshStandardMaterial color="#382720" /></mesh><mesh position={[0, -.12, .16]}><dodecahedronGeometry args={[.14, 0]} /><meshStandardMaterial color="#39251e" /></mesh></group>;
+  return <mesh position={[0, .19, 0]} rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[.18, .035, 5, 14]} /><meshStandardMaterial color={color} emissive={color} emissiveIntensity={.5} /></mesh>;
+}
+
+interface SegmentBodyProps {
+  schema: BodySegmentSchema;
+  fighterId: FighterRuntime['definitionId'];
+  side: FighterKey;
+  base: readonly [number, number, number];
+  bodyRef: RefObject<RapierRigidBody>;
+  onContactForce: (segment: BodySegmentSchema, bodyRef: RefObject<RapierRigidBody>, payload: ContactForcePayload) => void;
+  onFootContact: (foot: BodySegmentId, touching: boolean, payload: CollisionEnterPayload) => void;
+}
+
+function SegmentBody({ schema, fighterId, side, base, bodyRef, onContactForce, onFootContact }: SegmentBodyProps) {
+  const position: [number, number, number] = [base[0] + schema.localPosition[0], base[1] + schema.localPosition[1], base[2] + schema.localPosition[2]];
+  const userData: RigUserData = { bodyWorks: true, fighter: side, segment: schema.id, region: schema.bodyRegion };
+  const isFoot = schema.id === 'leftFoot' || schema.id === 'rightFoot'; const isHand = schema.id === 'leftHand' || schema.id === 'rightHand'; const isHead = schema.id === 'head';
+  const collider: ReactNode = isHead ? <BallCollider args={[schema.radius]} mass={schema.massKg} />
+    : isFoot || isHand ? <CuboidCollider args={[schema.radius, isFoot ? schema.radius * .5 : schema.halfLength, isFoot ? schema.halfLength * 1.35 : schema.radius]} mass={schema.massKg} friction={isFoot ? 1.45 : .72} restitution={.02} />
+    : <CapsuleCollider args={[schema.halfLength, schema.radius]} mass={schema.massKg} friction={.76} restitution={.015} />;
+  return <RigidBody ref={bodyRef} name={`${side}-${schema.id}`} type="dynamic" position={position} colliders={false} collisionGroups={fighterCollisionGroups(side)} solverGroups={fighterCollisionGroups(side)} canSleep={false} linearDamping={.42} angularDamping={1.8} additionalSolverIterations={4} ccd={schema.attackEligible || isHead} userData={userData}
+    onContactForce={(payload) => onContactForce(schema, bodyRef, payload)}
+    onCollisionEnter={isFoot ? (payload) => onFootContact(schema.id, true, payload) : undefined}
+    onCollisionExit={isFoot ? (payload) => onFootContact(schema.id, false, payload as CollisionEnterPayload) : undefined}>
+    {collider}<SegmentVisual schema={schema} fighterId={fighterId} />
+  </RigidBody>;
+}
+
+export function PhysicalFighterRig({ runtime, side }: Props) {
+  const fighter = fighterById(runtime.definitionId); const schema = useMemo(() => buildBodySchema(fighter), [fighter]);
+  const byId = useMemo(() => new Map(schema.map((entry) => [entry.id, entry])), [schema]);
+  const pelvis = useRef<RapierRigidBody>(null!); const abdomen = useRef<RapierRigidBody>(null!); const chest = useRef<RapierRigidBody>(null!); const head = useRef<RapierRigidBody>(null!);
+  const leftUpperArm = useRef<RapierRigidBody>(null!); const rightUpperArm = useRef<RapierRigidBody>(null!); const leftForearm = useRef<RapierRigidBody>(null!); const rightForearm = useRef<RapierRigidBody>(null!); const leftHand = useRef<RapierRigidBody>(null!); const rightHand = useRef<RapierRigidBody>(null!);
+  const leftThigh = useRef<RapierRigidBody>(null!); const rightThigh = useRef<RapierRigidBody>(null!); const leftShin = useRef<RapierRigidBody>(null!); const rightShin = useRef<RapierRigidBody>(null!); const leftFoot = useRef<RapierRigidBody>(null!); const rightFoot = useRef<RapierRigidBody>(null!);
+  const refs: Readonly<Record<BodySegmentId, RefObject<RapierRigidBody>>> = useMemo(() => ({ pelvis, abdomen, chest, head, leftUpperArm, rightUpperArm, leftForearm, rightForearm, leftHand, rightHand, leftThigh, rightThigh, leftShin, rightShin, leftFoot, rightFoot }), []);
+  const value = (id: BodySegmentId): BodySegmentSchema => { const result = byId.get(id); if (!result) throw new Error(`Missing segment ${id}`); return result; };
+  const shoulder = Math.abs(value('leftUpperArm').localPosition[0]); const hip = Math.abs(value('leftThigh').localPosition[0]);
+  useSphericalJoint(pelvis, abdomen, [[0, value('pelvis').halfLength * .82, 0], [0, -value('abdomen').halfLength * .82, 0]]);
+  useSphericalJoint(abdomen, chest, [[0, value('abdomen').halfLength * .82, 0], [0, -value('chest').halfLength * .72, 0]]);
+  useSphericalJoint(chest, head, [[0, value('chest').halfLength * .9, 0], [0, -value('head').radius * .86, 0]]);
+  useSphericalJoint(chest, leftUpperArm, [[-shoulder, -.05, 0], [0, value('leftUpperArm').halfLength, 0]]);
+  useSphericalJoint(chest, rightUpperArm, [[shoulder, -.05, 0], [0, value('rightUpperArm').halfLength, 0]]);
+  useRevoluteJoint(leftUpperArm, leftForearm, [[0, -value('leftUpperArm').halfLength, 0], [0, value('leftForearm').halfLength, 0], [1, 0, 0], [-2.65, .08]]);
+  useRevoluteJoint(rightUpperArm, rightForearm, [[0, -value('rightUpperArm').halfLength, 0], [0, value('rightForearm').halfLength, 0], [1, 0, 0], [-2.65, .08]]);
+  useSphericalJoint(leftForearm, leftHand, [[0, -value('leftForearm').halfLength, 0], [0, value('leftHand').halfLength, 0]]);
+  useSphericalJoint(rightForearm, rightHand, [[0, -value('rightForearm').halfLength, 0], [0, value('rightHand').halfLength, 0]]);
+  useSphericalJoint(pelvis, leftThigh, [[-hip, -value('pelvis').halfLength * .62, 0], [0, value('leftThigh').halfLength, 0]]);
+  useSphericalJoint(pelvis, rightThigh, [[hip, -value('pelvis').halfLength * .62, 0], [0, value('rightThigh').halfLength, 0]]);
+  useRevoluteJoint(leftThigh, leftShin, [[0, -value('leftThigh').halfLength, 0], [0, value('leftShin').halfLength, 0], [1, 0, 0], [-.08, 2.58]]);
+  useRevoluteJoint(rightThigh, rightShin, [[0, -value('rightThigh').halfLength, 0], [0, value('rightShin').halfLength, 0], [1, 0, 0], [-.08, 2.58]]);
+  useRevoluteJoint(leftShin, leftFoot, [[0, -value('leftShin').halfLength, 0], [0, value('leftFoot').radius * .4, -.03], [1, 0, 0], [-.58, .68]]);
+  useRevoluteJoint(rightShin, rightFoot, [[0, -value('rightShin').halfLength, 0], [0, value('rightFoot').radius * .4, -.03], [1, 0, 0], [-.58, .68]]);
+
+  useEffect(() => bodyWorksRuntime.registerFighter(side, Object.fromEntries(Object.entries(refs).map(([id, ref]) => [id, ref.current])), 15), [refs, side]);
+  const onContactForce = useCallback((segment: BodySegmentSchema, bodyRef: RefObject<RapierRigidBody>, payload: ContactForcePayload): void => {
+    const otherData = payload.other.rigidBodyObject?.userData; const target = isRigUserData(otherData) ? otherData : null;
+    if (target?.fighter === side || (!segment.attackEligible && payload.totalForceMagnitude < 420)) return;
+    const ownVelocity = bodyRef.current?.linvel() ?? { x: 0, y: 0, z: 0 }; const otherVelocity = payload.other.rigidBody?.linvel() ?? { x: 0, y: 0, z: 0 };
+    const sourceRuntime = useMatchStore.getState().model[side];
+    const activeAttack = sourceRuntime.attackPhase === 'active' && sourceRuntime.moveId !== null;
+    bodyWorksRuntime.recordContact({
+      time: useMatchStore.getState().model.elapsed, sourceFighter: side, sourceSegment: segment.id,
+      targetFighter: target?.fighter ?? null, targetSegment: target?.segment ?? null, targetRegion: target?.region ?? null,
+      totalForce: payload.totalForceMagnitude, maximumForce: payload.maxForceMagnitude,
+      forceDirection: [payload.maxForceDirection.x, payload.maxForceDirection.y, payload.maxForceDirection.z],
+      relativeSpeed: Math.hypot(ownVelocity.x - otherVelocity.x, ownVelocity.y - otherVelocity.y, ownVelocity.z - otherVelocity.z),
+      attackInstanceId: activeAttack ? useMatchStore.getState().model.impactSequence + 1 : null,
+    });
+  }, [side]);
+  const onFootContact = useCallback((foot: BodySegmentId, touching: boolean, payload: CollisionEnterPayload): void => {
+    const otherData = payload.other.rigidBodyObject?.userData;
+    if (!isRigUserData(otherData) || otherData.fighter !== side) bodyWorksRuntime.setFootContact(side, foot, touching);
+  }, [side]);
+  const base = useMemo(() => [runtime.position.x, 1.92, runtime.position.z] as const, [runtime.position.x, runtime.position.z]);
+  return <group>{schema.map((entry) => <SegmentBody key={entry.id} schema={entry} fighterId={runtime.definitionId} side={side} base={base} bodyRef={refs[entry.id]} onContactForce={onContactForce} onFootContact={onFootContact} />)}</group>;
+}

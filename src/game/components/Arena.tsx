@@ -4,6 +4,7 @@ import { useMemo, useRef } from 'react';
 import { Color, Object3D } from 'three';
 import type { Group, InstancedMesh, Mesh, MeshStandardMaterial } from 'three';
 import { useMatchStore } from '../state/matchStore';
+import { arenaCollisionGroups, propCollisionGroups } from '../physics/collisionGroups';
 
 function Crowd() {
   const ref = useRef<InstancedMesh>(null); const dummy = useMemo(() => new Object3D(), []); const count = 180;
@@ -65,16 +66,16 @@ function Props() {
     const position: [number, number, number] = owner
       ? [owner.position.x + Math.sin(owner.facing) * .65 + Math.cos(owner.facing) * .32, 3.25, owner.position.z + Math.cos(owner.facing) * .65 - Math.sin(owner.facing) * .32]
       : [prop.position.x, prop.kind === 'table' ? .72 : .55, prop.position.z];
-    if (prop.kind === 'table') return <RigidBody key={prop.id} type="fixed" position={position} colliders={false}><CuboidCollider args={[1.7, .55, .65]} /><group>
+    if (prop.kind === 'table') return <RigidBody key={prop.id} type="fixed" position={position} colliders={false} collisionGroups={propCollisionGroups} solverGroups={propCollisionGroups} userData={{ surface: true, prop: prop.id, kind: prop.kind }}><CuboidCollider args={[1.7, .55, .65]} /><group>
       <mesh castShadow><boxGeometry args={[3.4, .2, 1.3]} /><meshStandardMaterial color="#2a3140" metalness={.6} roughness={.3} /></mesh>
       {[-1.35, 1.35].flatMap((x) => [-.45, .45].map((z) => <mesh key={`${x}-${z}`} position={[x, -.58, z]}><boxGeometry args={[.12, 1.1, .12]} /><meshStandardMaterial color="#11141b" /></mesh>))}
       <mesh position={[0, .13, 0]}><boxGeometry args={[2.2, .05, .75]} /><meshStandardMaterial color="#27d8ff" emissive="#27d8ff" emissiveIntensity={.8} /></mesh>
     </group></RigidBody>;
-    if (prop.kind === 'chair') return <RigidBody key={prop.id} type={owner ? 'kinematicPosition' : 'dynamic'} position={position} colliders="cuboid" mass={1.8} linearDamping={3} angularDamping={3} restitution={.24}><group rotation={[0, 0, owner ? -.35 : 0]}>
+    if (prop.kind === 'chair') return <RigidBody key={prop.id} type={owner ? 'kinematicPosition' : 'dynamic'} position={position} colliders="cuboid" mass={1.8} linearDamping={3} angularDamping={3} restitution={.24} collisionGroups={propCollisionGroups} solverGroups={propCollisionGroups} userData={{ surface: true, prop: prop.id, kind: prop.kind }}><group rotation={[0, 0, owner ? -.35 : 0]}>
       <mesh><boxGeometry args={[.9, .12, .85]} /><meshStandardMaterial color="#9099aa" metalness={.82} roughness={.2} /></mesh>
       <mesh position={[0, .7, .36]}><boxGeometry args={[.9, 1.2, .12]} /><meshStandardMaterial color="#4cdcff" emissive="#157c8c" emissiveIntensity={.4} /></mesh>
     </group></RigidBody>;
-    return <RigidBody key={prop.id} type={owner ? 'kinematicPosition' : 'dynamic'} position={position} colliders="cuboid" mass={.55} linearDamping={2.5} angularDamping={2.5} restitution={.38}><group rotation={[0, 0, owner ? -.4 : .1]}><mesh><boxGeometry args={[1.35, .85, .1]} /><meshStandardMaterial color="#ff3c91" emissive="#951654" emissiveIntensity={.4} /></mesh><mesh position={[0, -.82, 0]}><boxGeometry args={[.08, .85, .08]} /><meshStandardMaterial color="#d8e3eb" /></mesh></group></RigidBody>;
+    return <RigidBody key={prop.id} type={owner ? 'kinematicPosition' : 'dynamic'} position={position} colliders="cuboid" mass={.55} linearDamping={2.5} angularDamping={2.5} restitution={.38} collisionGroups={propCollisionGroups} solverGroups={propCollisionGroups} userData={{ surface: true, prop: prop.id, kind: prop.kind }}><group rotation={[0, 0, owner ? -.4 : .1]}><mesh><boxGeometry args={[1.35, .85, .1]} /><meshStandardMaterial color="#ff3c91" emissive="#951654" emissiveIntensity={.4} /></mesh><mesh position={[0, -.82, 0]}><boxGeometry args={[.08, .85, .08]} /><meshStandardMaterial color="#d8e3eb" /></mesh></group></RigidBody>;
   })}</>;
 }
 
@@ -87,7 +88,7 @@ export function Arena() {
     <directionalLight castShadow position={[4, 12, 6]} intensity={spotlight ? .35 : 2.2} color="#f0f6ff" shadow-mapSize={[1024, 1024]} />
     <spotLight position={[-7, 11, -5]} intensity={spotlight ? 8 : 3} color="#4be7ff" angle={.42} penumbra={.65} castShadow />
     <spotLight position={[7, 10, 4]} intensity={spotlight ? 8 : 3} color="#ff3a95" angle={.42} penumbra={.7} />
-    <RigidBody type="fixed" colliders="cuboid" position={[0, 1.52, 0]}><mesh receiveShadow><boxGeometry args={[12, .65, 9]} /><meshStandardMaterial color="#202437" roughness={.68} /></mesh></RigidBody>
+    <RigidBody type="fixed" colliders="cuboid" position={[0, 1.52, 0]} collisionGroups={arenaCollisionGroups} solverGroups={arenaCollisionGroups} userData={{ surface: true, kind: 'ring' }}><mesh receiveShadow><boxGeometry args={[12, .65, 9]} /><meshStandardMaterial color="#202437" roughness={.68} /></mesh></RigidBody>
     <mesh position={[0, 1.86, 0]} receiveShadow><boxGeometry args={[11.3, .08, 8.3]} /><meshStandardMaterial color="#dde2ec" roughness={.8} /></mesh>
     <mesh position={[0, 1.89, 0]} rotation={[-Math.PI / 2, 0, 0]}><torusGeometry args={[2.1, .06, 8, 48]} /><meshStandardMaterial color="#662bff" emissive="#662bff" emissiveIntensity={1.2} /></mesh>
     <mesh position={[0, 1.9, 0]} rotation={[-Math.PI / 2, 0, -.18]}><boxGeometry args={[3.1, .12, .025]} /><meshStandardMaterial color="#ff3d93" emissive="#ff3d93" emissiveIntensity={1} /></mesh>
@@ -101,7 +102,7 @@ export function Arena() {
     </group>
     <Ropes /><Post x={-5.75} z={-4.25} /><Post x={5.75} z={-4.25} /><Post x={-5.75} z={4.25} /><Post x={5.75} z={4.25} />
     <group position={[6.65, .36, 4.65]}>{[0, .28, .56].map((y, index) => <mesh key={y} position={[index * .18, y, 0]}><boxGeometry args={[1.15 - index * .12, .22, 1.2]} /><meshStandardMaterial color="#394151" metalness={.75} roughness={.24} /></mesh>)}</group>
-    <RigidBody type="fixed" colliders="hull" position={[0, .2, 0]}><mesh receiveShadow><cylinderGeometry args={[15, 15, .4, 48]} /><meshStandardMaterial color="#100d1c" roughness={.8} /></mesh></RigidBody>
+    <RigidBody type="fixed" colliders="hull" position={[0, .2, 0]} collisionGroups={arenaCollisionGroups} solverGroups={arenaCollisionGroups} userData={{ surface: true, kind: 'floor' }}><mesh receiveShadow><cylinderGeometry args={[15, 15, .4, 48]} /><meshStandardMaterial color="#100d1c" roughness={.8} /></mesh></RigidBody>
     <Crowd /><Props />
     <group position={[0, 13, 0]}>
       {[0, Math.PI / 2, Math.PI, Math.PI * 1.5].map((angle) => <group key={angle} rotation={[0, angle, 0]}>
