@@ -148,7 +148,6 @@ export const applyMoveHit = (model: MatchModel, actorKey: 'player' | 'opponent',
       model.hype = clamp(model.hype + 5, 0, 100);
       addImpact(model, target.position, 'heavy', 1.15, { region: calculatedImpact.region, force: guardedImpact.force, torque: guardedImpact.torque, outcome: 'stagger' });
     } else {
-      model.announcement = 'STRIKE BLOCKED'; model.announcementTimer = .55;
       addImpact(model, target.position, 'blocked', .72, { region: calculatedImpact.region, force: guardedImpact.force, torque: guardedImpact.torque, outcome: 'absorbed' });
     }
     return true;
@@ -384,8 +383,6 @@ export const requestCommand = (model: MatchModel, actorKey: 'player' | 'opponent
       if (actor.climbStage < 3) {
         actor.climbStage = (actor.climbStage + 1) as 2 | 3;
         actor.stateElapsed = 0;
-        model.announcement = actor.climbStage === 2 ? 'MIDDLE ROPE — ONE MORE STEP!' : 'TOP TURNBUCKLE — F TO FLY!';
-        model.announcementTimer = 1.05;
         return true;
       }
       return launchAerial(model, actor, target, 'aerial');
@@ -404,7 +401,6 @@ export const requestCommand = (model: MatchModel, actorKey: 'player' | 'opponent
     if (nearCorner) {
       actor.state = 'climbing'; actor.climbStage = 1; actor.stateElapsed = 0; actor.velocity = { x: 0, z: 0 };
       if (!model.physicsAuthority) actor.position = { x: Math.sign(actor.position.x) * 5.25, z: Math.sign(actor.position.z) * 3.7 };
-      model.announcement = 'LOWER ROPE — F TO CLIMB HIGHER'; model.announcementTimer = 1.4;
       return true;
     }
     const nearXApron = Math.abs(actor.position.x) > 4.62 && Math.abs(actor.position.x) < 6.9 && Math.abs(actor.position.z) < 3.55;
@@ -451,7 +447,6 @@ export const requestCommand = (model: MatchModel, actorKey: 'player' | 'opponent
     actor.comboStep += 1; target.state = model.physicsAuthority ? 'staggered' : 'grabbed'; target.stateElapsed = 0; target.velocity = scale(target.velocity, .3);
     target.moveId = null; target.attackPhase = null;
     model.grapple = createGrappleRuntime(actorKey, targetKey, moveId);
-    model.announcement = `GRAPPLE LOCK — ${getMove(moveId).displayName.toUpperCase()}`; model.announcementTimer = .65;
   }
   return started;
 };
@@ -531,7 +526,6 @@ const updateFighter = (model: MatchModel, actorKey: 'player' | 'opponent', dt: n
     if (!actor.moveId && actor.stateElapsed > .28 && movement.x * inward.x + movement.z * inward.z > .25) {
       actor.state = 'locomotion'; actor.climbStage = 0; actor.stateElapsed = 0;
       actor.velocity = scale(normalize(inward), 1.6);
-      model.announcement = 'SAFE CLIMB DOWN'; model.announcementTimer = .65;
     } else if (!actor.moveId) return;
   }
 

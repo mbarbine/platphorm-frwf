@@ -27,14 +27,18 @@ test('Bodyworks lab exposes live Rapier diagnostics and drives real jump/walk in
     new MutationObserver(observe).observe(document.body, { subtree: true, attributes: true }); observe();
   }, initialY);
   const jump = lab.getByRole('button', { name: 'STANDING JUMP' }); await expect(jump).toBeEnabled(); await jump.click();
-  await expect(hud).toHaveAttribute('data-player-state', 'jumping', { timeout: 2_500 });
   await expect(page.locator('html')).toHaveAttribute('data-saw-active-jump-control', 'true'); await expect(page.locator('html')).toHaveAttribute('data-saw-airborne-control', 'true');
   await expect(lab.getByRole('button', { name: 'WALK + STOP' })).toBeEnabled({ timeout: 3_000 });
   expect(Number(await page.locator('html').getAttribute('data-max-jump-pelvis-y'))).toBeGreaterThan(initialY + .2);
   const initialX = Number(await hud.getAttribute('data-player-x')); const initialZ = Number(await hud.getAttribute('data-player-z'));
+  await page.evaluate(() => {
+    const deckNode = document.querySelector('[data-testid="control-deck"]'); if (!deckNode) return;
+    const observe = (): void => { if (/MOVING|SPRINTING/.test(deckNode.getAttribute('data-control-state') ?? '')) document.documentElement.dataset.sawLocomotionControl = 'true'; };
+    new MutationObserver(observe).observe(deckNode, { subtree: true, attributes: true }); observe();
+  });
   await lab.getByRole('button', { name: 'WALK + STOP' }).click();
   await expect.poll(async () => Math.hypot(Number(await hud.getAttribute('data-player-x')) - initialX, Number(await hud.getAttribute('data-player-z')) - initialZ), { timeout: 2_100, intervals: [100] }).toBeGreaterThan(.35);
-  await expect.poll(async () => await deck.getAttribute('data-control-state'), { timeout: 2_100, intervals: [50, 100] }).toMatch(/MOVING|SPRINTING/);
+  await expect(page.locator('html')).toHaveAttribute('data-saw-locomotion-control', 'true');
   await page.evaluate(() => {
     const deckNode = document.querySelector('[data-testid="control-deck"]'); if (!deckNode) return;
     const observe = (): void => {

@@ -110,12 +110,12 @@ export function buildControlReadout(player: FighterRuntime, opponent: FighterRun
   else if (player.ropeRebound > 0) callout = `${keys.heavy} NOW · RAILWAY STIFF-ARM KNOCKDOWN`;
   else if (player.climbStage > 0 && player.climbStage < 3) callout = `${actionKey} AGAIN · CLIMB TO ${player.climbStage === 1 ? 'MIDDLE' : 'TOP'} ROPE · ${keys.counter} DOWN`;
   else if (player.climbStage === 3) callout = `${keys.quick} ELBOW · ${keys.heavy} MISSILE KICK · ${actionKey} DOMEFALL · ${keys.taunt} POSE`;
+  else if (player.state === 'grappling') callout = `${directionId} CLINCH · ${keys.quick} ${labels.quick} · ${keys.heavy} ${labels.heavy} · ${keys.grapple} ${labels.grapple}`;
   else if (player.momentum >= 100 && ['staggered', 'downed'].includes(opponent.state) && distance < 2.2) callout = `${actionKey} · SIGNATURE FINISHER READY`;
   else if (opponent.state === 'downed' && distance < 1.7) callout = `${actionKey} PIN · ${keys.quick} GROUND STRIKE`;
   else if (nearCorner) callout = `${actionKey} · CLIMB LOWER TURNBUCKLE`;
   else if (canTransitionThroughRopes(player.position)) callout = `${actionKey} · ${ringside ? 'ENTER' : 'EXIT'} THROUGH CENTER ROPE`;
   else if (player.counterWindow > 0) callout = `${keys.counter} NOW · REVERSE THE ATTACK`;
-  else if (player.state === 'grappling') callout = `${directionId} CLINCH · ${keys.quick} ${labels.quick} · ${keys.heavy} ${labels.heavy} · ${keys.grapple} ${labels.grapple}`;
   else if (distance < 1.8) callout = `${keys.grapple} LOCK UP · HOLD DIRECTION TO CHOOSE THE THROW`;
 
   return { active, callout, labels, state };
