@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { chooseAiDecision, isActionLegal } from '../game/ai/utilityAI';
-import { fighterById } from '../game/data/fighters';
+import { FIGHTERS, fighterById } from '../game/data/fighters';
 import { getMove } from '../game/data/moves';
-import { advanceMatch, applyMoveHit, createMatch, getAttackPhase, requestCommand, resetTransientState, startMove } from '../game/systems/combat';
+import { advanceMatch, applyMoveHit, createMatch, getAttackPhase, requestCommand, resetTransientState, selectDirectionalGrapple, startMove } from '../game/systems/combat';
+import { canTransition } from '../game/systems/stateMachine';
 import type { FrameInput } from '../game/systems/combat';
 
-const none: FrameInput = { move: { x: 0, z: 0 }, run: false, commands: [] };
+const none: FrameInput = { move: { x: 0, z: 0 }, run: false, block: false, commands: [] };
 
 describe('deterministic combat rules', () => {
   it('applies damage only during a move active phase', () => {
@@ -52,7 +53,7 @@ describe('deterministic combat rules', () => {
 
   it('pausing prevents combat simulation advancement', () => {
     const model = createMatch('atlas', 'vex', 'standard', 'normal'); model.paused = true; const snapshot = structuredClone(model);
-    advanceMatch(model, 1, { move: { x: 1, z: 0 }, run: true, commands: ['heavy'] });
+    advanceMatch(model, 1, { move: { x: 1, z: 0 }, run: true, block: false, commands: ['heavy'] });
     expect(model).toEqual(snapshot);
   });
 
@@ -107,5 +108,69 @@ describe('deterministic combat rules', () => {
     const chad = fighterById('chad'); const model = createMatch('chad', 'atlas', 'standard', 'hard');
     expect(chad.name).toContain('THE CLAW'); expect(chad.signature).toBe('CLAW HAMMER'); expect(chad.stats.charisma).toBeGreaterThan(90);
     expect(model.player.definitionId).toBe('chad'); expect(chooseAiDecision(createMatch('atlas', 'chad', 'chaos', 'hard'), chad).nextSeed).not.toBe(1337);
+  });
+
+  it('gives every fighter a distinct stamina cap and caps the five-beer boost', () => {
+    const sober = createMatch('chad', 'atlas', 'standard', 'normal', 1, 0).player;
+    const fiveBeers = createMatch('chad', 'atlas', 'standard', 'normal', 1, 5).player;
+    const attemptedSix = createMatch('chad', 'atlas', 'standard', 'normal', 1, 6).player;
+    expect(sober.staminaCap).toBeLessThan(Math.min(...FIGHTERS.filter((fighter) => fighter.id !== 'chad').map((fighter) => 55 + fighter.stats.stamina * .45)));
+    expect(fiveBeers.staminaCap - sober.staminaCap).toBe(25);
+    expect(attemptedSix.beersDrunk).toBe(5); expect(attemptedSix.staminaCap).toBe(fiveBeers.staminaCap);
+  });
+
+  it('blocks strikes with chip damage and guard stamina loss', () => {
+    const model = createMatch('atlas', 'vex', 'standard', 'normal'); model.player.position = { x: 0, z: 0 }; model.opponent.position = { x: 1, z: 0 };
+    expect(requestCommand(model, 'player', 'block')).toBe(true);
+    const stamina = model.player.stamina;
+    startMove(model.opponent, model.player, getMove('heavy')); model.opponent.attackPhase = 'active';
+    expect(applyMoveHit(model, 'opponent', 'player', getMove('heavy'))).toBe(true);
+    expect(model.player.health).toBeGreaterThan(99); expect(model.player.stamina).toBeLessThan(stamina); expect(model.lastImpact?.kind).toBe('blocked');
+  });
+
+  it('stuffs a grapple until pressure breaks an exhausted guard', () => {
+    const model = createMatch('atlas', 'vex', 'standard', 'normal'); model.player.position = { x: 0, z: 0 }; model.opponent.position = { x: 1, z: 0 };
+    requestCommand(model, 'player', 'block'); expect(requestCommand(model, 'opponent', 'grapple')).toBe(true);
+    expect(model.opponent.state).toBe('staggered'); expect(model.player.state).toBe('blocking');
+    model.opponent.state = 'idle'; model.player.stamina = 5;
+    expect(requestCommand(model, 'opponent', 'grapple')).toBe(true);
+    expect(model.player.state).toBe('grabbed'); expect(model.player.stamina).toBe(0);
+  });
+
+  it('maps direction plus each attack button to distinct grapple outcomes', () => {
+    const moveIds = new Set([
+      selectDirectionalGrapple({ x: 0, z: -1 }, 'quick'), selectDirectionalGrapple({ x: 0, z: -1 }, 'heavy'), selectDirectionalGrapple({ x: 0, z: -1 }, 'grapple'),
+      selectDirectionalGrapple({ x: -1, z: 0 }, 'quick'), selectDirectionalGrapple({ x: 1, z: 0 }, 'quick'), selectDirectionalGrapple({ x: 0, z: 1 }, 'grapple'),
+    ]);
+    expect(moveIds.size).toBe(6); for (const id of moveIds) expect(getMove(id).category).toBe('grapple');
+  });
+
+  it('allows a grapple selection during the visible lock without duplicate base cost', () => {
+    const model = createMatch('nova', 'brick', 'standard', 'normal'); model.player.position = { x: 0, z: 0 }; model.opponent.position = { x: 1, z: 0 };
+    requestCommand(model, 'player', 'grapple'); const afterLock = model.player.stamina;
+    expect(requestCommand(model, 'player', 'quick', { x: -1, z: 0 })).toBe(true);
+    expect(model.player.moveId).toBe('clutch'); expect(model.player.stamina).toBe(afterLock);
+  });
+
+  it('climbs a turnbuckle before launching a playable aerial attack', () => {
+    const model = createMatch('vex', 'atlas', 'standard', 'normal'); model.player.position = { x: 5, z: 3.5 }; model.opponent.position = { x: 1, z: 0 }; model.opponent.state = 'downed';
+    expect(requestCommand(model, 'player', 'context')).toBe(true); expect(model.player.state).toBe('climbing');
+    expect(requestCommand(model, 'player', 'context')).toBe(true); expect(model.player.moveId).toBe('aerial'); expect(model.player.state).toBe('attacking');
+  });
+
+  it('converts running heavy offense into a knockdown stiff-arm', () => {
+    const model = createMatch('brick', 'vex', 'standard', 'normal'); model.player.position = { x: 0, z: 0 }; model.opponent.position = { x: 1, z: 0 }; model.player.velocity = { x: 4.2, z: 0 };
+    expect(requestCommand(model, 'player', 'heavy')).toBe(true); expect(model.player.moveId).toBe('stiff_arm');
+  });
+
+  it('preserves beer choice but clears guard, climb, AI, and impact transients on rematch', () => {
+    const model = createMatch('chad', 'atlas', 'chaos', 'hard', 4, 5); model.player.state = 'climbing'; model.aiBlockTimer = 2; model.hitStop = .4;
+    const reset = resetTransientState(model);
+    expect(reset.player.beersDrunk).toBe(5); expect(reset.player.state).toBe('idle'); expect(reset.aiBlockTimer).toBe(0); expect(reset.hitStop).toBe(0);
+  });
+
+  it('keeps guard and climb transitions explicit and safe', () => {
+    expect(canTransition('idle', 'blocking')).toBe(true); expect(canTransition('locomotion', 'climbing')).toBe(true);
+    expect(canTransition('pinned', 'attacking')).toBe(false); expect(canTransition('victorious', 'climbing')).toBe(false);
   });
 });
