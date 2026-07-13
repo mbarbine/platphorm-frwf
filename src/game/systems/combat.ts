@@ -354,7 +354,7 @@ export const requestCommand = (model: MatchModel, actorKey: 'player' | 'opponent
       }
       return started;
     }
-    const nearCorner = Math.abs(actor.position.x) > 4.65 && Math.abs(actor.position.z) > 3.2;
+    const nearCorner = Math.abs(actor.position.x) > 4.35 && Math.abs(actor.position.z) > 2.95;
     if (nearCorner) {
       actor.state = 'climbing'; actor.stateElapsed = 0; actor.velocity = { x: 0, z: 0 };
       if (!model.physicsAuthority) actor.position = { x: Math.sign(actor.position.x) * 5.25, z: Math.sign(actor.position.z) * 3.7 };

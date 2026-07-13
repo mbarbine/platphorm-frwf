@@ -70,10 +70,7 @@ export function MobileControls({ onPause, paused }: MobileControlsProps) {
     setStick({ x: 0, z: 0 });
     mobileInput.setMove({ x: 0, z: 0 });
   };
-  const queue = (command: GameCommand) => (event: ReactPointerEvent<HTMLButtonElement>): void => {
-    event.preventDefault();
-    mobileInput.queue(command);
-  };
+  const queue = (command: GameCommand) => (): void => mobileInput.queue(command);
 
   return <div className={`mobile-controls${paused ? ' mobile-controls--paused' : ''}`} data-testid="mobile-controls">
     <button type="button" className="mobile-pause" aria-label="Pause match" onClick={onPause}>Ⅱ</button>
@@ -85,12 +82,12 @@ export function MobileControls({ onPause, paused }: MobileControlsProps) {
       <HoldButton activeLabel="GUARD" className="mobile-hold mobile-hold--guard" onChange={(pressed) => mobileInput.setBlock(pressed)} />
     </div>
     <div className="mobile-actions" aria-label="Wrestling actions">
-      <button type="button" className="mobile-action mobile-action--quick" aria-label="Quick strike" onPointerDown={queue('quick')}><b>JAB</b><small>QUICK</small></button>
-      <button type="button" className="mobile-action mobile-action--power" aria-label="Heavy strike or stiff-arm" onPointerDown={queue('heavy')}><b>HIT</b><small>POWER</small></button>
-      <button type="button" className="mobile-action mobile-action--grapple" aria-label="Grapple" onPointerDown={queue('grapple')}><b>LOCK</b><small>GRAPPLE</small></button>
-      <button type="button" className="mobile-action mobile-action--jump" aria-label="Jump" onPointerDown={queue('jump')}><b>↑</b><small>JUMP</small></button>
-      <button type="button" className="mobile-action mobile-action--context" aria-label={contextLabel} onPointerDown={queue('context')}><b>{contextLabel}</b><small>CORNER</small></button>
-      <button type="button" className="mobile-action mobile-action--counter" aria-label="Dodge or counter" onPointerDown={queue('dodge')}><b>↯</b><small>COUNTER</small></button>
+      <button type="button" className="mobile-action mobile-action--quick" aria-label="Quick strike" onClick={queue('quick')}><b>JAB</b><small>QUICK</small></button>
+      <button type="button" className="mobile-action mobile-action--power" aria-label="Heavy strike or stiff-arm" onClick={queue('heavy')}><b>HIT</b><small>POWER</small></button>
+      <button type="button" className="mobile-action mobile-action--grapple" aria-label="Grapple" onClick={queue('grapple')}><b>LOCK</b><small>GRAPPLE</small></button>
+      <button type="button" className="mobile-action mobile-action--jump" aria-label="Jump" onClick={queue('jump')}><b>↑</b><small>JUMP</small></button>
+      <button type="button" className="mobile-action mobile-action--context" aria-label={contextLabel} onClick={queue('context')}><b>{contextLabel}</b><small>CORNER</small></button>
+      <button type="button" className="mobile-action mobile-action--counter" aria-label="Dodge or counter" onClick={queue('dodge')}><b>↯</b><small>COUNTER</small></button>
     </div>
   </div>;
 }

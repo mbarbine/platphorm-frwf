@@ -229,6 +229,11 @@ describe('deterministic combat rules', () => {
     expect(requestCommand(model, 'player', 'heavy')).toBe(true); expect(model.player.moveId).toBe('stiff_arm');
   });
 
+  it('converts an elastic rope rebound into the named stiff-arm', () => {
+    const model = createMatch('atlas', 'nova', 'standard', 'normal'); model.player.position = { x: 4.8, z: 0 }; model.opponent.position = { x: 3.3, z: 0 }; model.player.ropeRebound = 1.1;
+    expect(requestCommand(model, 'player', 'heavy')).toBe(true); expect(model.player.moveId).toBe('stiff_arm');
+  });
+
   it('preserves beer choice but clears guard, climb, AI, and impact transients on rematch', () => {
     const model = createMatch('chad', 'atlas', 'chaos', 'hard', 4, 5); model.player.state = 'climbing'; model.aiBlockTimer = 2; model.hitStop = .4;
     const reset = resetTransientState(model);
