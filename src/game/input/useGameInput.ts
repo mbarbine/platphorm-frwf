@@ -73,6 +73,7 @@ export const useGameInput = (onPause: () => void): InputController => {
     }
     const touch = mobileInput.read();
     if (touch.active) {
+      setDevice('touch');
       x = touch.move.x; z = touch.move.z; run = touch.run; block = touch.block;
     }
     commands.push(...touch.commands);

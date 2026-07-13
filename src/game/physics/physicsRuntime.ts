@@ -391,7 +391,10 @@ export class BodyWorksRuntime {
           const attackerPosition = attackerPelvis.translation(); const defenderPosition = defenderPelvis.translation(); const planarDistance = Math.max(.001, Math.hypot(defenderPosition.x - attackerPosition.x, defenderPosition.z - attackerPosition.z));
           attackerPelvis.addForce({ x: (defenderPosition.x - attackerPosition.x) / planarDistance * attacker.body.mass * 3.6, y: 0, z: (defenderPosition.z - attackerPosition.z) / planarDistance * attacker.body.mass * 3.6 }, true);
         }
-        if (distance > .38) continue;
+        // The hand and target colliders already account for roughly .28 m of
+        // this separation. Closing the remaining reach with a short rope joint
+        // gives the lock-up a visible hand-to-body snap without teleporting.
+        if (distance > .58) continue;
         const joint = world.createImpulseJoint(JointData.rope(.22, { x: 0, y: 0, z: 0 }, { x: targetAnchorX, y: 0, z: 0 }), hand, target, true);
         joint.setContactsEnabled(false);
         this.metrics.gripCreateCount += 1;
