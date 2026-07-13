@@ -209,8 +209,10 @@ export class BodyWorksRuntime {
       else { intent.move.x = 0; intent.move.z = 0; intent.run = false; }
       intent.block = model.aiBlockTimer > 0;
     }
+    for (const rig of this.rigs.values()) this.capRigVelocity(rig);
     this.applyFighterController('player', model.player, dt);
     this.applyFighterController('opponent', model.opponent, dt);
+    if (this.world) this.advancePhysicalGrapple(this.world, model, dt);
     for (const [fighter, landing] of this.pendingLandings) if (landing.expiresAt < model.elapsed) this.pendingLandings.delete(fighter);
     this.metrics.fixedSteps += 1;
     const elapsed = performance.now() - startedAt;
@@ -237,12 +239,23 @@ export class BodyWorksRuntime {
     }
     if (rig.jumpQueued) {
       if (rig.supportContacts.size > 0 && rig.jumpCooldown <= 0 && ['idle', 'locomotion', 'jumping'].includes(fighter.state)) {
-        pelvis.applyImpulse({ x: 0, y: fighter.body.mass * .058, z: 0 }, true);
+        pelvis.applyImpulse({ x: 0, y: fighter.body.mass * 4.7, z: 0 }, true);
         rig.jumpCooldown = .65;
       }
       rig.jumpQueued = false;
     }
     this.applyPoseDrive(rig, fighter);
+  }
+
+  private capRigVelocity(rig: FighterRigRegistration): void {
+    for (const body of Object.values(rig.bodies)) {
+      if (!body?.isValid()) continue;
+      body.resetForces(true); body.resetTorques(true);
+      const linear = body.linvel(); const linearSpeed = Math.hypot(linear.x, linear.y, linear.z);
+      if (linearSpeed > 18) { const scale = 18 / linearSpeed; body.setLinvel({ x: linear.x * scale, y: linear.y * scale, z: linear.z * scale }, true); }
+      const angular = body.angvel(); const angularSpeed = Math.hypot(angular.x, angular.y, angular.z);
+      if (angularSpeed > 24) { const scale = 24 / angularSpeed; body.setAngvel({ x: angular.x * scale, y: angular.y * scale, z: angular.z * scale }, true); }
+    }
   }
 
   private advancePhysicalGrapple(world: World, model: MatchModel, dt: number): void {
@@ -330,7 +343,7 @@ export class BodyWorksRuntime {
       grapple.phase = 'release';
       this.releaseAllGrips(world);
       const direction = { x: Math.sin(attacker.facing), z: Math.cos(attacker.facing) };
-      defenderPelvis.applyImpulse({ x: direction.x * defender.body.mass * .035, y: -defender.body.mass * .055, z: direction.z * defender.body.mass * .035 }, true);
+      defenderPelvis.applyImpulse({ x: direction.x * defender.body.mass * 1.7, y: -defender.body.mass * 4.15, z: direction.z * defender.body.mass * 1.7 }, true);
       defenderChest.applyTorqueImpulse({ x: move.id.includes('suplex') || move.id === 'skyhook' ? -.16 : -.08, y: 0, z: grapple.position === 'overhook' ? .12 : -.08 }, true);
       defender.state = 'airborne'; defender.stateElapsed = 0; defender.downTimer = 1.5 + (100 - defender.health) / 85;
       this.pendingLandings.set(grapple.defender, { attacker: grapple.attacker, defender: grapple.defender, attackInstanceId: attacker.attackInstanceId, moveId: move.id, expiresAt: model.elapsed + 1.4 });
@@ -365,7 +378,6 @@ export class BodyWorksRuntime {
 
   afterFixedStep(model: MatchModel): void {
     if (model.paused) return;
-    if (this.world && !model.resolved) this.advancePhysicalGrapple(this.world, model, 1 / 60);
     this.syncFighter('player', model.player);
     this.syncFighter('opponent', model.opponent);
   }

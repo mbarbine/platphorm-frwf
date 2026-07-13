@@ -59,9 +59,9 @@ describe('deterministic combat rules', () => {
   });
 
   it('rematch clears all transient match state', () => {
-    const model = createMatch('atlas', 'vex', 'chaos', 'hard'); model.elapsed = 99; model.player.health = 3; model.player.momentum = 100; model.hype = 92; model.announcement = 'OLD';
+    const model = createMatch('atlas', 'vex', 'chaos', 'hard'); const runtimeId = model.runtimeId; model.seed += 41; model.elapsed = 99; model.player.health = 3; model.player.momentum = 100; model.hype = 92; model.announcement = 'OLD';
     const reset = resetTransientState(model);
-    expect(reset.elapsed).toBe(0); expect(reset.player.health).toBe(100); expect(reset.player.momentum).toBe(0); expect(reset.result).toBeNull(); expect(reset.hitStop).toBe(0); expect(reset.ruleset).toBe('chaos');
+    expect(model.runtimeId).toBe(runtimeId); expect(reset.runtimeId).not.toBe(runtimeId); expect(reset.elapsed).toBe(0); expect(reset.player.health).toBe(100); expect(reset.player.momentum).toBe(0); expect(reset.result).toBeNull(); expect(reset.hitStop).toBe(0); expect(reset.ruleset).toBe('chaos');
   });
 
   it('AI never selects an illegal action for its state or stamina', () => {
