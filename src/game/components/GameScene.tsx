@@ -45,8 +45,8 @@ function Simulation({ onPause, onDevice, onFinished }: Props) {
 
 function Fighters() {
   const player = useMatchStore((state) => state.model.player); const opponent = useMatchStore((state) => state.model.opponent);
-  const seed = useMatchStore((state) => state.model.seed);
-  return <group key={seed}><PhysicalFighterRig runtime={player} side="player" /><PhysicalFighterRig runtime={opponent} side="opponent" /></group>;
+  const runtimeId = useMatchStore((state) => state.model.runtimeId);
+  return <group key={runtimeId}><PhysicalFighterRig runtime={player} side="player" /><PhysicalFighterRig runtime={opponent} side="opponent" /></group>;
 }
 
 export function GameScene(props: Props) {

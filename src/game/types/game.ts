@@ -254,5 +254,6 @@ export interface MatchModel {
   replayFrames: ReplayFrame[];
   replaySampleTimer: number;
   highlights: HighlightMoment[];
+  runtimeId: number;
   seed: number;
 }

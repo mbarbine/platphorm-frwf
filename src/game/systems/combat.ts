@@ -37,7 +37,7 @@ export const createMatch = (playerId: FighterId, opponentId: FighterId, ruleset:
   hype: 8, props: initialProps(ruleset === 'chaos'), chaosEvent: null, nextChaosAt: 38, lastImpact: null, impactSequence: 0,
   announcement: 'ROUND ONE — FIGHT!', announcementTimer: 2.2, hitStop: 0, slowMotion: 0, result: null,
   playerStats: EMPTY_STATS(), opponentStats: EMPTY_STATS(), aiThinkTimer: .35, aiIntent: null, aiBlockTimer: 0,
-  grapple: null, replayFrames: [], replaySampleTimer: 0, highlights: [], seed,
+  grapple: null, replayFrames: [], replaySampleTimer: 0, highlights: [], runtimeId: seed, seed,
 });
 
 export const resetTransientState = (model: MatchModel): MatchModel => createMatch(model.player.definitionId, model.opponent.definitionId, model.ruleset, model.difficulty, model.seed + 97, model.player.beersDrunk, model.opponent.beersDrunk);
