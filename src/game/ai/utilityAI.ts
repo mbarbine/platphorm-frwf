@@ -19,7 +19,11 @@ export const isActionLegal = (model: MatchModel, command: GameCommand, actorKey:
   if (command === 'block') return actor.stamina > 2 && ['idle', 'locomotion', 'blocking', 'staggered'].includes(actor.state);
   if (command === 'jump') return actor.stamina >= 8 && actor.body.verticalOffset <= .32 && ['idle', 'locomotion'].includes(actor.state);
   if (actor.state === 'grappling' && actor.attackPhase === 'anticipation' && ['quick', 'heavy', 'grapple'].includes(command)) return true;
-  if (command === 'dodge') return actor.stamina >= 8 && ['idle', 'locomotion', 'climbing', 'staggered', 'grabbed'].includes(actor.state);
+  if (actor.state === 'climbing' && actor.climbStage === 3 && (command === 'quick' || command === 'heavy')) {
+    const move = command === 'quick' ? MOVES.aerial_elbow : MOVES.aerial_kick;
+    return Boolean(move && actor.stamina >= move.staminaCost && targetDistance <= move.maximumRange && !['defeated', 'victorious'].includes(target.state));
+  }
+  if (command === 'dodge') return actor.stamina >= (actor.state === 'downed' ? 12 : 8) && ['idle', 'locomotion', 'climbing', 'staggered', 'grabbed', 'downed'].includes(actor.state);
   if (command === 'taunt') return ['idle', 'locomotion', 'climbing'].includes(actor.state);
   if (command === 'interact') return model.ruleset === 'chaos' && ['idle', 'locomotion'].includes(actor.state);
   if (command === 'context') {
@@ -29,11 +33,11 @@ export const isActionLegal = (model: MatchModel, command: GameCommand, actorKey:
     if (pinEligible && target.state === 'downed' && targetDistance <= 1.6) return true;
     const nearCorner = Math.abs(actor.position.x) > 4.35 && Math.abs(actor.position.z) > 2.95;
     if (nearCorner && ['idle', 'locomotion'].includes(actor.state)) return true;
-    const nearApron = (Math.abs(actor.position.x) > 5.05 && Math.abs(actor.position.x) < 6.9 && Math.abs(actor.position.z) < 4.4)
-      || (Math.abs(actor.position.z) > 3.55 && Math.abs(actor.position.z) < 5.6 && Math.abs(actor.position.x) < 5.9);
+    const nearApron = (Math.abs(actor.position.x) > 4.62 && Math.abs(actor.position.x) < 6.9 && Math.abs(actor.position.z) < 3.55)
+      || (Math.abs(actor.position.z) > 3.05 && Math.abs(actor.position.z) < 5.6 && Math.abs(actor.position.x) < 5.15);
     return nearApron && ['idle', 'locomotion'].includes(actor.state);
   }
-  const move = command === 'quick' ? MOVES.jab : command === 'heavy' ? MOVES.heavy : MOVES.slam;
+  const move = command === 'quick' ? target.state === 'downed' ? MOVES.ground : MOVES.jab : command === 'heavy' ? actor.ropeRebound > 0 ? MOVES.stiff_arm : MOVES.heavy : MOVES.slam;
   if (!move) return false;
   return move.requiredActorStates.includes(actor.state) && actor.stamina >= move.staminaCost && (command !== 'grapple' || targetDistance <= move.maximumRange);
 };

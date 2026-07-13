@@ -38,20 +38,32 @@ function RopeSide({ axis, side, color, emissive }: { axis: 'x' | 'z'; side: -1 |
     if (!group.current) return;
     const model = useMatchStore.getState().model; const overdrive = model.chaosEvent?.type === 'OVERDRIVE ROPES';
     const edge = axis === 'x' ? 5.2 : 3.7; const visualEdge = axis === 'x' ? 5.75 : 4.25;
-    const playerEdge = (axis === 'x' ? model.player.position.x : model.player.position.z) * side;
-    const opponentEdge = (axis === 'x' ? model.opponent.position.x : model.opponent.position.z) * side;
-    const compression = Math.max(0, Math.min(1, (Math.max(playerEdge, opponentEdge) - edge) / .54));
-    const rebound = Math.max(playerEdge > edge - .6 ? model.player.ropeRebound : 0, opponentEdge > edge - .6 ? model.opponent.ropeRebound : 0);
-    const pulse = Math.sin(elapsed.current * (overdrive ? 26 : 18)) * compression;
-    if (axis === 'x') { group.current.position.x = side * (visualEdge + compression * (.035 + pulse * .045)); group.current.scale.z = 1 + compression * .035; }
-    else { group.current.position.z = side * (visualEdge + compression * (.035 + pulse * .045)); group.current.scale.x = 1 + compression * .035; }
-    group.current.scale.y = 1 + pulse * .035 + rebound * .012;
+    const fighters = [model.player, model.opponent] as const;
+    const edgeDepths = fighters.map((fighter) => (axis === 'x' ? fighter.position.x : fighter.position.z) * side);
+    const contactIndex = edgeDepths[0] >= edgeDepths[1] ? 0 : 1; const contactFighter = fighters[contactIndex];
+    const compression = Math.max(0, Math.min(1, (edgeDepths[contactIndex] - edge) / .54));
+    const rebound = Math.max(...fighters.map((fighter, index) => edgeDepths[index] > edge - 1.55 ? fighter.ropeRebound : 0));
+    const contactAlong = axis === 'x' ? contactFighter.position.z : contactFighter.position.x;
+    const pulse = Math.sin(elapsed.current * (overdrive ? 29 : 21)) * (compression + rebound * .34);
+    group.current.position.set(axis === 'x' ? side * visualEdge : 0, 0, axis === 'z' ? side * visualEdge : 0);
+    group.current.scale.y = 1 + pulse * .025;
     for (const child of group.current.children) {
       const mesh = child as Mesh; const material = mesh.material as MeshStandardMaterial;
+      const along = Number(mesh.userData.along ?? 0); const distanceFromContact = Math.abs(along - contactAlong);
+      const envelope = Math.exp(-distanceFromContact * distanceFromContact * .42);
+      const travellingWave = Math.sin(elapsed.current * 25 - distanceFromContact * 2.2) * rebound * .075 * envelope;
+      const deflection = side * (compression * (.34 + pulse * .1) * envelope + travellingWave);
+      if (axis === 'x') mesh.position.x = deflection; else mesh.position.z = deflection;
+      mesh.rotation.y = axis === 'x' ? Math.sin((along - contactAlong) * .72) * compression * .055 * side : 0;
+      mesh.rotation.z = axis === 'z' ? -Math.sin((along - contactAlong) * .72) * compression * .055 * side : 0;
       material.emissiveIntensity = overdrive ? 2.6 : .78 + compression * 1.2;
     }
   });
-  return <group ref={group} position={axis === 'x' ? [side * 5.75, 0, 0] : [0, 0, side * 4.25]}>{[2.5, 3.05, 3.6].map((y) => <mesh key={y} position={[0, y, 0]} castShadow><boxGeometry args={axis === 'x' ? [.07, .07, 8.5] : [11.5, .07, .07]} /><meshStandardMaterial color={color} emissive={emissive} emissiveIntensity={.78} roughness={.3} metalness={.28} /></mesh>)}</group>;
+  const segmentCount = 7; const length = axis === 'x' ? 8.5 : 11.5; const segmentLength = length / segmentCount;
+  return <group ref={group} position={axis === 'x' ? [side * 5.75, 0, 0] : [0, 0, side * 4.25]}>{[2.5, 3.05, 3.6].flatMap((y, ropeIndex) => Array.from({ length: segmentCount }, (_, index) => {
+    const along = -length / 2 + segmentLength * (index + .5);
+    return <mesh key={`${ropeIndex}-${index}`} position={axis === 'x' ? [0, y, along] : [along, y, 0]} userData={{ along, ropeIndex }} castShadow><boxGeometry args={axis === 'x' ? [.075, .075, segmentLength + .06] : [segmentLength + .06, .075, .075]} /><meshStandardMaterial color={color} emissive={emissive} emissiveIntensity={.78} roughness={.3} metalness={.28} /></mesh>;
+  }))}</group>;
 }
 
 function Ropes() {

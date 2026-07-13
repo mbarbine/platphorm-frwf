@@ -251,16 +251,17 @@ export const performCounter = (model: MatchModel, defenderKey: 'player' | 'oppon
   return true;
 };
 
-type GrappleButton = 'quick' | 'heavy' | 'grapple';
-type GrappleDirection = 'neutral' | 'up' | 'down' | 'left' | 'right';
+export type GrappleButton = 'quick' | 'heavy' | 'grapple';
+export type CombatDirection = 'neutral' | 'up' | 'down' | 'left' | 'right';
+export type StrikeButton = 'quick' | 'heavy';
 
-const grappleDirection = (direction: Vec2): GrappleDirection => {
+export const combatDirection = (direction: Vec2): CombatDirection => {
   if (Math.hypot(direction.x, direction.z) < .35) return 'neutral';
   if (Math.abs(direction.x) > Math.abs(direction.z)) return direction.x < 0 ? 'left' : 'right';
   return direction.z < 0 ? 'up' : 'down';
 };
 
-const GRAPPLE_GRID: Readonly<Record<GrappleDirection, Readonly<Record<GrappleButton, string>>>> = {
+const GRAPPLE_GRID: Readonly<Record<CombatDirection, Readonly<Record<GrappleButton, string>>>> = {
   neutral: { quick: 'takedown', heavy: 'slam', grapple: 'slam' },
   up: { quick: 'arm_drag', heavy: 'skyhook', grapple: 'powerbomb' },
   down: { quick: 'takedown', heavy: 'spinebuster', grapple: 'mountain_drop' },
@@ -268,7 +269,20 @@ const GRAPPLE_GRID: Readonly<Record<GrappleDirection, Readonly<Record<GrappleBut
   right: { quick: 'side_toss', heavy: 'slam', grapple: 'suplex' },
 };
 
-export const selectDirectionalGrapple = (direction: Vec2, button: GrappleButton): string => GRAPPLE_GRID[grappleDirection(direction)][button];
+const STRIKE_GRID: Readonly<Record<CombatDirection, Readonly<Record<StrikeButton, string>>>> = {
+  neutral: { quick: 'jab', heavy: 'heavy' },
+  up: { quick: 'high_punch', heavy: 'uppercut' },
+  down: { quick: 'low_kick', heavy: 'front_kick' },
+  left: { quick: 'combo', heavy: 'roundhouse' },
+  right: { quick: 'high_punch', heavy: 'high_kick' },
+};
+
+export const selectDirectionalGrapple = (direction: Vec2, button: GrappleButton): string => GRAPPLE_GRID[combatDirection(direction)][button];
+export const selectDirectionalStrike = (direction: Vec2, button: StrikeButton, comboStep = 0): string => {
+  const directionId = combatDirection(direction);
+  if (directionId === 'neutral' && button === 'quick') return comboStep % 2 === 0 ? 'jab' : 'combo';
+  return STRIKE_GRID[directionId][button];
+};
 
 const startPin = (actor: FighterRuntime, target: FighterRuntime): boolean => {
   if (target.state !== 'downed' || distance(actor.position, target.position) > 1.7) return false;
@@ -295,10 +309,44 @@ const useProp = (model: MatchModel, actorKey: 'player' | 'opponent'): boolean =>
   return true;
 };
 
+export const canTransitionThroughRopes = (position: Vec2): boolean => {
+  const x = Math.abs(position.x); const z = Math.abs(position.z);
+  const nearSideRope = x > 4.62 && x < 6.9 && z < 3.55;
+  const nearEndRope = z > 3.05 && z < 5.6 && x < 5.15;
+  return nearSideRope || nearEndRope;
+};
+
+const startKickUp = (actor: FighterRuntime, target: FighterRuntime): boolean => {
+  const move = getMove('kick_up');
+  if (!canStartMove(actor, target, move)) return false;
+  actor.state = 'recovering'; actor.moveId = move.id; actor.attackPhase = 'anticipation'; actor.phaseElapsed = 0; actor.stateElapsed = 0;
+  actor.hitTargets = []; actor.attackInstanceId += 1; actor.downTimer = 0; actor.finisherPrimed = false;
+  actor.stamina = clamp(actor.stamina - move.staminaCost, 0, actor.staminaCap); actor.invulnerability = Math.max(actor.invulnerability, .28);
+  actor.body.verticalVelocity = Math.max(actor.body.verticalVelocity, 3.8);
+  return true;
+};
+
+const launchAerial = (model: MatchModel, actor: FighterRuntime, target: FighterRuntime, moveId: 'aerial' | 'aerial_elbow' | 'aerial_kick'): boolean => {
+  if (!['defeated', 'victorious'].includes(target.state) && distance(actor.position, target.position) <= getMove(moveId).maximumRange) {
+    const started = startMove(actor, target, getMove(moveId));
+    if (started) {
+      actor.climbStage = 0; actor.body.verticalOffset = Math.max(actor.body.verticalOffset, .92); actor.body.verticalVelocity = 4.2;
+      const flight = normalize({ x: target.position.x - actor.position.x, z: target.position.z - actor.position.z });
+      actor.velocity = scale(flight, moveId === 'aerial_kick' ? 6.8 : moveId === 'aerial_elbow' ? 5.8 : 6.1);
+      model.announcement = getMove(moveId).displayName.toUpperCase(); model.announcementTimer = 1;
+    }
+    return started;
+  }
+  return false;
+};
+
 export const requestCommand = (model: MatchModel, actorKey: 'player' | 'opponent', command: GameCommand, direction: Vec2 = { x: 0, z: 0 }): boolean => {
   const actor = model[actorKey];
   const targetKey = actorKey === 'player' ? 'opponent' : 'player';
   const target = model[targetKey];
+  if (actor.state === 'climbing' && actor.climbStage === 3 && (command === 'quick' || command === 'heavy')) {
+    return launchAerial(model, actor, target, command === 'quick' ? 'aerial_elbow' : 'aerial_kick');
+  }
   if (actor.state === 'grappling' && actor.attackPhase === 'anticipation' && (command === 'quick' || command === 'heavy' || command === 'grapple')) {
     const moveId = selectDirectionalGrapple(direction, command);
     const selected = getMove(moveId);
@@ -309,8 +357,6 @@ export const requestCommand = (model: MatchModel, actorKey: 'player' | 'opponent
     actor.moveId = moveId;
     actor.phaseElapsed = Math.min(actor.phaseElapsed, selected.anticipationDuration * .55);
     if (model.grapple?.attacker === actorKey) retargetGrapple(model.grapple, moveId);
-    model.announcement = `${grappleDirection(direction).toUpperCase()} + ${command.toUpperCase()} — ${selected.displayName.toUpperCase()}`;
-    model.announcementTimer = .75;
     return true;
   }
   if (!isActionLegal(model, command, actorKey)) return false;
@@ -319,6 +365,7 @@ export const requestCommand = (model: MatchModel, actorKey: 'player' | 'opponent
     return true;
   }
   if (command === 'dodge') {
+    if (actor.state === 'downed') return startKickUp(actor, target);
     if (performCounter(model, actorKey, targetKey)) return true;
     actor.state = 'locomotion'; actor.climbStage = 0; actor.invulnerability = .32; actor.stamina = clamp(actor.stamina - 8, 0, actor.staminaCap);
     const away = normalize({ x: actor.position.x - target.position.x, z: actor.position.z - target.position.z });
@@ -340,19 +387,7 @@ export const requestCommand = (model: MatchModel, actorKey: 'player' | 'opponent
         model.announcementTimer = 1.05;
         return true;
       }
-      if (!['defeated', 'victorious'].includes(target.state) && distance(actor.position, target.position) <= getMove('aerial').maximumRange) {
-        model.announcement = 'DOMEFALL — AIRBORNE!'; model.announcementTimer = 1;
-        const started = startMove(actor, target, getMove('aerial'));
-        if (started) {
-          actor.climbStage = 0;
-          actor.body.verticalOffset = Math.max(actor.body.verticalOffset, .92);
-          actor.body.verticalVelocity = 4.2;
-          const flight = normalize({ x: target.position.x - actor.position.x, z: target.position.z - actor.position.z });
-          actor.velocity = scale(flight, 6.1);
-        }
-        return started;
-      }
-      return false;
+      return launchAerial(model, actor, target, 'aerial');
     }
     if (actor.momentum >= 100 && ['staggered', 'downed'].includes(target.state)) {
       const started = startMove(actor, target, getMove('finisher'));
@@ -371,8 +406,8 @@ export const requestCommand = (model: MatchModel, actorKey: 'player' | 'opponent
       model.announcement = 'LOWER ROPE — F TO CLIMB HIGHER'; model.announcementTimer = 1.4;
       return true;
     }
-    const nearXApron = Math.abs(actor.position.x) > 5.05 && Math.abs(actor.position.x) < 6.9 && Math.abs(actor.position.z) < 4.4;
-    const nearZApron = Math.abs(actor.position.z) > 3.55 && Math.abs(actor.position.z) < 5.6 && Math.abs(actor.position.x) < 5.9;
+    const nearXApron = Math.abs(actor.position.x) > 4.62 && Math.abs(actor.position.x) < 6.9 && Math.abs(actor.position.z) < 3.55;
+    const nearZApron = Math.abs(actor.position.z) > 3.05 && Math.abs(actor.position.z) < 5.6 && Math.abs(actor.position.x) < 5.15;
     if (nearXApron || nearZApron) {
       const inside = Math.abs(actor.position.x) <= 5.8 && Math.abs(actor.position.z) <= 4.3;
       if (!model.physicsAuthority) {
@@ -386,14 +421,16 @@ export const requestCommand = (model: MatchModel, actorKey: 'player' | 'opponent
     return false;
   }
   if (command === 'quick') {
-    const moveId = target.state === 'downed' ? 'ground' : actor.comboStep % 2 === 0 ? 'jab' : 'combo';
+    const moveId = target.state === 'downed' ? 'ground' : selectDirectionalStrike(direction, 'quick', actor.comboStep);
     const started = startMove(actor, target, getMove(moveId));
     if (started) actor.comboStep += 1;
     return started;
   }
   if (command === 'heavy') {
-    const moving = Math.hypot(direction.x, direction.z) > .38;
-    return startMove(actor, target, getMove(actor.heldPropId ? 'prop' : actor.ropeRebound > 0 || Math.hypot(actor.velocity.x, actor.velocity.z) > 3.6 ? 'stiff_arm' : moving ? 'front_kick' : 'heavy'));
+    const moveId = actor.heldPropId ? 'prop'
+      : actor.ropeRebound > 0 || Math.hypot(actor.velocity.x, actor.velocity.z) > 3.6 ? 'stiff_arm'
+        : selectDirectionalStrike(direction, 'heavy', actor.comboStep);
+    return startMove(actor, target, getMove(moveId));
   }
   if (Math.hypot(actor.velocity.x, actor.velocity.z) > 3.75 && target.state !== 'downed') return startMove(actor, target, getMove('spear'));
   if (target.state === 'blocking') {
@@ -520,7 +557,7 @@ const updateFighter = (model: MatchModel, actorKey: 'player' | 'opponent', dt: n
   if (actor.state === 'downed') {
     actor.downTimer -= dt; actor.stamina = clamp(actor.stamina + dt * 10, 0, actor.staminaCap);
     if (actor.downTimer <= 0) { actor.state = 'recovering'; actor.stateElapsed = 0; }
-  } else if (actor.state === 'recovering' && actor.stateElapsed > .7) {
+  } else if (actor.state === 'recovering' && !actor.moveId && actor.stateElapsed > .7) {
     actor.state = 'idle'; actor.stateElapsed = 0; actor.finisherPrimed = false;
   } else if (actor.state === 'staggered' && actor.stateElapsed > .42 + (100 - actor.health) / 240) {
     actor.state = 'idle'; actor.stateElapsed = 0;
@@ -547,7 +584,7 @@ const updateFighter = (model: MatchModel, actorKey: 'player' | 'opponent', dt: n
       actor.velocity.x += chase.x * dt * 6.5;
       actor.velocity.z += chase.z * dt * 6.5;
     }
-    if (actor.attackPhase === 'active' && !model.physicsAuthority && move.id !== 'taunt') applyMoveHit(model, actorKey, actorKey === 'player' ? 'opponent' : 'player', move);
+    if (actor.attackPhase === 'active' && !model.physicsAuthority && move.id !== 'taunt' && move.id !== 'kick_up') applyMoveHit(model, actorKey, actorKey === 'player' ? 'opponent' : 'player', move);
     if (!actor.attackPhase) {
       const completedTurnbuckleTaunt = move.id === 'taunt' && actor.state === 'climbing';
       if (move.id === 'taunt') {
@@ -685,7 +722,8 @@ export const advanceMatch = (model: MatchModel, dt: number, playerInput: FrameIn
 };
 
 const expectedContactSegment = (move: MoveDefinition, segment: string): boolean => {
-  if (move.category === 'aerial' || move.id === 'ground' || move.id === 'front_kick') return segment.includes('Foot') || segment.includes('Shin') || segment.includes('chest');
+  if (move.id === 'aerial_elbow') return segment.includes('Forearm') || segment.includes('UpperArm') || segment === 'chest';
+  if (move.category === 'aerial' || move.id === 'ground' || move.id === 'front_kick' || move.id === 'low_kick' || move.id === 'high_kick' || move.id === 'roundhouse') return segment.includes('Foot') || segment.includes('Shin') || segment.includes('chest');
   if (move.id === 'rebound' || move.id === 'stiff_arm') return segment.includes('Hand') || segment.includes('UpperArm') || segment === 'chest';
   if (move.id === 'spear') return segment === 'chest' || segment.includes('UpperArm');
   if (move.category === 'quick' || move.category === 'heavy' || move.category === 'prop' || move.id === 'counter') return segment.includes('Hand');

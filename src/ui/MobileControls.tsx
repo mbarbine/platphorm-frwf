@@ -3,6 +3,8 @@ import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent }
 import { mobileInput } from '../game/input/mobileInput';
 import { useMatchStore } from '../game/state/matchStore';
 import type { GameCommand } from '../game/types/game';
+import { getMove } from '../game/data/moves';
+import { canTransitionThroughRopes, selectDirectionalGrapple, selectDirectionalStrike } from '../game/systems/combat';
 
 interface MobileControlsProps { onPause: () => void; paused: boolean }
 
@@ -35,11 +37,22 @@ export function MobileControls({ onPause, paused }: MobileControlsProps) {
   const opponent = useMatchStore((state) => state.model.opponent);
   const distance = Math.hypot(player.position.x - opponent.position.x, player.position.z - opponent.position.z);
   const nearCorner = Math.abs(player.position.x) > 4.35 && Math.abs(player.position.z) > 2.95;
+  const ringside = Math.abs(player.position.x) > 5.82 || Math.abs(player.position.z) > 4.32;
   const contextLabel = player.state === 'climbing'
     ? player.climbStage === 1 ? 'CLIMB II' : player.climbStage === 2 ? 'CLIMB TOP' : 'DIVE'
     : player.momentum >= 100 && ['staggered', 'downed'].includes(opponent.state) && distance < 2.2 ? 'FINISH'
-      : opponent.state === 'downed' && distance < 1.7 ? 'PIN' : nearCorner ? 'CLIMB I' : 'ACTION';
-  const powerLabel = player.ropeRebound > 0 ? 'STIFF!' : player.heldPropId ? 'SWING' : 'HIT';
+      : opponent.state === 'downed' && distance < 1.7 ? 'PIN' : nearCorner ? 'CLIMB I'
+        : canTransitionThroughRopes(player.position) ? ringside ? 'ENTER RING' : 'EXIT RING' : 'ACTION';
+  const quickMove = player.state === 'grappling' ? selectDirectionalGrapple(stick, 'quick')
+    : player.state === 'climbing' && player.climbStage === 3 ? 'aerial_elbow'
+      : opponent.state === 'downed' ? 'ground' : selectDirectionalStrike(stick, 'quick', player.comboStep);
+  const heavyMove = player.state === 'grappling' ? selectDirectionalGrapple(stick, 'heavy')
+    : player.state === 'climbing' && player.climbStage === 3 ? 'aerial_kick'
+      : player.ropeRebound > 0 ? 'stiff_arm' : player.heldPropId ? 'prop' : selectDirectionalStrike(stick, 'heavy', player.comboStep);
+  const grappleMove = player.state === 'grappling' ? selectDirectionalGrapple(stick, 'grapple') : null;
+  const quickLabel = player.state === 'downed' ? 'NO STRIKE' : getMove(quickMove).displayName.toUpperCase();
+  const powerLabel = player.state === 'downed' ? 'NO STRIKE' : getMove(heavyMove).displayName.toUpperCase();
+  const grappleLabel = player.state === 'climbing' || player.state === 'downed' ? 'NO LOCK' : grappleMove ? getMove(grappleMove).displayName.toUpperCase() : 'LOCK UP';
 
   useEffect(() => () => mobileInput.reset(), []);
 
@@ -89,12 +102,12 @@ export function MobileControls({ onPause, paused }: MobileControlsProps) {
       <button type="button" className="mobile-hold mobile-hold--taunt" aria-label="Taunt" onPointerDown={queuePointer('taunt')} onClick={queueKeyboard('taunt')}>TAUNT</button>
     </div>
     <div className="mobile-actions" aria-label="Wrestling actions">
-      <button type="button" className={`mobile-action mobile-action--quick${player.moveId === 'jab' ? ' is-pressed' : ''}`} aria-label="Quick strike" onPointerDown={queuePointer('quick')} onClick={queueKeyboard('quick')}><b>{opponent.state === 'downed' ? 'GROUND' : 'JAB'}</b><small>QUICK</small></button>
+      <button type="button" className={`mobile-action mobile-action--quick${player.moveId === quickMove ? ' is-pressed' : ''}`} aria-label={quickLabel} onPointerDown={queuePointer('quick')} onClick={queueKeyboard('quick')}><b>{quickLabel}</b><small>QUICK</small></button>
       <button type="button" className={`mobile-action mobile-action--power${player.ropeRebound > 0 ? ' is-pressed' : ''}`} aria-label="Heavy strike or stiff-arm" onPointerDown={queuePointer('heavy')} onClick={queueKeyboard('heavy')}><b>{powerLabel}</b><small>{player.ropeRebound > 0 ? 'STIFF-ARM' : 'POWER'}</small></button>
-      <button type="button" className={`mobile-action mobile-action--grapple${player.state === 'grappling' ? ' is-pressed' : ''}`} aria-label="Grapple" onPointerDown={queuePointer('grapple')} onClick={queueKeyboard('grapple')}><b>{player.state === 'grappling' ? 'THROW' : 'LOCK'}</b><small>GRAPPLE</small></button>
+      <button type="button" className={`mobile-action mobile-action--grapple${player.state === 'grappling' ? ' is-pressed' : ''}`} aria-label={grappleLabel} onPointerDown={queuePointer('grapple')} onClick={queueKeyboard('grapple')}><b>{grappleLabel}</b><small>GRAPPLE</small></button>
       <button type="button" className="mobile-action mobile-action--jump" aria-label="Jump" onPointerDown={queuePointer('jump')} onClick={queueKeyboard('jump')}><b>↑</b><small>JUMP</small></button>
-      <button type="button" className="mobile-action mobile-action--context" aria-label={contextLabel} onPointerDown={queuePointer('context')} onClick={queueKeyboard('context')}><b>{contextLabel}</b><small>CORNER</small></button>
-      <button type="button" className="mobile-action mobile-action--counter" aria-label="Dodge or counter" onPointerDown={queuePointer('dodge')} onClick={queueKeyboard('dodge')}><b>↯</b><small>COUNTER</small></button>
+      <button type="button" className="mobile-action mobile-action--context" aria-label={contextLabel} onPointerDown={queuePointer('context')} onClick={queueKeyboard('context')}><b>{contextLabel}</b><small>ACTION</small></button>
+      <button type="button" className="mobile-action mobile-action--counter" aria-label={player.state === 'downed' ? 'Kick up' : 'Dodge or counter'} onPointerDown={queuePointer('dodge')} onClick={queueKeyboard('dodge')}><b>↯</b><small>{player.state === 'downed' ? 'KICK-UP' : 'COUNTER'}</small></button>
     </div>
   </div>;
 }

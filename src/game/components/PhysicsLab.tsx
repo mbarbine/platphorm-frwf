@@ -49,7 +49,7 @@ export function PhysicsLab() {
     const closeRange = ['jab', 'hook', 'guard', 'kick', 'lock', 'slam', 'suplex', 'powerbomb', 'clothesline', 'spear'].includes(scenario.id);
     const corner = scenario.id === 'climb' || scenario.id === 'dive';
     if (corner) useMatchStore.getState().prepareLabScenario({ x: -4.52, z: -3.08 }, { x: -.6, z: -.2 });
-    else if (scenario.id === 'ropeStrike') useMatchStore.getState().prepareLabScenario({ x: 4.48, z: .2 }, { x: 2.85, z: -.35 });
+    else if (scenario.id === 'ropeStrike') useMatchStore.getState().prepareLabScenario({ x: 4.48, z: .2 }, { x: 3.65, z: -.12 });
     else if (closeRange) useMatchStore.getState().prepareLabScenario({ x: 0, z: -.68 }, { x: 0, z: .68 });
     else if (scenario.id === 'miss') useMatchStore.getState().prepareLabScenario({ x: 0, z: -2.6 }, { x: 0, z: 2.6 });
     for (const step of scenario.steps) timers.current.push(window.setTimeout(() => dispatchKey(step.code, step.down), step.at));

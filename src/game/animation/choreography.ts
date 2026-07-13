@@ -199,10 +199,22 @@ const strikeFrames = (moveId: string): readonly PoseKeyframe[] => {
     { at: .76, pose: pose({ torso: [.12, .22, 0], leftArm: [-.6, 0, -.38], rightArm: [-1.5, 0, .08], rightForearm: [-.08, 0, 0], rootYaw: .16, rootZ: .16 }) },
     { at: 1, pose: POSES.combatIdle },
   ];
+  if (moveId === 'high_punch') return [
+    { at: 0, pose: POSES.combatIdle },
+    { at: .44, pose: pose({ torso: [-.14, .32, -.08], rightArm: [.02, -.18, .78], rightForearm: [-1.34, 0, 0], leftArm: [-.86, 0, -.42], leftForearm: [-1.14, 0, 0], rightLeg: [-.12, 0, 0], rootYaw: .26, rootY: -.04 }) },
+    { at: .7, pose: pose({ torso: [-.12, -.28, .04], rightArm: [-1.66, -.12, .05], rightForearm: [-.04, 0, 0], leftArm: [-.76, 0, -.48], leftForearm: [-1.06, 0, 0], leftLeg: [.12, 0, 0], rootZ: .18, rootYaw: -.2, rootTilt: .14 }) },
+    { at: 1, pose: POSES.combatIdle },
+  ];
   if (moveId === 'heavy' || moveId === 'prop') return [
     { at: 0, pose: POSES.combatIdle },
     { at: .5, pose: pose({ torso: [-.08, .6, -.2], rightArm: [.42, -.4, .95], rightForearm: [-1.28, 0, 0], leftArm: [-.72, 0, -.38], leftForearm: [-1.05, 0, 0], rightLeg: [-.25, 0, 0], rootYaw: .58, rootRoll: -.12 }) },
     { at: .72, pose: pose({ torso: [.18, -.62, .12], rightArm: [-1.28, -.28, .72], rightForearm: [-.18, 0, 0], leftArm: [-.58, 0, -.5], leftForearm: [-1.02, 0, 0], rootZ: .2, rootYaw: -.58, rootRoll: .16, rootTilt: .2 }) },
+    { at: 1, pose: POSES.combatIdle },
+  ];
+  if (moveId === 'uppercut') return [
+    { at: 0, pose: POSES.combatIdle },
+    { at: .46, pose: pose({ torso: [.42, .48, -.18], rightArm: [.5, -.2, .52], rightForearm: [-1.55, 0, 0], leftArm: [-.78, 0, -.42], leftForearm: [-1.18, 0, 0], leftLeg: [.38, 0, 0], rightLeg: [.48, 0, 0], leftShin: [-.82, 0, 0], rightShin: [-.92, 0, 0], rootY: -.3, rootYaw: .34, rootTilt: .32 }) },
+    { at: .72, pose: pose({ torso: [-.38, -.3, .1], rightArm: [-2.15, 0, .18], rightForearm: [-.24, 0, 0], leftArm: [-.66, 0, -.5], leftForearm: [-1.05, 0, 0], leftLeg: [-.16, 0, 0], rightLeg: [-.24, 0, 0], rootY: .22, rootZ: .2, rootYaw: -.24, rootTilt: -.22 }) },
     { at: 1, pose: POSES.combatIdle },
   ];
   if (moveId === 'stiff_arm' || moveId === 'rebound') return [
@@ -217,6 +229,25 @@ const strikeFrames = (moveId: string): readonly PoseKeyframe[] => {
     { at: .72, pose: pose({ torso: [-.12, 0, 0], rightLeg: [-1.38, 0, 0], rightShin: [.08, 0, 0], leftLeg: [.25, 0, 0], leftShin: [-.3, 0, 0], leftArm: [-.9, 0, -.55], rightArm: [-.82, 0, .55], rootZ: .22, rootTilt: -.08 }) },
     { at: 1, pose: POSES.combatIdle },
   ];
+  if (moveId === 'low_kick') return [
+    { at: 0, pose: POSES.combatIdle },
+    { at: .47, pose: pose({ torso: [.12, .24, 0], rightLeg: [.68, 0, -.2], rightShin: [-1.32, 0, 0], leftLeg: [-.24, 0, .12], leftShin: [-.46, 0, 0], leftArm: [-.72, 0, -.55], rightArm: [-.62, 0, .55], rootYaw: .28, rootTilt: .14 }) },
+    { at: .7, pose: pose({ torso: [.2, -.34, .08], rightLeg: [-.86, 0, -.36], rightShin: [.08, 0, 0], leftLeg: [.22, 0, .1], leftShin: [-.36, 0, 0], leftArm: [-.92, 0, -.62], rightArm: [-.76, 0, .48], rootY: -.08, rootZ: .16, rootYaw: -.48, rootRoll: .14 }) },
+    { at: 1, pose: POSES.combatIdle },
+  ];
+  if (moveId === 'high_kick') return [
+    { at: 0, pose: POSES.combatIdle },
+    { at: .48, pose: pose({ torso: [.28, .36, -.12], rightLeg: [1.24, 0, -.34], rightShin: [-1.58, 0, 0], leftLeg: [-.28, 0, .12], leftShin: [-.55, 0, 0], leftArm: [-.55, 0, -.72], rightArm: [-.48, 0, .7], rootYaw: .38, rootTilt: .22 }) },
+    { at: .73, pose: pose({ torso: [-.22, -.4, .18], rightLeg: [-1.72, 0, -.3], rightShin: [.06, 0, 0], leftLeg: [.3, 0, .08], leftShin: [-.42, 0, 0], leftArm: [-1.02, 0, -.7], rightArm: [-.84, 0, .58], rootY: .12, rootZ: .2, rootYaw: -.48, rootRoll: .2, rootTilt: -.16 }) },
+    { at: 1, pose: POSES.combatIdle },
+  ];
+  if (moveId === 'roundhouse') return [
+    { at: 0, pose: POSES.combatIdle },
+    { at: .46, pose: pose({ torso: [.22, .74, -.18], rightLeg: [.94, 0, -.5], rightShin: [-1.42, 0, 0], leftLeg: [-.3, 0, .22], leftShin: [-.58, 0, 0], leftArm: [-.42, 0, -.82], rightArm: [-.3, 0, .88], rootYaw: .82, rootTilt: .18, rootRoll: -.18 }) },
+    { at: .7, pose: pose({ torso: [-.18, -1.05, .22], rightLeg: [-1.58, 0, -.75], rightShin: [-.05, 0, 0], leftLeg: [.4, 0, .18], leftShin: [-.48, 0, 0], leftArm: [-1.1, 0, -.68], rightArm: [-.95, 0, .75], rootY: .16, rootZ: .24, rootYaw: -1.08, rootRoll: .26, rootTilt: -.12 }) },
+    { at: .84, pose: pose({ ...POSES.recovery, rootYaw: -.5, rootRoll: .16 }) },
+    { at: 1, pose: POSES.combatIdle },
+  ];
   if (moveId === 'spear') return [
     { at: 0, pose: POSES.run },
     { at: .5, pose: pose({ ...POSES.run, torso: [.42, 0, 0], leftArm: [-1.15, 0, -.42], rightArm: [-1.15, 0, .42], leftForearm: [-1.25, 0, 0], rightForearm: [-1.25, 0, 0], rootTilt: .52, rootY: -.18 }) },
@@ -226,6 +257,25 @@ const strikeFrames = (moveId: string): readonly PoseKeyframe[] => {
   if (moveId === 'ground') return [
     { at: 0, pose: POSES.combatIdle }, { at: .5, pose: pose({ torso: [.42, 0, 0], rightLeg: [.72, 0, 0], rightShin: [-1.22, 0, 0], rootTilt: .32 }) },
     { at: .72, pose: pose({ torso: [.68, 0, 0], rightLeg: [-1.18, 0, 0], rightShin: [.18, 0, 0], rootY: -.15, rootTilt: .48 }) }, { at: 1, pose: POSES.combatIdle },
+  ];
+  if (moveId === 'aerial_elbow') return [
+    { at: 0, pose: POSES.climb },
+    { at: .45, pose: pose({ torso: [.35, 0, 0], rightArm: [-.72, 0, .82], rightForearm: [-1.72, 0, 0], leftArm: [-1.18, 0, -.42], leftForearm: [-.65, 0, 0], leftLeg: [.5, 0, 0], rightLeg: [-.4, 0, 0], rootTilt: .48, rootY: .38 }) },
+    { at: .72, pose: pose({ torso: [.78, 0, 0], rightArm: [-1.08, 0, .38], rightForearm: [-1.48, 0, 0], leftArm: [-1.5, 0, -.28], leftForearm: [-.45, 0, 0], leftLeg: [.28, 0, 0], rightLeg: [.42, 0, 0], leftShin: [-.8, 0, 0], rightShin: [-.7, 0, 0], rootTilt: .92, rootZ: .42, rootY: .12 }) },
+    { at: 1, pose: POSES.recovery },
+  ];
+  if (moveId === 'aerial_kick' || moveId === 'aerial') return [
+    { at: 0, pose: POSES.climb },
+    { at: .46, pose: pose({ torso: [.2, 0, 0], rightLeg: [1.1, 0, 0], rightShin: [-1.45, 0, 0], leftLeg: [.3, 0, 0], leftShin: [-1.1, 0, 0], leftArm: [-1.35, 0, -.62], rightArm: [-1.28, 0, .62], rootY: .42, rootTilt: .25 }) },
+    { at: .72, pose: pose({ torso: [.48, 0, 0], rightLeg: [-1.46, 0, 0], rightShin: [.06, 0, 0], leftLeg: [-1.1, 0, 0], leftShin: [.1, 0, 0], leftArm: [-1.6, 0, -.38], rightArm: [-1.55, 0, .4], rootZ: .48, rootTilt: .62, rootY: .08 }) },
+    { at: 1, pose: POSES.recovery },
+  ];
+  if (moveId === 'kick_up') return [
+    { at: 0, pose: POSES.downed },
+    { at: .34, pose: pose({ torso: [-.88, 0, 0], leftArm: [-1.45, 0, -.35], rightArm: [-1.45, 0, .35], leftForearm: [-.22, 0, 0], rightForearm: [-.22, 0, 0], leftLeg: [1.35, 0, 0], rightLeg: [1.35, 0, 0], leftShin: [-.42, 0, 0], rightShin: [-.42, 0, 0], rootY: .18, rootTilt: -1.08 }) },
+    { at: .62, pose: pose({ torso: [.3, 0, 0], leftArm: [-.85, 0, -.72], rightArm: [-.85, 0, .72], leftLeg: [-1.18, 0, 0], rightLeg: [-1.18, 0, 0], leftShin: [.2, 0, 0], rightShin: [.2, 0, 0], rootY: .72, rootTilt: .2 }) },
+    { at: .82, pose: POSES.recovery },
+    { at: 1, pose: POSES.combatIdle },
   ];
   return [];
 };

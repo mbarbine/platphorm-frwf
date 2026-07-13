@@ -200,6 +200,11 @@ export class BodyWorksRuntime {
     const intent = this.intents.opponent; intent.move.x = move.x; intent.move.z = move.z; intent.run = run; intent.block = block;
   }
 
+  intentSnapshot(fighter: FighterKey): Readonly<IntentState> {
+    const intent = this.intents[fighter];
+    return { move: { ...intent.move }, run: intent.run, block: intent.block };
+  }
+
   requestJump(fighter: FighterKey): void { const rig = this.rigs.get(fighter); if (rig) rig.jumpQueued = true; }
 
   requestCornerClimb(fighter: FighterKey, from: Vec2, stage: 1 | 2 | 3 = 1): void {
@@ -382,10 +387,11 @@ export class BodyWorksRuntime {
     }
     if (rig.jumpQueued) {
       const grounded = rig.supportContacts.size > 0 || pelvis.translation().y <= targetPelvisY + .16;
-      if (grounded && rig.jumpCooldown <= 0 && ['idle', 'locomotion', 'jumping'].includes(fighter.state)) {
+      if (grounded && rig.jumpCooldown <= 0 && (['idle', 'locomotion', 'jumping'].includes(fighter.state) || fighter.moveId === 'kick_up')) {
+        const launchSpeed = fighter.moveId === 'kick_up' ? 4.15 : 4.85;
         for (const body of Object.values(rig.bodies)) {
           if (!body?.isValid()) continue;
-          body.applyImpulse({ x: 0, y: body.mass() * 4.85, z: 0 }, true);
+          body.applyImpulse({ x: 0, y: body.mass() * launchSpeed, z: 0 }, true);
         }
         rig.jumpCooldown = .65;
       }
@@ -458,9 +464,8 @@ export class BodyWorksRuntime {
       if (!rig.ropeContact || rig.ropeContact.axis !== response.axis || rig.ropeContact.side !== response.side) {
         rig.ropeContact = { axis: response.axis, side: response.side, peakCompression: response.compression, entrySpeed: response.outwardSpeed };
         if (response.outwardSpeed > 1.55) {
-          fighter.ropeRebound = 1.25;
+          fighter.ropeRebound = 1.5;
           fighter.body.balance = clamp(fighter.body.balance - response.outwardSpeed * .8, 0, 100);
-          if (key === 'player') { model.announcement = 'ROPES LOADED — POWER FOR STIFF-ARM!'; model.announcementTimer = .8; }
         }
       } else {
         rig.ropeContact.peakCompression = Math.max(rig.ropeContact.peakCompression, response.compression);
@@ -470,11 +475,11 @@ export class BodyWorksRuntime {
     }
     const contact = rig.ropeContact;
     if (!contact) return;
-    const releaseSpeed = clamp(2.25 + contact.entrySpeed * .42 + contact.peakCompression * 4.8, 2.25, model.chaosEvent?.type === 'OVERDRIVE ROPES' ? 7.6 : 6.35);
+    const releaseSpeed = clamp(2.9 + contact.entrySpeed * .58 + contact.peakCompression * 6.4, 3.2, model.chaosEvent?.type === 'OVERDRIVE ROPES' ? 9 : 7.45);
     const current = pelvis.linvel();
     if (contact.axis === 'x') pelvis.setLinvel({ x: -contact.side * Math.max(releaseSpeed, Math.abs(current.x)), y: current.y, z: current.z }, true);
     else pelvis.setLinvel({ x: current.x, y: current.y, z: -contact.side * Math.max(releaseSpeed, Math.abs(current.z)) }, true);
-    fighter.ropeRebound = 1.35;
+    fighter.ropeRebound = 1.65;
     rig.ropeContact = null;
   }
 
