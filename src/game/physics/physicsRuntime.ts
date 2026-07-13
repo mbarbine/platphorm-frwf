@@ -479,9 +479,13 @@ export class BodyWorksRuntime {
     const segmentDistance = Math.max(.001, Math.hypot(dx, dy, dz)); const pelvisDistance = Math.hypot(targetFighter.position.x - fighter.position.x, targetFighter.position.z - fighter.position.z);
     const move = getMove(fighter.moveId); const attackSpeed = Math.hypot(fighter.velocity.x, fighter.velocity.z); const velocityFacing = (move.id === 'stiff_arm' || move.id === 'rebound') && attackSpeed > 1.2;
     const forwardX = velocityFacing ? fighter.velocity.x / attackSpeed : Math.sin(fighter.facing); const forwardZ = velocityFacing ? fighter.velocity.z / attackSpeed : Math.cos(fighter.facing); const targetX = targetFighter.position.x - fighter.position.x; const targetZ = targetFighter.position.z - fighter.position.z;
-    const facingDot = (forwardX * targetX + forwardZ * targetZ) / Math.max(.001, pelvisDistance);
-    const hurtRadius = move.category === 'aerial' ? 1.35 : move.id === 'stiff_arm' || move.id === 'rebound' || move.id === 'spear' ? 1.45 : move.category === 'heavy' || move.category === 'prop' ? 1.05 : .92;
-    if (pelvisDistance > move.maximumRange + .22 || segmentDistance > hurtRadius || facingDot < -.12) return;
+    const forwardDistance = forwardX * targetX + forwardZ * targetZ;
+    const lateralDistance = Math.abs(forwardX * targetZ - forwardZ * targetX);
+    const volumeWidth = move.category === 'aerial' ? 1.35 : move.id === 'stiff_arm' || move.id === 'rebound' || move.id === 'spear' ? 1.15 : move.category === 'heavy' || move.category === 'prop' ? .96 : .76;
+    // Gameplay contact is a stance-anchored swept volume. The physical hand
+    // still supplies region, force direction and relative speed, but joint lag
+    // cannot make a visually valid active-frame strike randomly pass through.
+    if (pelvisDistance > move.maximumRange + .22 || pelvisDistance < Math.max(0, move.minimumRange - .22) || forwardDistance < -.08 || lateralDistance > volumeWidth) return;
     const sourceVelocity = source.linvel(); const targetVelocity = target.linvel(); const actualRelativeSpeed = Math.hypot(sourceVelocity.x - targetVelocity.x, sourceVelocity.y - targetVelocity.y, sourceVelocity.z - targetVelocity.z);
     const authoredRelativeSpeed = Math.max(actualRelativeSpeed, profile.speed * .46); const maximumForce = Math.max(48, source.mass() * profile.maximumAcceleration * .2);
     this.recordContact({
