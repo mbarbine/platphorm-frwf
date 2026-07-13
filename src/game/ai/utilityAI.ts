@@ -11,11 +11,14 @@ export const isActionLegal = (model: MatchModel, command: GameCommand, actorKey:
   if (model.paused || model.resolved || actor.state === 'pinned' || actor.state === 'pinning' || actor.state === 'defeated' || actor.state === 'victorious') return false;
   const targetDistance = distance(actor.position, target.position);
   if (command === 'block') return actor.stamina > 2 && ['idle', 'locomotion', 'blocking', 'staggered'].includes(actor.state);
-  if (command === 'dodge') return actor.stamina >= 8 && ['idle', 'locomotion', 'staggered', 'grabbed'].includes(actor.state);
+  if (command === 'dodge') return actor.stamina >= 8 && ['idle', 'locomotion', 'climbing', 'staggered', 'grabbed'].includes(actor.state);
   if (command === 'taunt') return ['idle', 'locomotion'].includes(actor.state);
   if (command === 'interact') return model.ruleset === 'chaos' && ['idle', 'locomotion'].includes(actor.state);
   if (command === 'context') {
+    if (actor.state === 'climbing') return ['staggered', 'downed'].includes(target.state) && targetDistance <= getMove('aerial').maximumRange;
     if (actor.momentum >= 100) return targetDistance <= getMove('finisher').maximumRange && ['staggered', 'downed'].includes(target.state);
+    const nearCorner = Math.abs(actor.position.x) > 4.65 && Math.abs(actor.position.z) > 3.2;
+    if (nearCorner && ['idle', 'locomotion'].includes(actor.state)) return true;
     const pinEligible = actorKey === 'player' || (model.elapsed >= BALANCE.ai.earliestPinSeconds && target.health <= BALANCE.ai.pinHealthThreshold);
     return pinEligible && target.state === 'downed' && targetDistance <= 1.6;
   }

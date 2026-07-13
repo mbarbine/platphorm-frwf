@@ -47,9 +47,11 @@ export function FighterModel({ runtime, fighterId, preview = false, side = 'play
     else if (runtime) {
       if (runtime.moveId) {
         const move = getMove(runtime.moveId);
-        key = move.category === 'grapple' && runtime.attackPhase === 'anticipation' ? 'grappleEntry' : move.animationKey;
+        key = move.category === 'grapple' && runtime.attackPhase === 'anticipation' && runtime.phaseElapsed < move.anticipationDuration * .45 ? 'grappleEntry' : move.animationKey;
       }
       else if (runtime.state === 'locomotion') key = Math.hypot(runtime.velocity.x, runtime.velocity.z) > 3.8 ? 'run' : 'walk';
+      else if (runtime.state === 'blocking') key = 'block';
+      else if (runtime.state === 'climbing') key = 'climb';
       else if (runtime.state === 'grabbed') key = 'stagger';
       else if (runtime.state === 'airborne') key = 'knockdown';
       else if (runtime.state === 'downed') key = 'downed';
@@ -88,25 +90,39 @@ export function FighterModel({ runtime, fighterId, preview = false, side = 'play
   };
 
   const Arm = ({ side: armSide }: { side: -1 | 1 }) => <group ref={armSide < 0 ? leftArm : rightArm} position={[armSide * .74 * width, 1.85 * height, 0]}>
+    <mesh position={[0, -.02, 0]}><sphereGeometry args={[.28 * width, 8, 6]} />{limbMaterial(fighter.palette.secondary, fighter.palette.emissive)}</mesh>
     <mesh position={[0, -.34, 0]}><capsuleGeometry args={[.2 * width, .54, 5, 8]} />{limbMaterial(fighter.palette.skin, fighter.palette.emissive)}</mesh>
+    <mesh position={[0, -.62, -.01]}><torusGeometry args={[.2 * width, .075, 5, 10]} />{limbMaterial('#171523', fighter.palette.emissive)}</mesh>
     <mesh position={[0, -.79, -.02]}><capsuleGeometry args={[.17 * width, .38, 5, 8]} />{limbMaterial(fighter.palette.primary, fighter.palette.emissive)}</mesh>
     <mesh position={[0, -1.08, -.04]}><boxGeometry args={[.31 * width, .28, .32]} />{limbMaterial(fighter.palette.secondary, fighter.palette.emissive)}</mesh>
   </group>;
   const Leg = ({ side: legSide }: { side: -1 | 1 }) => <group ref={legSide < 0 ? leftLeg : rightLeg} position={[legSide * .3 * width, .83 * height, 0]}>
     <mesh position={[0, -.38, 0]}><capsuleGeometry args={[.23 * width, .56, 5, 8]} />{limbMaterial(fighter.palette.skin, fighter.palette.emissive)}</mesh>
     <mesh position={[0, -.92, 0]}><capsuleGeometry args={[.2 * width, .48, 5, 8]} />{limbMaterial(fighter.palette.secondary, fighter.palette.emissive)}</mesh>
+    <mesh position={[0, -.69, -.16]}><boxGeometry args={[.43 * width, .28, .18]} />{limbMaterial('#171523', fighter.palette.emissive)}</mesh>
     <mesh position={[0, -1.28, -.1]}><boxGeometry args={[.4 * width, .36, .62]} />{limbMaterial('#11131d', fighter.palette.emissive)}</mesh>
+    <mesh position={[0, -1.48, -.16]}><boxGeometry args={[.44 * width, .08, .7]} />{limbMaterial(fighter.palette.emissive, fighter.palette.emissive)}</mesh>
   </group>;
 
   return <group><group ref={root} scale={preview ? 1.05 : 1}>
     <group ref={torso}>
+      <mesh position={[0, 2.02 * height, 0]}><cylinderGeometry args={[.18 * width, .23 * width, .28, 8]} />{limbMaterial(fighter.palette.skin, fighter.palette.emissive)}</mesh>
       <mesh position={[0, 1.62 * height, 0]}><boxGeometry args={geometry.torso} />{limbMaterial(fighter.palette.primary, fighter.palette.emissive)}</mesh>
+      <mesh position={[0, 1.72 * height, -.4 * width]}><octahedronGeometry args={[.24 * width, 0]} />{limbMaterial(fighter.palette.secondary, fighter.palette.emissive)}</mesh>
       <mesh position={[0, 1.42 * height, -.41 * width]}><boxGeometry args={[.62 * width, .16, .06]} />{limbMaterial(fighter.palette.emissive, fighter.palette.emissive)}</mesh>
       {id === 'chad' && <group position={[0, 1.66 * height, -.405 * width]}>
         {[-.2, 0, .2].map((x) => <mesh key={x} position={[x, 0, 0]}><boxGeometry args={[.055, .7, .035]} />{limbMaterial('#d8c0a0', '#5e301f')}</mesh>)}
         <mesh position={[0, -.02, -.01]}><boxGeometry args={[.7 * width, .055, .035]} />{limbMaterial('#d8c0a0', '#5e301f')}</mesh>
       </group>}
       <mesh position={[0, 2.31 * height, 0]}><dodecahedronGeometry args={[.38, 0]} />{limbMaterial(fighter.palette.skin, fighter.palette.emissive)}</mesh>
+      <group position={[0, 2.36 * height, -.34]}>
+        <mesh position={[-.13, .04, 0]}><sphereGeometry args={[.052, 7, 5]} /><meshStandardMaterial color="#f7fbff" emissive={fighter.palette.emissive} emissiveIntensity={.35} /></mesh>
+        <mesh position={[.13, .04, 0]}><sphereGeometry args={[.052, 7, 5]} /><meshStandardMaterial color="#f7fbff" emissive={fighter.palette.emissive} emissiveIntensity={.35} /></mesh>
+        <mesh position={[-.13, .04, -.045]}><sphereGeometry args={[.022, 6, 4]} /><meshBasicMaterial color="#09070d" /></mesh>
+        <mesh position={[.13, .04, -.045]}><sphereGeometry args={[.022, 6, 4]} /><meshBasicMaterial color="#09070d" /></mesh>
+        <mesh position={[0, -.035, -.015]} rotation={[Math.PI / 2, 0, 0]}><coneGeometry args={[.045, .13, 5]} />{limbMaterial(fighter.palette.skin, fighter.palette.emissive)}</mesh>
+        <mesh position={[0, -.15, 0]}><boxGeometry args={[.17, .025, .035]} /><meshBasicMaterial color={id === 'chad' ? '#302019' : '#52162e'} /></mesh>
+      </group>
       <mesh position={[0, 1.02 * height, 0]}><boxGeometry args={[.65 * width, .3, .42 * width]} />{limbMaterial(fighter.palette.secondary, fighter.palette.emissive)}</mesh>
       <Headwear />
     </group>

@@ -29,18 +29,21 @@ npm run preview
 
 | Action | Keyboard | Standard gamepad |
 |---|---|---|
-| Move | WASD | Left stick |
+| Move / choose grapple direction | WASD | Left stick or D-pad |
 | Run | Left Shift | Right trigger |
 | Quick strike / ground strike | J | X / Square |
 | Heavy / rope rebound / prop swing | K | Y / Triangle |
-| Grapple | L | B / Circle |
+| Enter grapple / choose grapple move | L, then direction + J/K/L | B, then direction + X/Y/B |
+| Hold guard / stuff grapple | I | Left trigger |
 | Dodge / timed counter / kickout | Space | A / Cross |
 | Pick up, swing, drop, or throw a prop | E | Left bumper |
 | Pin, corner aerial, or signature finisher | F | Right stick press |
 | Signature taunt | Q | Right bumper |
 | Pause | Escape | Menu / Options |
 
-Movement is camera-relative. Grapples cycle through a body slam, suplex-style throw, takedown, and Irish whip. Run into the ropes to rebound; powerful throws can produce a deliberate ring-out. At a turnbuckle, use F against a vulnerable rival for a Domefall Dive. Fill Momentum, stagger or drop the opponent, and press F to perform that fighter's signature.
+Movement is camera-relative. L enters a visible collar-and-elbow lock; during its anticipation window, a direction plus J/K/L selects one of fifteen directional outcomes including arm drags, trips, spinebusters, suplexes, powerbombs, side tosses, slams, and an Irish whip. Hold I/LT to guard: strikes deal tiny chip damage and drain guard stamina, while a grapple can be stuffed until the guard breaks. Run into the ropes to rebound; powerful throws can produce a deliberate ring-out. At a turnbuckle, use F against a vulnerable rival for a Domefall Dive. Fill Momentum, stagger or drop the opponent, and press F to perform that fighter's signature.
+
+Every fighter receives five optional pre-match beers. Drinking one adds five points to that match's stamina cap; unopened cans stay on the bench. Chad “The Claw” Kinsey deliberately has the roster's lowest base stamina, so choosing how much to drink is a meaningful part of his high-power, low-gas identity. Rematches preserve the selected allotment.
 
 ## Match structure
 
@@ -71,6 +74,19 @@ src/
 ```
 
 Combat advances at a fixed 30 Hz step. Moves have anticipation, active, and recovery phases. A target can be damaged only in the active phase and only once per move unless a move explicitly opts into multi-hit behavior. The player and AI call the same command validation and execution functions.
+
+### Adjustable balance rubric
+
+All match-shaping constants live in `src/game/data/balance.ts` instead of being scattered through rendering code.
+
+| Dial | Current target |
+|---|---|
+| Match pace | A decisive match in roughly 2–4 minutes |
+| Stamina identity | Fighter stat sets the cap; low stamina slows choices without disabling control |
+| Beer tradeoff | 0–5 beers, +5 cap each, visible before the bell and on the HUD |
+| Guard | Low hold drain, meaningful impact drain, chip only, grapple stuff with guard break |
+| Grapple readability | Visible lock, directional selection window, lift/contact/landing sequence |
+| Crowd Hype | Variety beats repetition; counters, finishers, near falls, and environment spike it |
 
 Visual simulation is deliberately subordinate to the match model. Authored poses handle knockdowns rather than unstable full-body ragdolls. Crowd geometry is instanced, particles are capped, the initial shell is code-split from the Three/Rapier arena, and device pixel ratio is adaptive.
 

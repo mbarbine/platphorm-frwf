@@ -49,7 +49,7 @@ class AudioEngine {
   }
 
   impact(event: ImpactEvent, settings: Settings): void {
-    const map: Record<ImpactEvent['kind'], SoundName> = { light: 'impact', heavy: 'heavy', counter: 'nearfall', grapple: 'slam', weapon: 'prop', finisher: 'finisher', table: 'slam', nearfall: 'nearfall', ko: 'bell', rope: 'rope' };
+    const map: Record<ImpactEvent['kind'], SoundName> = { light: 'impact', heavy: 'heavy', blocked: 'rope', counter: 'nearfall', grapple: 'slam', weapon: 'prop', finisher: 'finisher', table: 'slam', nearfall: 'nearfall', ko: 'bell', rope: 'rope' };
     this.play(map[event.kind], settings);
   }
 }

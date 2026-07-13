@@ -1,13 +1,13 @@
 export type FighterId = 'atlas' | 'vex' | 'nova' | 'brick' | 'chad';
 export type FighterState =
   | 'idle' | 'locomotion' | 'attacking' | 'grappling' | 'grabbed' | 'airborne'
-  | 'blocking' | 'staggered' | 'downed' | 'recovering' | 'pinning' | 'pinned' | 'victorious' | 'defeated';
+  | 'blocking' | 'climbing' | 'staggered' | 'downed' | 'recovering' | 'pinning' | 'pinned' | 'victorious' | 'defeated';
 export type AttackPhase = 'anticipation' | 'active' | 'recovery' | null;
 export type MoveCategory = 'quick' | 'heavy' | 'grapple' | 'ground' | 'aerial' | 'prop' | 'finisher' | 'utility';
 export type AnimationKey =
   | 'idle' | 'combatIdle' | 'walk' | 'run' | 'jab' | 'heavyStrike' | 'kick' | 'grappleEntry'
   | 'lift' | 'slam' | 'throw' | 'stagger' | 'knockdown' | 'downed' | 'recovery' | 'dodge'
-  | 'counter' | 'block' | 'taunt' | 'pin' | 'kickout' | 'victory' | 'defeat' | 'finisher';
+  | 'counter' | 'block' | 'climb' | 'aerial' | 'taunt' | 'pin' | 'kickout' | 'victory' | 'defeat' | 'finisher';
 export type Ruleset = 'standard' | 'chaos';
 export type Difficulty = 'normal' | 'hard';
 export type Tendencies = 'aggressive' | 'technical' | 'opportunistic';
