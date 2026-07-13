@@ -23,15 +23,15 @@ export const isActionLegal = (model: MatchModel, command: GameCommand, actorKey:
   if (command === 'taunt') return ['idle', 'locomotion'].includes(actor.state);
   if (command === 'interact') return model.ruleset === 'chaos' && ['idle', 'locomotion'].includes(actor.state);
   if (command === 'context') {
-    if (actor.state === 'climbing') return ['staggered', 'downed'].includes(target.state) && targetDistance <= getMove('aerial').maximumRange;
+    if (actor.state === 'climbing') return !['defeated', 'victorious'].includes(target.state) && targetDistance <= getMove('aerial').maximumRange;
     if (actor.momentum >= 100) return targetDistance <= getMove('finisher').maximumRange && ['staggered', 'downed'].includes(target.state);
-    const nearCorner = Math.abs(actor.position.x) > 4.65 && Math.abs(actor.position.z) > 3.2;
+    const nearCorner = Math.abs(actor.position.x) > 4.35 && Math.abs(actor.position.z) > 2.95;
     if (nearCorner && ['idle', 'locomotion'].includes(actor.state)) return true;
     const pinEligible = actorKey === 'player' || (model.elapsed >= BALANCE.ai.earliestPinSeconds && target.health <= BALANCE.ai.pinHealthThreshold);
     if (pinEligible && target.state === 'downed' && targetDistance <= 1.6) return true;
     const nearApron = (Math.abs(actor.position.x) > 5.05 && Math.abs(actor.position.x) < 6.9 && Math.abs(actor.position.z) < 4.4)
       || (Math.abs(actor.position.z) > 3.55 && Math.abs(actor.position.z) < 5.6 && Math.abs(actor.position.x) < 5.9);
-    return actorKey === 'player' && nearApron && ['idle', 'locomotion'].includes(actor.state);
+    return nearApron && ['idle', 'locomotion'].includes(actor.state);
   }
   const move = command === 'quick' ? MOVES.jab : command === 'heavy' ? MOVES.heavy : MOVES.slam;
   if (!move) return false;
@@ -47,6 +47,9 @@ export const chooseAiDecision = (model: MatchModel, definition: FighterDefinitio
   const toward = { x: delta.x / magnitude, z: delta.z / magnitude };
   const [roll, nextSeed] = seededRandom(model.seed);
   const personality = definition.personality;
+  const actorRingside = Math.abs(actor.position.x) > 5.82 || Math.abs(actor.position.z) > 4.32;
+  const targetInRing = Math.abs(target.position.x) <= 5.72 && Math.abs(target.position.z) <= 4.22;
+  if (actorRingside && targetInRing && isActionLegal(model, 'context', 'opponent')) return { command: 'context', move: { x: 0, z: 0 }, run: false, nextSeed };
   if (actor.state === 'grappling' && actor.attackPhase === 'anticipation') {
     if (actor.phaseElapsed > .12) return { command: null, move: { x: 0, z: 0 }, run: false, nextSeed };
     const command: GameCommand = roll < .34 ? 'quick' : roll < .7 ? 'heavy' : 'grapple';

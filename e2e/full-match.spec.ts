@@ -30,7 +30,7 @@ test('fighter select through guarded combat, grapple, result, and rematch', asyn
       const playerMove = liveHud.getAttribute('data-player-move') ?? ''; const opponentMove = liveHud.getAttribute('data-opponent-move') ?? '';
       const playerState = liveHud.getAttribute('data-player-state'); const opponentState = liveHud.getAttribute('data-opponent-state');
       if (playerState === 'grappling' || opponentState === 'grappling') document.documentElement.dataset.sawGrappleLock = 'true';
-      if ((grappleMoves.has(playerMove) && liveHud.getAttribute('data-player-phase') === 'active') || (grappleMoves.has(opponentMove) && liveHud.getAttribute('data-opponent-phase') === 'active')) document.documentElement.dataset.sawGrappleImpact = 'true';
+      if (Number(liveHud.getAttribute('data-total-grapples')) > 0 || (grappleMoves.has(playerMove) && liveHud.getAttribute('data-player-phase') === 'active') || (grappleMoves.has(opponentMove) && liveHud.getAttribute('data-opponent-phase') === 'active')) document.documentElement.dataset.sawGrappleImpact = 'true';
     };
     new MutationObserver(observe).observe(document.body, { subtree: true, attributes: true }); observe();
   });
@@ -47,15 +47,29 @@ test('fighter select through guarded combat, grapple, result, and rematch', asyn
   await page.keyboard.up('Shift');
   await page.keyboard.up('d');
 
+  for (let tick = 0; tick < 60 && Number(await hud.getAttribute('data-total-grapples')) === 0; tick += 1) {
+    const playerState = await hud.getAttribute('data-player-state'); const opponentState = await hud.getAttribute('data-opponent-state');
+    const playerX = Number(await hud.getAttribute('data-player-x')); const playerZ = Number(await hud.getAttribute('data-player-z'));
+    const opponentX = Number(await hud.getAttribute('data-opponent-x')); const opponentZ = Number(await hud.getAttribute('data-opponent-z'));
+    const separation = Math.hypot(playerX - opponentX, playerZ - opponentZ);
+    if (/idle|locomotion/.test(playerState ?? '') && !/blocking|downed|pinned|defeated/.test(opponentState ?? '') && separation <= 1.58) {
+      await page.keyboard.press('l');
+      await page.waitForTimeout(2_250);
+    } else {
+      await page.waitForTimeout(250);
+    }
+  }
+  expect(Number(await hud.getAttribute('data-total-grapples'))).toBeGreaterThan(0);
+
   const automationId = await page.evaluate(() => {
     let exchange = 0;
     const send = (type: 'keydown' | 'keyup', key: string, code: string): void => { window.dispatchEvent(new KeyboardEvent(type, { key, code, bubbles: true })); };
-    const attacks = [['l', 'KeyL'], ['j', 'KeyJ'], ['k', 'KeyK']] as const;
+    const attacks = [['l', 'KeyL'], ['k', 'KeyK'], ['j', 'KeyJ'], ['f', 'KeyF'], ['j', 'KeyJ'], ['k', 'KeyK'], ['f', 'KeyF']] as const;
     return window.setInterval(() => {
       const attack = attacks[exchange % attacks.length] ?? attacks[0];
       send('keydown', attack[0], attack[1]); send('keyup', attack[0], attack[1]);
       exchange += 1;
-    }, 240);
+    }, 420);
   });
 
   await expect(page.getByRole('button', { name: 'INSTANT REMATCH' })).toBeVisible({ timeout: 180_000 });
