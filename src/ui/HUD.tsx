@@ -7,14 +7,16 @@ const Meter = ({ label, value, kind, max = 100 }: { label: string; value: number
 export function HUD({ device, paused }: { device: ControlDevice; paused: boolean }) {
   const model = useMatchStore((state) => state.model); const player = fighterById(model.player.definitionId); const opponent = fighterById(model.opponent.definitionId);
   const distance = Math.hypot(model.player.position.x - model.opponent.position.x, model.player.position.z - model.opponent.position.z);
+  const playerRingside = Math.abs(model.player.position.x) > 5.8 || Math.abs(model.player.position.z) > 4.3;
   const hint = model.player.momentum >= 100 && ['staggered', 'downed'].includes(model.opponent.state) && distance < 2.2 ? 'F  SIGNATURE FINISHER'
     : model.player.state === 'climbing' ? (['downed', 'staggered'].includes(model.opponent.state) ? 'F  DOMEFALL DIVE' : 'SPACE  DROP SAFELY')
     : model.player.state === 'grappling' ? 'GRAPPLE LOCK · HOLD DIRECTION + J / K / L FOR A DIFFERENT MOVE'
     : model.opponent.state === 'downed' && distance < 1.7 ? 'F  PIN  ·  J  GROUND STRIKE'
     : model.player.counterWindow > 0 ? 'SPACE  COUNTER NOW'
     : distance < 1.8 && ['idle', 'locomotion', 'blocking', 'staggered'].includes(model.opponent.state) ? 'L  LOCK UP  ·  I  HOLD GUARD'
-    : model.player.heldPropId ? 'K / E  SWING PROP' : model.ruleset === 'chaos' ? 'E  PICK UP NEARBY PROP' : 'I GUARD · VARY MOVES TO BUILD MOMENTUM';
-  return <div className="hud" aria-live="polite" data-player-state={model.player.state} data-opponent-state={model.opponent.state} data-player-health={model.player.health.toFixed(1)} data-opponent-health={model.opponent.health.toFixed(1)} data-player-stamina={model.player.stamina.toFixed(1)} data-player-grapples={model.playerStats.grapples}>
+    : playerRingside ? (model.ruleset === 'chaos' ? 'F AT APRON  RE-ENTER · E  GRAB RINGSIDE PROP' : 'F AT APRON  RE-ENTER THE RING')
+    : model.player.heldPropId ? 'K / E  SWING PROP' : model.ruleset === 'chaos' ? 'F AT ROPES  GO RINGSIDE · E  PICK UP PROP' : 'F AT ROPES  GO RINGSIDE · I GUARD';
+  return <div className="hud" aria-live="polite" data-match-seconds={model.elapsed.toFixed(1)} data-player-state={model.player.state} data-opponent-state={model.opponent.state} data-player-health={model.player.health.toFixed(1)} data-opponent-health={model.opponent.health.toFixed(1)} data-player-stamina={model.player.stamina.toFixed(1)} data-player-grapples={model.playerStats.grapples}>
     <div className="hud__fighters">
       <div className="fighter-hud"><div className="fighter-hud__name"><span>YOU</span><b>{player.name}</b></div><Meter label="HEALTH" value={model.player.health} kind="health" /><Meter label={`STAMINA · ${model.player.beersDrunk} BEER`} value={model.player.stamina} max={model.player.staminaCap} kind="stamina" /><Meter label="MOMENTUM" value={model.player.momentum} kind="momentum" /></div>
       <div className="hype"><span>CROWD HYPE</span><b>{Math.round(model.hype)}</b><div><i style={{ width: `${model.hype}%` }} /></div><small>{model.ruleset === 'chaos' ? 'CHAOS CIRCUIT' : 'STANDARD'}</small></div>

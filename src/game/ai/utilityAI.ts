@@ -20,7 +20,10 @@ export const isActionLegal = (model: MatchModel, command: GameCommand, actorKey:
     const nearCorner = Math.abs(actor.position.x) > 4.65 && Math.abs(actor.position.z) > 3.2;
     if (nearCorner && ['idle', 'locomotion'].includes(actor.state)) return true;
     const pinEligible = actorKey === 'player' || (model.elapsed >= BALANCE.ai.earliestPinSeconds && target.health <= BALANCE.ai.pinHealthThreshold);
-    return pinEligible && target.state === 'downed' && targetDistance <= 1.6;
+    if (pinEligible && target.state === 'downed' && targetDistance <= 1.6) return true;
+    const nearApron = (Math.abs(actor.position.x) > 5.05 && Math.abs(actor.position.x) < 6.9 && Math.abs(actor.position.z) < 4.4)
+      || (Math.abs(actor.position.z) > 3.55 && Math.abs(actor.position.z) < 5.6 && Math.abs(actor.position.x) < 5.9);
+    return actorKey === 'player' && nearApron && ['idle', 'locomotion'].includes(actor.state);
   }
   const move = command === 'quick' ? MOVES.jab : command === 'heavy' ? MOVES.heavy : MOVES.slam;
   if (!move) return false;

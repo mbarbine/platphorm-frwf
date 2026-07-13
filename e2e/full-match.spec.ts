@@ -7,7 +7,7 @@ test('fighter select through guarded combat, grapple, result, and rematch', asyn
 
   await page.goto('/');
   await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
-  await page.getByRole('button', { name: 'PLAY' }).click();
+  await page.getByRole('button', { name: 'PLAY', exact: true }).click();
   await page.getByRole('button', { name: /CHAD “THE CLAW” KINSEY/ }).click();
   await expect(page.getByText('CLAW HAMMER')).toBeVisible();
   await expect(page.locator('.fighter-preview canvas')).toBeVisible();
@@ -20,31 +20,40 @@ test('fighter select through guarded combat, grapple, result, and rematch', asyn
 
   const hud = page.locator('.hud');
   await expect(page.getByTestId('game-canvas')).toBeVisible();
+  await expect(page.locator('html')).toHaveAttribute('data-game-input-ready', 'true');
   await expect(hud).toHaveAttribute('data-player-stamina', /^98\./);
-  await page.keyboard.down('KeyI');
+  await page.keyboard.down('i');
   await expect(hud).toHaveAttribute('data-player-state', 'blocking');
   const guardedStamina = Number(await hud.getAttribute('data-player-stamina'));
   await page.waitForTimeout(500);
   expect(Number(await hud.getAttribute('data-player-stamina'))).toBeLessThan(guardedStamina);
-  await page.keyboard.up('KeyI');
+  await page.keyboard.up('i');
 
-  await page.keyboard.down('KeyD');
-  await page.keyboard.down('ShiftLeft');
+  await page.keyboard.down('d');
+  await page.keyboard.down('Shift');
   await page.waitForTimeout(950);
-  await page.keyboard.up('ShiftLeft');
-  await page.keyboard.up('KeyD');
+  await page.keyboard.up('Shift');
+  await page.keyboard.up('d');
 
-  for (let exchange = 0; exchange < 220 && await page.getByRole('button', { name: 'INSTANT REMATCH' }).count() === 0; exchange += 1) {
-    const direction = ['KeyW', 'KeyD', 'KeyS', 'KeyA'][exchange % 4] ?? 'KeyD';
-    await page.keyboard.down(direction);
-    await page.keyboard.press(exchange % 3 === 0 ? 'KeyL' : exchange % 3 === 1 ? 'KeyJ' : 'KeyK');
-    if (exchange % 4 === 0) await page.keyboard.press('KeyF');
-    if (exchange % 7 === 0) await page.keyboard.press('Space');
-    await page.waitForTimeout(120);
-    await page.keyboard.up(direction);
-  }
+  const automationId = await page.evaluate(() => {
+    let exchange = 0;
+    const send = (type: 'keydown' | 'keyup', key: string, code: string): void => { window.dispatchEvent(new KeyboardEvent(type, { key, code, bubbles: true })); };
+    const directions = [['w', 'KeyW'], ['d', 'KeyD'], ['s', 'KeyS'], ['a', 'KeyA']] as const;
+    const attacks = [['l', 'KeyL'], ['j', 'KeyJ'], ['k', 'KeyK']] as const;
+    return window.setInterval(() => {
+      const direction = directions[exchange % directions.length] ?? directions[0];
+      const attack = attacks[exchange % attacks.length] ?? attacks[0];
+      send('keydown', direction[0], direction[1]);
+      send('keydown', attack[0], attack[1]); send('keyup', attack[0], attack[1]);
+      if (exchange % 4 === 0) { send('keydown', 'f', 'KeyF'); send('keyup', 'f', 'KeyF'); }
+      if (exchange % 7 === 0) { send('keydown', ' ', 'Space'); send('keyup', ' ', 'Space'); }
+      window.setTimeout(() => send('keyup', direction[0], direction[1]), 110);
+      exchange += 1;
+    }, 145);
+  });
 
-  await expect(page.getByRole('button', { name: 'INSTANT REMATCH' })).toBeVisible({ timeout: 25_000 });
+  await expect(page.getByRole('button', { name: 'INSTANT REMATCH' })).toBeVisible({ timeout: 180_000 });
+  await page.evaluate((intervalId) => window.clearInterval(intervalId), automationId);
   await expect(page.getByText(/WINS BY (PINFALL|KNOCKOUT)/)).toBeVisible();
   await page.getByRole('button', { name: 'INSTANT REMATCH' }).click();
   await expect(page.getByTestId('game-canvas')).toBeVisible();

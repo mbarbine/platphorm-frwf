@@ -34,8 +34,9 @@ export const useGameInput = (onPause: () => void): InputController => {
     };
     const up = (event: KeyboardEvent): void => { keys.current.delete(event.code); };
     const connected = (): void => setDevice('gamepad');
+    document.documentElement.dataset.gameInputReady = 'true';
     window.addEventListener('keydown', down); window.addEventListener('keyup', up); window.addEventListener('gamepadconnected', connected);
-    return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); window.removeEventListener('gamepadconnected', connected); };
+    return () => { delete document.documentElement.dataset.gameInputReady; window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); window.removeEventListener('gamepadconnected', connected); };
   }, [onPause]);
 
   const read = (): FrameInput => {

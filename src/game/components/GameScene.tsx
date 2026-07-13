@@ -19,7 +19,7 @@ function Simulation({ onPause, onDevice, onFinished }: Props) {
   const pause = useCallback(onPause, [onPause]); const input = useGameInput(pause); const accumulator = useRef(0); const lastImpactId = useRef(0); const finishNotified = useRef(false);
   useEffect(() => onDevice(input.device), [input.device, onDevice]);
   useFrame(({ camera }, delta) => {
-    const store = useMatchStore.getState(); accumulator.current += Math.min(delta, .1);
+    const store = useMatchStore.getState(); accumulator.current += Math.min(delta, .25);
     while (accumulator.current >= 1 / 30) {
       const raw = input.read(); const model = useMatchStore.getState().model;
       const middleX = (model.player.position.x + model.opponent.position.x) / 2; const middleZ = (model.player.position.z + model.opponent.position.z) / 2;

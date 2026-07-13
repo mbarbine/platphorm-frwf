@@ -72,7 +72,7 @@ describe('deterministic combat rules', () => {
   it('AI cannot steal an early pin after a routine knockdown', () => {
     const model = createMatch('atlas', 'vex', 'standard', 'normal'); model.player.state = 'downed'; model.player.health = 20; model.opponent.position = { ...model.player.position };
     expect(isActionLegal(model, 'context', 'opponent')).toBe(false);
-    model.elapsed = 51; expect(isActionLegal(model, 'context', 'opponent')).toBe(true);
+    model.elapsed = 61; expect(isActionLegal(model, 'context', 'opponent')).toBe(true);
   });
 
   it('grapple visibly owns the target through grab, lift, and landing states', () => {
@@ -125,7 +125,7 @@ describe('deterministic combat rules', () => {
     const stamina = model.player.stamina;
     startMove(model.opponent, model.player, getMove('heavy')); model.opponent.attackPhase = 'active';
     expect(applyMoveHit(model, 'opponent', 'player', getMove('heavy'))).toBe(true);
-    expect(model.player.health).toBeGreaterThan(99); expect(model.player.stamina).toBeLessThan(stamina); expect(model.lastImpact?.kind).toBe('blocked');
+    expect(model.player.health).toBeGreaterThan(98); expect(model.player.stamina).toBeLessThan(stamina); expect(model.lastImpact?.kind).toBe('blocked');
   });
 
   it('stuffs a grapple until pressure breaks an exhausted guard', () => {
@@ -172,5 +172,20 @@ describe('deterministic combat rules', () => {
   it('keeps guard and climb transitions explicit and safe', () => {
     expect(canTransition('idle', 'blocking')).toBe(true); expect(canTransition('locomotion', 'climbing')).toBe(true);
     expect(canTransition('pinned', 'attacking')).toBe(false); expect(canTransition('victorious', 'climbing')).toBe(false);
+  });
+
+  it('supports deliberate ringside exit and re-entry without a control lock', () => {
+    const model = createMatch('brick', 'vex', 'chaos', 'normal'); model.player.position = { x: 5.3, z: 0 }; model.opponent.position = { x: 0, z: 0 };
+    expect(requestCommand(model, 'player', 'context')).toBe(true); expect(model.player.position.x).toBeGreaterThan(6); expect(model.player.state).toBe('locomotion');
+    expect(requestCommand(model, 'player', 'context')).toBe(true); expect(model.player.position.x).toBeLessThan(5.8); expect(model.player.state).toBe('locomotion');
+  });
+
+  it('allows only a late major impact to trigger an exhaustion knockout', () => {
+    const model = createMatch('atlas', 'vex', 'standard', 'normal'); model.player.position = { x: 0, z: 0 }; model.opponent.position = { x: 1, z: 0 }; model.opponent.health = 48; model.opponent.stamina = 8;
+    startMove(model.player, model.opponent, getMove('heavy')); model.player.attackPhase = 'active'; applyMoveHit(model, 'player', 'opponent', getMove('heavy'));
+    expect(model.result).toBeNull();
+    model.elapsed = 76; model.player.state = 'idle'; model.player.moveId = null; model.player.attackPhase = null; model.player.hitTargets = [];
+    startMove(model.player, model.opponent, getMove('heavy')); model.player.attackPhase = 'active'; applyMoveHit(model, 'player', 'opponent', getMove('heavy'));
+    expect(model.result).toMatchObject({ winner: 'player', method: 'KNOCKOUT' });
   });
 });

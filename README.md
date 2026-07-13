@@ -37,11 +37,11 @@ npm run preview
 | Hold guard / stuff grapple | I | Left trigger |
 | Dodge / timed counter / kickout | Space | A / Cross |
 | Pick up, swing, drop, or throw a prop | E | Left bumper |
-| Pin, corner aerial, or signature finisher | F | Right stick press |
+| Ring exit/re-entry, turnbuckle climb/dive, pin, or signature | F | Right stick press |
 | Signature taunt | Q | Right bumper |
 | Pause | Escape | Menu / Options |
 
-Movement is camera-relative. L enters a visible collar-and-elbow lock; during its anticipation window, a direction plus J/K/L selects one of fifteen directional outcomes including arm drags, trips, spinebusters, suplexes, powerbombs, side tosses, slams, and an Irish whip. Hold I/LT to guard: strikes deal tiny chip damage and drain guard stamina, while a grapple can be stuffed until the guard breaks. Run into the ropes to rebound; powerful throws can produce a deliberate ring-out. At a turnbuckle, use F against a vulnerable rival for a Domefall Dive. Fill Momentum, stagger or drop the opponent, and press F to perform that fighter's signature.
+Movement is camera-relative. L enters a visible collar-and-elbow lock; during its anticipation window, a direction plus J/K/L selects one of fifteen directional outcomes including arm drags, trips, chokes, spinebusters, suplexes, powerbombs, side tosses, slams, and an Irish whip. Hold I/LT to guard: strikes deal tiny chip damage and drain guard stamina, while a grapple can be stuffed until the guard breaks. Running K becomes a stiff-arm. Run into the ropes to rebound; powerful throws can produce a deliberate ring-out. Press F at the ropes to deliberately step ringside or return. At a turnbuckle, F climbs first and F again launches a Domefall Dive at a vulnerable rival. Fill Momentum, stagger or drop the opponent, and press F to perform that fighter's signature.
 
 Every fighter receives five optional pre-match beers. Drinking one adds five points to that match's stamina cap; unopened cans stay on the bench. Chad “The Claw” Kinsey deliberately has the roster's lowest base stamina, so choosing how much to drink is a meaningful part of his high-power, low-gas identity. Rematches preserve the selected allotment.
 
@@ -105,6 +105,15 @@ Vitest covers:
 - attack phase transitions
 - seeded determinism
 - complete finisher victory and rematch reset
+- strike and grapple guard pressure, guard breaks, and legal transitions
+- five-beer stamina caps and Chad's deliberately low gas tank
+- directional grapple selection, turnbuckle aerials, stiff-arms, and ringside traversal
+
+Playwright runs one production-preview journey covering initialization, Chad selection, five-beer setup, Chaos Circuit selection, held guard, live combat through a real pin/KO result, clean console output, and instant rematch:
+
+```bash
+npm run test:e2e
+```
 
 The Vite development server also surfaces browser console errors in its terminal, which is used during live gameplay smoke testing.
 

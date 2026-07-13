@@ -101,8 +101,7 @@ export function Arena() {
     <group position={[6.65, .36, 4.65]}>{[0, .28, .56].map((y, index) => <mesh key={y} position={[index * .18, y, 0]}><boxGeometry args={[1.15 - index * .12, .22, 1.2]} /><meshStandardMaterial color="#394151" metalness={.75} roughness={.24} /></mesh>)}</group>
     <RigidBody type="fixed" colliders="hull" position={[0, .2, 0]}><mesh receiveShadow><cylinderGeometry args={[15, 15, .4, 48]} /><meshStandardMaterial color="#100d1c" roughness={.8} /></mesh></RigidBody>
     <Crowd /><Props />
-    <group position={[0, 9.8, 0]}>
-      <mesh><torusGeometry args={[7.8, .13, 6, 48]} /><meshStandardMaterial color="#242638" metalness={.9} roughness={.18} /></mesh>
+    <group position={[0, 13, 0]}>
       {[0, Math.PI / 2, Math.PI, Math.PI * 1.5].map((angle) => <group key={angle} rotation={[0, angle, 0]}>
         <mesh position={[0, -.65, -7.75]} rotation={[.15, 0, 0]}><cylinderGeometry args={[.18, .36, .65, 10]} /><meshStandardMaterial color="#8eeeff" emissive="#41dcff" emissiveIntensity={2.4} /></mesh>
         <spotLight position={[0, -.8, -7.65]} intensity={4} color={angle % Math.PI === 0 ? '#4be7ff' : '#ff3a95'} angle={.3} penumbra={.8} />
