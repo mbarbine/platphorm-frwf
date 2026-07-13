@@ -211,6 +211,18 @@ const strikeFrames = (moveId: string): readonly PoseKeyframe[] => {
     { at: .76, pose: pose({ ...POSES.run, rightArm: [-1.48, 0, .08], rightForearm: [-.04, 0, 0], leftArm: [-.42, 0, -.45], rootZ: .28, rootTilt: .3 }) },
     { at: 1, pose: POSES.combatIdle },
   ];
+  if (moveId === 'front_kick') return [
+    { at: 0, pose: POSES.combatIdle },
+    { at: .48, pose: pose({ torso: [.2, 0, 0], rightLeg: [1.05, 0, 0], rightShin: [-1.72, 0, 0], leftLeg: [-.18, 0, 0], leftShin: [-.35, 0, 0], leftArm: [-.78, 0, -.48], rightArm: [-.7, 0, .48], rootY: .08, rootTilt: .16 }) },
+    { at: .72, pose: pose({ torso: [-.12, 0, 0], rightLeg: [-1.38, 0, 0], rightShin: [.08, 0, 0], leftLeg: [.25, 0, 0], leftShin: [-.3, 0, 0], leftArm: [-.9, 0, -.55], rightArm: [-.82, 0, .55], rootZ: .22, rootTilt: -.08 }) },
+    { at: 1, pose: POSES.combatIdle },
+  ];
+  if (moveId === 'spear') return [
+    { at: 0, pose: POSES.run },
+    { at: .5, pose: pose({ ...POSES.run, torso: [.42, 0, 0], leftArm: [-1.15, 0, -.42], rightArm: [-1.15, 0, .42], leftForearm: [-1.25, 0, 0], rightForearm: [-1.25, 0, 0], rootTilt: .52, rootY: -.18 }) },
+    { at: .78, pose: pose({ ...POSES.run, torso: [.7, 0, 0], leftArm: [-1.48, 0, -.32], rightArm: [-1.48, 0, .32], leftForearm: [-.85, 0, 0], rightForearm: [-.85, 0, 0], rootZ: .36, rootTilt: .72, rootY: -.28 }) },
+    { at: 1, pose: POSES.recovery },
+  ];
   if (moveId === 'ground') return [
     { at: 0, pose: POSES.combatIdle }, { at: .5, pose: pose({ torso: [.42, 0, 0], rightLeg: [.72, 0, 0], rightShin: [-1.22, 0, 0], rootTilt: .32 }) },
     { at: .72, pose: pose({ torso: [.68, 0, 0], rightLeg: [-1.18, 0, 0], rightShin: [.18, 0, 0], rootY: -.15, rootTilt: .48 }) }, { at: 1, pose: POSES.combatIdle },

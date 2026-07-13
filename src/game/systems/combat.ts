@@ -377,7 +377,11 @@ export const requestCommand = (model: MatchModel, actorKey: 'player' | 'opponent
     if (started) actor.comboStep += 1;
     return started;
   }
-  if (command === 'heavy') return startMove(actor, target, getMove(actor.heldPropId ? 'prop' : actor.ropeRebound > 0 || Math.hypot(actor.velocity.x, actor.velocity.z) > 3.6 ? 'stiff_arm' : 'heavy'));
+  if (command === 'heavy') {
+    const moving = Math.hypot(direction.x, direction.z) > .38;
+    return startMove(actor, target, getMove(actor.heldPropId ? 'prop' : actor.ropeRebound > 0 || Math.hypot(actor.velocity.x, actor.velocity.z) > 3.6 ? 'stiff_arm' : moving ? 'front_kick' : 'heavy'));
+  }
+  if (Math.hypot(actor.velocity.x, actor.velocity.z) > 3.75 && target.state !== 'downed') return startMove(actor, target, getMove('spear'));
   if (target.state === 'blocking') {
     target.stamina = clamp(target.stamina - BALANCE.block.grappleStaminaCost, 0, target.staminaCap);
     if (target.stamina > 0) {
@@ -652,8 +656,9 @@ export const advanceMatch = (model: MatchModel, dt: number, playerInput: FrameIn
 };
 
 const expectedContactSegment = (move: MoveDefinition, segment: string): boolean => {
-  if (move.category === 'aerial' || move.id === 'ground') return segment.includes('Foot') || segment.includes('Shin') || segment.includes('chest');
+  if (move.category === 'aerial' || move.id === 'ground' || move.id === 'front_kick') return segment.includes('Foot') || segment.includes('Shin') || segment.includes('chest');
   if (move.id === 'rebound' || move.id === 'stiff_arm') return segment.includes('Hand') || segment.includes('UpperArm') || segment === 'chest';
+  if (move.id === 'spear') return segment === 'chest' || segment.includes('UpperArm');
   if (move.category === 'quick' || move.category === 'heavy' || move.category === 'prop' || move.id === 'counter') return segment.includes('Hand');
   return move.category === 'grapple' || move.category === 'finisher';
 };

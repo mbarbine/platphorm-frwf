@@ -281,6 +281,13 @@ describe('deterministic combat rules', () => {
     expect(requestCommand(model, 'player', 'heavy')).toBe(true); expect(model.player.moveId).toBe('stiff_arm');
   });
 
+  it('turns directional power into a physical front kick and a running grapple into a spear', () => {
+    const kick = createMatch('vex', 'atlas', 'standard', 'normal'); kick.player.position = { x: 0, z: 0 }; kick.opponent.position = { x: 1.3, z: 0 };
+    expect(requestCommand(kick, 'player', 'heavy', { x: 0, z: 1 })).toBe(true); expect(kick.player.moveId).toBe('front_kick');
+    const spear = createMatch('brick', 'nova', 'standard', 'normal'); spear.player.position = { x: 0, z: 0 }; spear.opponent.position = { x: 1.4, z: 0 }; spear.player.velocity = { x: 4.4, z: 0 };
+    expect(requestCommand(spear, 'player', 'grapple')).toBe(true); expect(spear.player.moveId).toBe('spear'); expect(spear.grapple).toBeNull();
+  });
+
   it('turns a distant prop release into a bounded physical throw window', () => {
     const model = createMatch('brick', 'vex', 'chaos', 'normal'); const chair = model.props.find((prop) => prop.kind === 'chair');
     if (!chair) throw new Error('Chaos match must provide a chair');
