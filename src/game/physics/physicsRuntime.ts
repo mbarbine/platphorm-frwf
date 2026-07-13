@@ -63,6 +63,8 @@ export interface BodyWorksMetrics {
   maximumStepMs: number;
 }
 
+export interface FighterPhysicsSnapshot { pelvisY: number; headY: number; footY: number; upright: number; speed: number; supportFeet: number }
+
 interface FighterRigRegistration {
   bodies: Partial<Record<BodySegmentId, RapierRigidBody>>;
   supportContacts: Set<BodySegmentId>;
@@ -228,9 +230,10 @@ export class BodyWorksRuntime {
     const velocity = pelvis.linvel();
     const definition = fighterById(fighter.definitionId);
     const groundedControl = ['idle', 'locomotion', 'blocking', 'attacking', 'grappling', 'victorious'].includes(fighter.state);
-    if (groundedControl && rig.supportContacts.size > 0) {
+    if (groundedControl) {
       const targetPelvisY = 1.92 + 1.12 * (definition.physics.standingHeightM / 1.88) - fighter.body.pelvisDrop * .32;
-      const supportAcceleration = clamp(18 + (targetPelvisY - pelvis.translation().y) * 42 - velocity.y * 8.5, 0, 48) * fighter.body.muscle;
+      const contactMultiplier = rig.supportContacts.size > 0 ? 1 : pelvis.translation().y < targetPelvisY ? .72 : 0;
+      const supportAcceleration = clamp(18 + (targetPelvisY - pelvis.translation().y) * 42 - velocity.y * 8.5, 0, 48) * fighter.body.muscle * contactMultiplier;
       pelvis.addForce({ x: 0, y: fighter.body.mass * supportAcceleration, z: 0 }, true);
     }
     const desiredSpeed = (intent.run ? 5.4 : 3.25) * (.78 + fighterBySpeed(fighter) / 235) * (fighter.body.muscle < .3 ? .72 : 1);
@@ -369,14 +372,15 @@ export class BodyWorksRuntime {
 
   private applyPoseDrive(rig: FighterRigRegistration, fighter: FighterRuntime): void {
     const falling = ['airborne', 'downed', 'defeated'].includes(fighter.state);
-    const strength = fighter.state === 'defeated' ? .025 : falling ? .16 : fighter.state === 'staggered' ? .42 : .82;
+    const strength = fighter.state === 'defeated' ? .025 : falling ? .16 : fighter.state === 'grabbed' ? .38 : fighter.state === 'staggered' ? .5 : .88;
     const fatigue = 1 - fighter.body.muscle;
     const pose = targetPoseFor(fighter); const targets = physicalPoseTargets(pose, fighter.facing);
     for (const [segment, body] of Object.entries(rig.bodies) as [BodySegmentId, RapierRigidBody][]) {
+      const isCore = segment === 'pelvis' || segment === 'chest' || segment === 'abdomen'; const isDistal = segment.includes('Hand') || segment.includes('Foot'); const isLeg = segment.includes('Thigh') || segment.includes('Shin');
       const torque = computeMotorTorque(body.rotation(), targets[segment], body.angvel(), { x: 0, y: 0, z: 0 }, {
-        stiffness: segment === 'pelvis' ? 16 : segment === 'head' ? 7 : 11,
-        damping: segment === 'pelvis' ? 3.4 : segment === 'head' ? 1.8 : 2.5,
-        maxTorque: segment === 'pelvis' ? 1.2 : segment === 'chest' || segment === 'abdomen' ? .72 : segment.includes('Hand') || segment.includes('Foot') ? .18 : .42,
+        stiffness: segment === 'pelvis' ? 105 : isCore ? 82 : segment === 'head' ? 38 : isLeg ? 64 : 52,
+        damping: segment === 'pelvis' ? 18 : isCore ? 14 : segment === 'head' ? 7 : isLeg ? 11 : 9,
+        maxTorque: segment === 'pelvis' ? 165 : isCore ? 110 : segment === 'head' ? 30 : isLeg ? 78 : isDistal ? 20 : 54,
         strength,
         fatigue,
       });
@@ -412,6 +416,20 @@ export class BodyWorksRuntime {
   }
 
   pendingCommandCount(): number { return this.commands.length; }
+
+  fighterSnapshot(key: FighterKey): FighterPhysicsSnapshot {
+    const rig = this.rigs.get(key); const pelvis = rig?.bodies.pelvis; const head = rig?.bodies.head; const leftFoot = rig?.bodies.leftFoot; const rightFoot = rig?.bodies.rightFoot;
+    if (!rig || !pelvis || !head || !leftFoot || !rightFoot) return { pelvisY: 0, headY: 0, footY: 0, upright: 0, speed: 0, supportFeet: 0 };
+    const rotation = pelvis.rotation(); const velocity = pelvis.linvel();
+    return {
+      pelvisY: pelvis.translation().y,
+      headY: head.translation().y,
+      footY: Math.min(leftFoot.translation().y, rightFoot.translation().y),
+      upright: clamp(1 - (Math.abs(rotation.x) + Math.abs(rotation.z)) * 1.7, 0, 1),
+      speed: Math.hypot(velocity.x, velocity.y, velocity.z),
+      supportFeet: rig.supportContacts.size,
+    };
+  }
 }
 
 const fighterBySpeed = (fighter: FighterRuntime): number => fighter.definitionId === 'vex' ? 97 : fighter.definitionId === 'nova' ? 77 : fighter.definitionId === 'brick' ? 76 : fighter.definitionId === 'chad' ? 67 : 48;
