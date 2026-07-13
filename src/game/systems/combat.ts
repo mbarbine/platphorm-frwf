@@ -79,7 +79,7 @@ export const applyMoveHit = (model: MatchModel, actorKey: 'player' | 'opponent',
 
   const targetDefinition = fighterById(target.definitionId);
   const actorDefinition = fighterById(actor.definitionId);
-  const scaledDamage = move.damage * (.78 + actorDefinition.stats.power / 250) * (1.08 - targetDefinition.stats.stamina / 900);
+  const scaledDamage = move.damage * .62 * (.78 + actorDefinition.stats.power / 250) * (1.08 - targetDefinition.stats.stamina / 900);
   const damage = Math.round(scaledDamage * 10) / 10;
   target.health = clamp(target.health - damage, 0, 100);
   actor.hitTargets.push(targetKey);

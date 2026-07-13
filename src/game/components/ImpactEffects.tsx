@@ -7,12 +7,13 @@ interface Burst { id: number; x: number; z: number; age: number; color: string; 
 
 export function ImpactEffects() {
   const impact = useMatchStore((state) => state.model.lastImpact);
+  const impactId = impact?.id ?? 0;
   const [bursts, setBursts] = useState<Burst[]>([]);
   useEffect(() => {
     if (!impact) return;
     const color = impact.kind === 'counter' ? '#58f5ff' : impact.kind === 'finisher' || impact.kind === 'ko' ? '#fff13b' : impact.kind === 'weapon' ? '#ff4a88' : '#ff8b3d';
-    setBursts((current) => [...current.slice(-3), { id: impact.id, x: impact.position.x, z: impact.position.z, age: 0, color, count: Math.min(16, Math.round(7 + impact.intensity * 4)) }]);
-  }, [impact]);
+    setBursts((current) => current.some((burst) => burst.id === impact.id) ? current : [...current.slice(-3), { id: impact.id, x: impact.position.x, z: impact.position.z, age: 0, color, count: Math.min(16, Math.round(7 + impact.intensity * 4)) }]);
+  }, [impactId]);
   return <>{bursts.map((burst) => <BurstView key={burst.id} burst={burst} />)}</>;
 }
 
