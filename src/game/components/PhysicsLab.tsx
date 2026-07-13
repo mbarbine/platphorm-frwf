@@ -12,7 +12,7 @@ const SCENARIOS: readonly LabScenario[] = [
   { id: 'walk', label: 'WALK + STOP', steps: hold('KeyW', 0, 1_250), duration: 2_300 },
   { id: 'turn', label: 'RAPID TURN', steps: [...hold('KeyA', 0, 500), ...hold('KeyD', 560, 650)], duration: 1_800 },
   { id: 'ropes', label: 'RUN INTO ROPES', steps: [...hold('KeyD', 0, 2_050), ...hold('ShiftLeft', 0, 2_050)], duration: 2_800 },
-  { id: 'jump', label: 'STANDING JUMP', steps: tap('KeyC'), duration: 2_000 },
+  { id: 'jump', label: 'STANDING JUMP', steps: tap('KeyC', 0, 480), duration: 2_000 },
   { id: 'jab', label: 'JAB TO HEAD', steps: tap('KeyJ'), duration: 1_200 },
   { id: 'hook', label: 'TORSO POWER', steps: tap('KeyK'), duration: 1_400 },
   { id: 'guard', label: 'BLOCK WINDOW', steps: hold('KeyI', 0, 1_250), duration: 1_700 },
@@ -59,6 +59,6 @@ export function PhysicsLab() {
     <header><span>RINGFALL BODYWORKS</span><b>PHYSICS LAB</b><small>REAL INPUT · REAL RAPIER · FIXED 60 HZ</small></header>
     <div className="physics-lab__diagnostics">{diagnostics.map(([label, value]) => <div key={label}><span>{label}</span><b>{value}</b></div>)}</div>
     <div className="physics-lab__scenarios">{SCENARIOS.map((scenario) => <button key={scenario.id} disabled={active !== null} className={active === scenario.id ? 'active' : ''} onClick={() => run(scenario)}>{active === scenario.id ? 'RUNNING · ' : ''}{scenario.label}</button>)}</div>
-    <footer>COLLIDERS + CONSTRAINTS VISIBLE · SUPPORT/COM/MOTORS/ATTACK WINDOWS LIVE</footer>
+    <footer>SUPPORT · COM · MOTORS · CONSTRAINTS · ATTACK WINDOWS LIVE</footer>
   </aside>;
 }

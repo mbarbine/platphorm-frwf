@@ -362,7 +362,10 @@ export class BodyWorksRuntime {
     if (rig.jumpQueued) {
       const grounded = rig.supportContacts.size > 0 || pelvis.translation().y <= targetPelvisY + .16;
       if (grounded && rig.jumpCooldown <= 0 && ['idle', 'locomotion', 'jumping'].includes(fighter.state)) {
-        pelvis.applyImpulse({ x: 0, y: fighter.body.mass * 4.7, z: 0 }, true);
+        for (const body of Object.values(rig.bodies)) {
+          if (!body?.isValid()) continue;
+          body.applyImpulse({ x: 0, y: body.mass() * 4.85, z: 0 }, true);
+        }
         rig.jumpCooldown = .65;
       }
       rig.jumpQueued = false;

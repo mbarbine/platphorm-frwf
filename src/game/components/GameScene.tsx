@@ -64,8 +64,8 @@ export function GameScene(props: Props) {
   const replayActive = useMatchStore((state) => state.replayActive);
   const lab = physicsLabEnabled();
   return <SceneBoundary><div className="game-canvas" data-testid="game-canvas">
-    <Canvas shadows="basic" dpr={[.75, 1.5]} gl={{ antialias: true, alpha: false, powerPreference: 'high-performance' }} camera={{ position: [8, 7, 11], fov: 48, near: .1, far: 60 }}>
-      <Suspense fallback={null}><Physics gravity={[0, -18, 0]} timeStep={1 / 60} paused={paused || replayActive} debug={lab} interpolate numSolverIterations={8} numInternalPgsIterations={2} maxCcdSubsteps={2}><Arena /><Fighters /><ImpactEffects /><Simulation {...props} /></Physics><ReplayDirector /><CameraRig /><AdaptiveDpr pixelated /><BakeShadows /></Suspense>
+    <Canvas shadows={lab ? false : 'basic'} dpr={lab ? .5 : [.75, 1.5]} gl={{ antialias: !lab, alpha: false, powerPreference: 'high-performance' }} camera={{ position: [8, 7, 11], fov: 48, near: .1, far: 60 }}>
+      <Suspense fallback={null}><Physics gravity={[0, -18, 0]} timeStep={1 / 60} paused={paused || replayActive} interpolate numSolverIterations={8} numInternalPgsIterations={2} maxCcdSubsteps={2}><Arena /><Fighters /><ImpactEffects /><Simulation {...props} /></Physics><ReplayDirector /><CameraRig /><AdaptiveDpr pixelated />{!lab && <BakeShadows />}</Suspense>
     </Canvas>
   </div></SceneBoundary>;
 }
