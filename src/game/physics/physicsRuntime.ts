@@ -14,6 +14,7 @@ import { POSES } from '../animation/poses';
 import type { Pose } from '../animation/poses';
 import type { QuaternionValue, Vector3Value } from './motorController';
 import { solveRopeResponse } from './ringDynamics';
+import { computeStrikeForce, strikeDriveProfile } from './strikeDynamics';
 
 export type FighterKey = 'player' | 'opponent';
 
@@ -283,7 +284,38 @@ export class BodyWorksRuntime {
       rig.jumpQueued = false;
     }
     this.applyRopeController(key, rig, fighter, model);
+    this.applyPhysicalStrike(key, rig, fighter, model);
     this.applyPoseDrive(rig, fighter);
+  }
+
+  private applyPhysicalStrike(key: FighterKey, rig: FighterRigRegistration, fighter: FighterRuntime, model: MatchModel): void {
+    if (!fighter.moveId || fighter.attackPhase !== 'active') return;
+    const profile = strikeDriveProfile(fighter.moveId); if (!profile) return;
+    const targetKey: FighterKey = key === 'player' ? 'opponent' : 'player'; const targetRig = this.rigs.get(targetKey);
+    const source = rig.bodies[profile.source]; const target = targetRig?.bodies[profile.target]; const pelvis = rig.bodies.pelvis;
+    if (!source || !target || !pelvis) return;
+    const sourcePosition = source.translation(); const targetPosition = target.translation();
+    const separation = Math.hypot(targetPosition.x - pelvis.translation().x, targetPosition.z - pelvis.translation().z);
+    const move = getMove(fighter.moveId); if (separation > move.maximumRange + .65) return;
+    const force = computeStrikeForce(sourcePosition, targetPosition, source.linvel(), target.linvel(), source.mass(), profile);
+    source.addForce(force, true);
+    const planarDistance = Math.max(.001, Math.hypot(targetPosition.x - sourcePosition.x, targetPosition.z - sourcePosition.z));
+    pelvis.addForce({
+      x: (targetPosition.x - sourcePosition.x) / planarDistance * fighter.body.mass * profile.pelvisAcceleration,
+      y: 0,
+      z: (targetPosition.z - sourcePosition.z) / planarDistance * fighter.body.mass * profile.pelvisAcceleration,
+    }, true);
+    if (fighter.moveId === 'aerial') {
+      const chest = rig.bodies.chest;
+      chest?.addForce({ x: force.x * .6, y: Math.min(0, force.y * .35), z: force.z * .6 }, true);
+    }
+    if (model[targetKey].state === 'blocking') {
+      const guardTarget = targetRig?.bodies.leftForearm ?? targetRig?.bodies.rightForearm;
+      if (guardTarget) {
+        const guardedForce = computeStrikeForce(sourcePosition, guardTarget.translation(), source.linvel(), guardTarget.linvel(), source.mass(), profile);
+        source.addForce({ x: guardedForce.x * .38, y: guardedForce.y * .38, z: guardedForce.z * .38 }, true);
+      }
+    }
   }
 
   private applyRopeController(key: FighterKey, rig: FighterRigRegistration, fighter: FighterRuntime, model: MatchModel): void {
