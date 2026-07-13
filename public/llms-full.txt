@@ -1,0 +1,7 @@
+# RINGFALL: CHAOS CIRCUIT
+
+RINGFALL is an original desktop-first browser wrestling game. It offers four original procedural fighters, Standard and Chaos Circuit rules, Normal and Hard utility-based AI, deterministic combat, pinfall, knockout, counters, signatures, props, arena events, procedural audio, settings, results, and rematch.
+
+The site is a static Vite application. Game state stays in memory; accessibility and tutorial preferences use localStorage. It makes no runtime network requests and has no backend, authentication, telemetry, trace export, or MCP execution surface. Those capabilities are reported as unsupported or degraded rather than simulated.
+
+Public discovery routes: /api/health, /api/v1/health, /api/docs, /openapi.yaml, /llms.txt, /llms-full.txt, /llms-index.json, /robots.txt, /sitemap.xml, /sitemap-index.xml, /rss.xml, /feed.xml, /manifest.webmanifest, /.well-known/mcp.json, /.well-known/agents.json, /.well-known/security.txt, /.well-known/trust.json.
