@@ -29,8 +29,11 @@ export const useMatchStore = create<MatchStore>((set) => ({
     const model = state.model; const previousImpact = model.impactSequence; const wasResolved = model.resolved;
     bodyWorksRuntime.captureInput('player', input, model.elapsed);
     bodyWorksRuntime.resolveCommands('player', model.elapsed, (buffered) => {
+      const wasClimbing = model.player.state === 'climbing';
       const accepted = requestCommand(model, 'player', buffered.command, buffered.direction);
       if (accepted && buffered.command === 'jump') bodyWorksRuntime.requestJump('player');
+      if (accepted && buffered.command === 'context' && !wasClimbing && model.player.state === 'climbing') bodyWorksRuntime.requestCornerClimb('player', model.player.position);
+      if (accepted && buffered.command === 'context' && wasClimbing && model.player.moveId === 'aerial') bodyWorksRuntime.requestCornerDive('player', model.opponent.position);
       return accepted;
     });
     advanceMatch(model, dt, { ...input, commands: [] });

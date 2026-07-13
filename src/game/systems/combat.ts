@@ -332,7 +332,7 @@ export const requestCommand = (model: MatchModel, actorKey: 'player' | 'opponent
   if (command === 'taunt') return startMove(actor, target, getMove('taunt'));
   if (command === 'context') {
     if (actor.state === 'climbing') {
-      if (['downed', 'staggered'].includes(target.state)) {
+      if (!['defeated', 'victorious'].includes(target.state) && distance(actor.position, target.position) <= getMove('aerial').maximumRange) {
         model.announcement = 'DOMEFALL — AIRBORNE!'; model.announcementTimer = 1;
         const started = startMove(actor, target, getMove('aerial'));
         if (started) {
@@ -357,14 +357,14 @@ export const requestCommand = (model: MatchModel, actorKey: 'player' | 'opponent
     const nearCorner = Math.abs(actor.position.x) > 4.65 && Math.abs(actor.position.z) > 3.2;
     if (nearCorner) {
       actor.state = 'climbing'; actor.stateElapsed = 0; actor.velocity = { x: 0, z: 0 };
-      actor.position = { x: Math.sign(actor.position.x) * 5.25, z: Math.sign(actor.position.z) * 3.7 };
+      if (!model.physicsAuthority) actor.position = { x: Math.sign(actor.position.x) * 5.25, z: Math.sign(actor.position.z) * 3.7 };
       model.announcement = 'TURNBUCKLE CLIMB — F TO FLY!'; model.announcementTimer = 1.4;
       return true;
     }
     if (target.state === 'downed') return startPin(actor, target);
     const nearXApron = Math.abs(actor.position.x) > 5.05 && Math.abs(actor.position.x) < 6.9 && Math.abs(actor.position.z) < 4.4;
     const nearZApron = Math.abs(actor.position.z) > 3.55 && Math.abs(actor.position.z) < 5.6 && Math.abs(actor.position.x) < 5.9;
-    if (nearXApron || nearZApron) {
+    if (!model.physicsAuthority && (nearXApron || nearZApron)) {
       const inside = Math.abs(actor.position.x) <= 5.8 && Math.abs(actor.position.z) <= 4.3;
       if (nearXApron) actor.position.x = Math.sign(actor.position.x) * (inside ? 6.45 : 5.05);
       else actor.position.z = Math.sign(actor.position.z) * (inside ? 5.05 : 3.55);
@@ -380,7 +380,7 @@ export const requestCommand = (model: MatchModel, actorKey: 'player' | 'opponent
     if (started) actor.comboStep += 1;
     return started;
   }
-  if (command === 'heavy') return startMove(actor, target, getMove(actor.heldPropId ? 'prop' : actor.ropeRebound > 0 ? 'rebound' : Math.hypot(actor.velocity.x, actor.velocity.z) > 3.6 ? 'stiff_arm' : 'heavy'));
+  if (command === 'heavy') return startMove(actor, target, getMove(actor.heldPropId ? 'prop' : actor.ropeRebound > 0 || Math.hypot(actor.velocity.x, actor.velocity.z) > 3.6 ? 'stiff_arm' : 'heavy'));
   if (target.state === 'blocking') {
     target.stamina = clamp(target.stamina - BALANCE.block.grappleStaminaCost, 0, target.staminaCap);
     if (target.stamina > 0) {
@@ -547,21 +547,23 @@ const updateFighter = (model: MatchModel, actorKey: 'player' | 'opponent', dt: n
     actor.velocity = scale(actor.velocity, Math.exp(-dt * drag));
   }
 
-  actor.position.x += actor.velocity.x * dt;
-  actor.position.z += actor.velocity.z * dt;
+  if (!model.physicsAuthority) {
+    actor.position.x += actor.velocity.x * dt;
+    actor.position.z += actor.velocity.z * dt;
+  }
   const ropeX = 5.65; const ropeZ = 4.15;
   const outside = Math.abs(actor.position.x) > ropeX + .2 || Math.abs(actor.position.z) > ropeZ + .2;
   const impactSpeed = Math.hypot(actor.velocity.x, actor.velocity.z);
   const deliberateRingOut = (actor.state === 'downed' || actor.state === 'staggered') && impactSpeed > 2.7;
   const rebound = model.chaosEvent?.type === 'OVERDRIVE ROPES' ? 1.18 : .88;
-  if (!outside && !deliberateRingOut && Math.abs(actor.position.x) > ropeX) {
+  if (!model.physicsAuthority && !outside && !deliberateRingOut && Math.abs(actor.position.x) > ropeX) {
     actor.position.x = Math.sign(actor.position.x) * ropeX; actor.velocity.x *= -rebound;
     actor.body.sideVelocity += Math.sign(actor.position.x) * impactSpeed * .055;
     actor.body.balance = clamp(actor.body.balance - impactSpeed * .9, 0, 100);
     if (actor.ropeRebound <= 0) addImpact(model, actor.position, 'rope', .55, { force: impactSpeed * actor.body.mass / 100, outcome: 'absorbed' });
     actor.ropeRebound = 1.1;
   }
-  if (!outside && !deliberateRingOut && Math.abs(actor.position.z) > ropeZ) {
+  if (!model.physicsAuthority && !outside && !deliberateRingOut && Math.abs(actor.position.z) > ropeZ) {
     actor.position.z = Math.sign(actor.position.z) * ropeZ; actor.velocity.z *= -rebound;
     actor.body.leanVelocity += Math.sign(actor.position.z) * impactSpeed * .045;
     actor.body.balance = clamp(actor.body.balance - impactSpeed * .9, 0, 100);
