@@ -372,15 +372,17 @@ export class BodyWorksRuntime {
 
   private applyPoseDrive(rig: FighterRigRegistration, fighter: FighterRuntime): void {
     const falling = ['airborne', 'downed', 'defeated'].includes(fighter.state);
-    const strength = fighter.state === 'defeated' ? .025 : falling ? .16 : fighter.state === 'grabbed' ? .38 : fighter.state === 'staggered' ? .5 : .88;
+    const definition = fighterById(fighter.definitionId);
+    const strength = fighter.state === 'defeated' ? .02 : falling ? .13 : fighter.state === 'grabbed' ? .34 : fighter.state === 'staggered' ? .48 : .94;
     const fatigue = 1 - fighter.body.muscle;
     const pose = targetPoseFor(fighter); const targets = physicalPoseTargets(pose, fighter.facing);
     for (const [segment, body] of Object.entries(rig.bodies) as [BodySegmentId, RapierRigidBody][]) {
       const isCore = segment === 'pelvis' || segment === 'chest' || segment === 'abdomen'; const isDistal = segment.includes('Hand') || segment.includes('Foot'); const isLeg = segment.includes('Thigh') || segment.includes('Shin');
+      const stiffnessScale = definition.physics.jointStiffness;
       const torque = computeMotorTorque(body.rotation(), targets[segment], body.angvel(), { x: 0, y: 0, z: 0 }, {
-        stiffness: segment === 'pelvis' ? 105 : isCore ? 82 : segment === 'head' ? 38 : isLeg ? 64 : 52,
-        damping: segment === 'pelvis' ? 18 : isCore ? 14 : segment === 'head' ? 7 : isLeg ? 11 : 9,
-        maxTorque: segment === 'pelvis' ? 165 : isCore ? 110 : segment === 'head' ? 30 : isLeg ? 78 : isDistal ? 20 : 54,
+        stiffness: (segment === 'pelvis' ? 420 : isCore ? 320 : segment === 'head' ? 150 : isLeg ? 220 : isDistal ? 90 : 170) * stiffnessScale,
+        damping: (segment === 'pelvis' ? 62 : isCore ? 48 : segment === 'head' ? 22 : isLeg ? 34 : isDistal ? 14 : 27) * stiffnessScale,
+        maxTorque: (segment === 'pelvis' ? 460 : isCore ? 340 : segment === 'head' ? 110 : isLeg ? 210 : isDistal ? 58 : 160) * stiffnessScale,
         strength,
         fatigue,
       });

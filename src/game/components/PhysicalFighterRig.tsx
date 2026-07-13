@@ -79,21 +79,28 @@ export function PhysicalFighterRig({ runtime, side }: Props) {
   const jointRef = (ref: RefObject<RapierRigidBody | null>): RefObject<RapierRigidBody> => ref as RefObject<RapierRigidBody>;
   const value = (id: BodySegmentId): BodySegmentSchema => { const result = byId.get(id); if (!result) throw new Error(`Missing segment ${id}`); return result; };
   const shoulder = Math.abs(value('leftUpperArm').localPosition[0]); const hip = Math.abs(value('leftThigh').localPosition[0]);
-  useSphericalJoint(jointRef(pelvis), jointRef(abdomen), [[0, value('pelvis').halfLength * .82, 0], [0, -value('abdomen').halfLength * .82, 0]]);
-  useSphericalJoint(jointRef(abdomen), jointRef(chest), [[0, value('abdomen').halfLength * .82, 0], [0, -value('chest').halfLength * .72, 0]]);
-  useSphericalJoint(jointRef(chest), jointRef(head), [[0, value('chest').halfLength * .9, 0], [0, -value('head').radius * .86, 0]]);
-  useSphericalJoint(jointRef(chest), jointRef(leftUpperArm), [[-shoulder, -.05, 0], [0, value('leftUpperArm').halfLength, 0]]);
-  useSphericalJoint(jointRef(chest), jointRef(rightUpperArm), [[shoulder, -.05, 0], [0, value('rightUpperArm').halfLength, 0]]);
-  useRevoluteJoint(jointRef(leftUpperArm), jointRef(leftForearm), [[0, -value('leftUpperArm').halfLength, 0], [0, value('leftForearm').halfLength, 0], [1, 0, 0], [-2.65, .08]]);
-  useRevoluteJoint(jointRef(rightUpperArm), jointRef(rightForearm), [[0, -value('rightUpperArm').halfLength, 0], [0, value('rightForearm').halfLength, 0], [1, 0, 0], [-2.65, .08]]);
-  useSphericalJoint(jointRef(leftForearm), jointRef(leftHand), [[0, -value('leftForearm').halfLength, 0], [0, value('leftHand').halfLength, 0]]);
-  useSphericalJoint(jointRef(rightForearm), jointRef(rightHand), [[0, -value('rightForearm').halfLength, 0], [0, value('rightHand').halfLength, 0]]);
-  useSphericalJoint(jointRef(pelvis), jointRef(leftThigh), [[-hip, -value('pelvis').halfLength * .62, 0], [0, value('leftThigh').halfLength, 0]]);
-  useSphericalJoint(jointRef(pelvis), jointRef(rightThigh), [[hip, -value('pelvis').halfLength * .62, 0], [0, value('rightThigh').halfLength, 0]]);
-  useRevoluteJoint(jointRef(leftThigh), jointRef(leftShin), [[0, -value('leftThigh').halfLength, 0], [0, value('leftShin').halfLength, 0], [1, 0, 0], [-.08, 2.58]]);
-  useRevoluteJoint(jointRef(rightThigh), jointRef(rightShin), [[0, -value('rightThigh').halfLength, 0], [0, value('rightShin').halfLength, 0], [1, 0, 0], [-.08, 2.58]]);
-  useRevoluteJoint(jointRef(leftShin), jointRef(leftFoot), [[0, -value('leftShin').halfLength, 0], [0, value('leftFoot').radius * .4, -.03], [1, 0, 0], [-.58, .68]]);
-  useRevoluteJoint(jointRef(rightShin), jointRef(rightFoot), [[0, -value('rightShin').halfLength, 0], [0, value('rightFoot').radius * .4, -.03], [1, 0, 0], [-.58, .68]]);
+  const anchorY = (parent: BodySegmentId, child: BodySegmentId): readonly [number, number] => {
+    const halfDelta = (value(child).localPosition[1] - value(parent).localPosition[1]) * .5;
+    return [halfDelta, -halfDelta];
+  };
+  const pelvisAbdomen = anchorY('pelvis', 'abdomen'); const abdomenChest = anchorY('abdomen', 'chest'); const chestHead = anchorY('chest', 'head');
+  const chestUpperArm = anchorY('chest', 'leftUpperArm'); const upperForearm = anchorY('leftUpperArm', 'leftForearm'); const forearmHand = anchorY('leftForearm', 'leftHand');
+  const pelvisThigh = anchorY('pelvis', 'leftThigh'); const thighShin = anchorY('leftThigh', 'leftShin'); const shinFoot = anchorY('leftShin', 'leftFoot');
+  useSphericalJoint(jointRef(pelvis), jointRef(abdomen), [[0, pelvisAbdomen[0], 0], [0, pelvisAbdomen[1], 0]]);
+  useSphericalJoint(jointRef(abdomen), jointRef(chest), [[0, abdomenChest[0], 0], [0, abdomenChest[1], 0]]);
+  useSphericalJoint(jointRef(chest), jointRef(head), [[0, chestHead[0], 0], [0, chestHead[1], 0]]);
+  useSphericalJoint(jointRef(chest), jointRef(leftUpperArm), [[-shoulder, chestUpperArm[0], 0], [0, chestUpperArm[1], 0]]);
+  useSphericalJoint(jointRef(chest), jointRef(rightUpperArm), [[shoulder, chestUpperArm[0], 0], [0, chestUpperArm[1], 0]]);
+  useRevoluteJoint(jointRef(leftUpperArm), jointRef(leftForearm), [[0, upperForearm[0], 0], [0, upperForearm[1], 0], [1, 0, 0], [-2.65, .08]]);
+  useRevoluteJoint(jointRef(rightUpperArm), jointRef(rightForearm), [[0, upperForearm[0], 0], [0, upperForearm[1], 0], [1, 0, 0], [-2.65, .08]]);
+  useSphericalJoint(jointRef(leftForearm), jointRef(leftHand), [[0, forearmHand[0], 0], [0, forearmHand[1], 0]]);
+  useSphericalJoint(jointRef(rightForearm), jointRef(rightHand), [[0, forearmHand[0], 0], [0, forearmHand[1], 0]]);
+  useSphericalJoint(jointRef(pelvis), jointRef(leftThigh), [[-hip, pelvisThigh[0], 0], [0, pelvisThigh[1], 0]]);
+  useSphericalJoint(jointRef(pelvis), jointRef(rightThigh), [[hip, pelvisThigh[0], 0], [0, pelvisThigh[1], 0]]);
+  useRevoluteJoint(jointRef(leftThigh), jointRef(leftShin), [[0, thighShin[0], 0], [0, thighShin[1], 0], [1, 0, 0], [-.08, 2.58]]);
+  useRevoluteJoint(jointRef(rightThigh), jointRef(rightShin), [[0, thighShin[0], 0], [0, thighShin[1], 0], [1, 0, 0], [-.08, 2.58]]);
+  useRevoluteJoint(jointRef(leftShin), jointRef(leftFoot), [[0, shinFoot[0], 0], [0, shinFoot[1], -.03], [1, 0, 0], [-.58, .68]]);
+  useRevoluteJoint(jointRef(rightShin), jointRef(rightFoot), [[0, shinFoot[0], 0], [0, shinFoot[1], -.03], [1, 0, 0], [-.58, .68]]);
 
   useEffect(() => {
     const bodies: Partial<Record<BodySegmentId, RapierRigidBody>> = {};
