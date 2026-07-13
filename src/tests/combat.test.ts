@@ -276,7 +276,7 @@ describe('deterministic combat rules', () => {
 
   it('guarantees a knockdown when a rebound stiff-arm registers', () => {
     const model = createMatch('brick', 'atlas', 'standard', 'normal'); model.player.position = { x: 0, z: 0 }; model.opponent.position = { x: 1, z: 0 }; model.player.ropeRebound = 1;
-    expect(requestCommand(model, 'player', 'heavy')).toBe(true); expect(model.player.moveId).toBe('stiff_arm');
+    expect(requestCommand(model, 'player', 'heavy', { x: 0, z: 1 }, true)).toBe(true); expect(model.player.moveId).toBe('stiff_arm');
     model.player.attackPhase = 'active'; expect(applyMoveHit(model, 'player', 'opponent', getMove('stiff_arm'))).toBe(true);
     expect(['airborne', 'downed']).toContain(model.opponent.state);
   });
@@ -388,7 +388,7 @@ describe('deterministic combat rules', () => {
 
   it('converts running heavy offense into a knockdown stiff-arm', () => {
     const model = createMatch('brick', 'vex', 'standard', 'normal'); model.player.position = { x: 0, z: 0 }; model.opponent.position = { x: 1, z: 0 }; model.player.velocity = { x: 4.2, z: 0 };
-    expect(requestCommand(model, 'player', 'heavy')).toBe(true); expect(model.player.moveId).toBe('stiff_arm');
+    expect(requestCommand(model, 'player', 'heavy', { x: 0, z: 1 }, true)).toBe(true); expect(model.player.moveId).toBe('stiff_arm');
   });
 
   it('converts an elastic rope rebound into the named stiff-arm', () => {
@@ -400,7 +400,7 @@ describe('deterministic combat rules', () => {
     const kick = createMatch('vex', 'atlas', 'standard', 'normal'); kick.player.position = { x: 0, z: 0 }; kick.opponent.position = { x: 1.3, z: 0 };
     expect(requestCommand(kick, 'player', 'heavy', { x: 0, z: 1 })).toBe(true); expect(kick.player.moveId).toBe('front_kick');
     const spear = createMatch('brick', 'nova', 'standard', 'normal'); spear.player.position = { x: 0, z: 0 }; spear.opponent.position = { x: 1.4, z: 0 }; spear.player.velocity = { x: 4.4, z: 0 };
-    expect(requestCommand(spear, 'player', 'grapple')).toBe(true); expect(spear.player.moveId).toBe('spear'); expect(spear.grapple).toBeNull();
+    expect(requestCommand(spear, 'player', 'grapple', { x: 0, z: 1 }, true)).toBe(true); expect(spear.player.moveId).toBe('spear'); expect(spear.grapple).toBeNull();
   });
 
   it('turns a distant prop release into a bounded physical throw window', () => {

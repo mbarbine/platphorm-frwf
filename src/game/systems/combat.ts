@@ -342,7 +342,7 @@ const launchAerial = (model: MatchModel, actor: FighterRuntime, target: FighterR
   return false;
 };
 
-export const requestCommand = (model: MatchModel, actorKey: 'player' | 'opponent', command: GameCommand, direction: Vec2 = { x: 0, z: 0 }): boolean => {
+export const requestCommand = (model: MatchModel, actorKey: 'player' | 'opponent', command: GameCommand, direction: Vec2 = { x: 0, z: 0 }, running = false): boolean => {
   const actor = model[actorKey];
   const targetKey = actorKey === 'player' ? 'opponent' : 'player';
   const target = model[targetKey];
@@ -433,11 +433,11 @@ export const requestCommand = (model: MatchModel, actorKey: 'player' | 'opponent
   }
   if (command === 'heavy') {
     const moveId = actor.heldPropId ? 'prop'
-      : actor.ropeRebound > 0 || Math.hypot(actor.velocity.x, actor.velocity.z) > 3.6 ? 'stiff_arm'
+      : actor.ropeRebound > 0 || running && Math.hypot(actor.velocity.x, actor.velocity.z) > 3.6 ? 'stiff_arm'
         : selectDirectionalStrike(direction, 'heavy', actor.comboStep);
     return startMove(actor, target, getMove(moveId));
   }
-  if (Math.hypot(actor.velocity.x, actor.velocity.z) > 3.75 && target.state !== 'downed') return startMove(actor, target, getMove('spear'));
+  if (running && Math.hypot(actor.velocity.x, actor.velocity.z) > 3.75 && target.state !== 'downed') return startMove(actor, target, getMove('spear'));
   if (target.state === 'blocking') {
     target.stamina = clamp(target.stamina - BALANCE.block.grappleStaminaCost, 0, target.staminaCap);
     if (target.stamina > 0) {
@@ -703,8 +703,8 @@ export const advanceMatch = (model: MatchModel, dt: number, playerInput: FrameIn
   updatePin(model, step, playerInput);
   if (model.player.state === 'pinned' || model.opponent.state === 'pinned') return model;
 
-  if (playerInput.block) requestCommand(model, 'player', 'block', playerInput.move);
-  for (const command of playerInput.commands) requestCommand(model, 'player', command, playerInput.move);
+  if (playerInput.block) requestCommand(model, 'player', 'block', playerInput.move, playerInput.run);
+  for (const command of playerInput.commands) requestCommand(model, 'player', command, playerInput.move, playerInput.run);
   model.aiBlockTimer = Math.max(0, model.aiBlockTimer - step);
   model.aiThinkTimer -= step;
   let aiMove: Vec2 = { ...model.aiMovement }; let aiRun = model.aiRunning;
@@ -715,7 +715,7 @@ export const advanceMatch = (model: MatchModel, dt: number, playerInput: FrameIn
     model.seed = decision.nextSeed; model.aiIntent = decision.command; aiMove = decision.move; aiRun = decision.run;
     model.aiThinkTimer = model.difficulty === 'hard' ? .22 : .38;
     if (decision.command) {
-      requestCommand(model, 'opponent', decision.command, decision.move);
+      requestCommand(model, 'opponent', decision.command, decision.move, model.aiRunning);
       if (decision.command === 'block') model.aiBlockTimer = model.difficulty === 'hard' ? .72 : .48;
     }
   }

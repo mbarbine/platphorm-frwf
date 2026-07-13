@@ -72,7 +72,7 @@ function Ropes() {
 
 function ReactiveMat() {
   const mat = useRef<InstancedMesh>(null); const dummy = useMemo(() => new Object3D(), []); const lastImpactId = useRef(0); const impactAge = useRef(10); const amplitude = useRef(0); const epicenter = useRef({ x: 0, z: 0 });
-  const reducedMotion = useSettings((state) => state.reducedMotion); const columns = 12; const rows = 9; const count = columns * rows;
+  const reducedMotion = useSettings((state) => state.reducedMotion); const lab = useMemo(() => new URLSearchParams(window.location.search).get('physicsLab') === '1', []); const columns = lab ? 6 : 12; const rows = lab ? 5 : 9; const count = columns * rows; const width = 11.3; const depth = 8.3; const tileWidth = width / columns; const tileDepth = depth / rows;
   useFrame((_, dt) => {
     const mesh = mat.current; if (!mesh) return;
     const impact = useMatchStore.getState().model.lastImpact;
@@ -84,7 +84,7 @@ function ReactiveMat() {
     impactAge.current += dt;
     const decay = Math.exp(-impactAge.current * 4.8); const waveFront = impactAge.current * 8.5;
     for (let row = 0; row < rows; row += 1) for (let column = 0; column < columns; column += 1) {
-      const index = row * columns + column; const x = -5.5 + column; const z = -3.72 + row * .93;
+      const index = row * columns + column; const x = -width / 2 + tileWidth * (column + .5); const z = -depth / 2 + tileDepth * (row + .5);
       const distance = Math.hypot(x - epicenter.current.x, z - epicenter.current.z);
       const contactDimple = -amplitude.current * Math.exp(-distance * distance * 1.15) * Math.exp(-impactAge.current * 8);
       const travellingWave = amplitude.current * .38 * Math.sin((waveFront - distance) * 2.1) * Math.exp(-Math.abs(waveFront - distance) * .48) * decay;
@@ -94,7 +94,7 @@ function ReactiveMat() {
     mesh.instanceMatrix.needsUpdate = true;
   });
   return <instancedMesh ref={mat} args={[undefined, undefined, count]} position={[0, 1.86, 0]} receiveShadow>
-    <boxGeometry args={[1.005, .08, .935]} /><meshStandardMaterial color="#e9ebf4" emissive="#1a0e32" emissiveIntensity={.08} roughness={.72} />
+    <boxGeometry args={[tileWidth + .012, .08, tileDepth + .012]} /><meshStandardMaterial color="#e9ebf4" emissive="#1a0e32" emissiveIntensity={.08} roughness={.72} />
   </instancedMesh>;
 }
 

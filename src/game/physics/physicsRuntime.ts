@@ -25,6 +25,7 @@ export interface BufferedPhysicsCommand {
   fighter: FighterKey;
   command: GameCommand;
   direction: Vec2;
+  running: boolean;
   issuedAt: number;
   expiresAt: number;
 }
@@ -182,7 +183,7 @@ export class BodyWorksRuntime {
     intent.move.x = input.move.x; intent.move.z = input.move.z; intent.run = input.run; intent.block = input.block;
     for (const command of input.commands) {
       this.commandId += 1;
-      this.commands.push({ id: this.commandId, fighter, command, direction: { ...input.move }, issuedAt: now, expiresAt: now + COMMAND_BUFFER_SECONDS });
+      this.commands.push({ id: this.commandId, fighter, command, direction: { ...input.move }, running: input.run, issuedAt: now, expiresAt: now + COMMAND_BUFFER_SECONDS });
     }
     if (this.commands.length > MAX_COMMANDS) this.commands.splice(0, this.commands.length - MAX_COMMANDS);
   }
@@ -406,7 +407,7 @@ export class BodyWorksRuntime {
     if (rig.jumpQueued) {
       const grounded = rig.supportContacts.size > 0 || pelvis.translation().y <= targetPelvisY + .16;
       if (grounded && rig.jumpCooldown <= 0 && (['idle', 'locomotion', 'jumping'].includes(fighter.state) || fighter.moveId === 'kick_up')) {
-        const launchSpeed = fighter.moveId === 'kick_up' ? 4.15 : 4.85;
+        const launchSpeed = fighter.moveId === 'kick_up' ? 4.15 : 5.55;
         for (const body of Object.values(rig.bodies)) {
           if (!body?.isValid()) continue;
           body.applyImpulse({ x: 0, y: body.mass() * launchSpeed, z: 0 }, true);
