@@ -287,6 +287,11 @@ describe('deterministic combat rules', () => {
     expect(model.player.moveId).toBe('clutch'); expect(model.player.stamina).toBe(afterLock);
   });
 
+  it('makes neutral grapple a deliberate reliable body slam', () => {
+    const model = createMatch('brick', 'vex', 'standard', 'normal'); model.player.position = { x: 0, z: 0 }; model.opponent.position = { x: 1, z: 0 };
+    expect(requestCommand(model, 'player', 'grapple')).toBe(true); expect(model.player.moveId).toBe('slam'); expect(model.grapple?.phase).toBe('reach');
+  });
+
   it('climbs a turnbuckle before launching a playable aerial attack', () => {
     const model = createMatch('vex', 'atlas', 'standard', 'normal'); model.player.position = { x: 5, z: 3.5 }; model.opponent.position = { x: 1, z: 0 }; model.opponent.state = 'downed';
     expect(requestCommand(model, 'player', 'context')).toBe(true); expect(model.player.state).toBe('climbing');

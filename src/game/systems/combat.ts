@@ -255,7 +255,7 @@ const grappleDirection = (direction: Vec2): GrappleDirection => {
 };
 
 const GRAPPLE_GRID: Readonly<Record<GrappleDirection, Readonly<Record<GrappleButton, string>>>> = {
-  neutral: { quick: 'takedown', heavy: 'slam', grapple: 'suplex' },
+  neutral: { quick: 'takedown', heavy: 'slam', grapple: 'slam' },
   up: { quick: 'arm_drag', heavy: 'skyhook', grapple: 'powerbomb' },
   down: { quick: 'takedown', heavy: 'spinebuster', grapple: 'mountain_drop' },
   left: { quick: 'clutch', heavy: 'spinebuster', grapple: 'whip' },
