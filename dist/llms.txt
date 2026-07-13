@@ -1,0 +1,7 @@
+# RINGFALL: CHAOS CIRCUIT
+Original local-first 3D arcade wrestling game set in The Volt Dome.
+Public game: /
+Health: /api/health
+API docs: /api/docs
+OpenAPI: /openapi.yaml
+No backend, login, runtime network requests, protected actions, or MCP execution are implemented.

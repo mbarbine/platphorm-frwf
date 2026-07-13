@@ -1,0 +1,30 @@
+openapi: 3.1.0
+info:
+  title: RINGFALL CHAOS CIRCUIT Public API
+  version: 1.0.0
+  description: Read-only discovery for the static browser game. No protected or mutating API is implemented.
+servers:
+  - url: https://platphorm-frwf.vercel.app
+paths:
+  /api/health:
+    get:
+      summary: Full public-safe static health declaration
+      responses:
+        '200':
+          description: Health payload
+          content:
+            application/json:
+              schema:
+                type: object
+  /api/v1/health:
+    get:
+      summary: Versioned health declaration
+      responses:
+        '200':
+          description: Health payload
+  /api/docs:
+    get:
+      summary: Route and capability documentation
+      responses:
+        '200':
+          description: Documentation payload
