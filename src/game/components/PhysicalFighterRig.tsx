@@ -13,8 +13,10 @@ import type { FighterKey } from '../physics/physicsRuntime';
 
 interface Props { runtime: FighterRuntime; side: FighterKey }
 interface RigUserData { bodyWorks: true; fighter: FighterKey; segment: BodySegmentId; region: BodySegmentSchema['bodyRegion']; surface?: boolean }
+interface SurfaceUserData { surface: true; kind: string }
 
 const isRigUserData = (value: unknown): value is RigUserData => typeof value === 'object' && value !== null && 'bodyWorks' in value;
+const isSurfaceUserData = (value: unknown): value is SurfaceUserData => typeof value === 'object' && value !== null && 'surface' in value && 'kind' in value;
 
 function SegmentVisual({ schema, fighterId }: { schema: BodySegmentSchema; fighterId: FighterRuntime['definitionId'] }) {
   const fighter = fighterById(fighterId); const arm = schema.id.includes('Arm') || schema.id.includes('Forearm') || schema.id.includes('Hand'); const leg = schema.id.includes('Thigh') || schema.id.includes('Shin') || schema.id.includes('Foot');
@@ -109,7 +111,8 @@ export function PhysicalFighterRig({ runtime, side }: Props) {
   }, [refs, side]);
   const onContactForce = useCallback((segment: BodySegmentSchema, bodyRef: RefObject<RapierRigidBody | null>, payload: ContactForcePayload): void => {
     const otherData = payload.other.rigidBodyObject?.userData; const target = isRigUserData(otherData) ? otherData : null;
-    if (target?.fighter === side || (!segment.attackEligible && payload.totalForceMagnitude < 420)) return;
+    const landingCandidate = !target && bodyWorksRuntime.isAwaitingLanding(side);
+    if (target?.fighter === side || (!landingCandidate && !segment.attackEligible && payload.totalForceMagnitude < 420)) return;
     const ownVelocity = bodyRef.current?.linvel() ?? { x: 0, y: 0, z: 0 }; const otherVelocity = payload.other.rigidBody?.linvel() ?? { x: 0, y: 0, z: 0 };
     const sourceRuntime = useMatchStore.getState().model[side];
     const activeAttack = sourceRuntime.attackPhase === 'active' && sourceRuntime.moveId !== null;
@@ -121,6 +124,7 @@ export function PhysicalFighterRig({ runtime, side }: Props) {
       relativeSpeed: Math.hypot(ownVelocity.x - otherVelocity.x, ownVelocity.y - otherVelocity.y, ownVelocity.z - otherVelocity.z),
       attackInstanceId: activeAttack ? sourceRuntime.attackInstanceId : null,
       moveId: activeAttack ? sourceRuntime.moveId : null,
+      targetSurface: isSurfaceUserData(otherData) ? otherData.kind : null,
       isLanding: false,
     });
   }, [side]);

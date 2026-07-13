@@ -41,6 +41,7 @@ export interface BodyWorksContact {
   relativeSpeed: number;
   attackInstanceId: number | null;
   moveId: string | null;
+  targetSurface: string | null;
   isLanding: boolean;
 }
 
@@ -190,7 +191,9 @@ export class BodyWorksRuntime {
 
   recordContact(contact: Omit<BodyWorksContact, 'id'>): void {
     const pending = contact.sourceFighter ? this.pendingLandings.get(contact.sourceFighter) : undefined;
-    if (pending && contact.targetFighter === null && contact.maximumForce > 90) {
+    const torsoLanding = contact.sourceSegment === 'chest' || contact.sourceSegment === 'abdomen' || contact.sourceSegment === 'pelvis';
+    const validLandingSurface = contact.targetSurface === 'ring' || contact.targetSurface === 'floor' || contact.targetSurface === 'table';
+    if (pending && contact.targetFighter === null && torsoLanding && validLandingSurface && contact.maximumForce > 90) {
       contact = {
         ...contact,
         sourceFighter: pending.attacker,
@@ -209,6 +212,8 @@ export class BodyWorksRuntime {
   }
 
   consumeContacts(): readonly BodyWorksContact[] { const result = this.contacts.splice(0); return result; }
+
+  isAwaitingLanding(fighter: FighterKey): boolean { return this.pendingLandings.has(fighter); }
 
   beforeFixedStep(dt: number, model: MatchModel, world?: World): void {
     const startedAt = performance.now();
@@ -366,7 +371,10 @@ export class BodyWorksRuntime {
     if (!attackerRig || !defenderRig || !attacker.moveId || !['grappling', 'attacking'].includes(attacker.state)) { this.releaseAllGrips(world); model.grapple = null; return; }
     const move = getMove(attacker.moveId); grapple.age += dt;
     if (grapple.phase === 'impact' || grapple.phase === 'release') return;
-    const owned = this.grips.filter((grip) => grip.attacker === grapple.attacker && grip.moveId === move.id);
+    // A directional follow-up changes the throw without releasing the physical
+    // collar-and-elbow lock. Grips belong to the grapple session, not the
+    // currently selected move, so the same hands can flow from lock-up to slam.
+    const owned = this.grips.filter((grip) => grip.attacker === grapple.attacker);
     if (owned.length < 2) {
       grapple.phase = owned.length === 0 ? 'reach' : 'acquire';
       let nearestGripDistance = Number.POSITIVE_INFINITY;
@@ -402,7 +410,7 @@ export class BodyWorksRuntime {
       }
       this.metrics.nearestGripDistance = Number.isFinite(nearestGripDistance) ? nearestGripDistance : 0;
     }
-    const activeGrips = this.grips.filter((grip) => grip.attacker === grapple.attacker && grip.moveId === move.id);
+    const activeGrips = this.grips.filter((grip) => grip.attacker === grapple.attacker);
     for (const grip of activeGrips) {
       const hand = attackerRig.bodies[grip.hand]; const target = defenderRig.bodies[grip.target];
       if (!hand || !target) { this.removeGrip(world, grip, 'missing-body'); continue; }
@@ -420,7 +428,7 @@ export class BodyWorksRuntime {
       else if (!acquisitionGrace && error > 1.35) this.removeGrip(world, grip, 'anchor-error');
       else if (!acquisitionGrace && load > grip.strength * 24) this.removeGrip(world, grip, 'load-break');
     }
-    grapple.gripCount = this.grips.filter((grip) => grip.attacker === grapple.attacker && grip.moveId === move.id).length;
+    grapple.gripCount = this.grips.filter((grip) => grip.attacker === grapple.attacker).length;
     this.metrics.gripCount = this.grips.length; this.metrics.jointCount = this.rigs.size * 15 + this.grips.length;
     if (grapple.gripCount < 2) {
       if (grapple.age > 1.8) {
