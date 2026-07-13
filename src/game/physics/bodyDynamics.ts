@@ -13,6 +13,24 @@ export interface ImpactCalculation {
   closingSpeed: number;
 }
 
+export interface LocomotionProfile { walkSpeed: number; runSpeed: number; acceleration: number; runAcceleration: number; braking: number; turnRate: number; sprintTurnRate: number }
+
+/** Fighter-specific feel values shared by deterministic intent and Rapier drive. */
+export const locomotionProfile = (definition: FighterDefinition): LocomotionProfile => {
+  const agility = definition.stats.speed / 100; const massPenalty = clamp((definition.physics.massKg - 78) / 48, 0, 1);
+  const acceleration = 17.5 + agility * 8.5 - massPenalty * 3;
+  const turnRate = 5 + agility * 3.2 - massPenalty * 1.05;
+  return {
+    walkSpeed: 3.45 + agility * .8,
+    runSpeed: 5.35 + agility * 1.15,
+    acceleration,
+    runAcceleration: acceleration * .78,
+    braking: 19.5 + agility * 5.2 - massPenalty * 1.6,
+    turnRate,
+    sprintTurnRate: turnRate * .62,
+  };
+};
+
 export const createBodyDynamics = (definition: FighterDefinition): BodyDynamicsRuntime => {
   const mass = definition.physics.massKg;
   return {
@@ -57,13 +75,13 @@ export const integrateLocomotion = (fighter: FighterRuntime, definition: Fighter
   const desiredMagnitude = Math.min(1, length(desiredMove));
   const desiredDirection = desiredMagnitude > .001 ? normalize(desiredMove) : { x: 0, z: 0 };
   const speed = length(fighter.velocity);
-  const massFactor = clamp(112 / body.mass, .72, 1.28);
   const exhausted = fighter.stamina < fighter.staminaCap * .2;
-  const topSpeed = (running ? 5.25 : 3.2) * (.72 + definition.stats.speed / 250) * (exhausted ? .78 : 1);
+  const profile = locomotionProfile(definition);
+  const topSpeed = (running ? profile.runSpeed : profile.walkSpeed) * (exhausted ? .86 : 1);
   const targetVelocity = { x: desiredDirection.x * topSpeed * desiredMagnitude, z: desiredDirection.z * topSpeed * desiredMagnitude };
   const accelerating = desiredMagnitude > .08;
-  const acceleration = (6.2 + definition.stats.speed * .067) * massFactor * (running ? 1.04 : 1);
-  const deceleration = (accelerating ? acceleration : 7.4 * massFactor) * (running && !accelerating ? .68 : 1);
+  const acceleration = running ? profile.runAcceleration : profile.acceleration;
+  const deceleration = accelerating ? acceleration : profile.braking;
   const previousVelocity = { ...fighter.velocity };
   fighter.velocity.x = approach(fighter.velocity.x, targetVelocity.x, deceleration * dt);
   fighter.velocity.z = approach(fighter.velocity.z, targetVelocity.z, deceleration * dt);
@@ -71,8 +89,8 @@ export const integrateLocomotion = (fighter: FighterRuntime, definition: Fighter
   if (accelerating) {
     const desiredFacing = Math.atan2(desiredDirection.x, desiredDirection.z);
     const turnDifference = wrapAngle(desiredFacing - fighter.facing);
-    const speedControl = 1 - clamp(speed / 9, 0, .48);
-    const turnRate = (2.4 + definition.stats.speed / 32) * massFactor * speedControl;
+    const speedControl = 1 - clamp(speed / 11, 0, .34);
+    const turnRate = (running ? profile.sprintTurnRate : profile.turnRate) * speedControl;
     fighter.facing = wrapAngle(fighter.facing + clamp(turnDifference, -turnRate * dt, turnRate * dt));
     const currentDirection = speed > .1 ? normalize(previousVelocity) : desiredDirection;
     const directionDot = currentDirection.x * desiredDirection.x + currentDirection.z * desiredDirection.z;
@@ -84,10 +102,16 @@ export const integrateLocomotion = (fighter: FighterRuntime, definition: Fighter
   const accelerationDelta = Math.hypot(fighter.velocity.x - previousVelocity.x, fighter.velocity.z - previousVelocity.z) / Math.max(dt, .001);
   const desiredLean = accelerating ? clamp(accelerationDelta / 38 + speed / 34, 0, running ? .3 : .18) : clamp(speed / 42, 0, .12);
   body.leanVelocity += (desiredLean - body.leanForward) * dt * 16;
-  body.stride = clamp(speed / Math.max(.1, topSpeed), 0, 1) * (running ? 1 : .68);
-  if (speed > .08) body.gaitPhase += speed * dt * (1.55 + definition.stats.speed / 180);
-  updateFoot(fighter, body.leftFoot, body.gaitPhase, body.stride, -.16 * definition.proportions.width);
-  updateFoot(fighter, body.rightFoot, body.gaitPhase + Math.PI, body.stride, .16 * definition.proportions.width);
+  body.stride = clamp(speed / Math.max(.1, topSpeed), 0, 1) * (running ? 1 : .72);
+  if (speed > .08) {
+    body.gaitPhase += speed * dt * (1.55 + definition.stats.speed / 180);
+    updateFoot(fighter, body.leftFoot, body.gaitPhase, body.stride, -.16 * definition.proportions.width);
+    updateFoot(fighter, body.rightFoot, body.gaitPhase + Math.PI, body.stride, .16 * definition.proportions.width);
+  } else {
+    body.stride = 0;
+    body.leftFoot.planted = true; body.leftFoot.lift = 0;
+    body.rightFoot.planted = true; body.rightFoot.lift = 0;
+  }
 };
 
 export const stepBodyDynamics = (fighter: FighterRuntime, dt: number): { landed: boolean; landingEnergy: number } => {

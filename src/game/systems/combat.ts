@@ -349,6 +349,7 @@ export const requestCommand = (model: MatchModel, actorKey: 'player' | 'opponent
       }
       return started;
     }
+    if (target.state === 'downed' && distance(actor.position, target.position) <= 1.7) return startPin(actor, target);
     const nearCorner = Math.abs(actor.position.x) > 4.35 && Math.abs(actor.position.z) > 2.95;
     if (nearCorner) {
       actor.state = 'climbing'; actor.stateElapsed = 0; actor.velocity = { x: 0, z: 0 };
@@ -356,7 +357,6 @@ export const requestCommand = (model: MatchModel, actorKey: 'player' | 'opponent
       model.announcement = 'TURNBUCKLE CLIMB — F TO FLY!'; model.announcementTimer = 1.4;
       return true;
     }
-    if (target.state === 'downed') return startPin(actor, target);
     const nearXApron = Math.abs(actor.position.x) > 5.05 && Math.abs(actor.position.x) < 6.9 && Math.abs(actor.position.z) < 4.4;
     const nearZApron = Math.abs(actor.position.z) > 3.55 && Math.abs(actor.position.z) < 5.6 && Math.abs(actor.position.x) < 5.9;
     if (nearXApron || nearZApron) {

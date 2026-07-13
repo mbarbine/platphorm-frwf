@@ -15,6 +15,7 @@ import type { Pose } from '../animation/poses';
 import type { QuaternionValue, Vector3Value } from './motorController';
 import { apronTransitionTarget, isRingside, solveRopeResponse } from './ringDynamics';
 import { computeStrikeForce, strikeDriveProfile } from './strikeDynamics';
+import { locomotionProfile } from './bodyDynamics';
 
 export type FighterKey = 'player' | 'opponent';
 
@@ -112,7 +113,7 @@ interface ReleasedPropAttack { owner: FighterKey; attackInstanceId: number; move
 const EMPTY_INTENT = (): IntentState => ({ move: { x: 0, z: 0 }, run: false, block: false });
 const MAX_COMMANDS = 32;
 const MAX_CONTACTS = 128;
-const COMMAND_BUFFER_SECONDS = .13;
+const COMMAND_BUFFER_SECONDS = .16;
 
 const bodyAnchorWorld = (body: RapierRigidBody, localX: number): { x: number; y: number; z: number } => {
   const position = body.translation(); const rotation = body.rotation();
@@ -185,12 +186,13 @@ export class BodyWorksRuntime {
     if (this.commands.length > MAX_COMMANDS) this.commands.splice(0, this.commands.length - MAX_COMMANDS);
   }
 
-  resolveCommands(fighter: FighterKey, now: number, attempt: (command: BufferedPhysicsCommand) => boolean): void {
-    for (let index = this.commands.length - 1; index >= 0; index -= 1) {
+  resolveCommands(fighter: FighterKey, now: number, attempt: (command: BufferedPhysicsCommand) => boolean, expired?: (command: BufferedPhysicsCommand) => void): void {
+    for (let index = 0; index < this.commands.length;) {
       const command = this.commands[index];
-      if (!command) continue;
-      if (command.expiresAt < now) { this.commands.splice(index, 1); continue; }
-      if (command.fighter === fighter && attempt(command)) this.commands.splice(index, 1);
+      if (!command) { index += 1; continue; }
+      if (command.expiresAt < now) { this.commands.splice(index, 1); if (command.fighter === fighter) expired?.(command); continue; }
+      if (command.fighter === fighter && attempt(command)) { this.commands.splice(index, 1); return; }
+      index += 1;
     }
   }
 
@@ -301,6 +303,7 @@ export class BodyWorksRuntime {
     const intent = this.intents[key];
     const velocity = pelvis.linvel();
     const definition = fighterById(fighter.definitionId);
+    const locomotion = locomotionProfile(definition);
     const ringPelvisY = 1.92 + 1.12 * (definition.physics.standingHeightM / 1.88) - fighter.body.pelvisDrop * .32;
     const onRingsideFloor = isRingside({ x: pelvis.translation().x, z: pelvis.translation().z });
     const targetPelvisY = ringPelvisY - (onRingsideFloor ? 1.5 : 0);
@@ -343,10 +346,10 @@ export class BodyWorksRuntime {
       pelvis.addForce({ x: 0, y: fighter.body.mass * supportAcceleration, z: 0 }, true);
     }
     const movementControl = ['idle', 'locomotion'].includes(fighter.state) ? 1 : fighter.state === 'recovering' ? .08 : 0;
-    const desiredSpeed = (intent.run ? 5.4 : 3.25) * (.78 + fighterBySpeed(fighter) / 235) * (fighter.body.muscle < .3 ? .72 : 1) * movementControl;
+    const desiredSpeed = (intent.run ? locomotion.runSpeed : locomotion.walkSpeed) * (fighter.body.muscle < .3 ? .86 : 1) * movementControl;
     const inputLength = Math.min(1, Math.hypot(intent.move.x, intent.move.z)) * movementControl;
     const desiredX = intent.move.x * desiredSpeed * inputLength; const desiredZ = intent.move.z * desiredSpeed * inputLength;
-    const acceleration = (intent.run ? 9.4 : 12.5) * clamp(105 / fighter.body.mass, .72, 1.3) * (movementControl === 1 ? 1 : .24);
+    const acceleration = (inputLength <= .08 ? locomotion.braking : intent.run ? locomotion.runAcceleration : locomotion.acceleration) * (movementControl === 1 ? 1 : .24);
     if (movementControl > 0) pelvis.addForce({ x: clamp(desiredX - velocity.x, -acceleration, acceleration) * fighter.body.mass, y: 0, z: clamp(desiredZ - velocity.z, -acceleration, acceleration) * fighter.body.mass }, true);
     if (inputLength > .08) {
       const desiredFacing = Math.atan2(intent.move.x, intent.move.z);
@@ -363,9 +366,21 @@ export class BodyWorksRuntime {
       }
       rig.jumpQueued = false;
     }
+    this.applyFootPlantDrive(rig, fighter);
     this.applyRopeController(key, rig, fighter, model);
     this.applyPhysicalStrike(key, rig, fighter, model);
     this.applyPoseDrive(rig, fighter);
+  }
+
+  private applyFootPlantDrive(rig: FighterRigRegistration, fighter: FighterRuntime): void {
+    if (!['idle', 'locomotion', 'blocking', 'recovering'].includes(fighter.state)) return;
+    const entries: readonly [BodySegmentId, boolean][] = [['leftFoot', fighter.body.leftFoot.planted], ['rightFoot', fighter.body.rightFoot.planted]];
+    for (const [id, planted] of entries) {
+      if (!planted) continue;
+      const foot = rig.bodies[id]; if (!foot) continue;
+      const velocity = foot.linvel(); const mass = foot.mass(); const strength = fighter.state === 'locomotion' ? 15 : 22;
+      foot.addForce({ x: clamp(-velocity.x * mass * strength, -180, 180), y: 0, z: clamp(-velocity.z * mass * strength, -180, 180) }, true);
+    }
   }
 
   private applyPhysicalStrike(key: FighterKey, rig: FighterRigRegistration, fighter: FighterRuntime, model: MatchModel): void {

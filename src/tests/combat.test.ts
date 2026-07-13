@@ -6,6 +6,7 @@ import { getMove } from '../game/data/moves';
 import { advanceMatch, applyMoveHit, applyPhysicalContact, createMatch, getAttackPhase, requestCommand, resetTransientState, selectDirectionalGrapple, startMove } from '../game/systems/combat';
 import { canTransition } from '../game/systems/stateMachine';
 import type { FrameInput } from '../game/systems/combat';
+import { BodyWorksRuntime } from '../game/physics/physicsRuntime';
 
 const none: FrameInput = { move: { x: 0, z: 0 }, run: false, block: false, commands: [] };
 
@@ -44,6 +45,27 @@ describe('deterministic combat rules', () => {
   it('pin cannot begin against a standing opponent', () => {
     const model = createMatch('atlas', 'vex', 'standard', 'normal'); model.player.position = { x: 0, z: 0 }; model.opponent.position = { x: 1, z: 0 };
     expect(requestCommand(model, 'player', 'context')).toBe(false); expect(model.opponent.state).not.toBe('pinned');
+  });
+
+  it('prioritizes a valid pin over an accidental corner climb', () => {
+    const model = createMatch('atlas', 'vex', 'standard', 'normal'); model.player.position = { x: 4.8, z: 3.25 }; model.opponent.position = { x: 4.7, z: 3.1 }; model.opponent.state = 'downed';
+    expect(requestCommand(model, 'player', 'context')).toBe(true); expect(model.player.state).toBe('pinning'); expect(model.opponent.state).toBe('pinned');
+  });
+
+  it('buffers commands FIFO and releases at most one legal action per fixed step', () => {
+    const runtime = new BodyWorksRuntime(); const accepted: string[] = [];
+    runtime.captureInput('player', { ...none, commands: ['grapple', 'heavy'] }, 0);
+    runtime.resolveCommands('player', .01, (command) => { accepted.push(command.command); return true; });
+    expect(accepted).toEqual(['grapple']); expect(runtime.pendingCommandCount()).toBe(1);
+    runtime.resolveCommands('player', .02, (command) => { accepted.push(command.command); return true; });
+    expect(accepted).toEqual(['grapple', 'heavy']); expect(runtime.pendingCommandCount()).toBe(0);
+  });
+
+  it('expires stale buffered commands instead of executing them later', () => {
+    const runtime = new BodyWorksRuntime(); const expired: string[] = []; let executed = false;
+    runtime.captureInput('player', { ...none, commands: ['heavy'] }, 1);
+    runtime.resolveCommands('player', 1.17, () => { executed = true; return true; }, (command) => expired.push(command.command));
+    expect(executed).toBe(false); expect(expired).toEqual(['heavy']); expect(runtime.pendingCommandCount()).toBe(0);
   });
 
   it('successful counter interrupts the incoming move', () => {

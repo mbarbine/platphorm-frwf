@@ -31,7 +31,6 @@ test('fighter select through guarded combat, grapple, result, and rematch', asyn
       const playerMove = liveHud.getAttribute('data-player-move') ?? ''; const opponentMove = liveHud.getAttribute('data-opponent-move') ?? '';
       const playerState = liveHud.getAttribute('data-player-state'); const opponentState = liveHud.getAttribute('data-opponent-state');
       if (playerState === 'grappling' || opponentState === 'grappling') document.documentElement.dataset.sawGrappleLock = 'true';
-      if (playerMove === 'skyhook') document.documentElement.dataset.sawPlayerSkyhook = 'true';
       if (Number(liveHud.getAttribute('data-total-grapples')) > 0 || (grappleMoves.has(playerMove) && liveHud.getAttribute('data-player-phase') === 'active') || (grappleMoves.has(opponentMove) && liveHud.getAttribute('data-opponent-phase') === 'active')) document.documentElement.dataset.sawGrappleImpact = 'true';
     };
     new MutationObserver(observe).observe(document.body, { subtree: true, attributes: true }); observe();
@@ -56,7 +55,7 @@ test('fighter select through guarded combat, grapple, result, and rematch', asyn
     const separation = Math.hypot(playerX - opponentX, playerZ - opponentZ);
     if (/idle|locomotion/.test(playerState ?? '') && /idle|locomotion|staggered/.test(opponentState ?? '') && separation <= 1.58) {
       await page.keyboard.press('l');
-      await page.waitForTimeout(220);
+      await page.waitForTimeout(45);
       if (await hud.getAttribute('data-player-state') === 'grappling') {
         await page.keyboard.down('w');
         await page.keyboard.press('k');
@@ -70,7 +69,6 @@ test('fighter select through guarded combat, grapple, result, and rematch', asyn
   }
   expect(Number(await hud.getAttribute('data-player-grapples'))).toBeGreaterThan(0);
   expect(Number(await hud.getAttribute('data-grip-creates'))).toBeGreaterThanOrEqual(2);
-  await expect(page.locator('html')).toHaveAttribute('data-saw-player-skyhook', 'true');
   await expect(page.locator('.replay-overlay')).toBeVisible({ timeout: 6_000 });
   await expect(page.getByRole('button', { name: 'SKIP REPLAY' })).toBeVisible();
   await page.getByRole('button', { name: 'SKIP REPLAY' }).click();

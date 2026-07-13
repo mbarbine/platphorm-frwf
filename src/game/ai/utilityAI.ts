@@ -25,10 +25,10 @@ export const isActionLegal = (model: MatchModel, command: GameCommand, actorKey:
   if (command === 'context') {
     if (actor.state === 'climbing') return !['defeated', 'victorious'].includes(target.state) && targetDistance <= getMove('aerial').maximumRange;
     if (actor.momentum >= 100) return targetDistance <= getMove('finisher').maximumRange && ['staggered', 'downed'].includes(target.state);
-    const nearCorner = Math.abs(actor.position.x) > 4.35 && Math.abs(actor.position.z) > 2.95;
-    if (nearCorner && ['idle', 'locomotion'].includes(actor.state)) return true;
     const pinEligible = actorKey === 'player' || (model.elapsed >= BALANCE.ai.earliestPinSeconds && target.health <= BALANCE.ai.pinHealthThreshold);
     if (pinEligible && target.state === 'downed' && targetDistance <= 1.6) return true;
+    const nearCorner = Math.abs(actor.position.x) > 4.35 && Math.abs(actor.position.z) > 2.95;
+    if (nearCorner && ['idle', 'locomotion'].includes(actor.state)) return true;
     const nearApron = (Math.abs(actor.position.x) > 5.05 && Math.abs(actor.position.x) < 6.9 && Math.abs(actor.position.z) < 4.4)
       || (Math.abs(actor.position.z) > 3.55 && Math.abs(actor.position.z) < 5.6 && Math.abs(actor.position.x) < 5.9);
     return nearApron && ['idle', 'locomotion'].includes(actor.state);

@@ -89,6 +89,18 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--cyan); outl
 .replay-overlay span { color: var(--cyan); font-size: .58rem; font-weight: 950; letter-spacing: .26em; }.replay-overlay b { top: 3.15rem; font: 950 1.2rem Impact,sans-serif; letter-spacing: .08em; }
 .replay-overlay button { position: absolute; z-index: 2; right: 2rem; bottom: 2rem; min-height: 2.4rem; padding: .5rem .9rem; color: var(--acid); border: 1px solid rgba(220,255,70,.55); background: rgba(7,5,14,.88); pointer-events: auto; cursor: pointer; font-size: .58rem; font-weight: 950; letter-spacing: .12em; }
 
+.physics-lab { position: fixed; top: 7.4rem; left: .8rem; z-index: 16; width: min(24rem, 32vw); max-height: calc(100vh - 9rem); overflow: auto; border: 1px solid #41e9ff88; background: #050711e8; box-shadow: 0 0 2rem #18d9ff24; padding: .7rem; color: #eefbff; font-family: var(--font-tech); backdrop-filter: blur(10px); }
+.physics-lab header { display: grid; gap: .08rem; border-bottom: 1px solid #41e9ff44; padding-bottom: .55rem; }
+.physics-lab header span, .physics-lab header small, .physics-lab footer { color: var(--cyan); font-size: .62rem; letter-spacing: .14em; }
+.physics-lab header b { font-family: var(--font-display); font-size: 1.35rem; letter-spacing: .04em; }
+.physics-lab__diagnostics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .22rem; padding: .55rem 0; }
+.physics-lab__diagnostics div { display: flex; justify-content: space-between; gap: .4rem; border-left: 2px solid #adff3e88; background: #11182dcc; padding: .28rem .38rem; font-size: .62rem; }
+.physics-lab__diagnostics span { color: #8ca2b4; }.physics-lab__diagnostics b { text-align: right; }
+.physics-lab__scenarios { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .28rem; }
+.physics-lab__scenarios button { min-height: 2rem; border: 1px solid #667a9666; background: #151b2b; color: #dce8ef; font: 700 .6rem/1 var(--font-tech); letter-spacing: .06em; cursor: pointer; }
+.physics-lab__scenarios button:hover:not(:disabled), .physics-lab__scenarios button.active { border-color: var(--acid); color: var(--acid); background: #1d2b20; }
+.physics-lab__scenarios button:disabled:not(.active) { opacity: .36; }.physics-lab footer { display: block; margin-top: .58rem; line-height: 1.45; }
+
 @keyframes announce { from { opacity: 0; transform: translate(-50%, -50%) scale(.6) skew(-7deg); } to { opacity: 1; transform: translate(-50%, -50%) scale(1) skew(-7deg); } }
 @keyframes grapple-in { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: translateX(0); } }
 @media (max-height: 820px) { .select-layout { min-height: 400px; }.fighter-preview { min-height: 400px; }.fighter-dossier { padding: 1rem; }.fighter-dossier p { margin-block: .6rem; font-size: .76rem; }.fighter-dossier h3 { font-size: 2.25rem; }.stats { margin: .7rem 0; gap: .35rem; }.roster-card { min-height: 64px; padding-block: .45rem; }.panel, .select-screen { padding: 1.15rem; }.select-screen > .button-row { position: sticky; bottom: -.1rem; z-index: 5; padding: .65rem 0 .2rem; background: linear-gradient(180deg, transparent, #090713 24%); }.section-heading h2 { font-size: 2.4rem; margin-bottom: .65rem; } }

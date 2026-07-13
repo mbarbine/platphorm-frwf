@@ -41,6 +41,8 @@ export const useMatchStore = create<MatchStore>((set) => ({
       if (accepted && buffered.command === 'context' && wasClimbing && model.player.moveId === 'aerial') bodyWorksRuntime.requestCornerDive('player', model.opponent.position);
       if (accepted && buffered.command === 'context' && !wasClimbing && wasNearApron && model.player.state === 'locomotion') bodyWorksRuntime.requestApronTransition('player', model.player.position);
       return accepted;
+    }, (buffered) => {
+      if (!model.resolved) { model.announcement = `${buffered.command.toUpperCase()} — NO OPENING`; model.announcementTimer = .45; }
     });
     advanceMatch(model, dt, { ...input, commands: [] });
     publishAccumulator += dt;
