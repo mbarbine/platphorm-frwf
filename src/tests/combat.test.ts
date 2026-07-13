@@ -3,7 +3,7 @@ import { chooseAiDecision, isActionLegal } from '../game/ai/utilityAI';
 import { cinematicProgress, getPairedPose, getStrikePose, getStrikeReactionPose } from '../game/animation/choreography';
 import { FIGHTERS, fighterById } from '../game/data/fighters';
 import { getMove } from '../game/data/moves';
-import { advanceMatch, applyMoveHit, createMatch, getAttackPhase, requestCommand, resetTransientState, selectDirectionalGrapple, startMove } from '../game/systems/combat';
+import { advanceMatch, applyMoveHit, applyPhysicalContact, createMatch, getAttackPhase, requestCommand, resetTransientState, selectDirectionalGrapple, startMove } from '../game/systems/combat';
 import { canTransition } from '../game/systems/stateMachine';
 import type { FrameInput } from '../game/systems/combat';
 
@@ -209,6 +209,22 @@ describe('deterministic combat rules', () => {
     const model = createMatch('atlas', 'vex', 'standard', 'normal'); model.player.position = { x: 0, z: 0 }; model.opponent.position = { x: 1, z: 0 };
     expect(startMove(model.player, model.opponent, getMove('skyhook'))).toBe(true); model.player.attackPhase = 'active';
     expect(applyMoveHit(model, 'player', 'opponent', getMove('skyhook'))).toBe(true); expect(model.slowMotion).toBeGreaterThan(0);
+  });
+
+  it('never breaks the commentary desk from move proximity alone', () => {
+    const model = createMatch('atlas', 'vex', 'chaos', 'normal'); model.player.position = { x: 0, z: -7.1 }; model.opponent.position = { x: .8, z: -7.1 };
+    startMove(model.player, model.opponent, getMove('skyhook')); model.player.attackPhase = 'active';
+    expect(applyMoveHit(model, 'player', 'opponent', getMove('skyhook'))).toBe(true);
+    expect(model.props.find((prop) => prop.kind === 'table')?.failureStage).toBe('intact');
+  });
+
+  it('progressively fails the table only from a measured physical landing contact', () => {
+    const model = createMatch('atlas', 'vex', 'chaos', 'normal'); model.physicsAuthority = true; model.player.position = { x: 0, z: -7.1 }; model.opponent.position = { x: .8, z: -7.1 };
+    startMove(model.player, model.opponent, getMove('skyhook')); model.player.attackPhase = 'recovery';
+    const contact = { id: 1, time: 2, sourceFighter: 'player' as const, sourceSegment: 'chest' as const, targetFighter: 'opponent' as const, targetSegment: 'chest' as const, targetRegion: 'chest' as const, totalForce: 330, maximumForce: 250, forceDirection: [0, -1, 0] as const, relativeSpeed: 4.8, attackInstanceId: model.player.attackInstanceId, moveId: 'skyhook', targetSurface: 'table', isLanding: true };
+    expect(applyPhysicalContact(model, contact)).toBe(true);
+    expect(model.props.find((prop) => prop.kind === 'table')).toMatchObject({ failureStage: 'failed', broken: true });
+    expect(model.highlights.some((moment) => moment.kind === 'table')).toBe(true);
   });
 
   it('allows a grapple selection during the visible lock without duplicate base cost', () => {
