@@ -17,7 +17,7 @@ export const isActionLegal = (model: MatchModel, command: GameCommand, actorKey:
   if (model.paused || model.resolved || actor.state === 'pinned' || actor.state === 'pinning' || actor.state === 'defeated' || actor.state === 'victorious') return false;
   const targetDistance = distance(actor.position, target.position);
   if (command === 'block') return actor.stamina > 2 && ['idle', 'locomotion', 'blocking', 'staggered'].includes(actor.state);
-  if (command === 'jump') return actor.stamina >= 8 && actor.body.verticalOffset <= .05 && ['idle', 'locomotion'].includes(actor.state);
+  if (command === 'jump') return actor.stamina >= 8 && actor.body.verticalOffset <= .32 && ['idle', 'locomotion'].includes(actor.state);
   if (actor.state === 'grappling' && actor.attackPhase === 'anticipation' && ['quick', 'heavy', 'grapple'].includes(command)) return true;
   if (command === 'dodge') return actor.stamina >= 8 && ['idle', 'locomotion', 'climbing', 'staggered', 'grabbed'].includes(actor.state);
   if (command === 'taunt') return ['idle', 'locomotion', 'climbing'].includes(actor.state);

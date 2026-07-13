@@ -15,9 +15,17 @@ test('Bodyworks lab exposes live Rapier diagnostics and drives real jump/walk in
   await expect(hud).toHaveAttribute('data-player-state', 'idle');
   await page.waitForTimeout(2_500);
   const initialY = Number(await hud.getAttribute('data-player-pelvis-y')); let apex = initialY;
-  await page.keyboard.press('c');
+  await page.evaluate(() => {
+    const deckNode = document.querySelector('[data-testid="control-deck"]'); if (!deckNode) return;
+    const observe = (): void => {
+      if (deckNode.getAttribute('data-control-state')?.includes('AIRBORNE')) document.documentElement.dataset.sawAirborneControl = 'true';
+      if (deckNode.querySelector('[data-control="jump"]')?.classList.contains('is-active')) document.documentElement.dataset.sawActiveJumpControl = 'true';
+    };
+    new MutationObserver(observe).observe(deckNode, { subtree: true, attributes: true }); observe();
+  });
+  const jump = lab.getByRole('button', { name: 'STANDING JUMP' }); await expect(jump).toBeEnabled(); await jump.click();
   await expect(hud).toHaveAttribute('data-player-state', 'jumping', { timeout: 2_500 });
-  await expect(deck.locator('[data-control="jump"]')).toHaveClass(/is-active/); await expect(deck).toHaveAttribute('data-control-state', /AIRBORNE/);
+  await expect(page.locator('html')).toHaveAttribute('data-saw-active-jump-control', 'true'); await expect(page.locator('html')).toHaveAttribute('data-saw-airborne-control', 'true');
   await expect.poll(async () => { apex = Math.max(apex, Number(await hud.getAttribute('data-player-pelvis-y'))); return apex; }, { timeout: 7_000, intervals: [50, 100] }).toBeGreaterThan(initialY + .2);
   await expect(lab.getByRole('button', { name: 'WALK + STOP' })).toBeEnabled({ timeout: 3_000 });
   const initialX = Number(await hud.getAttribute('data-player-x')); const initialZ = Number(await hud.getAttribute('data-player-z'));

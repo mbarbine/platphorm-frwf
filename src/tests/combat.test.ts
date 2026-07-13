@@ -31,6 +31,12 @@ describe('deterministic combat rules', () => {
     model.player.stamina = 8; requestCommand(model, 'player', 'dodge'); expect(model.player.stamina).toBe(0);
   });
 
+  it('accepts jump input through normal articulated grounded bounce', () => {
+    const model = createMatch('vex', 'atlas', 'standard', 'normal'); model.player.body.verticalOffset = .18;
+    expect(requestCommand(model, 'player', 'jump')).toBe(true); expect(model.player.state).toBe('jumping');
+    expect(requestCommand(model, 'player', 'jump')).toBe(false);
+  });
+
   it('momentum cannot exceed its maximum', () => {
     const model = createMatch('atlas', 'vex', 'standard', 'normal'); model.player.position = { x: 0, z: 0 }; model.opponent.position = { x: 1, z: 0 }; model.player.momentum = 99;
     startMove(model.player, model.opponent, getMove('heavy')); model.player.attackPhase = 'active'; applyMoveHit(model, 'player', 'opponent', getMove('heavy'));
