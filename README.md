@@ -129,12 +129,21 @@ The Vite development server also surfaces browser console errors in its terminal
 
 ```bash
 vercel link --yes --project platphorm-frwf
-vercel build --prod
+vercel pull --yes --environment=preview
+vercel build
 vercel deploy --prebuilt
 # Verify the immutable preview, then:
 vercel promote <preview-url>
 vercel inspect <production-url>
 vercel logs <production-url> --since 1h --level error
+```
+
+For a direct production rebuild, keep the prebuild and deploy targets aligned:
+
+```bash
+vercel pull --yes --environment=production
+vercel build --prod
+vercel deploy --prebuilt --prod
 ```
 
 The game intentionally does not install Vercel Analytics, Speed Insights, databases, flags, queues, functions, or Marketplace storage: each would add runtime behavior or telemetry that conflicts with this product's no-backend/no-runtime-network contract. Vercel is used for immutable static delivery, routing, headers, previews, promotion, and release inspection.

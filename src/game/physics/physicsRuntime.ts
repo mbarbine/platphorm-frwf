@@ -8,6 +8,7 @@ import type { BodySegmentId } from './bodySchema';
 import { computeMotorTorque } from './motorController';
 import { PhysicsReplayBuffer } from './replayBuffer';
 import { getMove } from '../data/moves';
+import { fighterById } from '../data/fighters';
 import { getPairedPose, getStrikePose } from '../animation/choreography';
 import { POSES } from '../animation/poses';
 import type { Pose } from '../animation/poses';
@@ -37,6 +38,8 @@ export interface BodyWorksContact {
   forceDirection: readonly [number, number, number];
   relativeSpeed: number;
   attackInstanceId: number | null;
+  moveId: string | null;
+  isLanding: boolean;
 }
 
 export interface BodyWorksMetrics {
@@ -53,11 +56,14 @@ export interface BodyWorksMetrics {
   gripInvalidCount: number;
   worldBodyCount: number;
   invalidRegisteredBodyCount: number;
+  worldRemoveCount: number;
   contactCount: number;
   emergencyResetCount: number;
   lastStepMs: number;
   maximumStepMs: number;
 }
+
+export interface FighterPhysicsSnapshot { pelvisY: number; headY: number; footY: number; upright: number; speed: number; supportFeet: number }
 
 interface FighterRigRegistration {
   bodies: Partial<Record<BodySegmentId, RapierRigidBody>>;
@@ -107,10 +113,12 @@ export class BodyWorksRuntime {
   private contactId = 0;
   private generation = 0;
   private world: World | null = null;
+  private instrumentedWorld: World | null = null;
+  private originalRemoveImpulseJoint: World['removeImpulseJoint'] | null = null;
   private readonly grips: PhysicalGrip[] = [];
   private readonly pendingLandings = new Map<FighterKey, PendingLanding>();
   readonly replay = new PhysicsReplayBuffer(300);
-  readonly metrics: BodyWorksMetrics = { fixedSteps: 0, bodyCount: 0, jointCount: 0, gripCount: 0, nearestGripDistance: 0, maximumGripError: 0, maximumGripLoad: 0, lastGripBreakReason: 'none', worldJointCount: 0, gripCreateCount: 0, gripInvalidCount: 0, worldBodyCount: 0, invalidRegisteredBodyCount: 0, contactCount: 0, emergencyResetCount: 0, lastStepMs: 0, maximumStepMs: 0 };
+  readonly metrics: BodyWorksMetrics = { fixedSteps: 0, bodyCount: 0, jointCount: 0, gripCount: 0, nearestGripDistance: 0, maximumGripError: 0, maximumGripLoad: 0, lastGripBreakReason: 'none', worldJointCount: 0, gripCreateCount: 0, gripInvalidCount: 0, worldBodyCount: 0, invalidRegisteredBodyCount: 0, worldRemoveCount: 0, contactCount: 0, emergencyResetCount: 0, lastStepMs: 0, maximumStepMs: 0 };
 
   registerFighter(fighter: FighterKey, bodies: Partial<Record<BodySegmentId, RapierRigidBody>>, jointCount: number): () => void {
     this.rigs.set(fighter, { bodies, supportContacts: new Set<BodySegmentId>(), jumpQueued: false, jumpCooldown: 0 });
@@ -168,6 +176,8 @@ export class BodyWorksRuntime {
         sourceSegment: 'chest',
         targetFighter: pending.defender,
         attackInstanceId: pending.attackInstanceId,
+        moveId: pending.moveId,
+        isLanding: true,
       };
       this.pendingLandings.delete(pending.defender);
     }
@@ -181,7 +191,13 @@ export class BodyWorksRuntime {
 
   beforeFixedStep(dt: number, model: MatchModel, world?: World): void {
     const startedAt = performance.now();
-    if (world) this.world = world;
+    if (world) {
+      this.world = world;
+      if (import.meta.env.DEV && this.instrumentedWorld !== world) {
+        this.instrumentedWorld = world; this.originalRemoveImpulseJoint = world.removeImpulseJoint.bind(world);
+        world.removeImpulseJoint = (joint, wakeUp) => { this.metrics.worldRemoveCount += 1; this.originalRemoveImpulseJoint?.(joint, wakeUp); };
+      }
+    }
     if (this.world) {
       this.metrics.worldJointCount = this.world.impulseJoints.len(); this.metrics.worldBodyCount = this.world.bodies.len();
       let invalidRegisteredBodies = 0;
@@ -196,6 +212,7 @@ export class BodyWorksRuntime {
       else { intent.move.x = 0; intent.move.z = 0; intent.run = false; }
       intent.block = model.aiBlockTimer > 0;
     }
+    for (const rig of this.rigs.values()) this.capRigVelocity(rig);
     this.applyFighterController('player', model.player, dt);
     this.applyFighterController('opponent', model.opponent, dt);
     if (this.world) this.advancePhysicalGrapple(this.world, model, dt);
@@ -211,6 +228,14 @@ export class BodyWorksRuntime {
     const pelvis = rig.bodies.pelvis; if (!pelvis) return;
     const intent = this.intents[key];
     const velocity = pelvis.linvel();
+    const definition = fighterById(fighter.definitionId);
+    const groundedControl = ['idle', 'locomotion', 'blocking', 'attacking', 'grappling', 'victorious'].includes(fighter.state);
+    if (groundedControl) {
+      const targetPelvisY = 1.92 + 1.12 * (definition.physics.standingHeightM / 1.88) - fighter.body.pelvisDrop * .32;
+      const contactMultiplier = rig.supportContacts.size > 0 ? 1 : pelvis.translation().y < targetPelvisY ? .72 : 0;
+      const supportAcceleration = clamp(18 + (targetPelvisY - pelvis.translation().y) * 42 - velocity.y * 8.5, 0, 48) * fighter.body.muscle * contactMultiplier;
+      pelvis.addForce({ x: 0, y: fighter.body.mass * supportAcceleration, z: 0 }, true);
+    }
     const desiredSpeed = (intent.run ? 5.4 : 3.25) * (.78 + fighterBySpeed(fighter) / 235) * (fighter.body.muscle < .3 ? .72 : 1);
     const inputLength = Math.min(1, Math.hypot(intent.move.x, intent.move.z));
     const desiredX = intent.move.x * desiredSpeed * inputLength; const desiredZ = intent.move.z * desiredSpeed * inputLength;
@@ -225,12 +250,23 @@ export class BodyWorksRuntime {
     }
     if (rig.jumpQueued) {
       if (rig.supportContacts.size > 0 && rig.jumpCooldown <= 0 && ['idle', 'locomotion', 'jumping'].includes(fighter.state)) {
-        pelvis.applyImpulse({ x: 0, y: fighter.body.mass * .058, z: 0 }, true);
+        pelvis.applyImpulse({ x: 0, y: fighter.body.mass * 4.7, z: 0 }, true);
         rig.jumpCooldown = .65;
       }
       rig.jumpQueued = false;
     }
     this.applyPoseDrive(rig, fighter);
+  }
+
+  private capRigVelocity(rig: FighterRigRegistration): void {
+    for (const body of Object.values(rig.bodies)) {
+      if (!body?.isValid()) continue;
+      body.resetForces(true); body.resetTorques(true);
+      const linear = body.linvel(); const linearSpeed = Math.hypot(linear.x, linear.y, linear.z);
+      if (linearSpeed > 18) { const scale = 18 / linearSpeed; body.setLinvel({ x: linear.x * scale, y: linear.y * scale, z: linear.z * scale }, true); }
+      const angular = body.angvel(); const angularSpeed = Math.hypot(angular.x, angular.y, angular.z);
+      if (angularSpeed > 24) { const scale = 24 / angularSpeed; body.setAngvel({ x: angular.x * scale, y: angular.y * scale, z: angular.z * scale }, true); }
+    }
   }
 
   private advancePhysicalGrapple(world: World, model: MatchModel, dt: number): void {
@@ -239,6 +275,7 @@ export class BodyWorksRuntime {
     const attacker = model[grapple.attacker]; const defender = model[grapple.defender]; const attackerRig = this.rigs.get(grapple.attacker); const defenderRig = this.rigs.get(grapple.defender);
     if (!attackerRig || !defenderRig || !attacker.moveId || !['grappling', 'attacking'].includes(attacker.state)) { this.releaseAllGrips(world); model.grapple = null; return; }
     const move = getMove(attacker.moveId); grapple.age += dt;
+    if (grapple.phase === 'impact' || grapple.phase === 'release') return;
     const owned = this.grips.filter((grip) => grip.attacker === grapple.attacker && grip.moveId === move.id);
     if (owned.length < 2) {
       grapple.phase = owned.length === 0 ? 'reach' : 'acquire';
@@ -260,8 +297,8 @@ export class BodyWorksRuntime {
           z: clamp(delta.z * inverseDistance * spring - (handVelocity.z - targetVelocity.z) * 2.8, -46, 46),
         };
         hand.addForce(force, true); target.addForce({ x: -force.x, y: -force.y, z: -force.z }, true);
-        if (distance > .5) continue;
-        const joint = world.createImpulseJoint(JointData.spherical({ x: 0, y: 0, z: 0 }, { x: targetAnchorX, y: 0, z: 0 }), hand, target, true);
+        if (distance > .32) continue;
+        const joint = world.createImpulseJoint(JointData.rope(.22, { x: 0, y: 0, z: 0 }, { x: targetAnchorX, y: 0, z: 0 }), hand, target, true);
         joint.setContactsEnabled(false);
         this.metrics.gripCreateCount += 1;
         this.grips.push({ joint, attacker: grapple.attacker, defender: grapple.defender, hand: handId, target: targetId, targetAnchorX, moveId: move.id, strength: gripCapacity(attacker), createdAt: model.elapsed });
@@ -276,6 +313,11 @@ export class BodyWorksRuntime {
       const handPosition = hand.translation(); const targetPosition = bodyAnchorWorld(target, grip.targetAnchorX); const error = Math.hypot(handPosition.x - targetPosition.x, handPosition.y - targetPosition.y, handPosition.z - targetPosition.z);
       const load = Math.hypot(target.linvel().x - hand.linvel().x, target.linvel().y - hand.linvel().y, target.linvel().z - hand.linvel().z) * defender.body.mass / 100;
       this.metrics.maximumGripError = Math.max(this.metrics.maximumGripError, error); this.metrics.maximumGripLoad = Math.max(this.metrics.maximumGripLoad, load);
+      if (error > .18) {
+        const delta = { x: targetPosition.x - handPosition.x, y: targetPosition.y - handPosition.y, z: targetPosition.z - handPosition.z }; const inverseError = 1 / Math.max(.001, error);
+        const pull = clamp((error - .18) * 68, 0, 52); const force = { x: delta.x * inverseError * pull, y: delta.y * inverseError * pull, z: delta.z * inverseError * pull };
+        hand.addForce(force, true); target.addForce({ x: -force.x, y: -force.y, z: -force.z }, true);
+      }
       const acquisitionGrace = model.elapsed - grip.createdAt < .58;
       if (!['grappling', 'attacking'].includes(attacker.state)) this.removeGrip(world, grip, 'incompatible-state');
       else if (!acquisitionGrace && error > 1.35) this.removeGrip(world, grip, 'anchor-error');
@@ -312,7 +354,7 @@ export class BodyWorksRuntime {
       grapple.phase = 'release';
       this.releaseAllGrips(world);
       const direction = { x: Math.sin(attacker.facing), z: Math.cos(attacker.facing) };
-      defenderPelvis.applyImpulse({ x: direction.x * defender.body.mass * .035, y: -defender.body.mass * .055, z: direction.z * defender.body.mass * .035 }, true);
+      defenderPelvis.applyImpulse({ x: direction.x * defender.body.mass * 1.7, y: -defender.body.mass * 4.15, z: direction.z * defender.body.mass * 1.7 }, true);
       defenderChest.applyTorqueImpulse({ x: move.id.includes('suplex') || move.id === 'skyhook' ? -.16 : -.08, y: 0, z: grapple.position === 'overhook' ? .12 : -.08 }, true);
       defender.state = 'airborne'; defender.stateElapsed = 0; defender.downTimer = 1.5 + (100 - defender.health) / 85;
       this.pendingLandings.set(grapple.defender, { attacker: grapple.attacker, defender: grapple.defender, attackInstanceId: attacker.attackInstanceId, moveId: move.id, expiresAt: model.elapsed + 1.4 });
@@ -330,14 +372,17 @@ export class BodyWorksRuntime {
 
   private applyPoseDrive(rig: FighterRigRegistration, fighter: FighterRuntime): void {
     const falling = ['airborne', 'downed', 'defeated'].includes(fighter.state);
-    const strength = fighter.state === 'defeated' ? .025 : falling ? .16 : fighter.state === 'staggered' ? .42 : .82;
+    const definition = fighterById(fighter.definitionId);
+    const strength = fighter.state === 'defeated' ? .02 : falling ? .13 : fighter.state === 'grabbed' ? .34 : fighter.state === 'staggered' ? .48 : .94;
     const fatigue = 1 - fighter.body.muscle;
     const pose = targetPoseFor(fighter); const targets = physicalPoseTargets(pose, fighter.facing);
     for (const [segment, body] of Object.entries(rig.bodies) as [BodySegmentId, RapierRigidBody][]) {
+      const isCore = segment === 'pelvis' || segment === 'chest' || segment === 'abdomen'; const isDistal = segment.includes('Hand') || segment.includes('Foot'); const isLeg = segment.includes('Thigh') || segment.includes('Shin');
+      const stiffnessScale = definition.physics.jointStiffness;
       const torque = computeMotorTorque(body.rotation(), targets[segment], body.angvel(), { x: 0, y: 0, z: 0 }, {
-        stiffness: segment === 'pelvis' ? 16 : segment === 'head' ? 7 : 11,
-        damping: segment === 'pelvis' ? 3.4 : segment === 'head' ? 1.8 : 2.5,
-        maxTorque: segment === 'pelvis' ? 1.2 : segment === 'chest' || segment === 'abdomen' ? .72 : segment.includes('Hand') || segment.includes('Foot') ? .18 : .42,
+        stiffness: (segment === 'pelvis' ? 420 : isCore ? 320 : segment === 'head' ? 150 : isLeg ? 220 : isDistal ? 90 : 170) * stiffnessScale,
+        damping: (segment === 'pelvis' ? 62 : isCore ? 48 : segment === 'head' ? 22 : isLeg ? 34 : isDistal ? 14 : 27) * stiffnessScale,
+        maxTorque: (segment === 'pelvis' ? 460 : isCore ? 340 : segment === 'head' ? 110 : isLeg ? 210 : isDistal ? 58 : 160) * stiffnessScale,
         strength,
         fatigue,
       });
@@ -365,13 +410,28 @@ export class BodyWorksRuntime {
 
   reset(): void {
     if (this.world) this.releaseAllGrips(this.world);
+    if (this.instrumentedWorld && this.originalRemoveImpulseJoint) this.instrumentedWorld.removeImpulseJoint = this.originalRemoveImpulseJoint;
     this.generation += 1; this.rigs.clear(); this.commands.length = 0; this.contacts.length = 0; this.replay.clear();
-    this.pendingLandings.clear(); this.world = null;
+    this.pendingLandings.clear(); this.world = null; this.instrumentedWorld = null; this.originalRemoveImpulseJoint = null;
     this.intents.player = EMPTY_INTENT(); this.intents.opponent = EMPTY_INTENT();
-    this.metrics.fixedSteps = 0; this.metrics.bodyCount = 0; this.metrics.jointCount = 0; this.metrics.gripCount = 0; this.metrics.nearestGripDistance = 0; this.metrics.maximumGripError = 0; this.metrics.maximumGripLoad = 0; this.metrics.lastGripBreakReason = 'none'; this.metrics.worldJointCount = 0; this.metrics.gripCreateCount = 0; this.metrics.gripInvalidCount = 0; this.metrics.worldBodyCount = 0; this.metrics.invalidRegisteredBodyCount = 0; this.metrics.contactCount = 0; this.metrics.lastStepMs = 0; this.metrics.maximumStepMs = 0;
+    this.metrics.fixedSteps = 0; this.metrics.bodyCount = 0; this.metrics.jointCount = 0; this.metrics.gripCount = 0; this.metrics.nearestGripDistance = 0; this.metrics.maximumGripError = 0; this.metrics.maximumGripLoad = 0; this.metrics.lastGripBreakReason = 'none'; this.metrics.worldJointCount = 0; this.metrics.gripCreateCount = 0; this.metrics.gripInvalidCount = 0; this.metrics.worldBodyCount = 0; this.metrics.invalidRegisteredBodyCount = 0; this.metrics.worldRemoveCount = 0; this.metrics.contactCount = 0; this.metrics.lastStepMs = 0; this.metrics.maximumStepMs = 0;
   }
 
   pendingCommandCount(): number { return this.commands.length; }
+
+  fighterSnapshot(key: FighterKey): FighterPhysicsSnapshot {
+    const rig = this.rigs.get(key); const pelvis = rig?.bodies.pelvis; const head = rig?.bodies.head; const leftFoot = rig?.bodies.leftFoot; const rightFoot = rig?.bodies.rightFoot;
+    if (!rig || !pelvis || !head || !leftFoot || !rightFoot) return { pelvisY: 0, headY: 0, footY: 0, upright: 0, speed: 0, supportFeet: 0 };
+    const rotation = pelvis.rotation(); const velocity = pelvis.linvel();
+    return {
+      pelvisY: pelvis.translation().y,
+      headY: head.translation().y,
+      footY: Math.min(leftFoot.translation().y, rightFoot.translation().y),
+      upright: clamp(1 - (Math.abs(rotation.x) + Math.abs(rotation.z)) * 1.7, 0, 1),
+      speed: Math.hypot(velocity.x, velocity.y, velocity.z),
+      supportFeet: rig.supportContacts.size,
+    };
+  }
 }
 
 const fighterBySpeed = (fighter: FighterRuntime): number => fighter.definitionId === 'vex' ? 97 : fighter.definitionId === 'nova' ? 77 : fighter.definitionId === 'brick' ? 76 : fighter.definitionId === 'chad' ? 67 : 48;
