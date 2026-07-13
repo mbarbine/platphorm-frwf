@@ -78,7 +78,7 @@ interface FighterRigRegistration {
   jumpQueued: boolean;
   jumpCooldown: number;
   ropeContact: { axis: 'x' | 'z'; side: -1 | 1; peakCompression: number; entrySpeed: number } | null;
-  cornerAnchor: Vec2 | null;
+  cornerAnchor: (Vec2 & { stage: 1 | 2 | 3 }) | null;
   apronAnchor: { target: Vec2; inside: boolean; age: number } | null;
 }
 
@@ -202,9 +202,9 @@ export class BodyWorksRuntime {
 
   requestJump(fighter: FighterKey): void { const rig = this.rigs.get(fighter); if (rig) rig.jumpQueued = true; }
 
-  requestCornerClimb(fighter: FighterKey, from: Vec2): void {
+  requestCornerClimb(fighter: FighterKey, from: Vec2, stage: 1 | 2 | 3 = 1): void {
     const rig = this.rigs.get(fighter); if (!rig) return;
-    rig.cornerAnchor = { x: (Math.sign(from.x) || 1) * 5.08, z: (Math.sign(from.z) || 1) * 3.58 };
+    rig.cornerAnchor = { x: (Math.sign(from.x) || 1) * 5.08, z: (Math.sign(from.z) || 1) * 3.58, stage };
     rig.ropeContact = null;
   }
 
@@ -224,6 +224,23 @@ export class BodyWorksRuntime {
     const transition = apronTransitionTarget(from);
     rig.apronAnchor = { ...transition, age: 0 };
     rig.ropeContact = null; rig.cornerAnchor = null;
+  }
+
+  prepareLabPositions(player: Vec2, opponent: Vec2): void {
+    if (this.world) this.releaseAllGrips(this.world);
+    this.pendingLandings.clear(); this.contacts.length = 0;
+    this.placeFighter('player', player); this.placeFighter('opponent', opponent);
+  }
+
+  private placeFighter(fighter: FighterKey, target: Vec2): void {
+    const rig = this.rigs.get(fighter); const pelvis = rig?.bodies.pelvis; if (!rig || !pelvis) return;
+    const origin = pelvis.translation(); const dx = target.x - origin.x; const dz = target.z - origin.z;
+    for (const body of Object.values(rig.bodies)) {
+      if (!body?.isValid()) continue;
+      const position = body.translation(); body.setTranslation({ x: position.x + dx, y: position.y, z: position.z + dz }, true);
+      body.setLinvel({ x: 0, y: 0, z: 0 }, true); body.setAngvel({ x: 0, y: 0, z: 0 }, true);
+    }
+    rig.supportContacts.clear(); rig.jumpQueued = false; rig.ropeContact = null; rig.cornerAnchor = null; rig.apronAnchor = null;
   }
 
   setFootContact(fighter: FighterKey, foot: BodySegmentId, touching: boolean): void {
@@ -331,9 +348,12 @@ export class BodyWorksRuntime {
       if ((planarDistance < .28 && Math.abs(targetY - position.y) < .45) || anchor.age > 1.55) rig.apronAnchor = null;
       return;
     }
+    if (fighter.state === 'climbing' && !rig.cornerAnchor && fighter.climbStage > 0) this.requestCornerClimb(key, fighter.position, fighter.climbStage as 1 | 2 | 3);
     if (fighter.state === 'climbing' && rig.cornerAnchor) {
       const position = pelvis.translation(); const target = rig.cornerAnchor;
-      pelvis.addForce({ x: clamp((target.x - position.x) * fighter.body.mass * 36 - velocity.x * fighter.body.mass * 8, -4_600, 4_600), y: clamp((4.28 - position.y) * fighter.body.mass * 38 - velocity.y * fighter.body.mass * 8.5, -5_200, 5_200), z: clamp((target.z - position.z) * fighter.body.mass * 36 - velocity.z * fighter.body.mass * 8, -4_600, 4_600) }, true);
+      target.stage = fighter.climbStage || 1;
+      const targetY = target.stage === 1 ? 2.72 : target.stage === 2 ? 3.46 : 4.28;
+      pelvis.addForce({ x: clamp((target.x - position.x) * fighter.body.mass * 36 - velocity.x * fighter.body.mass * 8, -4_600, 4_600), y: clamp((targetY - position.y) * fighter.body.mass * 38 - velocity.y * fighter.body.mass * 8.5, -5_200, 5_200), z: clamp((target.z - position.z) * fighter.body.mass * 36 - velocity.z * fighter.body.mass * 8, -4_600, 4_600) }, true);
       this.applyPoseDrive(rig, fighter);
       return;
     }
@@ -545,7 +565,7 @@ export class BodyWorksRuntime {
         const delta = { x: targetPosition.x - handPosition.x, y: targetPosition.y - handPosition.y, z: targetPosition.z - handPosition.z };
         const distance = Math.hypot(delta.x, delta.y, delta.z);
         nearestGripDistance = Math.min(nearestGripDistance, distance);
-        if (distance > 1.38) continue;
+        if (distance > 1.5) continue;
         const handVelocity = hand.linvel(); const targetVelocity = target.linvel(); const inverseDistance = 1 / Math.max(.001, distance);
         const desiredSpeed = clamp(distance * 11, 2.5, 8.5);
         const desiredVelocity = { x: targetVelocity.x + delta.x * inverseDistance * desiredSpeed, y: targetVelocity.y + delta.y * inverseDistance * desiredSpeed, z: targetVelocity.z + delta.z * inverseDistance * desiredSpeed };
@@ -561,8 +581,14 @@ export class BodyWorksRuntime {
         // The hand and target colliders already account for roughly .28 m of
         // this separation. Closing the remaining reach with a short rope joint
         // gives the lock-up a visible hand-to-body snap without teleporting.
-        if (distance > .58) continue;
-        const joint = world.createImpulseJoint(JointData.rope(.22, { x: 0, y: 0, z: 0 }, { x: targetAnchorX, y: 0, z: 0 }), hand, target, true);
+        const acquiredHands = this.grips.filter((grip) => grip.attacker === grapple.attacker).length;
+        // The first hand establishes the collar tie and can rotate two large
+        // articulated bodies a few centimetres apart. Give the second hand a
+        // slightly wider catch envelope so a visually valid two-hand lock does
+        // not fail because the first constraint moved the hips mid-frame.
+        const catchDistance = acquiredHands > 0 ? .86 : .66;
+        if (distance > catchDistance) continue;
+        const joint = world.createImpulseJoint(JointData.rope(.24, { x: 0, y: 0, z: 0 }, { x: targetAnchorX, y: 0, z: 0 }), hand, target, true);
         joint.setContactsEnabled(false);
         this.metrics.gripCreateCount += 1;
         this.grips.push({ joint, attacker: grapple.attacker, defender: grapple.defender, hand: handId, target: targetId, targetAnchorX, moveId: move.id, strength: gripCapacity(attacker), createdAt: model.elapsed });
@@ -590,7 +616,7 @@ export class BodyWorksRuntime {
     grapple.gripCount = this.grips.filter((grip) => grip.attacker === grapple.attacker).length;
     this.metrics.gripCount = this.grips.length; this.metrics.jointCount = this.rigs.size * 15 + this.grips.length + this.propGrips.size;
     if (grapple.gripCount < 2) {
-      if (grapple.age > 1.8) {
+      if (grapple.age > 2.25) {
         grapple.phase = 'failed'; this.releaseAllGrips(world); model.grapple = null;
         attacker.state = 'staggered'; attacker.stateElapsed = 0; attacker.moveId = null; attacker.attackPhase = null;
         if (defender.state === 'grabbed') defender.state = 'idle';
@@ -728,6 +754,7 @@ const fighterPower = (fighter: FighterRuntime): number => fighter.definitionId =
 const gripCapacity = (fighter: FighterRuntime): number => fighter.body.muscle * (fighter.definitionId === 'nova' ? .98 : fighter.definitionId === 'chad' ? .97 : fighter.definitionId === 'atlas' ? .91 : fighter.definitionId === 'brick' ? .84 : .7);
 const liftDriveForMove = (moveId: string): number => ['powerbomb', 'mountain_drop', 'skyhook', 'finisher'].includes(moveId) ? 1.2 : ['slam', 'suplex', 'spinebuster'].includes(moveId) ? 1 : .7;
 const gripPreferences = (moveId: string): readonly [BodySegmentId, BodySegmentId, number][] => {
+  if (moveId === 'slam') return [['leftHand', 'chest', -.18], ['rightHand', 'chest', .18]];
   if (moveId === 'suplex' || moveId === 'skyhook') return [['leftHand', 'pelvis', -.14], ['rightHand', 'pelvis', .14]];
   if (moveId === 'clutch') return [['leftHand', 'chest', -.16], ['rightHand', 'head', .08]];
   if (moveId === 'whip' || moveId === 'arm_drag') return [['leftHand', 'rightForearm', -.06], ['rightHand', 'rightUpperArm', .06]];
@@ -763,12 +790,38 @@ const locomotionPoseFor = (fighter: FighterRuntime): Pose => {
   };
 };
 
+const climbPoseFor = (fighter: FighterRuntime): Pose => {
+  const stage = fighter.climbStage || 1;
+  return {
+    ...POSES.climb,
+    torso: [stage === 1 ? .42 : stage === 2 ? .24 : .08, 0, 0],
+    leftArm: stage === 3 ? [-.72, 0, -.62] : [-1.18, 0, -.52],
+    rightArm: stage === 3 ? [-.72, 0, .62] : [-1.18, 0, .52],
+    leftLeg: [stage === 1 ? -.92 : stage === 2 ? -.58 : -.22, 0, 0],
+    rightLeg: [stage === 1 ? -.52 : stage === 2 ? -.36 : -.12, 0, 0],
+    leftShin: [stage === 1 ? -1.1 : -.52, 0, 0], rightShin: [stage === 1 ? -.72 : -.35, 0, 0],
+    rootY: stage === 1 ? .18 : stage === 2 ? .58 : .96,
+    rootTilt: stage === 3 ? .02 : .18,
+  };
+};
+
+const tauntPoseFor = (fighter: FighterRuntime): Pose => {
+  const base = POSES.taunt;
+  if (fighter.definitionId === 'atlas') return { ...base, leftArm: [-2.82, 0, -.32], rightArm: [-2.82, 0, .32], leftForearm: [-.3, 0, 0], rightForearm: [-.3, 0, 0], rootTilt: -.06 };
+  if (fighter.definitionId === 'vex') return { ...base, leftArm: [-.55, 0, -.48], rightArm: [-2.9, .25, .22], leftForearm: [-1.1, 0, 0], rightForearm: [-.18, 0, 0], rootRoll: -.12 };
+  if (fighter.definitionId === 'nova') return { ...base, leftArm: [-1.62, -.65, -.54], rightArm: [-1.62, .65, .54], leftForearm: [-1.22, 0, 0], rightForearm: [-1.22, 0, 0], rootYaw: .2 };
+  if (fighter.definitionId === 'brick') return { ...base, leftArm: [-.72, .25, -.5], rightArm: [-.72, -.25, .5], leftForearm: [-1.5, 0, 0], rightForearm: [-1.5, 0, 0], rootTilt: .12 };
+  return { ...base, leftArm: [-2.78, 0, -.18], rightArm: [-1.08, 0, .62], leftForearm: [-.25, 0, 0], rightForearm: [-.5, 0, 0], rootRoll: .08 };
+};
+
 const targetPoseFor = (fighter: FighterRuntime): Pose => {
   if (fighter.moveId) {
     const move = getMove(fighter.moveId);
+    if (move.id === 'taunt') return tauntPoseFor(fighter);
     return getPairedPose(move, 'actor', fighter.attackPhase, fighter.phaseElapsed, fighter.definitionId) ?? getStrikePose(move, fighter.attackPhase, fighter.phaseElapsed) ?? POSES[move.animationKey];
   }
   if (fighter.state === 'blocking') return POSES.block;
+  if (fighter.state === 'climbing') return climbPoseFor(fighter);
   if (fighter.state === 'jumping' || fighter.state === 'airborne') return POSES.aerial;
   if (fighter.state === 'staggered') return POSES.stagger;
   if (fighter.state === 'downed' || fighter.state === 'defeated') return POSES.downed;

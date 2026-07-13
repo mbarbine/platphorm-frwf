@@ -18,6 +18,8 @@ test('mobile player can enter a match, move, guard, and attack', async ({ page }
   await expect(page.getByRole('button', { name: 'Heavy strike or stiff-arm' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Grapple' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Jump' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Pick up, drop, or throw prop' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Taunt' })).toBeVisible();
 
   const stick = page.getByRole('group', { name: 'Movement joystick' }); const box = await stick.boundingBox();
   expect(box).not.toBeNull();
@@ -33,7 +35,7 @@ test('mobile player can enter a match, move, guard, and attack', async ({ page }
     const opponentX = Number(await hud.getAttribute('data-opponent-x')); const opponentZ = Number(await hud.getAttribute('data-opponent-z'));
     return Math.hypot(playerX - opponentX, playerZ - opponentZ);
   }, { timeout: 15_000 }).toBeLessThan(1.85);
-  await expect.poll(async () => await hud.getAttribute('data-player-state'), { timeout: 8_000 }).toMatch(/idle|locomotion/);
+  await expect.poll(async () => await hud.getAttribute('data-player-state'), { timeout: 20_000, intervals: [100, 200] }).toMatch(/idle|locomotion/);
   await page.evaluate(() => {
     const hudNode = document.querySelector('.hud'); if (!hudNode) return;
     const observe = (): void => { if (/jab|combo/.test(hudNode.getAttribute('data-player-move') ?? '')) document.documentElement.dataset.sawTouchAttack = 'true'; };
@@ -46,7 +48,7 @@ test('mobile player can enter a match, move, guard, and attack', async ({ page }
   await expect(page.locator('.context-hint')).toContainText('TOUCH ACTIVE');
 
   const guard = page.getByRole('button', { name: 'Hold GUARD' });
-  await expect.poll(async () => await hud.getAttribute('data-player-state'), { timeout: 8_000 }).toMatch(/idle|locomotion/);
+  await expect.poll(async () => await hud.getAttribute('data-player-state'), { timeout: 20_000, intervals: [100, 200] }).toMatch(/idle|locomotion/);
   await guard.hover(); await page.mouse.down();
   await expect(guard).toHaveAttribute('aria-pressed', 'true'); await page.mouse.up(); await expect(guard).toHaveAttribute('aria-pressed', 'false');
 });

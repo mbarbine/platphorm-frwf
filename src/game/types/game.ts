@@ -133,6 +133,7 @@ export interface FighterRuntime {
   lastActionAt: number;
   ropeRebound: number;
   finisherPrimed: boolean;
+  climbStage: 0 | 1 | 2 | 3;
   body: BodyDynamicsRuntime;
 }
 

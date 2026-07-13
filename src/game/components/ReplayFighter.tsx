@@ -51,7 +51,11 @@ export function ReplayDirector() {
   const reducedMotion = useSettings((state) => state.reducedMotion);
   const replayedImpact = useRef(0); const frames = useRef<readonly PhysicsReplayFrame[]>([]); const elapsed = useRef(0); const frame = useRef<PhysicsReplayFrame | null>(null);
   useEffect(() => {
-    if (!lastImpact || lastImpact.id === replayedImpact.current || active || reducedMotion) return;
+    if (!lastImpact || lastImpact.id === replayedImpact.current || reducedMotion) return;
+    // A physical landing can emit both its move impact and its mat/body response
+    // while a replay is already open. Treat those as part of the current spot so
+    // Skip never closes one overlay only to immediately queue another.
+    if (active) { replayedImpact.current = lastImpact.id; return; }
     const replayWorthy = lastImpact.kind === 'finisher' || lastImpact.kind === 'table' || lastImpact.kind === 'ko'
       || lastImpact.kind === 'grapple' && lastImpact.intensity >= 1.2
       || lastImpact.kind === 'heavy' && lastImpact.intensity >= 1.65;

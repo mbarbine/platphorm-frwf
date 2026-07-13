@@ -12,7 +12,8 @@ import type { BodySegmentId } from '../physics/bodySchema';
 import type { PropRuntime } from '../types/game';
 
 function Crowd() {
-  const ref = useRef<InstancedMesh>(null); const dummy = useMemo(() => new Object3D(), []); const elapsed = useRef(0); const count = 180;
+  const ref = useRef<InstancedMesh>(null); const dummy = useMemo(() => new Object3D(), []); const elapsed = useRef(0);
+  const count = useMemo(() => new URLSearchParams(window.location.search).get('physicsLab') === '1' ? 36 : window.innerWidth < 900 ? 90 : 180, []);
   useFrame((_, dt) => {
     elapsed.current += dt;
     if (!ref.current) return;
@@ -144,6 +145,35 @@ function BrokenTable({ x, z }: { x: number; z: number }) {
   </RigidBody>)}</>;
 }
 
+function Barricades() {
+  const material = <meshStandardMaterial color="#242638" metalness={.62} roughness={.34} emissive="#35157c" emissiveIntensity={.18} />;
+  const rails = (length: number, count: number, axis: 'x' | 'z') => Array.from({ length: count }, (_, index) => {
+    const offset = (index - (count - 1) / 2) * (length / count);
+    return <group key={`${axis}-${index}`} position={axis === 'x' ? [offset, 0, 0] : [0, 0, offset]}>
+      <mesh castShadow><boxGeometry args={axis === 'x' ? [length / count - .08, .82, .16] : [.16, .82, length / count - .08]} />{material}</mesh>
+      <mesh position={axis === 'x' ? [0, .48, -.1] : [-.1, .48, 0]}><boxGeometry args={axis === 'x' ? [length / count - .18, .055, .055] : [.055, .055, length / count - .18]} /><meshStandardMaterial color="#65eaff" emissive="#31cdec" emissiveIntensity={1.15} /></mesh>
+    </group>;
+  });
+  return <>
+    <RigidBody type="fixed" colliders={false} position={[0, .65, -8.35]} collisionGroups={arenaCollisionGroups} solverGroups={arenaCollisionGroups} userData={{ surface: true, kind: 'barricade' }}><CuboidCollider args={[9.1, .65, .12]} />{rails(18.2, 12, 'x')}</RigidBody>
+    <RigidBody type="fixed" colliders={false} position={[0, .65, 8.35]} collisionGroups={arenaCollisionGroups} solverGroups={arenaCollisionGroups} userData={{ surface: true, kind: 'barricade' }}><CuboidCollider args={[9.1, .65, .12]} />{rails(18.2, 12, 'x')}</RigidBody>
+    <RigidBody type="fixed" colliders={false} position={[-9.1, .65, 0]} collisionGroups={arenaCollisionGroups} solverGroups={arenaCollisionGroups} userData={{ surface: true, kind: 'barricade' }}><CuboidCollider args={[.12, .65, 8.2]} />{rails(16.4, 10, 'z')}</RigidBody>
+    <RigidBody type="fixed" colliders={false} position={[9.1, .65, 0]} collisionGroups={arenaCollisionGroups} solverGroups={arenaCollisionGroups} userData={{ surface: true, kind: 'barricade' }}><CuboidCollider args={[.12, .65, 8.2]} />{rails(16.4, 10, 'z')}</RigidBody>
+  </>;
+}
+
+function BroadcastSet() {
+  return <>
+    <group position={[0, 4.25, 11.8]}>
+      <mesh><boxGeometry args={[6.4, 2.8, .45]} /><meshStandardMaterial color="#101121" emissive="#241867" emissiveIntensity={.72} metalness={.3} roughness={.32} /></mesh>
+      {[-2.25, -1.5, -.75, 0, .75, 1.5, 2.25].map((x, index) => <mesh key={x} position={[x, .18 + Math.sin(index) * .18, -.26]}><boxGeometry args={[.4, 1.6 - (index % 3) * .2, .035]} /><meshStandardMaterial color={index % 2 ? '#ff408e' : '#52efff'} emissive={index % 2 ? '#ff2078' : '#24d8ff'} emissiveIntensity={2.2} /></mesh>)}
+      <mesh position={[0, -1.03, -.28]}><boxGeometry args={[5.5, .16, .04]} /><meshStandardMaterial color="#dfff45" emissive="#b8ef26" emissiveIntensity={2.4} /></mesh>
+    </group>
+    <group position={[0, 1.55, 15]}><mesh><boxGeometry args={[6.4, 4.1, 1]} /><meshStandardMaterial color="#090916" metalness={.3} roughness={.46} /></mesh>{[-2.2, -1.1, 0, 1.1, 2.2].map((x, index) => <mesh key={x} position={[x, .1, -.56]}><boxGeometry args={[.36, 3.1, .08]} /><meshStandardMaterial color={index % 2 ? '#ef3d96' : '#7738ff'} emissive={index % 2 ? '#ef3d96' : '#7738ff'} emissiveIntensity={1.65} /></mesh>)}</group>
+    <mesh position={[0, .52, 10.5]} rotation={[-.045, 0, 0]} receiveShadow><boxGeometry args={[6, .22, 9.2]} /><meshStandardMaterial color="#171424" metalness={.45} roughness={.5} emissive="#32136f" emissiveIntensity={.14} /></mesh>
+  </>;
+}
+
 export function Arena() {
   const spotlight = useMatchStore((state) => state.model.chaosEvent?.type === 'SPOTLIGHT SHOWDOWN');
   return <>
@@ -173,7 +203,7 @@ export function Arena() {
     <Ropes /><Post x={-5.75} z={-4.25} /><Post x={5.75} z={-4.25} /><Post x={-5.75} z={4.25} /><Post x={5.75} z={4.25} />
     <group position={[6.65, .36, 4.65]}>{[0, .28, .56].map((y, index) => <mesh key={y} position={[index * .18, y, 0]}><boxGeometry args={[1.15 - index * .12, .22, 1.2]} /><meshStandardMaterial color="#394151" metalness={.75} roughness={.24} /></mesh>)}</group>
     <RigidBody type="fixed" colliders="hull" position={[0, .2, 0]} collisionGroups={arenaCollisionGroups} solverGroups={arenaCollisionGroups} userData={{ surface: true, kind: 'floor' }}><mesh receiveShadow><cylinderGeometry args={[15, 15, .4, 48]} /><meshStandardMaterial color="#100d1c" roughness={.8} /></mesh></RigidBody>
-    <Crowd /><Props />
+    <Barricades /><Crowd /><Props />
     <group position={[0, 13, 0]}>
       {[0, Math.PI / 2, Math.PI, Math.PI * 1.5].map((angle) => <group key={angle} rotation={[0, angle, 0]}>
         <mesh position={[0, -.65, -7.75]} rotation={[.15, 0, 0]}><cylinderGeometry args={[.18, .36, .65, 10]} /><meshStandardMaterial color="#8eeeff" emissive="#41dcff" emissiveIntensity={2.4} /></mesh>
@@ -181,9 +211,7 @@ export function Arena() {
       </group>)}
     </group>
     <group position={[0, 8.7, 0]}>{[-7.2, 7.2].flatMap((x) => [-5.8, 5.8].map((z) => <group key={`${x}-${z}`} position={[x, 0, z]}><mesh><cylinderGeometry args={[.13, .2, .44, 8]} /><meshStandardMaterial color="#adb8c7" metalness={.8} roughness={.2} /></mesh><pointLight position={[0, -.3, 0]} intensity={1.25} distance={10} color={x * z > 0 ? '#ff3f8f' : '#48e7ff'} /></group>))}</group>
-    <group position={[0, 4, 12]}><mesh><boxGeometry args={[5.8, 2.5, .4]} /><meshStandardMaterial color="#121323" emissive="#22175d" emissiveIntensity={.5} /></mesh><mesh position={[0, .2, -.24]}><boxGeometry args={[4.8, .18, .04]} /><meshStandardMaterial color="#ff397f" emissive="#ff397f" emissiveIntensity={2} /></mesh><mesh position={[0, -.35, -.24]}><boxGeometry args={[3.2, .12, .04]} /><meshStandardMaterial color="#48e9ff" emissive="#48e9ff" emissiveIntensity={2} /></mesh></group>
-    <group position={[0, 1.5, 15]}><mesh><boxGeometry args={[6, 3.8, 1]} /><meshStandardMaterial color="#0c0b17" /></mesh>{[-2, -1, 0, 1, 2].map((x) => <mesh key={x} position={[x, .1, -.55]}><boxGeometry args={[.3, 2.8, .08]} /><meshStandardMaterial color="#7b37ff" emissive="#7b37ff" emissiveIntensity={1.5} /></mesh>)}</group>
-    <mesh position={[0, .52, 10.3]} rotation={[-.045, 0, 0]} receiveShadow><boxGeometry args={[5.6, .22, 9.5]} /><meshStandardMaterial color="#171424" metalness={.45} roughness={.5} emissive="#32136f" emissiveIntensity={.12} /></mesh>
+    <BroadcastSet />
     <group position={[-8, .6, -5]}><mesh><boxGeometry args={[4.2, 1.1, .18]} /><meshStandardMaterial color="#272334" /></mesh></group>
     <group position={[8, .6, 4]}><mesh><boxGeometry args={[4.2, 1.1, .18]} /><meshStandardMaterial color="#272334" /></mesh></group>
     <mesh position={[5.3, 2.3, -5.3]}><cylinderGeometry args={[.22, .3, .26, 16]} /><meshStandardMaterial color="#d7a940" metalness={.8} roughness={.22} /></mesh>

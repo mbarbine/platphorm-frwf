@@ -22,7 +22,7 @@ import type { CameraInputBasis } from '../input/cameraRelative';
 interface Props { onPause: () => void; onDevice: (device: ControlDevice) => void; onFinished: () => void }
 
 function Simulation({ onPause, onDevice, onFinished }: Props) {
-  const pause = useCallback(onPause, [onPause]); const input = useGameInput(pause); const lastImpactId = useRef(0); const finishNotified = useRef(false); const finishTimer = useRef<number | null>(null); const { camera } = useThree();
+  const pause = useCallback(onPause, [onPause]); const input = useGameInput(pause); const lastImpactId = useRef(0); const lastActionAudio = useRef(''); const finishNotified = useRef(false); const finishTimer = useRef<number | null>(null); const { camera } = useThree();
   const inputBasis = useRef<CameraInputBasis | null>(null);
   useEffect(() => onDevice(input.device), [input.device, onDevice]);
   useEffect(() => { useMatchStore.getState().setPhysicsAuthority(true); return () => useMatchStore.getState().setPhysicsAuthority(false); }, []);
@@ -47,6 +47,13 @@ function Simulation({ onPause, onDevice, onFinished }: Props) {
   useFrame(() => {
     const model = useMatchStore.getState().model;
     if (model.lastImpact && model.lastImpact.id !== lastImpactId.current) { lastImpactId.current = model.lastImpact.id; audioEngine.impact(model.lastImpact, useSettings.getState()); }
+    const actionAudio = `${model.player.state}:${model.player.moveId ?? ''}:${model.player.attackInstanceId}:${model.player.climbStage}`;
+    if (actionAudio !== lastActionAudio.current) {
+      const previous = lastActionAudio.current; lastActionAudio.current = actionAudio;
+      if (model.player.moveId === 'taunt') audioEngine.play('cheer', useSettings.getState());
+      else if (model.player.moveId === 'aerial' || model.player.moveId === 'finisher') audioEngine.play('finisher', useSettings.getState());
+      else if (model.player.state === 'climbing' && !previous.startsWith('climbing')) audioEngine.play('rope', useSettings.getState());
+    }
     if (model.resolved && !finishNotified.current) { finishNotified.current = true; finishTimer.current = window.setTimeout(onFinished, 4800); }
   });
   return null;
