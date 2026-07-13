@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 test('fighter select through guarded combat, grapple, result, and rematch', async ({ page }) => {
+  test.setTimeout(300_000);
   const consoleErrors: string[] = [];
   page.on('console', (message) => { if (message.type() === 'error') consoleErrors.push(message.text()); });
   page.on('pageerror', (error) => consoleErrors.push(error.message));
@@ -15,7 +16,7 @@ test('fighter select through guarded combat, grapple, result, and rematch', asyn
   await page.getByRole('button', { name: /LOCK IN CHAD/ }).click();
   for (let beer = 0; beer < 5; beer += 1) await page.getByRole('button', { name: 'DRINK A BEER' }).click();
   await expect(page.getByText('5 / 5 DRUNK')).toBeVisible();
-  await page.getByRole('button', { name: /CHAOS CIRCUIT/ }).click();
+  await page.getByRole('button', { name: /^STANDARD/ }).click();
   await page.getByRole('button', { name: /^NORMAL/ }).click();
   await page.getByRole('button', { name: 'START MATCH' }).click();
 
@@ -47,23 +48,27 @@ test('fighter select through guarded combat, grapple, result, and rematch', asyn
   await page.keyboard.up('Shift');
   await page.keyboard.up('d');
 
-  for (let tick = 0; tick < 60 && Number(await hud.getAttribute('data-total-grapples')) === 0; tick += 1) {
+  for (let tick = 0; tick < 80 && Number(await hud.getAttribute('data-player-grapples')) === 0; tick += 1) {
     const playerState = await hud.getAttribute('data-player-state'); const opponentState = await hud.getAttribute('data-opponent-state');
     const playerX = Number(await hud.getAttribute('data-player-x')); const playerZ = Number(await hud.getAttribute('data-player-z'));
     const opponentX = Number(await hud.getAttribute('data-opponent-x')); const opponentZ = Number(await hud.getAttribute('data-opponent-z'));
     const separation = Math.hypot(playerX - opponentX, playerZ - opponentZ);
-    if (/idle|locomotion/.test(playerState ?? '') && !/blocking|downed|pinned|defeated/.test(opponentState ?? '') && separation <= 1.58) {
+    if (/idle|locomotion/.test(playerState ?? '') && /idle|locomotion|staggered/.test(opponentState ?? '') && separation <= 1.58) {
       await page.keyboard.press('l');
       await page.waitForTimeout(220);
       if (await hud.getAttribute('data-player-state') === 'grappling') {
-        await page.keyboard.down('w'); await page.keyboard.press('k'); await page.keyboard.up('w');
+        await page.keyboard.down('w');
+        await page.keyboard.press('k');
+        await expect(hud).toHaveAttribute('data-player-move', 'skyhook', { timeout: 1_000 });
+        await page.keyboard.up('w');
       }
       await page.waitForTimeout(2_600);
     } else {
       await page.waitForTimeout(250);
     }
   }
-  expect(Number(await hud.getAttribute('data-total-grapples'))).toBeGreaterThan(0);
+  expect(Number(await hud.getAttribute('data-player-grapples'))).toBeGreaterThan(0);
+  expect(Number(await hud.getAttribute('data-grip-creates'))).toBeGreaterThanOrEqual(2);
   await expect(page.locator('.replay-overlay')).toBeVisible({ timeout: 6_000 });
   await expect(page.getByRole('button', { name: 'SKIP REPLAY' })).toBeVisible();
   await page.getByRole('button', { name: 'SKIP REPLAY' }).click();

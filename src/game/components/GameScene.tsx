@@ -19,9 +19,10 @@ import { ReplayDirector } from './ReplayFighter';
 interface Props { onPause: () => void; onDevice: (device: ControlDevice) => void; onFinished: () => void }
 
 function Simulation({ onPause, onDevice, onFinished }: Props) {
-  const pause = useCallback(onPause, [onPause]); const input = useGameInput(pause); const lastImpactId = useRef(0); const finishNotified = useRef(false); const { camera } = useThree();
+  const pause = useCallback(onPause, [onPause]); const input = useGameInput(pause); const lastImpactId = useRef(0); const finishNotified = useRef(false); const finishTimer = useRef<number | null>(null); const { camera } = useThree();
   useEffect(() => onDevice(input.device), [input.device, onDevice]);
   useEffect(() => { useMatchStore.getState().setPhysicsAuthority(true); return () => useMatchStore.getState().setPhysicsAuthority(false); }, []);
+  useEffect(() => () => { if (finishTimer.current !== null) window.clearTimeout(finishTimer.current); }, []);
   useBeforePhysicsStep((world) => {
     const raw = input.read(); const model = useMatchStore.getState().model;
     const middleX = (model.player.position.x + model.opponent.position.x) / 2; const middleZ = (model.player.position.z + model.opponent.position.z) / 2;
@@ -39,7 +40,7 @@ function Simulation({ onPause, onDevice, onFinished }: Props) {
   useFrame(() => {
     const model = useMatchStore.getState().model;
     if (model.lastImpact && model.lastImpact.id !== lastImpactId.current) { lastImpactId.current = model.lastImpact.id; audioEngine.impact(model.lastImpact, useSettings.getState()); }
-    if (model.resolved && !finishNotified.current) { finishNotified.current = true; window.setTimeout(onFinished, 4800); }
+    if (model.resolved && !finishNotified.current) { finishNotified.current = true; finishTimer.current = window.setTimeout(onFinished, 4800); }
   });
   return null;
 }

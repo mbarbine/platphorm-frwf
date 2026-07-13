@@ -15,7 +15,6 @@ interface MatchStore {
   setPhysicsAuthority: (active: boolean) => void;
   resolvePhysicsContacts: (contacts: readonly BodyWorksContact[]) => void;
   rematch: () => void;
-  debugResolve: () => void;
   startReplay: () => void;
   stopReplay: () => void;
 }
@@ -60,11 +59,6 @@ export const useMatchStore = create<MatchStore>((set) => ({
     return changed ? { model: { ...state.model }, revision: state.revision + 1 } : state;
   }),
   rematch: () => set((state) => { bodyWorksRuntime.reset(); publishAccumulator = 0; return { model: resetTransientState(state.model), revision: state.revision + 1, replayActive: false }; }),
-  debugResolve: () => set((state) => {
-    const model = state.model;
-    model.opponent.health = 0; model.opponent.state = 'downed'; model.opponent.downTimer = 5; model.player.momentum = 100;
-    return { model: { ...model }, revision: state.revision + 1 };
-  }),
   startReplay: () => set((state) => state.replayActive ? state : ({ replayActive: true, revision: state.revision + 1 })),
   stopReplay: () => set((state) => !state.replayActive ? state : ({ replayActive: false, revision: state.revision + 1 })),
 }));
