@@ -112,7 +112,7 @@ export const applyMoveHit = (model: MatchModel, actorKey: 'player' | 'opponent',
   const actor = model[actorKey];
   const target = model[targetKey];
   const hitToken = contact ? `${targetKey}:${actor.attackInstanceId}` : targetKey;
-  const isPhysicalLanding = Boolean(contact) && (move.category === 'grapple' || move.category === 'finisher') && actor.attackPhase === 'recovery';
+  const isPhysicalLanding = contact?.isLanding === true && (move.category === 'grapple' || move.category === 'finisher');
   if ((!isPhysicalLanding && actor.attackPhase !== 'active') || (!move.multiHit && actor.hitTargets.includes(hitToken))) return false;
   if (target.invulnerability > 0 || (!contact && distance(actor.position, target.position) > move.maximumRange + .4)) return false;
 
@@ -519,7 +519,7 @@ const updateFighter = (model: MatchModel, actorKey: 'player' | 'opponent', dt: n
 
   if (actor.moveId) {
     const move = getMove(actor.moveId);
-    const waitingForPhysicalGrip = model.physicsAuthority && (move.category === 'grapple' || move.category === 'finisher') && model.grapple?.attacker === actorKey && model.grapple.gripCount < 2;
+    const waitingForPhysicalGrip = model.physicsAuthority && actor.attackPhase === 'anticipation' && (move.category === 'grapple' || move.category === 'finisher') && model.grapple?.attacker === actorKey && (model.grapple.phase === 'reach' || model.grapple.phase === 'acquire') && model.grapple.gripCount < 2;
     actor.phaseElapsed = waitingForPhysicalGrip ? Math.min(actor.phaseElapsed + dt, move.anticipationDuration * .46) : actor.phaseElapsed + dt;
     actor.attackPhase = getAttackPhase(move, actor.phaseElapsed);
     if (move.category === 'aerial' && actor.phaseElapsed > move.anticipationDuration * .22) {
@@ -664,9 +664,10 @@ const expectedContactSegment = (move: MoveDefinition, segment: string): boolean 
 export const applyPhysicalContact = (model: MatchModel, contact: BodyWorksContact): boolean => {
   if (!model.physicsAuthority || !contact.sourceFighter || !contact.targetFighter || contact.sourceFighter === contact.targetFighter || contact.attackInstanceId === null || !contact.sourceSegment) return false;
   const actor = model[contact.sourceFighter];
-  if (actor.attackInstanceId !== contact.attackInstanceId || !actor.moveId) return false;
-  const move = getMove(actor.moveId);
-  const legalContactPhase = actor.attackPhase === 'active' || ((move.category === 'grapple' || move.category === 'finisher') && actor.attackPhase === 'recovery');
+  const moveId = contact.moveId ?? actor.moveId;
+  if (actor.attackInstanceId !== contact.attackInstanceId || !moveId) return false;
+  const move = getMove(moveId);
+  const legalContactPhase = actor.attackPhase === 'active' || (contact.isLanding && (move.category === 'grapple' || move.category === 'finisher'));
   if (!legalContactPhase) return false;
   if (!expectedContactSegment(move, contact.sourceSegment) || contact.relativeSpeed < .28 && contact.maximumForce < 45) return false;
   return applyMoveHit(model, contact.sourceFighter, contact.targetFighter, move, contact);

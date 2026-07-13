@@ -113,6 +113,8 @@ export function PhysicalFighterRig({ runtime, side }: Props) {
       forceDirection: [payload.maxForceDirection.x, payload.maxForceDirection.y, payload.maxForceDirection.z],
       relativeSpeed: Math.hypot(ownVelocity.x - otherVelocity.x, ownVelocity.y - otherVelocity.y, ownVelocity.z - otherVelocity.z),
       attackInstanceId: activeAttack ? sourceRuntime.attackInstanceId : null,
+      moveId: activeAttack ? sourceRuntime.moveId : null,
+      isLanding: false,
     });
   }, [side]);
   const onFootContact = useCallback((foot: BodySegmentId, touching: boolean, payload: CollisionEnterPayload): void => {
