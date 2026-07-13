@@ -38,6 +38,14 @@ describe('live wrestling control deck', () => {
     expect(paused.callout).toContain('SIMULATION STOPPED');
   });
 
+  it('lights the physical key intent immediately before the rig reaches full speed', () => {
+    const model = createMatch('atlas', 'nova', 'standard', 'normal');
+    const walking = buildControlReadout(model.player, model.opponent, 0, 3, false, 'keyboard', { x: 0, z: -1 });
+    expect(walking.state).toContain('MOVEMENT'); expect(walking.active.has('move')).toBe(true);
+    const running = buildControlReadout(model.player, model.opponent, 0, 3, false, 'keyboard', { x: 1, z: 0 }, true);
+    expect(running.state).toContain('SPRINTING'); expect(running.active.has('run')).toBe(true);
+  });
+
   it('shows the exact directional strikes instead of generic quick and power labels', () => {
     const model = createMatch('vex', 'atlas', 'standard', 'normal');
     const up = buildControlLabels(model.player, model.opponent, 0, 1.4, { x: 0, z: -1 });
