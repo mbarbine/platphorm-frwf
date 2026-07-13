@@ -33,6 +33,14 @@ export const FIGHTERS: readonly FighterDefinition[] = [
     proportions: { height: 1.07, width: 1.08, headwear: 'bandana' },
     stats: { power: 82, speed: 76, stamina: 80, technique: 79, charisma: 82 },
   },
+  {
+    id: 'chad', name: 'CHAD “THE CLAW” KINSEY', nickname: 'The Mountain Hand', archetype: 'Ringside Roughneck',
+    bio: 'A fearless climber with scrapyard balance and an iron grip, Chad treats the Volt Dome like a piece of heavy equipment: get above it, hold on, and make the landing count.',
+    signature: 'CLAW HAMMER', taunt: 'Raises one iron claw toward the rafters, then points straight down at the landing zone.', tendency: 'opportunistic',
+    palette: { primary: '#8a3f32', secondary: '#263646', skin: '#c58c70', emissive: '#f3b84b' },
+    proportions: { height: 1.07, width: 1.12, headwear: 'mullet' },
+    stats: { power: 88, speed: 67, stamina: 86, technique: 74, charisma: 94 },
+  },
 ] as const;
 
 export const fighterById = (id: FighterId): FighterDefinition => {

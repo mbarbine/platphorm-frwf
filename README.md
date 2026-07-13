@@ -2,7 +2,7 @@
 
 An original, local-first 3D arcade wrestling game built with React, TypeScript, Vite, Three.js, React Three Fiber, Rapier, Zustand, and Vitest.
 
-Four original fighters collide in **The Volt Dome** across two-to-four-minute matches. Combat is deterministic and phase-based; rendering, procedural animation, physics props, camera motion, particles, and Web Audio provide the spectacle without owning match authority.
+Five original fighters collide in **The Volt Dome** across two-to-four-minute matches. Combat is deterministic and phase-based; rendering, procedural animation, physics props, camera motion, particles, and Web Audio provide the spectacle without owning match authority.
 
 ## Run locally
 
@@ -49,7 +49,7 @@ Movement is camera-relative. Grapples cycle through a body slam, suplex-style th
 - **Normal AI** — readable reactions and occasional strategic mistakes.
 - **Hard AI** — faster decisions, better spacing and counter timing, with no hidden stat or damage bonus.
 
-The four data-driven originals are Atlas Rex, Vex Volt, Nova Fang, and Brick Mercy. Each has its own proportions, palette, biography, stats, strategic tendency, taunt, and signature finisher.
+The five data-driven originals are Atlas Rex, Vex Volt, Nova Fang, Brick Mercy, and Chad “The Claw” Kinsey. Each has its own proportions, palette, biography, stats, strategic tendency, taunt, and signature finisher.
 
 ## Architecture
 

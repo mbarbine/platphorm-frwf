@@ -6,6 +6,16 @@ import { getMove } from '../data/moves';
 import { POSES } from '../animation/poses';
 import type { AnimationKey, FighterId, FighterRuntime } from '../types/game';
 
+const CLAW_FINISHER = {
+  torso: [.28, .18, -.12] as [number, number, number],
+  leftArm: [-1.55, -.18, -.62] as [number, number, number],
+  rightArm: [-2.55, .22, .18] as [number, number, number],
+  leftLeg: [-.22, 0, 0] as [number, number, number],
+  rightLeg: [.34, 0, 0] as [number, number, number],
+  rootY: .28,
+  rootTilt: .18,
+};
+
 interface Props { runtime?: FighterRuntime; fighterId?: FighterId; preview?: boolean; side?: 'player' | 'opponent' }
 
 const limbMaterial = (color: string, emissive: string) => <meshStandardMaterial color={color} roughness={.48} metalness={.22} emissive={emissive} emissiveIntensity={.12} />;
@@ -35,7 +45,7 @@ export function FighterModel({ runtime, fighterId, preview = false, side = 'play
       else if (runtime.state === 'victorious') key = 'victory';
       else if (runtime.state === 'defeated') key = 'defeat';
     }
-    const pose = POSES[key]; const smooth = 1 - Math.exp(-delta * 12);
+    const pose = key === 'finisher' && id === 'chad' ? CLAW_FINISHER : POSES[key]; const smooth = 1 - Math.exp(-delta * 12);
     const bob = ['combatIdle', 'idle', 'taunt'].includes(key) ? Math.sin(t * 2.4 + phaseOffset) * .035 : Math.abs(Math.sin(t * 7)) * .035;
     root.current.position.y += ((pose.rootY + bob) - root.current.position.y) * smooth;
     root.current.rotation.x += (pose.rootTilt - root.current.rotation.x) * smooth;
@@ -54,6 +64,11 @@ export function FighterModel({ runtime, fighterId, preview = false, side = 'play
     if (fighter.proportions.headwear === 'mohawk') return <mesh position={[0, 2.58 * height, 0]}><boxGeometry args={[.16, .38, .55]} />{limbMaterial(fighter.palette.emissive, fighter.palette.emissive)}</mesh>;
     if (fighter.proportions.headwear === 'crown') return <group position={[0, 2.55 * height, 0]}>{[-.23, 0, .23].map((x) => <mesh key={x} position={[x, .12, 0]} rotation={[0, 0, x]}><coneGeometry args={[.14, .38, 4]} />{limbMaterial(fighter.palette.emissive, fighter.palette.emissive)}</mesh>)}</group>;
     if (fighter.proportions.headwear === 'mask') return <mesh position={[0, 2.38 * height, -.23]}><boxGeometry args={[.48, .28, .08]} />{limbMaterial(fighter.palette.emissive, fighter.palette.emissive)}</mesh>;
+    if (fighter.proportions.headwear === 'mullet') return <group>
+      <mesh position={[0, 2.56 * height, .02]}><sphereGeometry args={[.39, 10, 7, 0, Math.PI * 2, 0, Math.PI * .56]} />{limbMaterial('#382720', '#6d4128')}</mesh>
+      <mesh position={[0, 2.31 * height, .28]}><boxGeometry args={[.55, .68, .18]} />{limbMaterial('#382720', '#6d4128')}</mesh>
+      <mesh position={[0, 2.14 * height, -.29]}><dodecahedronGeometry args={[.3, 0]} />{limbMaterial('#39251e', '#6d4128')}</mesh>
+    </group>;
     return <mesh position={[0, 2.48 * height, 0]} rotation={[0, 0, -.08]}><torusGeometry args={[.34, .08, 6, 16]} />{limbMaterial(fighter.palette.primary, fighter.palette.emissive)}</mesh>;
   };
 
@@ -72,6 +87,10 @@ export function FighterModel({ runtime, fighterId, preview = false, side = 'play
     <group ref={torso}>
       <mesh position={[0, 1.62 * height, 0]}><boxGeometry args={geometry.torso} />{limbMaterial(fighter.palette.primary, fighter.palette.emissive)}</mesh>
       <mesh position={[0, 1.42 * height, -.41 * width]}><boxGeometry args={[.62 * width, .16, .06]} />{limbMaterial(fighter.palette.emissive, fighter.palette.emissive)}</mesh>
+      {id === 'chad' && <group position={[0, 1.66 * height, -.405 * width]}>
+        {[-.2, 0, .2].map((x) => <mesh key={x} position={[x, 0, 0]}><boxGeometry args={[.055, .7, .035]} />{limbMaterial('#d8c0a0', '#5e301f')}</mesh>)}
+        <mesh position={[0, -.02, -.01]}><boxGeometry args={[.7 * width, .055, .035]} />{limbMaterial('#d8c0a0', '#5e301f')}</mesh>
+      </group>}
       <mesh position={[0, 2.31 * height, 0]}><dodecahedronGeometry args={[.38, 0]} />{limbMaterial(fighter.palette.skin, fighter.palette.emissive)}</mesh>
       <mesh position={[0, 1.02 * height, 0]}><boxGeometry args={[.65 * width, .3, .42 * width]} />{limbMaterial(fighter.palette.secondary, fighter.palette.emissive)}</mesh>
       <Headwear />

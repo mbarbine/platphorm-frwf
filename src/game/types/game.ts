@@ -1,4 +1,4 @@
-export type FighterId = 'atlas' | 'vex' | 'nova' | 'brick';
+export type FighterId = 'atlas' | 'vex' | 'nova' | 'brick' | 'chad';
 export type FighterState =
   | 'idle' | 'locomotion' | 'attacking' | 'grappling' | 'grabbed' | 'airborne'
   | 'staggered' | 'downed' | 'recovering' | 'pinning' | 'pinned' | 'victorious' | 'defeated';
@@ -26,7 +26,7 @@ export interface FighterDefinition {
   taunt: string;
   tendency: Tendencies;
   palette: { primary: string; secondary: string; skin: string; emissive: string };
-  proportions: { height: number; width: number; headwear: 'crown' | 'mohawk' | 'mask' | 'bandana' };
+  proportions: { height: number; width: number; headwear: 'crown' | 'mohawk' | 'mask' | 'bandana' | 'mullet' };
   stats: { power: number; speed: number; stamina: number; technique: number; charisma: number };
 }
 
