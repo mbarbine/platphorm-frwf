@@ -35,7 +35,11 @@ export function MobileControls({ onPause, paused }: MobileControlsProps) {
   const opponent = useMatchStore((state) => state.model.opponent);
   const distance = Math.hypot(player.position.x - opponent.position.x, player.position.z - opponent.position.z);
   const nearCorner = Math.abs(player.position.x) > 4.35 && Math.abs(player.position.z) > 2.95;
-  const contextLabel = player.state === 'climbing' ? 'DIVE' : player.momentum >= 100 && ['staggered', 'downed'].includes(opponent.state) && distance < 2.2 ? 'FINISH' : opponent.state === 'downed' && distance < 1.7 ? 'PIN' : nearCorner ? 'CLIMB' : 'ACTION';
+  const contextLabel = player.state === 'climbing'
+    ? player.climbStage === 1 ? 'CLIMB II' : player.climbStage === 2 ? 'CLIMB TOP' : 'DIVE'
+    : player.momentum >= 100 && ['staggered', 'downed'].includes(opponent.state) && distance < 2.2 ? 'FINISH'
+      : opponent.state === 'downed' && distance < 1.7 ? 'PIN' : nearCorner ? 'CLIMB I' : 'ACTION';
+  const powerLabel = player.ropeRebound > 0 ? 'STIFF!' : player.heldPropId ? 'SWING' : 'HIT';
 
   useEffect(() => () => mobileInput.reset(), []);
 
@@ -81,11 +85,13 @@ export function MobileControls({ onPause, paused }: MobileControlsProps) {
     <div className="mobile-modifiers">
       <HoldButton activeLabel="RUN" className="mobile-hold mobile-hold--run" onChange={(pressed) => mobileInput.setRun(pressed)} />
       <HoldButton activeLabel="GUARD" className="mobile-hold mobile-hold--guard" onChange={(pressed) => mobileInput.setBlock(pressed)} />
+      <button type="button" className="mobile-hold mobile-hold--prop" aria-label="Pick up, drop, or throw prop" onPointerDown={queuePointer('interact')} onClick={queueKeyboard('interact')}>PROP</button>
+      <button type="button" className="mobile-hold mobile-hold--taunt" aria-label="Taunt" onPointerDown={queuePointer('taunt')} onClick={queueKeyboard('taunt')}>TAUNT</button>
     </div>
     <div className="mobile-actions" aria-label="Wrestling actions">
-      <button type="button" className="mobile-action mobile-action--quick" aria-label="Quick strike" onPointerDown={queuePointer('quick')} onClick={queueKeyboard('quick')}><b>JAB</b><small>QUICK</small></button>
-      <button type="button" className="mobile-action mobile-action--power" aria-label="Heavy strike or stiff-arm" onPointerDown={queuePointer('heavy')} onClick={queueKeyboard('heavy')}><b>HIT</b><small>POWER</small></button>
-      <button type="button" className="mobile-action mobile-action--grapple" aria-label="Grapple" onPointerDown={queuePointer('grapple')} onClick={queueKeyboard('grapple')}><b>LOCK</b><small>GRAPPLE</small></button>
+      <button type="button" className={`mobile-action mobile-action--quick${player.moveId === 'jab' ? ' is-pressed' : ''}`} aria-label="Quick strike" onPointerDown={queuePointer('quick')} onClick={queueKeyboard('quick')}><b>{opponent.state === 'downed' ? 'GROUND' : 'JAB'}</b><small>QUICK</small></button>
+      <button type="button" className={`mobile-action mobile-action--power${player.ropeRebound > 0 ? ' is-pressed' : ''}`} aria-label="Heavy strike or stiff-arm" onPointerDown={queuePointer('heavy')} onClick={queueKeyboard('heavy')}><b>{powerLabel}</b><small>{player.ropeRebound > 0 ? 'STIFF-ARM' : 'POWER'}</small></button>
+      <button type="button" className={`mobile-action mobile-action--grapple${player.state === 'grappling' ? ' is-pressed' : ''}`} aria-label="Grapple" onPointerDown={queuePointer('grapple')} onClick={queueKeyboard('grapple')}><b>{player.state === 'grappling' ? 'THROW' : 'LOCK'}</b><small>GRAPPLE</small></button>
       <button type="button" className="mobile-action mobile-action--jump" aria-label="Jump" onPointerDown={queuePointer('jump')} onClick={queueKeyboard('jump')}><b>↑</b><small>JUMP</small></button>
       <button type="button" className="mobile-action mobile-action--context" aria-label={contextLabel} onPointerDown={queuePointer('context')} onClick={queueKeyboard('context')}><b>{contextLabel}</b><small>CORNER</small></button>
       <button type="button" className="mobile-action mobile-action--counter" aria-label="Dodge or counter" onPointerDown={queuePointer('dodge')} onClick={queueKeyboard('dodge')}><b>↯</b><small>COUNTER</small></button>

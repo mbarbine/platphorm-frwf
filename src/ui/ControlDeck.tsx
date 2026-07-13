@@ -31,7 +31,7 @@ export function buildControlReadout(player: FighterRuntime, opponent: FighterRun
   if (player.state === 'jumping' || player.state === 'airborne') active.add('jump');
   if (player.state === 'blocking') active.add('block');
   if (player.state === 'grappling') active.add('grapple');
-  if (player.state === 'climbing') {
+  if (player.state === 'climbing' || player.climbStage > 0) {
     active.add('context');
     if (player.climbStage === 3) active.add('taunt');
   }
@@ -49,6 +49,7 @@ export function buildControlReadout(player: FighterRuntime, opponent: FighterRun
     if (move.category === 'quick' || move.category === 'ground') active.add('quick');
     if (move.category === 'heavy' || move.category === 'aerial' || move.category === 'finisher' || move.category === 'prop') active.add('heavy');
     if (move.category === 'grapple') active.add('grapple');
+    if (move.id === 'taunt') active.add('taunt');
   } else if (!paused && player.state === 'climbing') {
     state = `TURNBUCKLE CLIMB · STAGE ${player.climbStage} / 3`;
   } else if (!paused && player.ropeRebound > 0) {
@@ -68,8 +69,8 @@ export function buildControlReadout(player: FighterRuntime, opponent: FighterRun
   let callout = `SPRINT INTO A ROPE → ${keys.heavy} STIFF-ARM`;
   if (paused) callout = 'SIMULATION STOPPED · RESUME TO WRESTLE';
   else if (player.ropeRebound > 0) callout = `${keys.heavy} NOW · LAND THE RAILWAY STIFF-ARM`;
-  else if (player.state === 'climbing' && player.climbStage < 3) callout = `${actionKey} AGAIN · CLIMB TO ${player.climbStage === 1 ? 'MIDDLE' : 'TOP'} ROPE`;
-  else if (player.state === 'climbing') callout = `${actionKey} DIVE · ${keys.taunt} POSE · MOVE INWARD TO DESCEND`;
+  else if (player.climbStage > 0 && player.climbStage < 3) callout = `${actionKey} AGAIN · CLIMB TO ${player.climbStage === 1 ? 'MIDDLE' : 'TOP'} ROPE`;
+  else if (player.climbStage === 3) callout = `${actionKey} DIVE · ${keys.taunt} POSE · MOVE INWARD TO DESCEND`;
   else if (player.momentum >= 100 && ['staggered', 'downed'].includes(opponent.state) && distance < 2.2) callout = `${actionKey} · SIGNATURE FINISHER READY`;
   else if (opponent.state === 'downed' && distance < 1.7) callout = `${actionKey} PIN · ${keys.quick} GROUND STRIKE`;
   else if (player.counterWindow > 0) callout = `${keys.counter} NOW · REVERSE THE ATTACK`;
@@ -82,7 +83,7 @@ function labelsFor(player: FighterRuntime): Readonly<Record<ControlId, string>> 
   return {
     ...BASE_LABELS,
     heavy: player.ropeRebound > 0 ? 'STIFF-ARM!' : player.heldPropId ? 'SWING PROP' : 'POWER',
-    context: player.state === 'climbing' ? player.climbStage === 3 ? 'TOP-ROPE DIVE' : `CLIMB ${player.climbStage + 1}/3` : 'PIN / FINISH',
+    context: player.climbStage > 0 ? player.climbStage === 3 ? 'TOP-ROPE DIVE' : `CLIMB ${player.climbStage + 1}/3` : 'PIN / FINISH',
   };
 }
 

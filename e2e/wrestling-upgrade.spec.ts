@@ -12,10 +12,12 @@ test('controlled Bodyworks scenarios prove a physical slam, staged climb, taunt,
   await page.getByRole('button', { name: /^STANDARD/ }).click();
   await page.getByRole('button', { name: 'START MATCH' }).click();
 
-  const hud = page.locator('.hud'); const lab = page.getByTestId('physics-lab'); const telemetry = hud.locator('[data-player-climb-stage]'); const momentum = hud.locator('[data-player-momentum]');
+  const hud = page.locator('.hud'); const lab = page.getByTestId('physics-lab'); const deck = page.getByTestId('control-deck'); const telemetry = hud.locator('[data-player-climb-stage]'); const momentum = hud.locator('[data-player-momentum]');
   await expect(hud).toHaveAttribute('data-physics-bodies', '32', { timeout: 30_000 });
   const slam = lab.getByRole('button', { name: 'BODY SLAM' });
   await slam.click();
+  await expect.poll(async () => await deck.getAttribute('data-control-state'), { timeout: 4_000, intervals: [50, 100] }).toMatch(/SLAM|GRAPPLE/);
+  await expect(deck.locator('[data-control="grapple"]')).toHaveClass(/is-active/);
   await expect.poll(async () => Number(await hud.getAttribute('data-grip-creates')), { timeout: 12_000, intervals: [100, 200] }).toBeGreaterThanOrEqual(2);
   await expect.poll(async () => Number(await hud.getAttribute('data-player-grapples')), { timeout: 25_000, intervals: [200, 400] }).toBeGreaterThan(0);
   const replay = page.getByRole('button', { name: 'SKIP REPLAY' });
@@ -25,6 +27,7 @@ test('controlled Bodyworks scenarios prove a physical slam, staged climb, taunt,
   await expect(climb).toBeEnabled({ timeout: 12_000 }); await climb.click();
   await expect.poll(async () => Number(await telemetry.getAttribute('data-player-climb-stage')), { timeout: 10_000, intervals: [100, 200] }).toBe(3);
   await expect.poll(async () => await hud.getAttribute('data-player-move'), { timeout: 8_000, intervals: [100, 150] }).toBe('taunt');
+  await expect(deck.locator('[data-control="taunt"]')).toHaveClass(/is-active/); await expect(deck).toContainText('TOP-ROPE DIVE');
   await page.screenshot({ path: '/tmp/frwf-wrestling-upgrade.png' });
   await expect.poll(async () => Number(await momentum.getAttribute('data-player-momentum')), { timeout: 25_000, intervals: [200, 400] }).toBeGreaterThan(0);
 

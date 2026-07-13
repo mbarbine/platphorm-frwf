@@ -18,6 +18,8 @@ test('mobile player can enter a match, move, guard, and attack', async ({ page }
   await expect(page.getByRole('button', { name: 'Heavy strike or stiff-arm' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Grapple' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Jump' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Pick up, drop, or throw prop' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Taunt' })).toBeVisible();
 
   const stick = page.getByRole('group', { name: 'Movement joystick' }); const box = await stick.boundingBox();
   expect(box).not.toBeNull();
