@@ -12,7 +12,10 @@ export function CameraRig() {
   const lastImpact = useMatchStore((state) => state.model.lastImpact); const shake = useSettings((state) => state.shake); const reduced = useSettings((state) => state.reducedMotion);
   useFrame(({ clock }, dt) => {
     const model = useMatchStore.getState().model; const a = model.player.position; const b = model.opponent.position;
-    const middleX = (a.x + b.x) / 2; const middleZ = (a.z + b.z) / 2; const separation = Math.hypot(a.x - b.x, a.z - b.z);
+    const prediction = reduced ? .08 : model.player.attackPhase === 'anticipation' || model.opponent.attackPhase === 'anticipation' ? .34 : .2;
+    const predictedA = { x: a.x + model.player.velocity.x * prediction, z: a.z + model.player.velocity.z * prediction };
+    const predictedB = { x: b.x + model.opponent.velocity.x * prediction, z: b.z + model.opponent.velocity.z * prediction };
+    const middleX = (predictedA.x + predictedB.x) / 2; const middleZ = (predictedA.z + predictedB.z) / 2; const separation = Math.hypot(predictedA.x - predictedB.x, predictedA.z - predictedB.z);
     const ringside = Math.max(Math.abs(middleX) / 6, Math.abs(middleZ) / 4.5);
     const playerMove = model.player.moveId ? getMove(model.player.moveId) : null; const opponentMove = model.opponent.moveId ? getMove(model.opponent.moveId) : null;
     const cinematicActor = playerMove && ['grapple', 'finisher'].includes(playerMove.category) ? model.player
@@ -31,7 +34,8 @@ export function CameraRig() {
     const shakeAmount = !reduced ? shake * impactImpulse.current * .075 : 0;
     desired.x += Math.sin(clock.elapsedTime * 57) * shakeAmount; desired.y += Math.cos(clock.elapsedTime * 43) * shakeAmount;
     const damping = reduced ? 2.5 : cinematicActor ? 6.2 : 4.8; camera.position.lerp(desired, 1 - Math.exp(-dt * damping));
-    target.set(middleX, cinematicActor ? 2.55 : 2.2, middleZ); camera.lookAt(target);
+    const airborneHeight = Math.max(model.player.body.verticalOffset, model.opponent.body.verticalOffset);
+    target.set(middleX, (cinematicActor ? 2.55 : 2.2) + airborneHeight * .34, middleZ); camera.lookAt(target);
     if ('fov' in camera) {
       const perspective = camera as PerspectiveCamera;
       const baseFov = cinematicActor ? (cinematicMove?.category === 'finisher' ? 37 : 40) : 44 + Math.min(10, separation * 1.25);

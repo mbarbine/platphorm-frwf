@@ -14,7 +14,7 @@ const limbMaterial = (color: string, emissive: string) => <meshStandardMaterial 
 export function FighterModel({ runtime, counterpart, fighterId, preview = false, side = 'player' }: Props) {
   const id = runtime?.definitionId ?? fighterId ?? 'atlas';
   const fighter = fighterById(id);
-  const root = useRef<Group>(null); const torso = useRef<Group>(null); const leftArm = useRef<Group>(null); const rightArm = useRef<Group>(null);
+  const root = useRef<Group>(null); const torso = useRef<Group>(null); const head = useRef<Group>(null); const leftArm = useRef<Group>(null); const rightArm = useRef<Group>(null);
   const leftForearm = useRef<Group>(null); const rightForearm = useRef<Group>(null); const leftLeg = useRef<Group>(null); const rightLeg = useRef<Group>(null);
   const leftShin = useRef<Group>(null); const rightShin = useRef<Group>(null); const flash = useRef<Mesh>(null); const previousHealth = useRef(runtime?.health ?? 100);
   const phaseOffset = side === 'player' ? 0 : Math.PI;
@@ -22,7 +22,7 @@ export function FighterModel({ runtime, counterpart, fighterId, preview = false,
   const geometry = useMemo(() => ({ torso: [.72 * width, .78 * height, .38 * width] as const }), [height, width]);
 
   useFrame(({ clock }, delta) => {
-    if (!root.current || !torso.current || !leftArm.current || !rightArm.current || !leftForearm.current || !rightForearm.current || !leftLeg.current || !rightLeg.current || !leftShin.current || !rightShin.current) return;
+    if (!root.current || !torso.current || !head.current || !leftArm.current || !rightArm.current || !leftForearm.current || !rightForearm.current || !leftLeg.current || !rightLeg.current || !leftShin.current || !rightShin.current) return;
     const t = clock.elapsedTime;
     let key: AnimationKey = 'combatIdle';
     if (preview) key = 'taunt';
@@ -49,27 +49,47 @@ export function FighterModel({ runtime, counterpart, fighterId, preview = false,
       const move = getMove(runtime.moveId);
       animatedPose = getPairedPose(move, 'actor', runtime.attackPhase, runtime.phaseElapsed, runtime.definitionId) ?? getStrikePose(move, runtime.attackPhase, runtime.phaseElapsed) ?? animatedPose;
     }
+    let pairedVictim = false;
     if (runtime && counterpart?.moveId && ['grabbed', 'airborne', 'downed', 'staggered'].includes(runtime.state)) {
       const holdingMove = getMove(counterpart.moveId);
-      animatedPose = getPairedPose(holdingMove, 'victim', counterpart.attackPhase, counterpart.phaseElapsed, counterpart.definitionId)
-        ?? getStrikeReactionPose(holdingMove, counterpart.attackPhase, counterpart.phaseElapsed) ?? animatedPose;
+      const pairedPose = getPairedPose(holdingMove, 'victim', counterpart.attackPhase, counterpart.phaseElapsed, counterpart.definitionId);
+      pairedVictim = pairedPose !== null;
+      animatedPose = pairedPose ?? getStrikeReactionPose(holdingMove, counterpart.attackPhase, counterpart.phaseElapsed) ?? animatedPose;
     }
     const smooth = 1 - Math.exp(-delta * (runtime?.attackPhase === 'active' ? 19 : 13));
     const bob = ['combatIdle', 'idle', 'taunt'].includes(key) ? Math.sin(t * 2.4 + phaseOffset) * .035 : Math.abs(Math.sin(t * 7)) * .035;
     root.current.position.x += (animatedPose.rootX - root.current.position.x) * smooth;
-    root.current.position.y += ((animatedPose.rootY + bob) - root.current.position.y) * smooth;
+    const muscle = runtime?.body.muscle ?? 1;
+    const pelvisDrop = runtime?.body.pelvisDrop ?? 0;
+    const authoredRootY = pairedVictim ? animatedPose.rootY * .28 : animatedPose.rootY;
+    root.current.position.y += ((authoredRootY + bob - pelvisDrop) - root.current.position.y) * smooth;
     root.current.position.z += (animatedPose.rootZ - root.current.position.z) * smooth;
-    root.current.rotation.x += (animatedPose.rootTilt - root.current.rotation.x) * smooth;
+    root.current.rotation.x += (animatedPose.rootTilt + (runtime?.body.leanForward ?? 0) - root.current.rotation.x) * smooth;
     root.current.rotation.y += (animatedPose.rootYaw - root.current.rotation.y) * smooth;
-    root.current.rotation.z += (animatedPose.rootRoll - root.current.rotation.z) * smooth;
+    root.current.rotation.z += (animatedPose.rootRoll + (runtime?.body.leanSide ?? 0) - root.current.rotation.z) * smooth;
     const apply = (group: Group, rotation: [number, number, number]): void => {
       group.rotation.x += (rotation[0] - group.rotation.x) * smooth; group.rotation.y += (rotation[1] - group.rotation.y) * smooth; group.rotation.z += (rotation[2] - group.rotation.z) * smooth;
     };
-    apply(torso.current, animatedPose.torso); apply(leftArm.current, animatedPose.leftArm); apply(rightArm.current, animatedPose.rightArm);
-    apply(leftForearm.current, animatedPose.leftForearm); apply(rightForearm.current, animatedPose.rightForearm);
-    apply(leftLeg.current, animatedPose.leftLeg); apply(rightLeg.current, animatedPose.rightLeg); apply(leftShin.current, animatedPose.leftShin); apply(rightShin.current, animatedPose.rightShin);
+    apply(torso.current, [animatedPose.torso[0], animatedPose.torso[1] + (runtime?.body.twist ?? 0) * .34, animatedPose.torso[2]]);
+    apply(head.current, [(runtime?.body.headSnap ?? 0) * .55, -(runtime?.body.twist ?? 0) * .18, (runtime?.body.headSnap ?? 0) * .24]);
+    apply(leftArm.current, animatedPose.leftArm); apply(rightArm.current, animatedPose.rightArm);
+    apply(leftForearm.current, [animatedPose.leftForearm[0] + (1 - muscle) * .34, animatedPose.leftForearm[1], animatedPose.leftForearm[2]]);
+    apply(rightForearm.current, [animatedPose.rightForearm[0] + (1 - muscle) * .34, animatedPose.rightForearm[1], animatedPose.rightForearm[2]]);
+    const stride = runtime?.body.stride ?? 0;
+    const leftSwing = runtime ? Math.sin(runtime.body.leftFoot.phase) * stride * .48 : 0;
+    const rightSwing = runtime ? Math.sin(runtime.body.rightFoot.phase) * stride * .48 : 0;
+    apply(leftLeg.current, [animatedPose.leftLeg[0] - leftSwing + (1 - muscle) * .08, animatedPose.leftLeg[1], animatedPose.leftLeg[2]]);
+    apply(rightLeg.current, [animatedPose.rightLeg[0] - rightSwing + (1 - muscle) * .08, animatedPose.rightLeg[1], animatedPose.rightLeg[2]]);
+    apply(leftShin.current, [animatedPose.leftShin[0] + Math.max(0, leftSwing) * .7 + (1 - muscle) * .22, animatedPose.leftShin[1], animatedPose.leftShin[2]]);
+    apply(rightShin.current, [animatedPose.rightShin[0] + Math.max(0, rightSwing) * .7 + (1 - muscle) * .22, animatedPose.rightShin[1], animatedPose.rightShin[2]]);
     if (runtime) {
-      root.current.parent?.position.set(runtime.position.x, 3.51 - .83 * height, runtime.position.z);
+      leftLeg.current.position.y = .83 * height + runtime.body.leftFoot.lift;
+      rightLeg.current.position.y = .83 * height + runtime.body.rightFoot.lift;
+      leftLeg.current.position.z = runtime.body.leftFoot.offset.z * .12;
+      rightLeg.current.position.z = runtime.body.rightFoot.offset.z * .12;
+    }
+    if (runtime) {
+      root.current.parent?.position.set(runtime.position.x, 3.51 - .83 * height + runtime.body.verticalOffset, runtime.position.z);
       if (root.current.parent) root.current.parent.rotation.y = runtime.facing;
     } else root.current.rotation.y = Math.sin(t * .45) * .16;
     if (runtime && runtime.health < previousHealth.current && flash.current) {
@@ -124,6 +144,7 @@ export function FighterModel({ runtime, counterpart, fighterId, preview = false,
         {[-.2, 0, .2].map((x) => <mesh key={x} position={[x, 0, 0]}><boxGeometry args={[.055, .7, .035]} />{limbMaterial('#d8c0a0', '#5e301f')}</mesh>)}
         <mesh position={[0, -.02, -.01]}><boxGeometry args={[.7 * width, .055, .035]} />{limbMaterial('#d8c0a0', '#5e301f')}</mesh>
       </group>}
+      <group ref={head}>
       <mesh position={[0, 2.31 * height, 0]}><dodecahedronGeometry args={[.38, 0]} />{limbMaterial(fighter.palette.skin, fighter.palette.emissive)}</mesh>
       <group position={[0, 2.36 * height, .34]}>
         <mesh position={[-.13, .04, 0]}><sphereGeometry args={[.052, 7, 5]} /><meshStandardMaterial color="#f7fbff" emissive={fighter.palette.emissive} emissiveIntensity={.35} /></mesh>
@@ -133,8 +154,9 @@ export function FighterModel({ runtime, counterpart, fighterId, preview = false,
         <mesh position={[0, -.035, .015]} rotation={[Math.PI / 2, 0, 0]}><coneGeometry args={[.045, .13, 5]} />{limbMaterial(fighter.palette.skin, fighter.palette.emissive)}</mesh>
         <mesh position={[0, -.15, .025]}><boxGeometry args={[.17, .025, .035]} /><meshBasicMaterial color={id === 'chad' ? '#302019' : '#52162e'} /></mesh>
       </group>
-      <mesh position={[0, 1.02 * height, 0]}><boxGeometry args={[.65 * width, .3, .42 * width]} />{limbMaterial(fighter.palette.secondary, fighter.palette.emissive)}</mesh>
       <Headwear />
+      </group>
+      <mesh position={[0, 1.02 * height, 0]}><boxGeometry args={[.65 * width, .3, .42 * width]} />{limbMaterial(fighter.palette.secondary, fighter.palette.emissive)}</mesh>
     </group>
     <Arm side={-1} /><Arm side={1} /><Leg side={-1} /><Leg side={1} />
     <mesh ref={flash} position={[0, 1.25, 0]} scale={[1.25 * width, 1.55 * height, .8]} visible={false}><boxGeometry /><meshBasicMaterial transparent depthWrite={false} opacity={0} color="white" /></mesh>

@@ -13,6 +13,9 @@ export type Difficulty = 'normal' | 'hard';
 export type Tendencies = 'aggressive' | 'technical' | 'opportunistic';
 export type ControlDevice = 'keyboard' | 'gamepad';
 export type GameCommand = 'quick' | 'heavy' | 'grapple' | 'block' | 'dodge' | 'interact' | 'context' | 'taunt';
+export type BodyRegion = 'head' | 'chest' | 'ribs' | 'pelvis' | 'leftArm' | 'rightArm' | 'leftLeg' | 'rightLeg';
+export type CollisionOutcome = 'absorbed' | 'stagger' | 'spin' | 'trip' | 'fall' | 'launch';
+export type GrapplePosition = 'collarTie' | 'overhook' | 'underhook' | 'headlock' | 'waistLock' | 'rearWaistLock' | 'frontFacelock' | 'armControl';
 
 export interface Vec2 { x: number; z: number }
 
@@ -25,9 +28,42 @@ export interface FighterDefinition {
   signature: string;
   taunt: string;
   tendency: Tendencies;
+  personality: { cowardly: number; showman: number; technical: number; aggressive: number; reckless: number; dirty: number; athletic: number; powerhouse: number };
   palette: { primary: string; secondary: string; skin: string; emissive: string };
   proportions: { height: number; width: number; headwear: 'crown' | 'mohawk' | 'mask' | 'bandana' | 'mullet' };
   stats: { power: number; speed: number; stamina: number; technique: number; charisma: number };
+}
+
+export interface FootPlantRuntime {
+  planted: boolean;
+  phase: number;
+  lift: number;
+  offset: Vec2;
+}
+
+export interface BodyDynamicsRuntime {
+  mass: number;
+  inertia: number;
+  balance: number;
+  muscle: number;
+  leanForward: number;
+  leanSide: number;
+  twist: number;
+  headSnap: number;
+  pelvisDrop: number;
+  leanVelocity: number;
+  sideVelocity: number;
+  twistVelocity: number;
+  headVelocity: number;
+  verticalOffset: number;
+  verticalVelocity: number;
+  gaitPhase: number;
+  stride: number;
+  leftFoot: FootPlantRuntime;
+  rightFoot: FootPlantRuntime;
+  stumble: number;
+  impactEnergy: number;
+  lastImpactRegion: BodyRegion | null;
 }
 
 export interface MoveDefinition {
@@ -79,6 +115,7 @@ export interface FighterRuntime {
   lastActionAt: number;
   ropeRebound: number;
   finisherPrimed: boolean;
+  body: BodyDynamicsRuntime;
 }
 
 export interface PropRuntime {
@@ -106,6 +143,7 @@ export interface MatchResult {
   hype: number;
   grade: 'D' | 'C' | 'B' | 'A' | 'S';
   playerStats: MatchStats;
+  highlights: MatchHighlights;
 }
 
 export interface ImpactEvent {
@@ -113,6 +151,53 @@ export interface ImpactEvent {
   position: Vec2;
   kind: 'light' | 'heavy' | 'blocked' | 'counter' | 'grapple' | 'weapon' | 'finisher' | 'table' | 'nearfall' | 'ko' | 'rope';
   intensity: number;
+  region?: BodyRegion;
+  force?: number;
+  torque?: number;
+  outcome?: CollisionOutcome;
+}
+
+export interface GrappleRuntime {
+  attacker: 'player' | 'opponent';
+  defender: 'player' | 'opponent';
+  position: GrapplePosition;
+  leverage: number;
+  tension: number;
+  rotation: number;
+  lift: number;
+  struggle: number;
+  age: number;
+}
+
+export interface ReplayFighterFrame {
+  position: Vec2;
+  facing: number;
+  verticalOffset: number;
+  leanForward: number;
+  leanSide: number;
+  state: FighterState;
+  moveId: string | null;
+}
+
+export interface ReplayFrame {
+  time: number;
+  player: ReplayFighterFrame;
+  opponent: ReplayFighterFrame;
+}
+
+export interface HighlightMoment {
+  impactId: number;
+  time: number;
+  label: string;
+  score: number;
+  kind: 'strike' | 'slam' | 'reversal' | 'weapon' | 'rope' | 'table' | 'aerial';
+}
+
+export interface MatchHighlights {
+  bestSpot: HighlightMoment | null;
+  bestSlam: HighlightMoment | null;
+  mostBrutalImpact: HighlightMoment | null;
+  mostUnexpectedReversal: HighlightMoment | null;
 }
 
 export interface ChaosEvent {
@@ -144,5 +229,9 @@ export interface MatchModel {
   aiThinkTimer: number;
   aiIntent: GameCommand | null;
   aiBlockTimer: number;
+  grapple: GrappleRuntime | null;
+  replayFrames: ReplayFrame[];
+  replaySampleTimer: number;
+  highlights: HighlightMoment[];
   seed: number;
 }
