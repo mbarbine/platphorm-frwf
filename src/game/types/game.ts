@@ -251,6 +251,8 @@ export interface MatchModel {
   opponentStats: MatchStats;
   aiThinkTimer: number;
   aiIntent: GameCommand | null;
+  aiMovement: Vec2;
+  aiRunning: boolean;
   aiBlockTimer: number;
   grapple: GrappleRuntime | null;
   replayFrames: ReplayFrame[];

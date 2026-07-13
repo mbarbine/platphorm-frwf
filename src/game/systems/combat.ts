@@ -36,7 +36,7 @@ export const createMatch = (playerId: FighterId, opponentId: FighterId, ruleset:
   player: createFighterRuntime(playerId, { x: -2.3, z: 0 }, playerBeers), opponent: createFighterRuntime(opponentId, { x: 2.3, z: 0 }, opponentBeers),
   hype: 8, props: initialProps(ruleset === 'chaos'), chaosEvent: null, nextChaosAt: 38, lastImpact: null, impactSequence: 0,
   announcement: 'ROUND ONE — FIGHT!', announcementTimer: 2.2, hitStop: 0, slowMotion: 0, result: null,
-  playerStats: EMPTY_STATS(), opponentStats: EMPTY_STATS(), aiThinkTimer: .35, aiIntent: null, aiBlockTimer: 0,
+  playerStats: EMPTY_STATS(), opponentStats: EMPTY_STATS(), aiThinkTimer: .35, aiIntent: null, aiMovement: { x: 0, z: 0 }, aiRunning: false, aiBlockTimer: 0,
   grapple: null, replayFrames: [], replaySampleTimer: 0, highlights: [], runtimeId: seed, seed,
 });
 
@@ -637,6 +637,7 @@ export const advanceMatch = (model: MatchModel, dt: number, playerInput: FrameIn
     const delta = { x: model.player.position.x - model.opponent.position.x, z: model.player.position.z - model.opponent.position.z };
     if (distance(model.player.position, model.opponent.position) > 1.8) aiMove = normalize(delta);
   }
+  model.aiMovement = { ...aiMove }; model.aiRunning = aiRun;
   const grappleStep = model.physicsAuthority ? { broken: false, liftEnergy: 0 } : stepGrappleDynamics(model, step, playerInput.move, aiMove);
   if (grappleStep.broken) {
     releaseGrapple(model, 'staggered');

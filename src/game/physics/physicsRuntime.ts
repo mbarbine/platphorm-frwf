@@ -274,10 +274,8 @@ export class BodyWorksRuntime {
     }
     if (model.paused || model.resolved) return;
     if (['idle', 'locomotion'].includes(model.opponent.state)) {
-      const deltaX = model.player.position.x - model.opponent.position.x; const deltaZ = model.player.position.z - model.opponent.position.z; const distance = Math.hypot(deltaX, deltaZ);
       const intent = this.intents.opponent;
-      if (distance > 1.55) { intent.move.x = deltaX / Math.max(.001, distance); intent.move.z = deltaZ / Math.max(.001, distance); intent.run = distance > 3.5; }
-      else { intent.move.x = 0; intent.move.z = 0; intent.run = false; }
+      intent.move.x = model.aiMovement.x; intent.move.z = model.aiMovement.z; intent.run = model.aiRunning;
       intent.block = model.aiBlockTimer > 0;
     }
     for (const rig of this.rigs.values()) this.capRigVelocity(rig);
