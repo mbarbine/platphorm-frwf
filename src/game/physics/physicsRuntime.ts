@@ -1,10 +1,17 @@
 import type { RapierRigidBody } from '@react-three/rapier';
+import { JointData } from '@dimforge/rapier3d-compat';
+import type { ImpulseJoint, World } from '@dimforge/rapier3d-compat';
 import type { FrameInput } from '../systems/combat';
 import type { BodyRegion, FighterRuntime, GameCommand, MatchModel, Vec2 } from '../types/game';
 import { clamp } from '../utils/math';
 import type { BodySegmentId } from './bodySchema';
 import { computeMotorTorque } from './motorController';
 import { PhysicsReplayBuffer } from './replayBuffer';
+import { getMove } from '../data/moves';
+import { getPairedPose, getStrikePose } from '../animation/choreography';
+import { POSES } from '../animation/poses';
+import type { Pose } from '../animation/poses';
+import type { QuaternionValue, Vector3Value } from './motorController';
 
 export type FighterKey = 'player' | 'opponent';
 
@@ -52,6 +59,20 @@ interface FighterRigRegistration {
 
 interface IntentState { move: Vec2; run: boolean; block: boolean }
 
+interface PhysicalGrip {
+  joint: ImpulseJoint;
+  attacker: FighterKey;
+  defender: FighterKey;
+  hand: BodySegmentId;
+  target: BodySegmentId;
+  targetAnchorX: number;
+  moveId: string;
+  strength: number;
+  createdAt: number;
+}
+
+interface PendingLanding { attacker: FighterKey; defender: FighterKey; attackInstanceId: number; moveId: string; expiresAt: number }
+
 const EMPTY_INTENT = (): IntentState => ({ move: { x: 0, z: 0 }, run: false, block: false });
 const MAX_COMMANDS = 32;
 const MAX_CONTACTS = 128;
@@ -66,6 +87,9 @@ export class BodyWorksRuntime {
   private commandId = 0;
   private contactId = 0;
   private generation = 0;
+  private world: World | null = null;
+  private readonly grips: PhysicalGrip[] = [];
+  private readonly pendingLandings = new Map<FighterKey, PendingLanding>();
   readonly replay = new PhysicsReplayBuffer(300);
   readonly metrics: BodyWorksMetrics = { fixedSteps: 0, bodyCount: 0, jointCount: 0, gripCount: 0, contactCount: 0, emergencyResetCount: 0, lastStepMs: 0, maximumStepMs: 0 };
 
@@ -117,6 +141,17 @@ export class BodyWorksRuntime {
   }
 
   recordContact(contact: Omit<BodyWorksContact, 'id'>): void {
+    const pending = contact.sourceFighter ? this.pendingLandings.get(contact.sourceFighter) : undefined;
+    if (pending && contact.targetFighter === null && contact.maximumForce > 90) {
+      contact = {
+        ...contact,
+        sourceFighter: pending.attacker,
+        sourceSegment: 'chest',
+        targetFighter: pending.defender,
+        attackInstanceId: pending.attackInstanceId,
+      };
+      this.pendingLandings.delete(pending.defender);
+    }
     this.contactId += 1;
     this.contacts.push({ id: this.contactId, ...contact });
     if (this.contacts.length > MAX_CONTACTS) this.contacts.splice(0, this.contacts.length - MAX_CONTACTS);
@@ -125,8 +160,9 @@ export class BodyWorksRuntime {
 
   consumeContacts(): readonly BodyWorksContact[] { const result = this.contacts.splice(0); return result; }
 
-  beforeFixedStep(dt: number, model: MatchModel): void {
+  beforeFixedStep(dt: number, model: MatchModel, world?: World): void {
     const startedAt = performance.now();
+    if (world) this.world = world;
     if (model.paused || model.resolved) return;
     if (['idle', 'locomotion'].includes(model.opponent.state)) {
       const deltaX = model.player.position.x - model.opponent.position.x; const deltaZ = model.player.position.z - model.opponent.position.z; const distance = Math.hypot(deltaX, deltaZ);
@@ -137,6 +173,8 @@ export class BodyWorksRuntime {
     }
     this.applyFighterController('player', model.player, dt);
     this.applyFighterController('opponent', model.opponent, dt);
+    if (this.world) this.advancePhysicalGrapple(this.world, model, dt);
+    for (const [fighter, landing] of this.pendingLandings) if (landing.expiresAt < model.elapsed) this.pendingLandings.delete(fighter);
     this.metrics.fixedSteps += 1;
     const elapsed = performance.now() - startedAt;
     this.metrics.lastStepMs = elapsed; this.metrics.maximumStepMs = Math.max(this.metrics.maximumStepMs, elapsed);
@@ -170,16 +208,89 @@ export class BodyWorksRuntime {
     this.applyPoseDrive(rig, fighter);
   }
 
+  private advancePhysicalGrapple(world: World, model: MatchModel, dt: number): void {
+    const grapple = model.grapple;
+    if (!grapple) { this.releaseAllGrips(world); return; }
+    const attacker = model[grapple.attacker]; const defender = model[grapple.defender]; const attackerRig = this.rigs.get(grapple.attacker); const defenderRig = this.rigs.get(grapple.defender);
+    if (!attackerRig || !defenderRig || !attacker.moveId || !['grappling', 'attacking'].includes(attacker.state)) { this.releaseAllGrips(world); model.grapple = null; return; }
+    const move = getMove(attacker.moveId); grapple.age += dt;
+    const owned = this.grips.filter((grip) => grip.attacker === grapple.attacker && grip.moveId === move.id);
+    if (owned.length < 2) {
+      grapple.phase = owned.length === 0 ? 'reach' : 'acquire';
+      const preferences: readonly [BodySegmentId, BodySegmentId, number][] = gripPreferences(move.id);
+      for (const [handId, targetId, targetAnchorX] of preferences) {
+        if (this.grips.some((grip) => grip.attacker === grapple.attacker && grip.hand === handId)) continue;
+        const hand = attackerRig.bodies[handId]; const target = defenderRig.bodies[targetId]; if (!hand || !target) continue;
+        const handPosition = hand.translation(); const targetPosition = target.translation(); const distance = Math.hypot(handPosition.x - (targetPosition.x + targetAnchorX), handPosition.y - targetPosition.y, handPosition.z - targetPosition.z);
+        if (distance > .72) continue;
+        const joint = world.createImpulseJoint(JointData.spherical({ x: 0, y: 0, z: 0 }, { x: targetAnchorX, y: 0, z: 0 }), hand, target, true);
+        joint.setContactsEnabled(false);
+        this.grips.push({ joint, attacker: grapple.attacker, defender: grapple.defender, hand: handId, target: targetId, targetAnchorX, moveId: move.id, strength: gripCapacity(attacker), createdAt: model.elapsed });
+      }
+    }
+    const activeGrips = this.grips.filter((grip) => grip.attacker === grapple.attacker && grip.moveId === move.id);
+    for (const grip of activeGrips) {
+      const hand = attackerRig.bodies[grip.hand]; const target = defenderRig.bodies[grip.target];
+      if (!hand || !target || !grip.joint.isValid()) { this.removeGrip(world, grip); continue; }
+      const handPosition = hand.translation(); const targetPosition = target.translation(); const error = Math.hypot(handPosition.x - (targetPosition.x + grip.targetAnchorX), handPosition.y - targetPosition.y, handPosition.z - targetPosition.z);
+      const load = Math.hypot(target.linvel().x - hand.linvel().x, target.linvel().y - hand.linvel().y, target.linvel().z - hand.linvel().z) * defender.body.mass / 100;
+      if (error > .92 || load > grip.strength * 6.4 || !['grappling', 'attacking'].includes(attacker.state)) this.removeGrip(world, grip);
+    }
+    grapple.gripCount = this.grips.filter((grip) => grip.attacker === grapple.attacker && grip.moveId === move.id).length;
+    this.metrics.gripCount = this.grips.length; this.metrics.jointCount = this.rigs.size * 15 + this.grips.length;
+    if (grapple.gripCount < 2) {
+      if (grapple.age > 1.25) {
+        grapple.phase = 'failed'; this.releaseAllGrips(world); model.grapple = null;
+        attacker.state = 'staggered'; attacker.stateElapsed = 0; attacker.moveId = null; attacker.attackPhase = null;
+        if (defender.state === 'grabbed') defender.state = 'idle';
+        model.announcement = 'GRIP DENIED — SCRAMBLE!'; model.announcementTimer = .9;
+      }
+      return;
+    }
+    if (defender.state !== 'grabbed') { defender.state = 'grabbed'; defender.stateElapsed = 0; }
+    const progress = clamp(attacker.phaseElapsed / Math.max(.01, move.anticipationDuration), 0, 1);
+    const liftFeasibility = clamp((attacker.body.mass * (.55 + fighterPower(attacker) * .55) * attacker.body.muscle) / Math.max(55, defender.body.mass), .42, 1.45);
+    const defenderPelvis = defenderRig.bodies.pelvis; const defenderChest = defenderRig.bodies.chest; const attackerPelvis = attackerRig.bodies.pelvis;
+    if (!defenderPelvis || !defenderChest || !attackerPelvis) return;
+    if (progress < .38) grapple.phase = 'clinch';
+    else if (progress < .56) grapple.phase = 'load';
+    else if (attacker.attackPhase === 'anticipation') {
+      grapple.phase = 'lift';
+      const liftDrive = liftDriveForMove(move.id) * liftFeasibility;
+      defenderPelvis.addForce({ x: 0, y: defender.body.mass * (20 + liftDrive * 12), z: 0 }, true);
+      defenderChest.addForce({ x: Math.sin(attacker.facing) * defender.body.mass * liftDrive * 2.1, y: defender.body.mass * liftDrive * 4, z: Math.cos(attacker.facing) * defender.body.mass * liftDrive * 2.1 }, true);
+      defenderPelvis.applyTorqueImpulse({ x: move.id === 'suplex' || move.id === 'skyhook' ? -.032 * liftDrive : .018 * liftDrive, y: 0, z: (grapple.position === 'overhook' ? .028 : -.018) * liftDrive }, true);
+      attackerPelvis.addForce({ x: 0, y: -attacker.body.mass * 5.5, z: 0 }, true);
+    }
+    if (attacker.attackPhase === 'active') {
+      grapple.phase = 'release';
+      this.releaseAllGrips(world);
+      const direction = { x: Math.sin(attacker.facing), z: Math.cos(attacker.facing) };
+      defenderPelvis.applyImpulse({ x: direction.x * defender.body.mass * .035, y: -defender.body.mass * .055, z: direction.z * defender.body.mass * .035 }, true);
+      defenderChest.applyTorqueImpulse({ x: move.id.includes('suplex') || move.id === 'skyhook' ? -.16 : -.08, y: 0, z: grapple.position === 'overhook' ? .12 : -.08 }, true);
+      defender.state = 'airborne'; defender.stateElapsed = 0; defender.downTimer = 1.5 + (100 - defender.health) / 85;
+      this.pendingLandings.set(grapple.defender, { attacker: grapple.attacker, defender: grapple.defender, attackInstanceId: attacker.attackInstanceId, moveId: move.id, expiresAt: model.elapsed + 1.4 });
+      grapple.phase = 'impact'; grapple.gripCount = 0;
+    }
+  }
+
+  private removeGrip(world: World, grip: PhysicalGrip): void {
+    const index = this.grips.indexOf(grip); if (index >= 0) this.grips.splice(index, 1);
+    if (grip.joint.isValid()) world.removeImpulseJoint(grip.joint, true);
+  }
+
+  private releaseAllGrips(world: World): void { for (const grip of [...this.grips]) this.removeGrip(world, grip); this.metrics.gripCount = 0; this.metrics.jointCount = this.rigs.size * 15; }
+
   private applyPoseDrive(rig: FighterRigRegistration, fighter: FighterRuntime): void {
     const falling = ['airborne', 'downed', 'defeated'].includes(fighter.state);
     const strength = fighter.state === 'defeated' ? .025 : falling ? .16 : fighter.state === 'staggered' ? .42 : .82;
     const fatigue = 1 - fighter.body.muscle;
+    const pose = targetPoseFor(fighter); const targets = physicalPoseTargets(pose, fighter.facing);
     for (const [segment, body] of Object.entries(rig.bodies) as [BodySegmentId, RapierRigidBody][]) {
-      if (segment === 'pelvis') continue;
-      const torque = computeMotorTorque(body.rotation(), { x: 0, y: 0, z: 0, w: 1 }, body.angvel(), { x: 0, y: 0, z: 0 }, {
-        stiffness: segment === 'head' ? 7 : 11,
-        damping: segment === 'head' ? 1.8 : 2.5,
-        maxTorque: segment.includes('Hand') || segment.includes('Foot') ? .18 : .42,
+      const torque = computeMotorTorque(body.rotation(), targets[segment], body.angvel(), { x: 0, y: 0, z: 0 }, {
+        stiffness: segment === 'pelvis' ? 16 : segment === 'head' ? 7 : 11,
+        damping: segment === 'pelvis' ? 3.4 : segment === 'head' ? 1.8 : 2.5,
+        maxTorque: segment === 'pelvis' ? 1.2 : segment === 'chest' || segment === 'abdomen' ? .72 : segment.includes('Hand') || segment.includes('Foot') ? .18 : .42,
         strength,
         fatigue,
       });
@@ -206,7 +317,9 @@ export class BodyWorksRuntime {
   }
 
   reset(): void {
+    if (this.world) this.releaseAllGrips(this.world);
     this.generation += 1; this.rigs.clear(); this.commands.length = 0; this.contacts.length = 0; this.replay.clear();
+    this.pendingLandings.clear(); this.world = null;
     this.intents.player = EMPTY_INTENT(); this.intents.opponent = EMPTY_INTENT();
     this.metrics.fixedSteps = 0; this.metrics.bodyCount = 0; this.metrics.jointCount = 0; this.metrics.gripCount = 0; this.metrics.contactCount = 0; this.metrics.lastStepMs = 0; this.metrics.maximumStepMs = 0;
   }
@@ -215,5 +328,55 @@ export class BodyWorksRuntime {
 }
 
 const fighterBySpeed = (fighter: FighterRuntime): number => fighter.definitionId === 'vex' ? 97 : fighter.definitionId === 'nova' ? 77 : fighter.definitionId === 'brick' ? 76 : fighter.definitionId === 'chad' ? 67 : 48;
+const fighterPower = (fighter: FighterRuntime): number => fighter.definitionId === 'atlas' ? .96 : fighter.definitionId === 'chad' ? .88 : fighter.definitionId === 'brick' ? .82 : fighter.definitionId === 'nova' ? .7 : .64;
+const gripCapacity = (fighter: FighterRuntime): number => fighter.body.muscle * (fighter.definitionId === 'nova' ? .98 : fighter.definitionId === 'chad' ? .97 : fighter.definitionId === 'atlas' ? .91 : fighter.definitionId === 'brick' ? .84 : .7);
+const liftDriveForMove = (moveId: string): number => ['powerbomb', 'mountain_drop', 'skyhook', 'finisher'].includes(moveId) ? 1.2 : ['slam', 'suplex', 'spinebuster'].includes(moveId) ? 1 : .7;
+const gripPreferences = (moveId: string): readonly [BodySegmentId, BodySegmentId, number][] => {
+  if (moveId === 'suplex' || moveId === 'skyhook') return [['leftHand', 'pelvis', -.14], ['rightHand', 'pelvis', .14]];
+  if (moveId === 'clutch') return [['leftHand', 'chest', -.16], ['rightHand', 'head', .08]];
+  if (moveId === 'whip' || moveId === 'arm_drag') return [['leftHand', 'rightForearm', -.06], ['rightHand', 'rightUpperArm', .06]];
+  return [['leftHand', 'chest', -.17], ['rightHand', 'pelvis', .16]];
+};
+
+const quaternionMultiply = (a: QuaternionValue, b: QuaternionValue): QuaternionValue => ({
+  x: a.w * b.x + a.x * b.w + a.y * b.z - a.z * b.y,
+  y: a.w * b.y - a.x * b.z + a.y * b.w + a.z * b.x,
+  z: a.w * b.z + a.x * b.y - a.y * b.x + a.z * b.w,
+  w: a.w * b.w - a.x * b.x - a.y * b.y - a.z * b.z,
+});
+
+const quaternionFromEuler = ([x, y, z]: readonly [number, number, number]): QuaternionValue => {
+  const cx = Math.cos(x / 2); const sx = Math.sin(x / 2); const cy = Math.cos(y / 2); const sy = Math.sin(y / 2); const cz = Math.cos(z / 2); const sz = Math.sin(z / 2);
+  return { x: sx * cy * cz + cx * sy * sz, y: cx * sy * cz - sx * cy * sz, z: cx * cy * sz + sx * sy * cz, w: cx * cy * cz - sx * sy * sz };
+};
+
+const withYaw = (yaw: QuaternionValue, euler: readonly [number, number, number]): QuaternionValue => quaternionMultiply(yaw, quaternionFromEuler(euler));
+
+const targetPoseFor = (fighter: FighterRuntime): Pose => {
+  if (fighter.moveId) {
+    const move = getMove(fighter.moveId);
+    return getPairedPose(move, 'actor', fighter.attackPhase, fighter.phaseElapsed, fighter.definitionId) ?? getStrikePose(move, fighter.attackPhase, fighter.phaseElapsed) ?? POSES[move.animationKey];
+  }
+  if (fighter.state === 'blocking') return POSES.block;
+  if (fighter.state === 'jumping' || fighter.state === 'airborne') return POSES.aerial;
+  if (fighter.state === 'staggered') return POSES.stagger;
+  if (fighter.state === 'downed' || fighter.state === 'defeated') return POSES.downed;
+  if (fighter.state === 'recovering') return POSES.recovery;
+  if (fighter.state === 'victorious') return POSES.victory;
+  return fighter.state === 'locomotion' ? (Math.hypot(fighter.velocity.x, fighter.velocity.z) > 3.8 ? POSES.run : POSES.walk) : POSES.combatIdle;
+};
+
+const physicalPoseTargets = (pose: Pose, facing: number): Record<BodySegmentId, QuaternionValue> => {
+  const yaw = quaternionFromEuler([pose.rootTilt, facing + pose.rootYaw, pose.rootRoll]);
+  const chest = withYaw(yaw, pose.torso); const leftUpperArm = quaternionMultiply(chest, quaternionFromEuler(pose.leftArm)); const rightUpperArm = quaternionMultiply(chest, quaternionFromEuler(pose.rightArm));
+  const leftForearm = quaternionMultiply(leftUpperArm, quaternionFromEuler(pose.leftForearm)); const rightForearm = quaternionMultiply(rightUpperArm, quaternionFromEuler(pose.rightForearm));
+  const leftThigh = withYaw(yaw, pose.leftLeg); const rightThigh = withYaw(yaw, pose.rightLeg); const leftShin = quaternionMultiply(leftThigh, quaternionFromEuler(pose.leftShin)); const rightShin = quaternionMultiply(rightThigh, quaternionFromEuler(pose.rightShin));
+  const abdomenOffset: Vector3Value = { x: pose.torso[0] * .45, y: pose.torso[1] * .45, z: pose.torso[2] * .45 };
+  return {
+    pelvis: yaw, abdomen: withYaw(yaw, [abdomenOffset.x, abdomenOffset.y, abdomenOffset.z]), chest, head: yaw,
+    leftUpperArm, rightUpperArm, leftForearm, rightForearm, leftHand: leftForearm, rightHand: rightForearm,
+    leftThigh, rightThigh, leftShin, rightShin, leftFoot: leftShin, rightFoot: rightShin,
+  };
+};
 
 export const bodyWorksRuntime = new BodyWorksRuntime();

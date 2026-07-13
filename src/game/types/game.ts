@@ -185,6 +185,8 @@ export interface GrappleRuntime {
   lift: number;
   struggle: number;
   age: number;
+  gripCount: number;
+  phase: 'reach' | 'acquire' | 'clinch' | 'load' | 'lift' | 'release' | 'impact' | 'failed';
 }
 
 export interface ReplayFighterFrame {

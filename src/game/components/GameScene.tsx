@@ -21,14 +21,14 @@ function Simulation({ onPause, onDevice, onFinished }: Props) {
   const pause = useCallback(onPause, [onPause]); const input = useGameInput(pause); const lastImpactId = useRef(0); const finishNotified = useRef(false); const { camera } = useThree();
   useEffect(() => onDevice(input.device), [input.device, onDevice]);
   useEffect(() => { useMatchStore.getState().setPhysicsAuthority(true); return () => useMatchStore.getState().setPhysicsAuthority(false); }, []);
-  useBeforePhysicsStep(() => {
+  useBeforePhysicsStep((world) => {
     const raw = input.read(); const model = useMatchStore.getState().model;
     const middleX = (model.player.position.x + model.opponent.position.x) / 2; const middleZ = (model.player.position.z + model.opponent.position.z) / 2;
     const forwardX = middleX - camera.position.x; const forwardZ = middleZ - camera.position.z; const magnitude = Math.max(.001, Math.hypot(forwardX, forwardZ));
     const forward = { x: forwardX / magnitude, z: forwardZ / magnitude }; const right = { x: -forward.z, z: forward.x };
     raw.move = { x: right.x * raw.move.x - forward.x * raw.move.z, z: right.z * raw.move.x - forward.z * raw.move.z };
     useMatchStore.getState().advance(1 / 60, raw);
-    bodyWorksRuntime.beforeFixedStep(1 / 60, useMatchStore.getState().model);
+    bodyWorksRuntime.beforeFixedStep(1 / 60, useMatchStore.getState().model, world);
   });
   useAfterPhysicsStep(() => {
     bodyWorksRuntime.afterFixedStep(useMatchStore.getState().model);

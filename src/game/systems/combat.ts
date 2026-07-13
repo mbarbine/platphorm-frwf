@@ -340,7 +340,7 @@ export const requestCommand = (model: MatchModel, actorKey: 'player' | 'opponent
     if (actor.momentum >= 100 && ['staggered', 'downed'].includes(target.state)) {
       const started = startMove(actor, target, getMove('finisher'));
       if (started) {
-        target.state = 'grabbed'; target.stateElapsed = 0; target.velocity = scale(target.velocity, .25);
+        target.state = model.physicsAuthority ? 'staggered' : 'grabbed'; target.stateElapsed = 0; target.velocity = scale(target.velocity, .25);
         target.moveId = null; target.attackPhase = null;
         model.grapple = createGrappleRuntime(actorKey, targetKey, 'finisher');
       }
@@ -387,7 +387,7 @@ export const requestCommand = (model: MatchModel, actorKey: 'player' | 'opponent
   const moveId = selectDirectionalGrapple(direction, 'grapple');
   const started = startMove(actor, target, getMove(moveId));
   if (started) {
-    actor.comboStep += 1; target.state = 'grabbed'; target.stateElapsed = 0; target.velocity = scale(target.velocity, .3);
+    actor.comboStep += 1; target.state = model.physicsAuthority ? 'staggered' : 'grabbed'; target.stateElapsed = 0; target.velocity = scale(target.velocity, .3);
     target.moveId = null; target.attackPhase = null;
     model.grapple = createGrappleRuntime(actorKey, targetKey, moveId);
     model.announcement = `GRAPPLE LOCK — ${getMove(moveId).displayName.toUpperCase()}`; model.announcementTimer = .65;
@@ -511,7 +511,8 @@ const updateFighter = (model: MatchModel, actorKey: 'player' | 'opponent', dt: n
 
   if (actor.moveId) {
     const move = getMove(actor.moveId);
-    actor.phaseElapsed += dt;
+    const waitingForPhysicalGrip = model.physicsAuthority && (move.category === 'grapple' || move.category === 'finisher') && model.grapple?.attacker === actorKey && model.grapple.gripCount < 2;
+    actor.phaseElapsed = waitingForPhysicalGrip ? Math.min(actor.phaseElapsed + dt, move.anticipationDuration * .46) : actor.phaseElapsed + dt;
     actor.attackPhase = getAttackPhase(move, actor.phaseElapsed);
     if (move.category === 'aerial' && actor.phaseElapsed > move.anticipationDuration * .22) {
       const chase = normalize({ x: target.position.x - actor.position.x, z: target.position.z - actor.position.z });
@@ -629,7 +630,7 @@ export const advanceMatch = (model: MatchModel, dt: number, playerInput: FrameIn
     const delta = { x: model.player.position.x - model.opponent.position.x, z: model.player.position.z - model.opponent.position.z };
     if (distance(model.player.position, model.opponent.position) > 1.8) aiMove = normalize(delta);
   }
-  const grappleStep = stepGrappleDynamics(model, step, playerInput.move, aiMove);
+  const grappleStep = model.physicsAuthority ? { broken: false, liftEnergy: 0 } : stepGrappleDynamics(model, step, playerInput.move, aiMove);
   if (grappleStep.broken) {
     releaseGrapple(model, 'staggered');
     model.announcement = 'GRIP BROKEN — SCRAMBLE!'; model.announcementTimer = .9;
