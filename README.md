@@ -2,7 +2,7 @@
 
 An original, local-first 3D arcade wrestling game built with React, TypeScript, Vite, Three.js, React Three Fiber, Rapier, Zustand, and Vitest.
 
-Five original fighters collide in **The Volt Dome** across two-to-four-minute matches. Combat rules are deterministic and phase-based, while a 16-body articulated Rapier rig per fighter owns locomotion, hand contact, two-hand grips, lift weight, knockback, and mat landings.
+Five original fighters collide in **The Volt Dome** across two-to-four-minute matches. Combat rules are deterministic and phase-based. A 16-body articulated Rapier contact rig per fighter owns locomotion, hand contact, two-hand grips, lift weight, knockback, and mat landings, while a richer hierarchical wrestler model mirrors that authoritative state to keep the player-facing silhouette stable and expressive.
 
 ## Run locally
 
@@ -141,7 +141,7 @@ The Vite development server also surfaces browser console errors in its terminal
 
 ## Vercel deployment
 
-`vercel.json` declares the Vite framework, SPA fallback, clean URLs, and security headers. Static public discovery includes health, OpenAPI, LLM, sitemap, feed, manifest, security, trust, agent, and honest unsupported-MCP declarations.
+`vercel.json` declares the Vite framework, clean URLs, build output, XR policy, and security headers. Static public discovery includes health, OpenAPI, LLM, sitemap, feed, manifest, security, trust, agent, and honest unsupported-MCP declarations.
 
 ```bash
 vercel link --yes --project platphorm-frwf

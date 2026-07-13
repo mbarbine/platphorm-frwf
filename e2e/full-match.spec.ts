@@ -34,21 +34,28 @@ test('fighter select through guarded combat, result, and rematch', async ({ page
   const rematch = page.getByRole('button', { name: 'INSTANT REMATCH' }); const replay = page.getByRole('button', { name: 'SKIP REPLAY' });
   const movement = ['w', 'a', 's', 'd'] as const; type MovementKey = (typeof movement)[number];
   let movementIndex = 0; let exchange = 0; let bestMovement: MovementKey | null = null;
-  const separation = async (): Promise<number> => Math.hypot(
-    Number(await hud.getAttribute('data-player-x')) - Number(await hud.getAttribute('data-opponent-x')),
-    Number(await hud.getAttribute('data-player-z')) - Number(await hud.getAttribute('data-opponent-z')),
-  );
+  const hudAttribute = (name: string): Promise<string | null> => hud.getAttribute(name, { timeout: 300 }).catch(() => null);
+  const separation = async (): Promise<number> => {
+    const [playerX, opponentX, playerZ, opponentZ] = await Promise.all([
+      hudAttribute('data-player-x'), hudAttribute('data-opponent-x'), hudAttribute('data-player-z'), hudAttribute('data-opponent-z'),
+    ]);
+    if ([playerX, opponentX, playerZ, opponentZ].some((value) => value === null)) return Number.POSITIVE_INFINITY;
+    return Math.hypot(Number(playerX) - Number(opponentX), Number(playerZ) - Number(opponentZ));
+  };
   const deadline = Date.now() + 330_000;
   while (Date.now() < deadline && !(await rematch.isVisible())) {
     if (await replay.isVisible()) { await replay.click({ force: true, timeout: 750 }).catch(() => undefined); await page.waitForTimeout(180); continue; }
     if (!(await hud.isVisible())) { await page.waitForTimeout(180); continue; }
-    const state = await hud.getAttribute('data-player-state'); const opponentState = await hud.getAttribute('data-opponent-state');
+    const state = await hudAttribute('data-player-state'); const opponentState = await hudAttribute('data-opponent-state');
+    if (state === null || opponentState === null) { await page.waitForTimeout(100); continue; }
     if (state === 'downed') { await page.keyboard.press('Space'); await page.waitForTimeout(260); continue; }
     if (state === 'grappling') {
       await page.keyboard.down('w'); await page.keyboard.press('k'); await page.keyboard.up('w'); await page.waitForTimeout(1_250); continue;
     }
     if (!/idle|locomotion/.test(state ?? '')) { await page.waitForTimeout(180); continue; }
-    const gap = await separation(); const stamina = Number(await hud.getAttribute('data-player-stamina'));
+    const gap = await separation();
+    if (!Number.isFinite(gap)) { await page.waitForTimeout(100); continue; }
+    const stamina = Number(await hudAttribute('data-player-stamina'));
     if (gap > 1.62) {
       const key: MovementKey = bestMovement ?? movement[movementIndex] ?? 'w'; const before = gap;
       await page.keyboard.down('Shift'); await page.keyboard.down(key); await page.waitForTimeout(360); await page.keyboard.up(key); await page.keyboard.up('Shift');
@@ -58,7 +65,7 @@ test('fighter select through guarded combat, result, and rematch', async ({ page
       continue;
     }
     if (opponentState === 'downed') await page.keyboard.press('f');
-    else if (/staggered|downed/.test(opponentState ?? '') && Number(await hud.locator('[data-player-momentum]').getAttribute('data-player-momentum')) >= 99) await page.keyboard.press('f');
+    else if (/staggered|downed/.test(opponentState ?? '') && Number(await hud.locator('[data-player-momentum]').getAttribute('data-player-momentum', { timeout: 300 }).catch(() => '0')) >= 99) await page.keyboard.press('f');
     else if (stamina >= 20 && exchange % 3 === 0) await page.keyboard.press('l');
     else await page.keyboard.press(stamina >= 15 && exchange % 3 === 1 ? 'k' : 'j');
     exchange += 1; await page.waitForTimeout(320);
