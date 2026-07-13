@@ -85,14 +85,33 @@ export const applyMoveHit = (model: MatchModel, actorKey: 'player' | 'opponent',
 
   const targetDefinition = fighterById(target.definitionId);
   const actorDefinition = fighterById(actor.definitionId);
-  const scaledDamage = move.damage * .48 * (.78 + actorDefinition.stats.power / 250) * (1.08 - targetDefinition.stats.stamina / 900);
+  const scaledDamage = move.damage * BALANCE.damageScale * (.78 + actorDefinition.stats.power / 250) * (1.08 - targetDefinition.stats.stamina / 900);
   const damage = Math.round(scaledDamage * 10) / 10;
+  if (target.state === 'blocking' && move.category !== 'grapple' && move.category !== 'finisher' && move.category !== 'utility') {
+    actor.hitTargets.push(targetKey);
+    const guardCost = Math.max(2, move.damage * BALANCE.block.strikeStaminaMultiplier);
+    target.stamina = clamp(target.stamina - guardCost, 0, target.staminaCap);
+    const chip = Math.round(damage * BALANCE.block.chipDamageMultiplier * 10) / 10;
+    target.health = clamp(target.health - chip, 0, 100);
+    const direction = normalize({ x: target.position.x - actor.position.x, z: target.position.z - actor.position.z });
+    target.velocity = scale(direction, Math.max(.2, move.knockback * .22));
+    if (target.stamina <= 0) {
+      target.state = 'staggered'; target.stateElapsed = 0;
+      model.announcement = 'GUARD BREAK!'; model.announcementTimer = 1.1;
+      model.hype = clamp(model.hype + 5, 0, 100);
+      addImpact(model, target.position, 'heavy', 1.15);
+    } else {
+      model.announcement = 'STRIKE BLOCKED'; model.announcementTimer = .55;
+      addImpact(model, target.position, 'blocked', .72);
+    }
+    return true;
+  }
   target.health = clamp(target.health - damage, 0, 100);
   actor.hitTargets.push(targetKey);
   const variety = varietyMultiplier(actor, move.id);
   const surge = model.chaosEvent?.type === 'CROWD SURGE' ? 1.6 : 1;
   actor.momentum = clamp(actor.momentum + move.momentumGain * variety * (model.ruleset === 'chaos' ? 1.2 : 1) * surge, 0, 100);
-  model.hype = clamp(model.hype + move.hypeValue * variety * .55, 0, 100);
+  model.hype = clamp(model.hype + move.hypeValue * variety * BALANCE.hypeScale, 0, 100);
   actor.recentMoves = [...actor.recentMoves.slice(-4), move.id];
   const stats = actorKey === 'player' ? model.playerStats : model.opponentStats;
   stats.damageDealt = Math.round((stats.damageDealt + damage) * 10) / 10;
@@ -150,7 +169,7 @@ export const performCounter = (model: MatchModel, defenderKey: 'player' | 'oppon
   if (!incoming.counterWindow || attacker.phaseElapsed < incoming.counterWindow[0] || attacker.phaseElapsed > incoming.counterWindow[1]) return false;
   attacker.state = 'staggered'; attacker.moveId = null; attacker.attackPhase = null; attacker.stateElapsed = 0;
   defender.state = 'attacking'; defender.moveId = 'counter'; defender.attackPhase = 'active'; defender.phaseElapsed = getMove('counter').anticipationDuration;
-  defender.stamina = clamp(defender.stamina - 10, 0, 100); defender.momentum = clamp(defender.momentum + 18, 0, 100);
+  defender.stamina = clamp(defender.stamina - 10, 0, defender.staminaCap); defender.momentum = clamp(defender.momentum + 18, 0, 100);
   const stats = defenderKey === 'player' ? model.playerStats : model.opponentStats;
   stats.counters += 1;
   model.hype = clamp(model.hype + 18, 0, 100);
