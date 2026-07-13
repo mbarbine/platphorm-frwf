@@ -18,7 +18,7 @@ const SCENARIOS: readonly LabScenario[] = [
   { id: 'jab', label: 'JAB TO HEAD', steps: tap('KeyJ'), duration: 1_200 },
   { id: 'hook', label: 'TORSO POWER', steps: tap('KeyK'), duration: 1_400 },
   { id: 'guard', label: 'BLOCK WINDOW', steps: hold('KeyI', 0, 1_250), duration: 1_700 },
-  { id: 'kick', label: 'PISTON BOOT', steps: [...hold('KeyW', 0, 260), ...tap('KeyK', 70)], duration: 1_500 },
+  { id: 'kick', label: 'DIRECTIONAL KICK', steps: [...hold('KeyW', 0, 260), ...tap('KeyK', 70)], duration: 1_500 },
   { id: 'miss', label: 'MISSED KICK', steps: [...hold('KeyS', 0, 650), ...tap('KeyK', 430)], duration: 1_600 },
   { id: 'lock', label: 'GRAPPLE ACQUIRE', steps: tap('KeyL'), duration: 2_200 },
   { id: 'slam', label: 'BODY SLAM', steps: [...tap('KeyL'), ...tap('KeyK', 260)], duration: 3_000 },

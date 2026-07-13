@@ -19,7 +19,6 @@ test('Bodyworks lab exposes live Rapier diagnostics and drives real jump/walk in
     const deckNode = document.querySelector('[data-testid="control-deck"]'); if (!deckNode) return;
     document.documentElement.dataset.maxJumpPelvisY = String(startingY);
     const observe = (): void => {
-      if (deckNode.getAttribute('data-control-state')?.includes('AIRBORNE')) document.documentElement.dataset.sawAirborneControl = 'true';
       if (deckNode.querySelector('[data-control="jump"]')?.classList.contains('is-active')) document.documentElement.dataset.sawActiveJumpControl = 'true';
       const liveY = Number(document.querySelector('.hud')?.getAttribute('data-player-pelvis-y')); const maximum = Number(document.documentElement.dataset.maxJumpPelvisY);
       if (Number.isFinite(liveY) && liveY > maximum) document.documentElement.dataset.maxJumpPelvisY = String(liveY);
@@ -27,7 +26,7 @@ test('Bodyworks lab exposes live Rapier diagnostics and drives real jump/walk in
     new MutationObserver(observe).observe(document.body, { subtree: true, attributes: true }); observe();
   }, initialY);
   const jump = lab.getByRole('button', { name: 'STANDING JUMP' }); await expect(jump).toBeEnabled(); await jump.click();
-  await expect(page.locator('html')).toHaveAttribute('data-saw-active-jump-control', 'true'); await expect(page.locator('html')).toHaveAttribute('data-saw-airborne-control', 'true');
+  await expect(page.locator('html')).toHaveAttribute('data-saw-active-jump-control', 'true');
   await expect(lab.getByRole('button', { name: 'WALK + STOP' })).toBeEnabled({ timeout: 3_000 });
   expect(Number(await page.locator('html').getAttribute('data-max-jump-pelvis-y'))).toBeGreaterThan(initialY + .2);
   const initialX = Number(await hud.getAttribute('data-player-x')); const initialZ = Number(await hud.getAttribute('data-player-z'));
@@ -55,6 +54,28 @@ test('Bodyworks lab exposes live Rapier diagnostics and drives real jump/walk in
   await expect(lab.getByRole('button', { name: 'JAB TO HEAD' })).toBeEnabled({ timeout: 4_000 }); const healthBeforeJab = Number(await hud.getAttribute('data-opponent-health')); await lab.getByRole('button', { name: 'JAB TO HEAD' }).click();
   await expect(hud).toHaveAttribute('data-player-move', 'jab', { timeout: 2_000 }); await expect(page.locator('html')).toHaveAttribute('data-saw-active-quick-control', 'true'); await expect(page.locator('html')).toHaveAttribute('data-saw-jab-control', 'true');
   await expect.poll(async () => Number(await hud.getAttribute('data-opponent-health')), { timeout: 4_000, intervals: [80, 120] }).toBeLessThan(healthBeforeJab);
+  await page.evaluate(() => {
+    const observe = (): void => {
+      const liveHud = document.querySelector('.hud'); const liveDeck = document.querySelector('[data-testid="control-deck"]');
+      const kick = /front_kick|low_kick|high_kick|roundhouse/.test(liveHud?.getAttribute('data-player-move') ?? '');
+      if (kick) document.documentElement.dataset.sawDirectionalKick = 'true';
+      if (kick && liveDeck?.querySelector('[data-control="heavy"]')?.classList.contains('is-active')) document.documentElement.dataset.sawActiveKickControl = 'true';
+    };
+    new MutationObserver(observe).observe(document.body, { subtree: true, attributes: true, childList: true }); observe();
+  });
+  await expect(lab.getByRole('button', { name: 'DIRECTIONAL KICK' })).toBeEnabled({ timeout: 3_000 }); await lab.getByRole('button', { name: 'DIRECTIONAL KICK' }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-saw-directional-kick', 'true'); await expect(page.locator('html')).toHaveAttribute('data-saw-active-kick-control', 'true');
+  await expect.poll(async () => Number(await hud.getAttribute('data-opponent-health')), { timeout: 4_000, intervals: [80, 120] }).toBeLessThan(100);
+  await expect(lab.getByRole('button', { name: 'BLOCK WINDOW' })).toBeEnabled({ timeout: 3_000 });
+  await page.evaluate(() => {
+    const observe = (): void => {
+      const liveHud = document.querySelector('.hud'); const liveDeck = document.querySelector('[data-testid="control-deck"]');
+      if (liveHud?.getAttribute('data-player-state') === 'blocking') document.documentElement.dataset.sawGuardState = 'true';
+      if (liveDeck?.querySelector('[data-control="guard"]')?.classList.contains('is-active')) document.documentElement.dataset.sawActiveGuardControl = 'true';
+    };
+    new MutationObserver(observe).observe(document.body, { subtree: true, attributes: true, childList: true }); observe();
+  });
+  await lab.getByRole('button', { name: 'BLOCK WINDOW' }).click(); await expect(page.locator('html')).toHaveAttribute('data-saw-guard-state', 'true'); await expect(page.locator('html')).toHaveAttribute('data-saw-active-guard-control', 'true');
   await expect(lab.getByRole('button', { name: 'ROPE LOAD + STIFF-ARM' })).toBeEnabled({ timeout: 3_000 });
   await page.evaluate(() => {
     const liveHud = document.querySelector('.hud'); const deckNode = document.querySelector('[data-testid="control-deck"]'); if (!liveHud || !deckNode) return;

@@ -32,7 +32,7 @@ const initialProps = (enabled: boolean): PropRuntime[] => enabled ? [
 ] : [{ id: 'table-1', kind: 'table', position: { x: 0, z: -7.2 }, durability: 1, stress: 0, failureStage: 'intact', heldBy: null, broken: false }];
 
 export const createMatch = (playerId: FighterId, opponentId: FighterId, ruleset: Ruleset, difficulty: Difficulty, seed = 1337, playerBeers = 0, opponentBeers = 0): MatchModel => ({
-  labMode: false, ruleset, difficulty, elapsed: 0, paused: false, physicsAuthority: false, resolved: false,
+  toyTestMode: false, labMode: false, ruleset, difficulty, elapsed: 0, paused: false, physicsAuthority: false, resolved: false,
   player: createFighterRuntime(playerId, { x: -2.3, z: 0 }, playerBeers), opponent: createFighterRuntime(opponentId, { x: 2.3, z: 0 }, opponentBeers),
   hype: 8, props: initialProps(ruleset === 'chaos'), chaosEvent: null, nextChaosAt: 38, lastImpact: null, impactSequence: 0,
   announcement: 'ROUND ONE — FIGHT!', announcementTimer: 2.2, hitStop: 0, slowMotion: 0, result: null,
@@ -42,7 +42,7 @@ export const createMatch = (playerId: FighterId, opponentId: FighterId, ruleset:
 
 export const resetTransientState = (model: MatchModel): MatchModel => {
   const reset = createMatch(model.player.definitionId, model.opponent.definitionId, model.ruleset, model.difficulty, model.seed + 97, model.player.beersDrunk, model.opponent.beersDrunk);
-  reset.labMode = model.labMode; return reset;
+  reset.labMode = model.labMode; reset.toyTestMode = model.toyTestMode; return reset;
 };
 
 export const getAttackPhase = (move: MoveDefinition, elapsed: number): 'anticipation' | 'active' | 'recovery' | null => {
@@ -152,18 +152,20 @@ export const applyMoveHit = (model: MatchModel, actorKey: 'player' | 'opponent',
     }
     return true;
   }
-  target.health = clamp(target.health - damage, 0, 100);
+  if (!model.toyTestMode) target.health = clamp(target.health - damage, 0, 100);
   actor.hitTargets.push(hitToken);
   const variety = varietyMultiplier(actor, move.id);
   const surge = model.chaosEvent?.type === 'CROWD SURGE' ? 1.6 : 1;
-  actor.momentum = clamp(actor.momentum + move.momentumGain * variety * (model.ruleset === 'chaos' ? 1.2 : 1) * surge, 0, 100);
-  model.hype = clamp(model.hype + move.hypeValue * variety * BALANCE.hypeScale, 0, 100);
-  actor.recentMoves = [...actor.recentMoves.slice(-4), move.id];
   const stats = actorKey === 'player' ? model.playerStats : model.opponentStats;
-  stats.damageDealt = Math.round((stats.damageDealt + damage) * 10) / 10;
-  if (move.category === 'grapple') stats.grapples += 1;
-  if (move.category === 'finisher') stats.finishers += 1;
-  if (move.category === 'prop') stats.propImpacts += 1;
+  if (!model.toyTestMode) {
+    actor.momentum = clamp(actor.momentum + move.momentumGain * variety * (model.ruleset === 'chaos' ? 1.2 : 1) * surge, 0, 100);
+    model.hype = clamp(model.hype + move.hypeValue * variety * BALANCE.hypeScale, 0, 100);
+    actor.recentMoves = [...actor.recentMoves.slice(-4), move.id];
+    stats.damageDealt = Math.round((stats.damageDealt + damage) * 10) / 10;
+    if (move.category === 'grapple') stats.grapples += 1;
+    if (move.category === 'finisher') stats.finishers += 1;
+    if (move.category === 'prop') stats.propImpacts += 1;
+  }
   if (move.category === 'prop' && (actor.heldPropId || contact?.sourceObjectId)) {
     const prop = model.props.find((candidate) => candidate.id === (actor.heldPropId ?? contact?.sourceObjectId));
     if (prop) {
@@ -229,7 +231,7 @@ export const applyMoveHit = (model: MatchModel, actorKey: 'player' | 'opponent',
     && target.health <= BALANCE.knockout.healthThreshold
     && target.stamina <= BALANCE.knockout.staminaThreshold
     && move.damage >= BALANCE.knockout.minimumMoveDamage;
-  if ((target.health <= 0 && majorImpact) || (majorImpact && exhaustionKnockout)) resolveMatch(model, actorKey, 'KNOCKOUT');
+  if (!model.toyTestMode && ((target.health <= 0 && majorImpact) || (majorImpact && exhaustionKnockout))) resolveMatch(model, actorKey, 'KNOCKOUT');
   return true;
 };
 
@@ -472,7 +474,7 @@ const summarizeHighlights = (moments: readonly HighlightMoment[]): MatchHighligh
 });
 
 const resolveMatch = (model: MatchModel, winner: 'player' | 'opponent', method: MatchResult['method']): void => {
-  if (model.resolved) return;
+  if (model.resolved || model.toyTestMode) return;
   model.resolved = true;
   model[winner].state = 'victorious';
   model[winner === 'player' ? 'opponent' : 'player'].state = 'defeated';
@@ -503,7 +505,11 @@ const updatePin = (model: MatchModel, dt: number, playerInput: FrameInput): void
     const stats = pinningKey === 'player' ? model.playerStats : model.opponentStats; stats.nearFalls += 1;
     model.hype = clamp(model.hype + 16, 0, 100); model.announcement = `${count}.9 — KICKOUT!`; model.announcementTimer = 1.6;
     addImpact(model, pinned.position, 'nearfall', 1.5);
-  } else if (count >= 3 && pinning.stateElapsed >= 2.85) resolveMatch(model, pinningKey, 'PINFALL');
+  } else if (count >= 3 && pinning.stateElapsed >= 2.85) {
+    if (model.toyTestMode) {
+      pinning.state = 'idle'; pinned.state = 'downed'; pinned.downTimer = .8; pinning.pinCount = 0; pinned.pinCount = 0; pinned.pinEscape = 0;
+    } else resolveMatch(model, pinningKey, 'PINFALL');
+  }
 };
 
 const updateFighter = (model: MatchModel, actorKey: 'player' | 'opponent', dt: number, movement: Vec2, run: boolean, blockingHeld: boolean): void => {
@@ -588,7 +594,7 @@ const updateFighter = (model: MatchModel, actorKey: 'player' | 'opponent', dt: n
     if (actor.attackPhase === 'active' && !model.physicsAuthority && move.id !== 'taunt' && move.id !== 'kick_up') applyMoveHit(model, actorKey, actorKey === 'player' ? 'opponent' : 'player', move);
     if (!actor.attackPhase) {
       const completedTurnbuckleTaunt = move.id === 'taunt' && actor.state === 'climbing';
-      if (move.id === 'taunt') {
+      if (move.id === 'taunt' && !model.toyTestMode) {
         const variety = varietyMultiplier(actor, move.id); const surge = model.chaosEvent?.type === 'CROWD SURGE' ? 1.6 : 1;
         actor.momentum = clamp(actor.momentum + move.momentumGain * variety * (model.ruleset === 'chaos' ? 1.2 : 1) * surge, 0, 100);
         model.hype = clamp(model.hype + move.hypeValue * variety * BALANCE.hypeScale, 0, 100);

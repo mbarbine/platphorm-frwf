@@ -25,6 +25,14 @@ describe('deterministic combat rules', () => {
     const health = model.opponent.health; expect(applyMoveHit(model, 'player', 'opponent', getMove('jab'))).toBe(false); expect(model.opponent.health).toBe(health);
   });
 
+  it('runs the UI-free toy test without health, score, or match progression', () => {
+    const model = createMatch('atlas', 'vex', 'standard', 'normal'); model.toyTestMode = true; model.player.position = { x: 0, z: 0 }; model.opponent.position = { x: 1, z: 0 };
+    startMove(model.player, model.opponent, getMove('heavy')); model.player.attackPhase = 'active';
+    expect(applyMoveHit(model, 'player', 'opponent', getMove('heavy'))).toBe(true);
+    expect(model.opponent.health).toBe(100); expect(model.player.momentum).toBe(0); expect(model.hype).toBe(8); expect(model.playerStats.damageDealt).toBe(0); expect(model.result).toBeNull();
+    expect(['staggered', 'downed', 'airborne']).toContain(model.opponent.state);
+  });
+
   it('stamina cannot fall below zero', () => {
     const model = createMatch('atlas', 'vex', 'standard', 'normal'); model.player.stamina = 4;
     expect(requestCommand(model, 'player', 'heavy')).toBe(false); expect(model.player.stamina).toBe(4);

@@ -54,22 +54,23 @@ function Simulation({ onPause, onDevice, onFinished }: Props) {
     const listeningCamera = gl.xr.isPresenting ? gl.xr.getCamera() : camera;
     listeningCamera.getWorldPosition(listenerPosition.current); listeningCamera.getWorldDirection(listenerForward.current);
     audioEngine.setListener({ position: [listenerPosition.current.x, listenerPosition.current.y, listenerPosition.current.z], forward: [listenerForward.current.x, listenerForward.current.y, listenerForward.current.z], up: [0, 1, 0] });
-    if (model.lastImpact && model.lastImpact.id !== lastImpactId.current) { lastImpactId.current = model.lastImpact.id; audioEngine.impact(model.lastImpact, useSettings.getState()); }
+    const liveSettings = useSettings.getState(); const audioSettings = model.toyTestMode ? { ...liveSettings, crowdVolume: 0 } : liveSettings;
+    if (model.lastImpact && model.lastImpact.id !== lastImpactId.current) { lastImpactId.current = model.lastImpact.id; audioEngine.impact(model.lastImpact, audioSettings); }
     const actionAudio = `${model.player.state}:${model.player.moveId ?? ''}:${model.player.attackInstanceId}:${model.player.climbStage}`;
     if (actionAudio !== lastActionAudio.current) {
       const previous = lastActionAudio.current; lastActionAudio.current = actionAudio;
       const move = model.player.moveId ? getMove(model.player.moveId) : null;
-      if (move?.id === 'taunt') audioEngine.play('cheer', useSettings.getState());
-      else if (move?.category === 'aerial' || move?.category === 'finisher') audioEngine.playAt('finisher', useSettings.getState(), model.player.position);
-      else if (['front_kick', 'low_kick', 'high_kick', 'roundhouse'].includes(move?.id ?? '')) audioEngine.playAt('kick', useSettings.getState(), model.player.position);
-      else if (move?.category === 'grapple') audioEngine.playAt('grapple', useSettings.getState(), model.player.position);
-      else if (move?.id === 'kick_up' || model.player.state === 'jumping') audioEngine.playAt('jump', useSettings.getState(), model.player.position);
-      else if (model.player.state === 'climbing' && !previous.startsWith('climbing')) audioEngine.playAt('rope', useSettings.getState(), model.player.position);
+      if (move?.id === 'taunt' && !model.toyTestMode) audioEngine.play('cheer', audioSettings);
+      else if (move?.category === 'aerial' || move?.category === 'finisher') audioEngine.playAt('finisher', audioSettings, model.player.position);
+      else if (['front_kick', 'low_kick', 'high_kick', 'roundhouse'].includes(move?.id ?? '')) audioEngine.playAt('kick', audioSettings, model.player.position);
+      else if (move?.category === 'grapple') audioEngine.playAt('grapple', audioSettings, model.player.position);
+      else if (move?.id === 'kick_up' || model.player.state === 'jumping') audioEngine.playAt('jump', audioSettings, model.player.position);
+      else if (model.player.state === 'climbing' && !previous.startsWith('climbing')) audioEngine.playAt('rope', audioSettings, model.player.position);
     }
     footstepTimer.current = Math.max(0, footstepTimer.current - dt);
     const playerSpeed = bodyWorksRuntime.fighterSnapshot('player').speed;
     if (model.player.state === 'locomotion' && playerSpeed > .8 && footstepTimer.current <= 0) {
-      audioEngine.playAt('step', useSettings.getState(), model.player.position); footstepTimer.current = playerSpeed > 3.8 ? .24 : .39;
+      audioEngine.playAt('step', audioSettings, model.player.position); footstepTimer.current = playerSpeed > 3.8 ? .24 : .39;
     }
     if (model.resolved && !finishNotified.current) { finishNotified.current = true; finishTimer.current = window.setTimeout(onFinished, 4800); }
   });
@@ -104,6 +105,7 @@ function PlayerControlBeacon() {
 export function GameScene(props: Props) {
   const paused = useMatchStore((state) => state.model.paused);
   const replayActive = useMatchStore((state) => state.replayActive);
+  const diagnosticModel = useMatchStore((state) => state.model); const toyTestMode = diagnosticModel.toyTestMode; const playerMove = diagnosticModel.player.moveId; const playerPosition = diagnosticModel.player.position; const opponentHealth = diagnosticModel.opponent.health;
   const lab = physicsLabEnabled();
   const renderer = useRef<WebGLRenderer | null>(null); const [xrAvailable, setXrAvailable] = useState(false); const [xrPresenting, setXrPresenting] = useState(false); const [xrError, setXrError] = useState('');
   const enterXR = async (): Promise<void> => {
@@ -115,7 +117,7 @@ export function GameScene(props: Props) {
     } catch (error: unknown) { setXrError(error instanceof Error ? error.message : 'XR session could not start'); }
   };
   const exitXR = async (): Promise<void> => { await renderer.current?.xr.getSession()?.end(); };
-  return <SceneBoundary><div className="game-canvas" data-testid="game-canvas">
+  return <SceneBoundary><div className="game-canvas" data-testid="game-canvas" data-toy-test={toyTestMode ? 'true' : 'false'} data-player-move={playerMove ?? ''} data-player-x={playerPosition.x.toFixed(3)} data-player-z={playerPosition.z.toFixed(3)} data-opponent-health={opponentHealth.toFixed(1)}>
     <Canvas shadows={lab ? false : 'basic'} dpr={lab ? .5 : [.75, 1.5]} gl={{ antialias: !lab, alpha: false, powerPreference: 'high-performance' }} camera={{ position: [8, 7, 11], fov: 48, near: .1, far: 60 }} onCreated={({ gl }) => {
       renderer.current = gl; gl.xr.enabled = true;
       if (navigator.xr) void navigator.xr.isSessionSupported('immersive-vr').then(setXrAvailable).catch(() => setXrAvailable(false));
