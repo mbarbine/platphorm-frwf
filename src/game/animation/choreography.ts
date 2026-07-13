@@ -57,7 +57,7 @@ const lockVictim = pose({
 const matVictim = pose({
   torso: [-.35, 0, .12], leftArm: [.55, 0, -.55], rightArm: [.8, 0, .55],
   leftForearm: [-.35, 0, 0], rightForearm: [-.5, 0, 0], leftLeg: [-.55, 0, -.12], rightLeg: [.42, 0, .12],
-  leftShin: [-.52, 0, 0], rightShin: [-.8, 0, 0], rootY: -1.08, rootTilt: -1.5,
+  leftShin: [-.52, 0, 0], rightShin: [-.8, 0, 0], rootY: -.62, rootTilt: -1.5,
 });
 
 const SLAM_ACTOR: readonly PoseKeyframe[] = [

@@ -69,7 +69,7 @@ export function FighterModel({ runtime, counterpart, fighterId, preview = false,
     apply(leftForearm.current, animatedPose.leftForearm); apply(rightForearm.current, animatedPose.rightForearm);
     apply(leftLeg.current, animatedPose.leftLeg); apply(rightLeg.current, animatedPose.rightLeg); apply(leftShin.current, animatedPose.leftShin); apply(rightShin.current, animatedPose.rightShin);
     if (runtime) {
-      root.current.parent?.position.set(runtime.position.x, 2.05, runtime.position.z);
+      root.current.parent?.position.set(runtime.position.x, 3.51 - .83 * height, runtime.position.z);
       if (root.current.parent) root.current.parent.rotation.y = runtime.facing;
     } else root.current.rotation.y = Math.sin(t * .45) * .16;
     if (runtime && runtime.health < previousHealth.current && flash.current) {

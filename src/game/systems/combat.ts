@@ -391,7 +391,7 @@ const updateFighter = (model: MatchModel, actorKey: 'player' | 'opponent', dt: n
   if (actor.state === 'downed') {
     actor.downTimer -= dt; actor.stamina = clamp(actor.stamina + dt * 10, 0, actor.staminaCap);
     if (actor.downTimer <= 0) { actor.state = 'recovering'; actor.stateElapsed = 0; }
-  } else if (actor.state === 'recovering' && actor.stateElapsed > .7) { actor.state = 'idle'; actor.stateElapsed = 0; }
+  } else if (actor.state === 'recovering' && actor.stateElapsed > .7) { actor.state = 'idle'; actor.stateElapsed = 0; actor.finisherPrimed = false; }
   else if (actor.state === 'staggered' && actor.stateElapsed > .42 + (100 - actor.health) / 240) { actor.state = 'idle'; actor.stateElapsed = 0; }
 
   if (blockingHeld && ['idle', 'locomotion', 'blocking'].includes(actor.state) && actor.stamina > 0) {

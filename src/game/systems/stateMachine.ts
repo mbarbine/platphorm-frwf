@@ -10,7 +10,7 @@ const LEGAL_TRANSITIONS: Readonly<Record<FighterState, readonly FighterState[]>>
   grabbed: ['airborne', 'staggered', 'downed', 'idle', 'defeated'],
   airborne: ['downed', 'staggered', 'idle', 'defeated'],
   staggered: ['idle', 'attacking', 'grappling', 'downed', 'grabbed', 'pinned', 'defeated'],
-  downed: ['recovering', 'pinned', 'defeated'],
+  downed: ['recovering', 'grabbed', 'pinned', 'defeated'],
   recovering: ['idle', 'downed', 'staggered', 'defeated'],
   pinning: ['idle', 'victorious', 'defeated'],
   pinned: ['downed', 'recovering', 'defeated'],

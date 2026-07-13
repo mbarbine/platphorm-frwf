@@ -236,7 +236,7 @@ describe('deterministic combat rules', () => {
   });
 
   it('keeps guard and climb transitions explicit and safe', () => {
-    expect(canTransition('idle', 'blocking')).toBe(true); expect(canTransition('locomotion', 'climbing')).toBe(true);
+    expect(canTransition('idle', 'blocking')).toBe(true); expect(canTransition('locomotion', 'climbing')).toBe(true); expect(canTransition('downed', 'grabbed')).toBe(true);
     expect(canTransition('pinned', 'attacking')).toBe(false); expect(canTransition('victorious', 'climbing')).toBe(false);
   });
 

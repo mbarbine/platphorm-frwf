@@ -62,7 +62,9 @@ function Props() {
   const opponent = useMatchStore((state) => state.model.opponent);
   return <>{props.filter((prop) => !prop.broken).map((prop) => {
     const owner = prop.heldBy === 'player' ? player : prop.heldBy === 'opponent' ? opponent : null;
-    const position: [number, number, number] = owner ? [owner.position.x + .5, 2.4, owner.position.z] : [prop.position.x, prop.kind === 'table' ? .72 : .55, prop.position.z];
+    const position: [number, number, number] = owner
+      ? [owner.position.x + Math.sin(owner.facing) * .65 + Math.cos(owner.facing) * .32, 3.25, owner.position.z + Math.cos(owner.facing) * .65 - Math.sin(owner.facing) * .32]
+      : [prop.position.x, prop.kind === 'table' ? .72 : .55, prop.position.z];
     if (prop.kind === 'table') return <RigidBody key={prop.id} type="fixed" position={position} colliders={false}><CuboidCollider args={[1.7, .55, .65]} /><group>
       <mesh castShadow><boxGeometry args={[3.4, .2, 1.3]} /><meshStandardMaterial color="#2a3140" metalness={.6} roughness={.3} /></mesh>
       {[-1.35, 1.35].flatMap((x) => [-.45, .45].map((z) => <mesh key={`${x}-${z}`} position={[x, -.58, z]}><boxGeometry args={[.12, 1.1, .12]} /><meshStandardMaterial color="#11141b" /></mesh>))}

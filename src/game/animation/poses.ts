@@ -41,7 +41,7 @@ export const POSES: Readonly<Record<AnimationKey, Pose>> = {
   throw: { ...base, torso: [.3, .5, 0], leftArm: [-.65, -.55, -.6], rightArm: [-.65, -.55, .6], leftForearm: [-.7, 0, 0], rightForearm: [-.7, 0, 0], rootTilt: .22, rootRoll: -.18 },
   stagger: { ...base, torso: [-.35, 0, 0], leftArm: [.7, 0, -.4], rightArm: [.45, 0, .4], leftForearm: [-.35, 0, 0], rightForearm: [-.2, 0, 0], leftLeg: [-.18, 0, 0], rightLeg: [.2, 0, 0], rootTilt: -.2 },
   knockdown: { ...base, torso: [-.7, 0, 0], leftArm: [.8, 0, -.3], rightArm: [.8, 0, .3], rootY: -.6, rootTilt: -1 },
-  downed: { ...base, rootY: -1.18, rootTilt: -1.5, leftArm: [.7, 0, -.45], rightArm: [-.25, 0, .45] },
+  downed: { ...base, rootY: -.64, rootTilt: -1.5, leftArm: [.7, 0, -.45], rightArm: [-.25, 0, .45] },
   recovery: { ...base, rootY: -.55, rootTilt: -.7, leftArm: [-.9, 0, -.35], leftForearm: [-.8, 0, 0], leftLeg: [-.5, 0, 0], rightShin: [-.8, 0, 0] },
   dodge: { ...base, torso: [.35, 0, .35], leftArm: [-.3, 0, -.5], rightArm: [-.3, 0, .5], rootTilt: .25 },
   counter: { ...base, torso: [0, .2, 0], leftArm: [-.75, 0, -.6], rightArm: [-1.15, .2, .25], rightLeg: [-.55, 0, 0] },
@@ -52,6 +52,6 @@ export const POSES: Readonly<Record<AnimationKey, Pose>> = {
   pin: { ...base, torso: [1.05, 0, 0], leftArm: [-.65, 0, -.3], leftForearm: [-1.15, 0, 0], rightLeg: [.65, 0, 0], rightShin: [-1.25, 0, 0], rootY: -.6, rootTilt: .65 },
   kickout: { ...base, leftArm: [-2.1, 0, -.6], rightArm: [-2.1, 0, .6], rootY: -.8, rootTilt: -1.2 },
   victory: { ...base, leftArm: [-2.75, 0, -.25], rightArm: [-2.75, 0, .25], rootY: .12 },
-  defeat: { ...base, rootY: -1.15, rootTilt: -1.52, leftArm: [.4, 0, -.3], rightArm: [-.5, 0, .3] },
+  defeat: { ...base, rootY: -.64, rootTilt: -1.52, leftArm: [.4, 0, -.3], rightArm: [-.5, 0, .3] },
   finisher: { ...base, torso: [.4, .25, 0], leftArm: [-1.8, -.25, -.5], rightArm: [-1.8, .25, .5], rootY: .35, rootTilt: .25 },
 };

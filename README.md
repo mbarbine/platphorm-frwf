@@ -43,6 +43,12 @@ npm run preview
 
 Movement is camera-relative. L enters a visible collar-and-elbow lock; during its anticipation window, a direction plus J/K/L selects one of fifteen directional outcomes including arm drags, trips, chokes, spinebusters, suplexes, powerbombs, side tosses, slams, and an Irish whip. Hold I/LT to guard: strikes deal tiny chip damage and drain guard stamina, while a grapple can be stuffed until the guard breaks. Running K becomes a stiff-arm. Run into the ropes to rebound; powerful throws can produce a deliberate ring-out. Press F at the ropes to deliberately step ringside or return. At a turnbuckle, F climbs first and F again launches a Domefall Dive at a vulnerable rival. Fill Momentum, stagger or drop the opponent, and press F to perform that fighter's signature.
 
+### Cinematic wrestling engine
+
+Strikes and throws use authored phase keyframes rather than one animation pose for an entire move. Jabs retract, make contact, and recover; hooks rotate through the hips and shoulders; struck fighters snap, stagger, or leave their feet according to impact weight. Elbows and knees are independently articulated, boots stay planted on the mat, and damage triggers a short body flash plus a capped contact burst.
+
+Grapples are paired two-fighter sequences. The attacker owns the victim through a visible lock, load, lift, contact, and safe release. Powerbombs, front slams, suplexes, chokes, spinebusters, arm drags, side tosses, trips, and Irish whips have distinct victim orientation and attacker leverage. Major landings add restrained slow motion, hit-stop, a mat shock ring, a layered synthesized thump, crowd response, and a higher/wider broadcast camera cut. AI commits to its selected throw instead of changing moves during the lock.
+
 Every fighter receives five optional pre-match beers. Drinking one adds five points to that match's stamina cap; unopened cans stay on the bench. Chad “The Claw” Kinsey deliberately has the roster's lowest base stamina, so choosing how much to drink is a meaningful part of his high-power, low-gas identity. Rematches preserve the selected allotment.
 
 ## Match structure
@@ -107,9 +113,9 @@ Vitest covers:
 - complete finisher victory and rematch reset
 - strike and grapple guard pressure, guard breaks, and legal transitions
 - five-beer stamina caps and Chad's deliberately low gas tank
-- directional grapple selection, turnbuckle aerials, stiff-arms, and ringside traversal
+- paired grapple choreography, phase interpolation, articulated strike contact/reactions, directional grapple selection, turnbuckle aerials, stiff-arms, and ringside traversal
 
-Playwright runs one production-preview journey covering initialization, Chad selection, five-beer setup, Chaos Circuit selection, held guard, live combat through a real pin/KO result, clean console output, and instant rematch:
+Playwright runs one production-preview journey covering initialization, Chad selection, five-beer setup, Chaos Circuit selection, held guard, an observed grapple lock and active grapple impact, live combat through a real pin/KO result, clean console output, and instant rematch:
 
 ```bash
 npm run test:e2e
