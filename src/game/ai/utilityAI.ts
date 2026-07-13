@@ -14,7 +14,8 @@ export const isActionLegal = (model: MatchModel, command: GameCommand, actorKey:
   if (command === 'interact') return model.ruleset === 'chaos' && ['idle', 'locomotion'].includes(actor.state);
   if (command === 'context') {
     if (actor.momentum >= 100) return targetDistance <= getMove('finisher').maximumRange && ['staggered', 'downed'].includes(target.state);
-    return target.state === 'downed' && targetDistance <= 1.6;
+    const pinEligible = actorKey === 'player' || target.health <= 52 || target.finisherPrimed;
+    return pinEligible && target.state === 'downed' && targetDistance <= 1.6;
   }
   const move = command === 'quick' ? MOVES.jab : command === 'heavy' ? MOVES.heavy : MOVES.slam;
   if (!move) return false;

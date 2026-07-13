@@ -42,7 +42,7 @@ function Fighters() {
 
 export function GameScene(props: Props) {
   return <SceneBoundary><div className="game-canvas" data-testid="game-canvas">
-    <Canvas shadows dpr={[.75, 1.5]} gl={{ antialias: true, alpha: false, powerPreference: 'high-performance' }} camera={{ position: [8, 7, 11], fov: 48, near: .1, far: 60 }}>
+    <Canvas shadows="basic" dpr={[.75, 1.5]} gl={{ antialias: true, alpha: false, powerPreference: 'high-performance' }} camera={{ position: [8, 7, 11], fov: 48, near: .1, far: 60 }}>
       <Suspense fallback={null}><Physics gravity={[0, -18, 0]} timeStep="vary"><Arena /><Fighters /><ImpactEffects /></Physics><CameraRig /><Simulation {...props} /><AdaptiveDpr pixelated /><BakeShadows /></Suspense>
     </Canvas>
   </div></SceneBoundary>;
