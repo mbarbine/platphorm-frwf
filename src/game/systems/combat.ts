@@ -6,6 +6,7 @@ import { applyLocalizedImpact, calculateImpact, createBodyDynamics, integrateLoc
 import { createGrappleRuntime, releaseGrapple, retargetGrapple, stepGrappleDynamics } from '../physics/grappleDynamics';
 import { clamp, distance, normalize, scale, seededRandom } from '../utils/math';
 import type { Difficulty, FighterId, FighterRuntime, GameCommand, HighlightMoment, ImpactEvent, MatchHighlights, MatchModel, MatchResult, MatchStats, MoveDefinition, PropRuntime, ReplayFighterFrame, Ruleset, Vec2 } from '../types/game';
+import type { BodyWorksContact } from '../physics/physicsRuntime';
 
 export interface FrameInput { move: Vec2; run: boolean; block: boolean; commands: readonly GameCommand[] }
 const EMPTY_STATS = (): MatchStats => ({ damageDealt: 0, counters: 0, grapples: 0, finishers: 0, nearFalls: 0, propImpacts: 0 });
@@ -17,7 +18,7 @@ export const createFighterRuntime = (definitionId: FighterId, position: Vec2, be
   const staminaCap = Math.round((BALANCE.stamina.baseCap + definition.stats.stamina * BALANCE.stamina.statScale + beers * BALANCE.stamina.beerCapBoost) * 10) / 10;
   return ({
   definitionId, position, velocity: { x: 0, z: 0 }, facing: 0, health: 100, stamina: staminaCap, staminaCap, beersDrunk: beers, momentum: 0,
-  state: 'idle', moveId: null, attackPhase: null, phaseElapsed: 0, stateElapsed: 0, hitTargets: [], downTimer: 0,
+  state: 'idle', moveId: null, attackPhase: null, phaseElapsed: 0, stateElapsed: 0, hitTargets: [], attackInstanceId: 0, downTimer: 0,
   counterWindow: 0, invulnerability: 0, pinCount: 0, pinEscape: 0, heldPropId: null, comboStep: 0, recentMoves: [],
   lastActionAt: 0, ropeRebound: 0, finisherPrimed: false,
   body: createBodyDynamics(definition),
@@ -31,7 +32,7 @@ const initialProps = (enabled: boolean): PropRuntime[] => enabled ? [
 ] : [{ id: 'table-1', kind: 'table', position: { x: 0, z: -7.2 }, durability: 1, heldBy: null, broken: false }];
 
 export const createMatch = (playerId: FighterId, opponentId: FighterId, ruleset: Ruleset, difficulty: Difficulty, seed = 1337, playerBeers = 0, opponentBeers = 0): MatchModel => ({
-  ruleset, difficulty, elapsed: 0, paused: false, resolved: false,
+  ruleset, difficulty, elapsed: 0, paused: false, physicsAuthority: false, resolved: false,
   player: createFighterRuntime(playerId, { x: -2.3, z: 0 }, playerBeers), opponent: createFighterRuntime(opponentId, { x: 2.3, z: 0 }, opponentBeers),
   hype: 8, props: initialProps(ruleset === 'chaos'), chaosEvent: null, nextChaosAt: 38, lastImpact: null, impactSequence: 0,
   announcement: 'ROUND ONE — FIGHT!', announcementTimer: 2.2, hitStop: 0, slowMotion: 0, result: null,
@@ -65,6 +66,7 @@ export const startMove = (actor: FighterRuntime, target: FighterRuntime, move: M
   actor.phaseElapsed = 0;
   actor.stateElapsed = 0;
   actor.hitTargets = [];
+  actor.attackInstanceId += 1;
   actor.stamina = clamp(actor.stamina - move.staminaCost, 0, actor.staminaCap);
   actor.finisherPrimed = move.category === 'finisher';
   if (move.category === 'finisher') actor.momentum = 0;
@@ -106,19 +108,29 @@ const varietyMultiplier = (actor: FighterRuntime, moveId: string): number => {
   return repeats === 0 ? 1 : repeats === 1 ? .55 : .12;
 };
 
-export const applyMoveHit = (model: MatchModel, actorKey: 'player' | 'opponent', targetKey: 'player' | 'opponent', move: MoveDefinition): boolean => {
+export const applyMoveHit = (model: MatchModel, actorKey: 'player' | 'opponent', targetKey: 'player' | 'opponent', move: MoveDefinition, contact?: BodyWorksContact): boolean => {
   const actor = model[actorKey];
   const target = model[targetKey];
-  if (actor.attackPhase !== 'active' || (!move.multiHit && actor.hitTargets.includes(targetKey))) return false;
-  if (target.invulnerability > 0 || distance(actor.position, target.position) > move.maximumRange + .4) return false;
+  const hitToken = contact ? `${targetKey}:${actor.attackInstanceId}` : targetKey;
+  if (actor.attackPhase !== 'active' || (!move.multiHit && actor.hitTargets.includes(hitToken))) return false;
+  if (target.invulnerability > 0 || (!contact && distance(actor.position, target.position) > move.maximumRange + .4)) return false;
 
   const targetDefinition = fighterById(target.definitionId);
   const actorDefinition = fighterById(actor.definitionId);
-  const scaledDamage = move.damage * BALANCE.damageScale * (.78 + actorDefinition.stats.power / 250) * (1.08 - targetDefinition.stats.stamina / 900);
+  const contactQuality = contact ? clamp(contact.relativeSpeed * .22 + contact.maximumForce / 950, .28, 1.35) : 1;
+  const scaledDamage = move.damage * BALANCE.damageScale * (.78 + actorDefinition.stats.power / 250) * (1.08 - targetDefinition.stats.stamina / 900) * contactQuality;
   const damage = Math.round(scaledDamage * 10) / 10;
-  const calculatedImpact = calculateImpact(actor, target, move, model.impactSequence);
-  if (target.state === 'blocking' && move.category !== 'grapple' && move.category !== 'finisher' && move.category !== 'utility') {
-    actor.hitTargets.push(targetKey);
+  const baseImpact = calculateImpact(actor, target, move, model.impactSequence);
+  const planarDirection = contact ? normalize({ x: contact.forceDirection[0], z: contact.forceDirection[2] }) : baseImpact.direction;
+  const calculatedImpact = contact ? {
+    ...baseImpact, region: contact.targetRegion ?? baseImpact.region, direction: Math.hypot(planarDirection.x, planarDirection.z) > .01 ? planarDirection : baseImpact.direction,
+    force: clamp(contact.maximumForce / 115 + contact.relativeSpeed * 1.25, .4, 24),
+    torque: clamp((contact.forceDirection[0] - contact.forceDirection[2]) * contact.maximumForce / 1400, -3.2, 3.2),
+    closingSpeed: contact.relativeSpeed,
+  } : baseImpact;
+  const spatialGuard = contact ? target.state === 'blocking' && (contact.targetSegment?.includes('Forearm') === true || contact.targetSegment?.includes('Hand') === true) : target.state === 'blocking';
+  if (spatialGuard && move.category !== 'grapple' && move.category !== 'finisher' && move.category !== 'utility') {
+    actor.hitTargets.push(hitToken);
     const guardCost = Math.max(2, move.damage * BALANCE.block.strikeStaminaMultiplier);
     target.stamina = clamp(target.stamina - guardCost, 0, target.staminaCap);
     const chip = Math.round(damage * BALANCE.block.chipDamageMultiplier * 10) / 10;
@@ -137,7 +149,7 @@ export const applyMoveHit = (model: MatchModel, actorKey: 'player' | 'opponent',
     return true;
   }
   target.health = clamp(target.health - damage, 0, 100);
-  actor.hitTargets.push(targetKey);
+  actor.hitTargets.push(hitToken);
   const variety = varietyMultiplier(actor, move.id);
   const surge = model.chaosEvent?.type === 'CROWD SURGE' ? 1.6 : 1;
   actor.momentum = clamp(actor.momentum + move.momentumGain * variety * (model.ruleset === 'chaos' ? 1.2 : 1) * surge, 0, 100);
@@ -506,7 +518,7 @@ const updateFighter = (model: MatchModel, actorKey: 'player' | 'opponent', dt: n
       actor.velocity.x += chase.x * dt * 6.5;
       actor.velocity.z += chase.z * dt * 6.5;
     }
-    if (actor.attackPhase === 'active') applyMoveHit(model, actorKey, actorKey === 'player' ? 'opponent' : 'player', move);
+    if (actor.attackPhase === 'active' && !model.physicsAuthority) applyMoveHit(model, actorKey, actorKey === 'player' ? 'opponent' : 'player', move);
     if (!actor.attackPhase) {
       if (model.grapple?.attacker === actorKey) releaseGrapple(model, 'idle');
       actor.moveId = null; actor.state = 'idle'; actor.stateElapsed = 0; actor.finisherPrimed = false;
@@ -631,4 +643,20 @@ export const advanceMatch = (model: MatchModel, dt: number, playerInput: FrameIn
   const opponentThreat = model.player.moveId ? getMove(model.player.moveId) : null;
   model.opponent.counterWindow = opponentThreat?.counterWindow && model.player.attackPhase === 'anticipation' && distance(model.player.position, model.opponent.position) < opponentThreat.maximumRange + .3 && model.player.phaseElapsed >= opponentThreat.counterWindow[0] && model.player.phaseElapsed <= opponentThreat.counterWindow[1] ? .1 : 0;
   return model;
+};
+
+const expectedContactSegment = (move: MoveDefinition, segment: string): boolean => {
+  if (move.category === 'aerial' || move.id === 'ground') return segment.includes('Foot') || segment.includes('Shin') || segment.includes('chest');
+  if (move.id === 'rebound' || move.id === 'stiff_arm') return segment.includes('Hand') || segment.includes('UpperArm') || segment === 'chest';
+  if (move.category === 'quick' || move.category === 'heavy' || move.category === 'prop' || move.id === 'counter') return segment.includes('Hand');
+  return move.category === 'grapple' || move.category === 'finisher';
+};
+
+export const applyPhysicalContact = (model: MatchModel, contact: BodyWorksContact): boolean => {
+  if (!model.physicsAuthority || !contact.sourceFighter || !contact.targetFighter || contact.sourceFighter === contact.targetFighter || contact.attackInstanceId === null || !contact.sourceSegment) return false;
+  const actor = model[contact.sourceFighter];
+  if (actor.attackInstanceId !== contact.attackInstanceId || actor.attackPhase !== 'active' || !actor.moveId) return false;
+  const move = getMove(actor.moveId);
+  if (!expectedContactSegment(move, contact.sourceSegment) || contact.relativeSpeed < .28 && contact.maximumForce < 45) return false;
+  return applyMoveHit(model, contact.sourceFighter, contact.targetFighter, move, contact);
 };

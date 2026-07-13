@@ -1,7 +1,8 @@
 import { create } from 'zustand';
-import { advanceMatch, createMatch, requestCommand, resetTransientState } from '../systems/combat';
+import { advanceMatch, applyPhysicalContact, createMatch, requestCommand, resetTransientState } from '../systems/combat';
 import type { FrameInput } from '../systems/combat';
 import { bodyWorksRuntime } from '../physics/physicsRuntime';
+import type { BodyWorksContact } from '../physics/physicsRuntime';
 import type { Difficulty, FighterId, MatchModel, Ruleset } from '../types/game';
 
 interface MatchStore {
@@ -10,6 +11,8 @@ interface MatchStore {
   configure: (player: FighterId, opponent: FighterId, rules: Ruleset, difficulty: Difficulty, playerBeers?: number, opponentBeers?: number) => void;
   advance: (dt: number, input: FrameInput) => void;
   pause: (paused: boolean) => void;
+  setPhysicsAuthority: (active: boolean) => void;
+  resolvePhysicsContacts: (contacts: readonly BodyWorksContact[]) => void;
   rematch: () => void;
   debugResolve: () => void;
 }
@@ -40,6 +43,12 @@ export const useMatchStore = create<MatchStore>((set) => ({
     return state;
   }),
   pause: (paused) => set((state) => ({ model: { ...state.model, paused }, revision: state.revision + 1 })),
+  setPhysicsAuthority: (active) => set((state) => ({ model: { ...state.model, physicsAuthority: active }, revision: state.revision + 1 })),
+  resolvePhysicsContacts: (contacts) => set((state) => {
+    let changed = false;
+    for (const contact of contacts) changed = applyPhysicalContact(state.model, contact) || changed;
+    return changed ? { model: { ...state.model }, revision: state.revision + 1 } : state;
+  }),
   rematch: () => set((state) => { bodyWorksRuntime.reset(); publishAccumulator = 0; return { model: resetTransientState(state.model), revision: state.revision + 1 }; }),
   debugResolve: () => set((state) => {
     const model = state.model;

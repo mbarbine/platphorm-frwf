@@ -121,6 +121,7 @@ export interface FighterRuntime {
   phaseElapsed: number;
   stateElapsed: number;
   hitTargets: string[];
+  attackInstanceId: number;
   downTimer: number;
   counterWindow: number;
   invulnerability: number;
@@ -227,6 +228,7 @@ export interface MatchModel {
   difficulty: Difficulty;
   elapsed: number;
   paused: boolean;
+  physicsAuthority: boolean;
   resolved: boolean;
   player: FighterRuntime;
   opponent: FighterRuntime;

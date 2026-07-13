@@ -20,6 +20,7 @@ interface Props { onPause: () => void; onDevice: (device: ControlDevice) => void
 function Simulation({ onPause, onDevice, onFinished }: Props) {
   const pause = useCallback(onPause, [onPause]); const input = useGameInput(pause); const lastImpactId = useRef(0); const finishNotified = useRef(false); const { camera } = useThree();
   useEffect(() => onDevice(input.device), [input.device, onDevice]);
+  useEffect(() => { useMatchStore.getState().setPhysicsAuthority(true); return () => useMatchStore.getState().setPhysicsAuthority(false); }, []);
   useBeforePhysicsStep(() => {
     const raw = input.read(); const model = useMatchStore.getState().model;
     const middleX = (model.player.position.x + model.opponent.position.x) / 2; const middleZ = (model.player.position.z + model.opponent.position.z) / 2;
@@ -29,7 +30,11 @@ function Simulation({ onPause, onDevice, onFinished }: Props) {
     useMatchStore.getState().advance(1 / 60, raw);
     bodyWorksRuntime.beforeFixedStep(1 / 60, useMatchStore.getState().model);
   });
-  useAfterPhysicsStep(() => bodyWorksRuntime.afterFixedStep(useMatchStore.getState().model));
+  useAfterPhysicsStep(() => {
+    bodyWorksRuntime.afterFixedStep(useMatchStore.getState().model);
+    const contacts = bodyWorksRuntime.consumeContacts();
+    if (contacts.length > 0) useMatchStore.getState().resolvePhysicsContacts(contacts);
+  });
   useFrame(() => {
     const model = useMatchStore.getState().model;
     if (model.lastImpact && model.lastImpact.id !== lastImpactId.current) { lastImpactId.current = model.lastImpact.id; audioEngine.impact(model.lastImpact, useSettings.getState()); }
