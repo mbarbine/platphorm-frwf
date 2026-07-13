@@ -8,6 +8,7 @@ import type { Difficulty, FighterId, MatchModel, Ruleset } from '../types/game';
 interface MatchStore {
   model: MatchModel;
   revision: number;
+  replayActive: boolean;
   configure: (player: FighterId, opponent: FighterId, rules: Ruleset, difficulty: Difficulty, playerBeers?: number, opponentBeers?: number) => void;
   advance: (dt: number, input: FrameInput) => void;
   pause: (paused: boolean) => void;
@@ -15,15 +16,17 @@ interface MatchStore {
   resolvePhysicsContacts: (contacts: readonly BodyWorksContact[]) => void;
   rematch: () => void;
   debugResolve: () => void;
+  startReplay: () => void;
+  stopReplay: () => void;
 }
 
 let publishAccumulator = 0;
 
 export const useMatchStore = create<MatchStore>((set) => ({
-  model: createMatch('atlas', 'nova', 'standard', 'normal'), revision: 0,
+  model: createMatch('atlas', 'nova', 'standard', 'normal'), revision: 0, replayActive: false,
   configure: (player, opponent, rules, difficulty, playerBeers = 0, opponentBeers = 0) => set((state) => {
     bodyWorksRuntime.reset(); publishAccumulator = 0;
-    return { model: createMatch(player, opponent, rules, difficulty, 1337, playerBeers, opponentBeers), revision: state.revision + 1 };
+    return { model: createMatch(player, opponent, rules, difficulty, 1337, playerBeers, opponentBeers), revision: state.revision + 1, replayActive: false };
   }),
   advance: (dt, input) => set((state) => {
     const model = state.model; const previousImpact = model.impactSequence; const wasResolved = model.resolved;
@@ -56,10 +59,12 @@ export const useMatchStore = create<MatchStore>((set) => ({
     for (const contact of contacts) changed = applyPhysicalContact(state.model, contact) || changed;
     return changed ? { model: { ...state.model }, revision: state.revision + 1 } : state;
   }),
-  rematch: () => set((state) => { bodyWorksRuntime.reset(); publishAccumulator = 0; return { model: resetTransientState(state.model), revision: state.revision + 1 }; }),
+  rematch: () => set((state) => { bodyWorksRuntime.reset(); publishAccumulator = 0; return { model: resetTransientState(state.model), revision: state.revision + 1, replayActive: false }; }),
   debugResolve: () => set((state) => {
     const model = state.model;
     model.opponent.health = 0; model.opponent.state = 'downed'; model.opponent.downTimer = 5; model.player.momentum = 100;
     return { model: { ...model }, revision: state.revision + 1 };
   }),
+  startReplay: () => set((state) => state.replayActive ? state : ({ replayActive: true, revision: state.revision + 1 })),
+  stopReplay: () => set((state) => !state.replayActive ? state : ({ replayActive: false, revision: state.revision + 1 })),
 }));

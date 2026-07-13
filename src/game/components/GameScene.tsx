@@ -14,6 +14,7 @@ import { useSettings } from '../state/settings';
 import type { ControlDevice } from '../types/game';
 import { bodyWorksRuntime } from '../physics/physicsRuntime';
 import { useThree } from '@react-three/fiber';
+import { ReplayDirector } from './ReplayFighter';
 
 interface Props { onPause: () => void; onDevice: (device: ControlDevice) => void; onFinished: () => void }
 
@@ -38,7 +39,7 @@ function Simulation({ onPause, onDevice, onFinished }: Props) {
   useFrame(() => {
     const model = useMatchStore.getState().model;
     if (model.lastImpact && model.lastImpact.id !== lastImpactId.current) { lastImpactId.current = model.lastImpact.id; audioEngine.impact(model.lastImpact, useSettings.getState()); }
-    if (model.resolved && !finishNotified.current) { finishNotified.current = true; window.setTimeout(onFinished, 2600); }
+    if (model.resolved && !finishNotified.current) { finishNotified.current = true; window.setTimeout(onFinished, 4800); }
   });
   return null;
 }
@@ -46,14 +47,16 @@ function Simulation({ onPause, onDevice, onFinished }: Props) {
 function Fighters() {
   const player = useMatchStore((state) => state.model.player); const opponent = useMatchStore((state) => state.model.opponent);
   const runtimeId = useMatchStore((state) => state.model.runtimeId);
-  return <group key={runtimeId}><PhysicalFighterRig runtime={player} side="player" /><PhysicalFighterRig runtime={opponent} side="opponent" /></group>;
+  const replayActive = useMatchStore((state) => state.replayActive);
+  return <group key={runtimeId} visible={!replayActive}><PhysicalFighterRig runtime={player} side="player" /><PhysicalFighterRig runtime={opponent} side="opponent" /></group>;
 }
 
 export function GameScene(props: Props) {
   const paused = useMatchStore((state) => state.model.paused);
+  const replayActive = useMatchStore((state) => state.replayActive);
   return <SceneBoundary><div className="game-canvas" data-testid="game-canvas">
     <Canvas shadows="basic" dpr={[.75, 1.5]} gl={{ antialias: true, alpha: false, powerPreference: 'high-performance' }} camera={{ position: [8, 7, 11], fov: 48, near: .1, far: 60 }}>
-      <Suspense fallback={null}><Physics gravity={[0, -18, 0]} timeStep={1 / 60} paused={paused} interpolate numSolverIterations={8} numInternalPgsIterations={2} maxCcdSubsteps={2}><Arena /><Fighters /><ImpactEffects /><Simulation {...props} /></Physics><CameraRig /><AdaptiveDpr pixelated /><BakeShadows /></Suspense>
+      <Suspense fallback={null}><Physics gravity={[0, -18, 0]} timeStep={1 / 60} paused={paused || replayActive} interpolate numSolverIterations={8} numInternalPgsIterations={2} maxCcdSubsteps={2}><Arena /><Fighters /><ImpactEffects /><Simulation {...props} /></Physics><ReplayDirector /><CameraRig /><AdaptiveDpr pixelated /><BakeShadows /></Suspense>
     </Canvas>
   </div></SceneBoundary>;
 }

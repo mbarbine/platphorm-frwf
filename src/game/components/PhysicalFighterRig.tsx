@@ -18,7 +18,7 @@ interface SurfaceUserData { surface: true; kind: string }
 const isRigUserData = (value: unknown): value is RigUserData => typeof value === 'object' && value !== null && 'bodyWorks' in value;
 const isSurfaceUserData = (value: unknown): value is SurfaceUserData => typeof value === 'object' && value !== null && 'surface' in value && 'kind' in value;
 
-function SegmentVisual({ schema, fighterId }: { schema: BodySegmentSchema; fighterId: FighterRuntime['definitionId'] }) {
+export function SegmentVisual({ schema, fighterId }: { schema: BodySegmentSchema; fighterId: FighterRuntime['definitionId'] }) {
   const fighter = fighterById(fighterId); const arm = schema.id.includes('Arm') || schema.id.includes('Forearm') || schema.id.includes('Hand'); const leg = schema.id.includes('Thigh') || schema.id.includes('Shin') || schema.id.includes('Foot');
   const costume = schema.id.includes('Forearm') || schema.id.includes('Shin') || schema.id.includes('Foot');
   const color = schema.id === 'pelvis' ? fighter.palette.secondary : schema.id === 'chest' || costume ? fighter.palette.primary : arm || leg || schema.id === 'head' || schema.id === 'abdomen' ? fighter.palette.skin : fighter.palette.primary;
