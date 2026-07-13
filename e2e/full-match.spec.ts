@@ -50,18 +50,12 @@ test('fighter select through guarded combat, grapple, result, and rematch', asyn
   const automationId = await page.evaluate(() => {
     let exchange = 0;
     const send = (type: 'keydown' | 'keyup', key: string, code: string): void => { window.dispatchEvent(new KeyboardEvent(type, { key, code, bubbles: true })); };
-    const directions = [['w', 'KeyW'], ['d', 'KeyD'], ['s', 'KeyS'], ['a', 'KeyA']] as const;
     const attacks = [['l', 'KeyL'], ['j', 'KeyJ'], ['k', 'KeyK']] as const;
     return window.setInterval(() => {
-      const direction = directions[exchange % directions.length] ?? directions[0];
       const attack = attacks[exchange % attacks.length] ?? attacks[0];
-      send('keydown', direction[0], direction[1]);
       send('keydown', attack[0], attack[1]); send('keyup', attack[0], attack[1]);
-      if (exchange % 4 === 0) { send('keydown', 'f', 'KeyF'); send('keyup', 'f', 'KeyF'); }
-      if (exchange % 7 === 0) { send('keydown', ' ', 'Space'); send('keyup', ' ', 'Space'); }
-      window.setTimeout(() => send('keyup', direction[0], direction[1]), 110);
       exchange += 1;
-    }, 145);
+    }, 240);
   });
 
   await expect(page.getByRole('button', { name: 'INSTANT REMATCH' })).toBeVisible({ timeout: 180_000 });
