@@ -8,10 +8,11 @@ import { useSettings } from '../state/settings';
 
 export function CameraRig() {
   const { camera } = useThree(); const target = useMemo(() => new Vector3(), []); const desired = useMemo(() => new Vector3(), []);
-  const impactId = useRef(0); const impactImpulse = useRef(0);
+  const impactId = useRef(0); const impactImpulse = useRef(0); const elapsed = useRef(0);
   const lastImpact = useMatchStore((state) => state.model.lastImpact); const shake = useSettings((state) => state.shake); const reduced = useSettings((state) => state.reducedMotion);
-  useFrame(({ clock }, dt) => {
-    const model = useMatchStore.getState().model; const a = model.player.position; const b = model.opponent.position;
+  useFrame((_, dt) => {
+    elapsed.current += dt;
+    const state = useMatchStore.getState(); const model = state.model; const replayActive = state.replayActive; const a = model.player.position; const b = model.opponent.position;
     const prediction = reduced ? .08 : model.player.attackPhase === 'anticipation' || model.opponent.attackPhase === 'anticipation' ? .34 : .2;
     const predictedA = { x: a.x + model.player.velocity.x * prediction, z: a.z + model.player.velocity.z * prediction };
     const predictedB = { x: b.x + model.opponent.velocity.x * prediction, z: b.z + model.opponent.velocity.z * prediction };
@@ -21,7 +22,10 @@ export function CameraRig() {
     const cinematicActor = playerMove && ['grapple', 'finisher'].includes(playerMove.category) ? model.player
       : opponentMove && ['grapple', 'finisher'].includes(opponentMove.category) ? model.opponent : null;
     const cinematicMove = cinematicActor === model.player ? playerMove : cinematicActor === model.opponent ? opponentMove : null;
-    if (cinematicActor && cinematicMove && !reduced) {
+    if (replayActive) {
+      const angle = elapsed.current * .58; const radius = 8.4 + separation * .18;
+      desired.set(middleX + Math.cos(angle) * radius, 4.8 + Math.sin(angle * .45) * .65, middleZ + Math.sin(angle) * radius);
+    } else if (cinematicActor && cinematicMove && !reduced) {
       const forwardX = Math.sin(cinematicActor.facing); const forwardZ = Math.cos(cinematicActor.facing);
       const rightX = forwardZ; const rightZ = -forwardX; const distance = cinematicMove.category === 'finisher' ? 7.7 : 8.6;
       const firstX = middleX + rightX * distance - forwardX * 2.1; const firstZ = middleZ + rightZ * distance - forwardZ * 2.1;
@@ -32,13 +36,13 @@ export function CameraRig() {
     if (lastImpact && lastImpact.id !== impactId.current) { impactId.current = lastImpact.id; impactImpulse.current = lastImpact.intensity; }
     impactImpulse.current = Math.max(0, impactImpulse.current - dt * 4.2);
     const shakeAmount = !reduced ? shake * impactImpulse.current * .075 : 0;
-    desired.x += Math.sin(clock.elapsedTime * 57) * shakeAmount; desired.y += Math.cos(clock.elapsedTime * 43) * shakeAmount;
-    const damping = reduced ? 2.5 : cinematicActor ? 6.2 : 4.8; camera.position.lerp(desired, 1 - Math.exp(-dt * damping));
+    desired.x += Math.sin(elapsed.current * 57) * shakeAmount; desired.y += Math.cos(elapsed.current * 43) * shakeAmount;
+    const damping = reduced ? 2.5 : replayActive ? 3.4 : cinematicActor ? 6.2 : 4.8; camera.position.lerp(desired, 1 - Math.exp(-dt * damping));
     const airborneHeight = Math.max(model.player.body.verticalOffset, model.opponent.body.verticalOffset);
     target.set(middleX, (cinematicActor ? 2.55 : 2.2) + airborneHeight * .34, middleZ); camera.lookAt(target);
     if ('fov' in camera) {
       const perspective = camera as PerspectiveCamera;
-      const baseFov = cinematicActor ? (cinematicMove?.category === 'finisher' ? 37 : 40) : 44 + Math.min(10, separation * 1.25);
+      const baseFov = replayActive ? 39 : cinematicActor ? (cinematicMove?.category === 'finisher' ? 37 : 40) : 44 + Math.min(10, separation * 1.25);
       const desiredFov = baseFov + impactImpulse.current * 1.7 + (model.slowMotion > 0 ? -3 : 0);
       perspective.fov += (desiredFov - perspective.fov) * (1 - Math.exp(-dt * 8)); perspective.updateProjectionMatrix();
     }

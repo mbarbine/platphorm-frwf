@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 test('fighter select through guarded combat, grapple, result, and rematch', async ({ page }) => {
+  test.setTimeout(300_000);
   const consoleErrors: string[] = [];
   page.on('console', (message) => { if (message.type() === 'error') consoleErrors.push(message.text()); });
   page.on('pageerror', (error) => consoleErrors.push(error.message));
@@ -15,7 +16,7 @@ test('fighter select through guarded combat, grapple, result, and rematch', asyn
   await page.getByRole('button', { name: /LOCK IN CHAD/ }).click();
   for (let beer = 0; beer < 5; beer += 1) await page.getByRole('button', { name: 'DRINK A BEER' }).click();
   await expect(page.getByText('5 / 5 DRUNK')).toBeVisible();
-  await page.getByRole('button', { name: /CHAOS CIRCUIT/ }).click();
+  await page.getByRole('button', { name: /^STANDARD/ }).click();
   await page.getByRole('button', { name: /^NORMAL/ }).click();
   await page.getByRole('button', { name: 'START MATCH' }).click();
 
@@ -47,29 +48,56 @@ test('fighter select through guarded combat, grapple, result, and rematch', asyn
   await page.keyboard.up('Shift');
   await page.keyboard.up('d');
 
-  for (let tick = 0; tick < 60 && Number(await hud.getAttribute('data-total-grapples')) === 0; tick += 1) {
+  for (let tick = 0; tick < 80 && Number(await hud.getAttribute('data-player-grapples')) === 0; tick += 1) {
     const playerState = await hud.getAttribute('data-player-state'); const opponentState = await hud.getAttribute('data-opponent-state');
     const playerX = Number(await hud.getAttribute('data-player-x')); const playerZ = Number(await hud.getAttribute('data-player-z'));
     const opponentX = Number(await hud.getAttribute('data-opponent-x')); const opponentZ = Number(await hud.getAttribute('data-opponent-z'));
     const separation = Math.hypot(playerX - opponentX, playerZ - opponentZ);
-    if (/idle|locomotion/.test(playerState ?? '') && !/blocking|downed|pinned|defeated/.test(opponentState ?? '') && separation <= 1.58) {
+    if (/idle|locomotion/.test(playerState ?? '') && /idle|locomotion|staggered/.test(opponentState ?? '') && separation <= 1.58) {
       await page.keyboard.press('l');
-      await page.waitForTimeout(2_250);
+      await page.waitForTimeout(45);
+      if (await hud.getAttribute('data-player-state') === 'grappling') {
+        await page.keyboard.down('w');
+        await page.keyboard.press('k');
+        await page.waitForTimeout(120);
+        await page.keyboard.up('w');
+      }
+      await page.waitForTimeout(2_600);
     } else {
       await page.waitForTimeout(250);
     }
   }
-  expect(Number(await hud.getAttribute('data-total-grapples'))).toBeGreaterThan(0);
+  expect(Number(await hud.getAttribute('data-player-grapples'))).toBeGreaterThan(0);
+  expect(Number(await hud.getAttribute('data-grip-creates'))).toBeGreaterThanOrEqual(2);
+  await expect(page.locator('.replay-overlay')).toBeVisible({ timeout: 6_000 });
+  await expect(page.getByRole('button', { name: 'SKIP REPLAY' })).toBeVisible();
+  await page.getByRole('button', { name: 'SKIP REPLAY' }).click();
+  await expect(page.locator('.replay-overlay')).toHaveCount(0);
 
   const automationId = await page.evaluate(() => {
     let exchange = 0;
     const send = (type: 'keydown' | 'keyup', key: string, code: string): void => { window.dispatchEvent(new KeyboardEvent(type, { key, code, bubbles: true })); };
-    const attacks = [['l', 'KeyL'], ['k', 'KeyK'], ['j', 'KeyJ'], ['f', 'KeyF'], ['j', 'KeyJ'], ['k', 'KeyK'], ['f', 'KeyF']] as const;
+    const strike = (key: string, code: string, directional = false): void => {
+      if (directional) send('keydown', 'w', 'KeyW');
+      send('keydown', key, code); send('keyup', key, code);
+      if (directional) send('keyup', 'w', 'KeyW');
+    };
     return window.setInterval(() => {
-      const attack = attacks[exchange % attacks.length] ?? attacks[0];
-      send('keydown', attack[0], attack[1]); send('keyup', attack[0], attack[1]);
+      const liveHud = document.querySelector('.hud'); if (!liveHud) return;
+      const state = liveHud.getAttribute('data-player-state') ?? ''; const opponentState = liveHud.getAttribute('data-opponent-state') ?? '';
+      const stamina = Number(liveHud.getAttribute('data-player-stamina')); const momentum = Number(liveHud.querySelector('[data-player-momentum]')?.getAttribute('data-player-momentum'));
+      const px = Number(liveHud.getAttribute('data-player-x')); const pz = Number(liveHud.getAttribute('data-player-z')); const ox = Number(liveHud.getAttribute('data-opponent-x')); const oz = Number(liveHud.getAttribute('data-opponent-z'));
+      const separation = Math.hypot(px - ox, pz - oz);
+      if (state === 'grappling') { strike('k', 'KeyK', true); return; }
+      if (!/idle|locomotion/.test(state)) return;
+      if (/downed|staggered/.test(opponentState) && momentum >= 99) { strike('f', 'KeyF'); return; }
+      if (opponentState === 'downed') { strike(exchange % 3 === 0 ? 'j' : 'f', exchange % 3 === 0 ? 'KeyJ' : 'KeyF'); exchange += 1; return; }
+      if (separation > 1.7 || stamina < 7) return;
+      if (stamina >= 22 && exchange % 3 === 0) strike('l', 'KeyL');
+      else if (stamina >= 15 && exchange % 3 === 1) strike('k', 'KeyK');
+      else strike('j', 'KeyJ');
       exchange += 1;
-    }, 420);
+    }, 360);
   });
 
   await expect(page.getByRole('button', { name: 'INSTANT REMATCH' })).toBeVisible({ timeout: 180_000 });

@@ -3,9 +3,10 @@ import { chooseAiDecision, isActionLegal } from '../game/ai/utilityAI';
 import { cinematicProgress, getPairedPose, getStrikePose, getStrikeReactionPose } from '../game/animation/choreography';
 import { FIGHTERS, fighterById } from '../game/data/fighters';
 import { getMove } from '../game/data/moves';
-import { advanceMatch, applyMoveHit, createMatch, getAttackPhase, requestCommand, resetTransientState, selectDirectionalGrapple, startMove } from '../game/systems/combat';
+import { advanceMatch, applyMoveHit, applyPhysicalContact, createMatch, getAttackPhase, requestCommand, resetTransientState, selectDirectionalGrapple, startMove } from '../game/systems/combat';
 import { canTransition } from '../game/systems/stateMachine';
 import type { FrameInput } from '../game/systems/combat';
+import { BodyWorksRuntime } from '../game/physics/physicsRuntime';
 
 const none: FrameInput = { move: { x: 0, z: 0 }, run: false, block: false, commands: [] };
 
@@ -46,6 +47,27 @@ describe('deterministic combat rules', () => {
     expect(requestCommand(model, 'player', 'context')).toBe(false); expect(model.opponent.state).not.toBe('pinned');
   });
 
+  it('prioritizes a valid pin over an accidental corner climb', () => {
+    const model = createMatch('atlas', 'vex', 'standard', 'normal'); model.player.position = { x: 4.8, z: 3.25 }; model.opponent.position = { x: 4.7, z: 3.1 }; model.opponent.state = 'downed';
+    expect(requestCommand(model, 'player', 'context')).toBe(true); expect(model.player.state).toBe('pinning'); expect(model.opponent.state).toBe('pinned');
+  });
+
+  it('buffers commands FIFO and releases at most one legal action per fixed step', () => {
+    const runtime = new BodyWorksRuntime(); const accepted: string[] = [];
+    runtime.captureInput('player', { ...none, commands: ['grapple', 'heavy'] }, 0);
+    runtime.resolveCommands('player', .01, (command) => { accepted.push(command.command); return true; });
+    expect(accepted).toEqual(['grapple']); expect(runtime.pendingCommandCount()).toBe(1);
+    runtime.resolveCommands('player', .02, (command) => { accepted.push(command.command); return true; });
+    expect(accepted).toEqual(['grapple', 'heavy']); expect(runtime.pendingCommandCount()).toBe(0);
+  });
+
+  it('expires stale buffered commands instead of executing them later', () => {
+    const runtime = new BodyWorksRuntime(); const expired: string[] = []; let executed = false;
+    runtime.captureInput('player', { ...none, commands: ['heavy'] }, 1);
+    runtime.resolveCommands('player', 1.17, () => { executed = true; return true; }, (command) => expired.push(command.command));
+    expect(executed).toBe(false); expect(expired).toEqual(['heavy']); expect(runtime.pendingCommandCount()).toBe(0);
+  });
+
   it('successful counter interrupts the incoming move', () => {
     const model = createMatch('atlas', 'vex', 'standard', 'normal'); model.player.position = { x: 0, z: 0 }; model.opponent.position = { x: 1, z: 0 };
     startMove(model.opponent, model.player, getMove('heavy')); model.opponent.phaseElapsed = .25; model.opponent.attackPhase = 'anticipation';
@@ -68,6 +90,30 @@ describe('deterministic combat rules', () => {
     const model = createMatch('atlas', 'nova', 'standard', 'hard'); model.opponent.stamina = 3; model.opponent.state = 'downed';
     const decision = chooseAiDecision(model, fighterById('nova'));
     if (decision.command) expect(isActionLegal(model, decision.command, 'opponent')).toBe(true);
+  });
+
+  it('AI deliberately disengages to recover instead of guard-looping at empty stamina', () => {
+    const model = createMatch('atlas', 'nova', 'standard', 'normal'); model.opponent.stamina = 4; model.opponent.position = { x: 0, z: 0 }; model.player.position = { x: 1, z: 0 };
+    const decision = chooseAiDecision(model, fighterById('nova'));
+    expect(decision.command).toBeNull(); expect(decision.move.x).toBeLessThan(0);
+  });
+
+  it('AI pursues and interacts with a real ringside prop in Chaos Circuit', () => {
+    const model = createMatch('atlas', 'brick', 'chaos', 'normal'); model.elapsed = 8; model.opponent.health = 88; model.opponent.position = { x: 4.3, z: -2.4 };
+    const approach = chooseAiDecision(model, fighterById('brick')); expect(approach.command).toBeNull(); expect(approach.move.x).toBeGreaterThan(0);
+    model.opponent.position = { x: 6.9, z: -2.4 }; const pickup = chooseAiDecision(model, fighterById('brick'));
+    expect(pickup.command).toBe('interact');
+  });
+
+  it('AI requests a physical apron transition while pursuing a ringside prop', () => {
+    const model = createMatch('atlas', 'brick', 'chaos', 'normal'); model.elapsed = 8; model.opponent.health = 88; model.opponent.position = { x: 5.3, z: -2.4 };
+    expect(chooseAiDecision(model, fighterById('brick')).command).toBe('context');
+  });
+
+  it('AI prioritizes a legal weapon swing once a physical prop is secured', () => {
+    const model = createMatch('atlas', 'nova', 'chaos', 'normal'); const chair = model.props.find((prop) => prop.kind === 'chair'); if (!chair) throw new Error('Missing chair');
+    model.opponent.position = { x: 0, z: 0 }; model.player.position = { x: 1.2, z: 0 }; model.opponent.heldPropId = chair.id; chair.heldBy = 'opponent'; model.opponent.stamina = 30;
+    expect(chooseAiDecision(model, fighterById('nova')).command).toBe('heavy');
   });
 
   it('AI cannot steal an early pin after a routine knockdown', () => {
@@ -211,11 +257,39 @@ describe('deterministic combat rules', () => {
     expect(applyMoveHit(model, 'player', 'opponent', getMove('skyhook'))).toBe(true); expect(model.slowMotion).toBeGreaterThan(0);
   });
 
+  it('never breaks the commentary desk from move proximity alone', () => {
+    const model = createMatch('atlas', 'vex', 'chaos', 'normal'); model.player.position = { x: 0, z: -7.1 }; model.opponent.position = { x: .8, z: -7.1 };
+    startMove(model.player, model.opponent, getMove('skyhook')); model.player.attackPhase = 'active';
+    expect(applyMoveHit(model, 'player', 'opponent', getMove('skyhook'))).toBe(true);
+    expect(model.props.find((prop) => prop.kind === 'table')?.failureStage).toBe('intact');
+  });
+
+  it('progressively fails the table only from a measured physical landing contact', () => {
+    const model = createMatch('atlas', 'vex', 'chaos', 'normal'); model.physicsAuthority = true; model.player.position = { x: 0, z: -7.1 }; model.opponent.position = { x: .8, z: -7.1 };
+    startMove(model.player, model.opponent, getMove('skyhook')); model.player.attackPhase = 'recovery';
+    const contact = { id: 1, time: 2, sourceFighter: 'player' as const, sourceSegment: 'chest' as const, targetFighter: 'opponent' as const, targetSegment: 'chest' as const, targetRegion: 'chest' as const, totalForce: 330, maximumForce: 250, forceDirection: [0, -1, 0] as const, relativeSpeed: 4.8, attackInstanceId: model.player.attackInstanceId, moveId: 'skyhook', sourceObjectId: null, targetSurface: 'table', isLanding: true };
+    expect(applyPhysicalContact(model, contact)).toBe(true);
+    expect(model.props.find((prop) => prop.kind === 'table')).toMatchObject({ failureStage: 'failed', broken: true });
+    expect(model.highlights.some((moment) => moment.kind === 'table')).toBe(true);
+  });
+
+  it('does not score a grapple from incidental body contact before the landing', () => {
+    const model = createMatch('atlas', 'vex', 'standard', 'normal'); model.physicsAuthority = true; model.player.position = { x: 0, z: 0 }; model.opponent.position = { x: 1, z: 0 };
+    startMove(model.player, model.opponent, getMove('slam')); model.player.attackPhase = 'active'; const health = model.opponent.health;
+    const contact = { id: 1, time: 1, sourceFighter: 'player' as const, sourceSegment: 'chest' as const, targetFighter: 'opponent' as const, targetSegment: 'chest' as const, targetRegion: 'chest' as const, totalForce: 120, maximumForce: 90, forceDirection: [1, 0, 0] as const, relativeSpeed: 2, attackInstanceId: model.player.attackInstanceId, moveId: 'slam', sourceObjectId: null, targetSurface: null, isLanding: false };
+    expect(applyPhysicalContact(model, contact)).toBe(false); expect(model.opponent.health).toBe(health);
+  });
+
   it('allows a grapple selection during the visible lock without duplicate base cost', () => {
     const model = createMatch('nova', 'brick', 'standard', 'normal'); model.player.position = { x: 0, z: 0 }; model.opponent.position = { x: 1, z: 0 };
     requestCommand(model, 'player', 'grapple'); const afterLock = model.player.stamina;
     expect(requestCommand(model, 'player', 'quick', { x: -1, z: 0 })).toBe(true);
     expect(model.player.moveId).toBe('clutch'); expect(model.player.stamina).toBe(afterLock);
+  });
+
+  it('makes neutral grapple a deliberate reliable body slam', () => {
+    const model = createMatch('brick', 'vex', 'standard', 'normal'); model.player.position = { x: 0, z: 0 }; model.opponent.position = { x: 1, z: 0 };
+    expect(requestCommand(model, 'player', 'grapple')).toBe(true); expect(model.player.moveId).toBe('slam'); expect(model.grapple?.phase).toBe('reach');
   });
 
   it('climbs a turnbuckle before launching a playable aerial attack', () => {
@@ -232,6 +306,23 @@ describe('deterministic combat rules', () => {
   it('converts an elastic rope rebound into the named stiff-arm', () => {
     const model = createMatch('atlas', 'nova', 'standard', 'normal'); model.player.position = { x: 4.8, z: 0 }; model.opponent.position = { x: 3.3, z: 0 }; model.player.ropeRebound = 1.1;
     expect(requestCommand(model, 'player', 'heavy')).toBe(true); expect(model.player.moveId).toBe('stiff_arm');
+  });
+
+  it('turns directional power into a physical front kick and a running grapple into a spear', () => {
+    const kick = createMatch('vex', 'atlas', 'standard', 'normal'); kick.player.position = { x: 0, z: 0 }; kick.opponent.position = { x: 1.3, z: 0 };
+    expect(requestCommand(kick, 'player', 'heavy', { x: 0, z: 1 })).toBe(true); expect(kick.player.moveId).toBe('front_kick');
+    const spear = createMatch('brick', 'nova', 'standard', 'normal'); spear.player.position = { x: 0, z: 0 }; spear.opponent.position = { x: 1.4, z: 0 }; spear.player.velocity = { x: 4.4, z: 0 };
+    expect(requestCommand(spear, 'player', 'grapple')).toBe(true); expect(spear.player.moveId).toBe('spear'); expect(spear.grapple).toBeNull();
+  });
+
+  it('turns a distant prop release into a bounded physical throw window', () => {
+    const model = createMatch('brick', 'vex', 'chaos', 'normal'); const chair = model.props.find((prop) => prop.kind === 'chair');
+    if (!chair) throw new Error('Chaos match must provide a chair');
+    model.player.position = { ...chair.position }; expect(requestCommand(model, 'player', 'interact')).toBe(true);
+    model.opponent.position = { x: 1, z: 0 }; model.player.position = { x: -2, z: 0 };
+    expect(requestCommand(model, 'player', 'interact')).toBe(true);
+    expect(model.player).toMatchObject({ heldPropId: null, moveId: 'prop_throw', attackPhase: 'anticipation' });
+    expect(chair.heldBy).toBeNull();
   });
 
   it('preserves beer choice but clears guard, climb, AI, and impact transients on rematch', () => {

@@ -21,9 +21,11 @@ export function FighterModel({ runtime, counterpart, fighterId, preview = false,
   const width = fighter.proportions.width; const height = fighter.proportions.height;
   const geometry = useMemo(() => ({ torso: [.72 * width, .78 * height, .38 * width] as const }), [height, width]);
 
-  useFrame(({ clock }, delta) => {
+  const elapsed = useRef(0);
+  useFrame((_, delta) => {
+    elapsed.current += delta;
     if (!root.current || !torso.current || !head.current || !leftArm.current || !rightArm.current || !leftForearm.current || !rightForearm.current || !leftLeg.current || !rightLeg.current || !leftShin.current || !rightShin.current) return;
-    const t = clock.elapsedTime;
+    const t = elapsed.current;
     let key: AnimationKey = 'combatIdle';
     if (preview) key = 'taunt';
     else if (runtime) {

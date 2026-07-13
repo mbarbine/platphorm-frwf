@@ -26,21 +26,24 @@ export const createFighterRuntime = (definitionId: FighterId, position: Vec2, be
 };
 
 const initialProps = (enabled: boolean): PropRuntime[] => enabled ? [
-  { id: 'chair-1', kind: 'chair', position: { x: -7.1, z: 2.8 }, durability: 3, heldBy: null, broken: false },
-  { id: 'sign-1', kind: 'sign', position: { x: 7, z: -2.4 }, durability: 2, heldBy: null, broken: false },
-  { id: 'table-1', kind: 'table', position: { x: 0, z: -7.2 }, durability: 1, heldBy: null, broken: false },
-] : [{ id: 'table-1', kind: 'table', position: { x: 0, z: -7.2 }, durability: 1, heldBy: null, broken: false }];
+  { id: 'chair-1', kind: 'chair', position: { x: -7.1, z: 2.8 }, durability: 3, stress: 0, failureStage: 'intact', heldBy: null, broken: false },
+  { id: 'sign-1', kind: 'sign', position: { x: 7, z: -2.4 }, durability: 2, stress: 0, failureStage: 'intact', heldBy: null, broken: false },
+  { id: 'table-1', kind: 'table', position: { x: 0, z: -7.2 }, durability: 1, stress: 0, failureStage: 'intact', heldBy: null, broken: false },
+] : [{ id: 'table-1', kind: 'table', position: { x: 0, z: -7.2 }, durability: 1, stress: 0, failureStage: 'intact', heldBy: null, broken: false }];
 
 export const createMatch = (playerId: FighterId, opponentId: FighterId, ruleset: Ruleset, difficulty: Difficulty, seed = 1337, playerBeers = 0, opponentBeers = 0): MatchModel => ({
-  ruleset, difficulty, elapsed: 0, paused: false, physicsAuthority: false, resolved: false,
+  labMode: false, ruleset, difficulty, elapsed: 0, paused: false, physicsAuthority: false, resolved: false,
   player: createFighterRuntime(playerId, { x: -2.3, z: 0 }, playerBeers), opponent: createFighterRuntime(opponentId, { x: 2.3, z: 0 }, opponentBeers),
   hype: 8, props: initialProps(ruleset === 'chaos'), chaosEvent: null, nextChaosAt: 38, lastImpact: null, impactSequence: 0,
   announcement: 'ROUND ONE — FIGHT!', announcementTimer: 2.2, hitStop: 0, slowMotion: 0, result: null,
-  playerStats: EMPTY_STATS(), opponentStats: EMPTY_STATS(), aiThinkTimer: .35, aiIntent: null, aiBlockTimer: 0,
+  playerStats: EMPTY_STATS(), opponentStats: EMPTY_STATS(), aiThinkTimer: .35, aiIntent: null, aiMovement: { x: 0, z: 0 }, aiRunning: false, aiBlockTimer: 0,
   grapple: null, replayFrames: [], replaySampleTimer: 0, highlights: [], runtimeId: seed, seed,
 });
 
-export const resetTransientState = (model: MatchModel): MatchModel => createMatch(model.player.definitionId, model.opponent.definitionId, model.ruleset, model.difficulty, model.seed + 97, model.player.beersDrunk, model.opponent.beersDrunk);
+export const resetTransientState = (model: MatchModel): MatchModel => {
+  const reset = createMatch(model.player.definitionId, model.opponent.definitionId, model.ruleset, model.difficulty, model.seed + 97, model.player.beersDrunk, model.opponent.beersDrunk);
+  reset.labMode = model.labMode; return reset;
+};
 
 export const getAttackPhase = (move: MoveDefinition, elapsed: number): 'anticipation' | 'active' | 'recovery' | null => {
   if (elapsed < move.anticipationDuration) return 'anticipation';
@@ -161,8 +164,8 @@ export const applyMoveHit = (model: MatchModel, actorKey: 'player' | 'opponent',
   if (move.category === 'grapple') stats.grapples += 1;
   if (move.category === 'finisher') stats.finishers += 1;
   if (move.category === 'prop') stats.propImpacts += 1;
-  if (move.category === 'prop' && actor.heldPropId) {
-    const prop = model.props.find((candidate) => candidate.id === actor.heldPropId);
+  if (move.category === 'prop' && (actor.heldPropId || contact?.sourceObjectId)) {
+    const prop = model.props.find((candidate) => candidate.id === (actor.heldPropId ?? contact?.sourceObjectId));
     if (prop) {
       prop.durability -= 1;
       if (prop.durability <= 0) { prop.broken = true; prop.heldBy = null; actor.heldPropId = null; }
@@ -209,13 +212,6 @@ export const applyMoveHit = (model: MatchModel, actorKey: 'player' | 'opponent',
     outcome: collisionOutcome,
     highlight: move.category === 'quick' && impact.force < 7 ? undefined : { label: move.category === 'finisher' ? actorDefinition.signature : move.displayName, score: highlightScore, kind: highlightKind },
   });
-  const table = model.props.find((prop) => prop.kind === 'table' && !prop.broken);
-  if (table && ['finisher', 'grapple', 'aerial'].includes(move.category) && impact.force >= 7 && distance(target.position, table.position) < 2.6) {
-    table.broken = true;
-    model.hype = clamp(model.hype + 28, 0, 100);
-    addImpact(model, table.position, 'table', 2.1, { force: impact.force, outcome: collisionOutcome, highlight: { label: 'Commentary Desk Collapse', score: highlightScore + 24, kind: 'table' } });
-    model.announcement = 'COMMENTARY DESK — WRECKED!'; model.announcementTimer = 2;
-  }
   if (move.category === 'finisher') {
     model.slowMotion = .82;
     model.announcement = `${actorDefinition.signature}!`;
@@ -262,7 +258,7 @@ const grappleDirection = (direction: Vec2): GrappleDirection => {
 };
 
 const GRAPPLE_GRID: Readonly<Record<GrappleDirection, Readonly<Record<GrappleButton, string>>>> = {
-  neutral: { quick: 'takedown', heavy: 'slam', grapple: 'suplex' },
+  neutral: { quick: 'takedown', heavy: 'slam', grapple: 'slam' },
   up: { quick: 'arm_drag', heavy: 'skyhook', grapple: 'powerbomb' },
   down: { quick: 'takedown', heavy: 'spinebuster', grapple: 'mountain_drop' },
   left: { quick: 'clutch', heavy: 'spinebuster', grapple: 'whip' },
@@ -284,8 +280,10 @@ const useProp = (model: MatchModel, actorKey: 'player' | 'opponent'): boolean =>
   if (actor.heldPropId) {
     if (distance(actor.position, target.position) <= 2.3) return startMove(actor, target, getMove('prop'));
     const prop = model.props.find((candidate) => candidate.id === actor.heldPropId);
+    const started = startMove(actor, target, getMove('prop_throw')); if (!started) return false;
     if (prop) { prop.heldBy = null; prop.position = { x: actor.position.x + Math.sin(actor.facing) * 2.5, z: actor.position.z + Math.cos(actor.facing) * 2.5 }; }
     actor.heldPropId = null;
+    model.announcement = 'AIR MAIL — PROP THROWN!'; model.announcementTimer = .9;
     return true;
   }
   const prop = model.props.filter((candidate) => !candidate.broken && !candidate.heldBy && candidate.kind !== 'table').sort((a, b) => distance(actor.position, a.position) - distance(actor.position, b.position))[0];
@@ -354,6 +352,7 @@ export const requestCommand = (model: MatchModel, actorKey: 'player' | 'opponent
       }
       return started;
     }
+    if (target.state === 'downed' && distance(actor.position, target.position) <= 1.7) return startPin(actor, target);
     const nearCorner = Math.abs(actor.position.x) > 4.35 && Math.abs(actor.position.z) > 2.95;
     if (nearCorner) {
       actor.state = 'climbing'; actor.stateElapsed = 0; actor.velocity = { x: 0, z: 0 };
@@ -361,7 +360,6 @@ export const requestCommand = (model: MatchModel, actorKey: 'player' | 'opponent
       model.announcement = 'TURNBUCKLE CLIMB — F TO FLY!'; model.announcementTimer = 1.4;
       return true;
     }
-    if (target.state === 'downed') return startPin(actor, target);
     const nearXApron = Math.abs(actor.position.x) > 5.05 && Math.abs(actor.position.x) < 6.9 && Math.abs(actor.position.z) < 4.4;
     const nearZApron = Math.abs(actor.position.z) > 3.55 && Math.abs(actor.position.z) < 5.6 && Math.abs(actor.position.x) < 5.9;
     if (nearXApron || nearZApron) {
@@ -382,7 +380,11 @@ export const requestCommand = (model: MatchModel, actorKey: 'player' | 'opponent
     if (started) actor.comboStep += 1;
     return started;
   }
-  if (command === 'heavy') return startMove(actor, target, getMove(actor.heldPropId ? 'prop' : actor.ropeRebound > 0 || Math.hypot(actor.velocity.x, actor.velocity.z) > 3.6 ? 'stiff_arm' : 'heavy'));
+  if (command === 'heavy') {
+    const moving = Math.hypot(direction.x, direction.z) > .38;
+    return startMove(actor, target, getMove(actor.heldPropId ? 'prop' : actor.ropeRebound > 0 || Math.hypot(actor.velocity.x, actor.velocity.z) > 3.6 ? 'stiff_arm' : moving ? 'front_kick' : 'heavy'));
+  }
+  if (Math.hypot(actor.velocity.x, actor.velocity.z) > 3.75 && target.state !== 'downed') return startMove(actor, target, getMove('spear'));
   if (target.state === 'blocking') {
     target.stamina = clamp(target.stamina - BALANCE.block.grappleStaminaCost, 0, target.staminaCap);
     if (target.stamina > 0) {
@@ -595,7 +597,7 @@ const updateChaos = (model: MatchModel, dt: number): void => {
   model.chaosEvent = { type, remaining: type === 'PROP DROP' ? 5 : 14 };
   model.nextChaosAt = model.elapsed + 35 + roll * 20;
   model.announcement = `CHAOS EVENT — ${type}`; model.announcementTimer = 2.5;
-  if (type === 'PROP DROP') model.props.push({ id: `chair-${model.impactSequence + 9}`, kind: roll > .5 ? 'chair' : 'sign', position: { x: (roll - .5) * 8, z: -5.6 }, durability: 2, heldBy: null, broken: false });
+  if (type === 'PROP DROP') model.props.push({ id: `chair-${model.impactSequence + 9}`, kind: roll > .5 ? 'chair' : 'sign', position: { x: (roll - .5) * 8, z: -5.6 }, durability: 2, stress: 0, failureStage: 'intact', heldBy: null, broken: false });
 };
 
 const replayFighterFrame = (fighter: FighterRuntime): ReplayFighterFrame => ({
@@ -629,8 +631,10 @@ export const advanceMatch = (model: MatchModel, dt: number, playerInput: FrameIn
   for (const command of playerInput.commands) requestCommand(model, 'player', command, playerInput.move);
   model.aiBlockTimer = Math.max(0, model.aiBlockTimer - step);
   model.aiThinkTimer -= step;
-  let aiMove: Vec2 = { x: 0, z: 0 }; let aiRun = false;
-  if (model.aiThinkTimer <= 0) {
+  let aiMove: Vec2 = { ...model.aiMovement }; let aiRun = model.aiRunning;
+  if (model.labMode) {
+    aiMove = { x: 0, z: 0 }; aiRun = false; model.aiIntent = null; model.aiBlockTimer = 0;
+  } else if (model.aiThinkTimer <= 0) {
     const decision = chooseAiDecision(model, fighterById(model.opponent.definitionId));
     model.seed = decision.nextSeed; model.aiIntent = decision.command; aiMove = decision.move; aiRun = decision.run;
     model.aiThinkTimer = model.difficulty === 'hard' ? .22 : .38;
@@ -638,10 +642,8 @@ export const advanceMatch = (model: MatchModel, dt: number, playerInput: FrameIn
       requestCommand(model, 'opponent', decision.command, decision.move);
       if (decision.command === 'block') model.aiBlockTimer = model.difficulty === 'hard' ? .72 : .48;
     }
-  } else {
-    const delta = { x: model.player.position.x - model.opponent.position.x, z: model.player.position.z - model.opponent.position.z };
-    if (distance(model.player.position, model.opponent.position) > 1.8) aiMove = normalize(delta);
   }
+  model.aiMovement = { ...aiMove }; model.aiRunning = aiRun;
   const grappleStep = model.physicsAuthority ? { broken: false, liftEnergy: 0 } : stepGrappleDynamics(model, step, playerInput.move, aiMove);
   if (grappleStep.broken) {
     releaseGrapple(model, 'staggered');
@@ -659,10 +661,29 @@ export const advanceMatch = (model: MatchModel, dt: number, playerInput: FrameIn
 };
 
 const expectedContactSegment = (move: MoveDefinition, segment: string): boolean => {
-  if (move.category === 'aerial' || move.id === 'ground') return segment.includes('Foot') || segment.includes('Shin') || segment.includes('chest');
+  if (move.category === 'aerial' || move.id === 'ground' || move.id === 'front_kick') return segment.includes('Foot') || segment.includes('Shin') || segment.includes('chest');
   if (move.id === 'rebound' || move.id === 'stiff_arm') return segment.includes('Hand') || segment.includes('UpperArm') || segment === 'chest';
+  if (move.id === 'spear') return segment === 'chest' || segment.includes('UpperArm');
   if (move.category === 'quick' || move.category === 'heavy' || move.category === 'prop' || move.id === 'counter') return segment.includes('Hand');
   return move.category === 'grapple' || move.category === 'finisher';
+};
+
+const applyPhysicalTableStress = (model: MatchModel, contact: BodyWorksContact, move: MoveDefinition): void => {
+  if (!contact.isLanding || contact.targetSurface !== 'table') return;
+  const table = model.props.find((prop) => prop.kind === 'table' && !prop.broken); if (!table) return;
+  const addedStress = contact.maximumForce * .38 + contact.relativeSpeed * 7 + (move.category === 'finisher' ? 20 : 0);
+  table.stress = Math.round((table.stress + addedStress) * 10) / 10;
+  const nextStage = table.stress >= 82 ? 'failed' : table.stress >= 50 ? 'cracked' : table.stress >= 24 ? 'stressed' : 'intact';
+  if (nextStage === table.failureStage) return;
+  table.failureStage = nextStage;
+  if (nextStage === 'failed') {
+    table.broken = true; model.hype = clamp(model.hype + 28, 0, 100);
+    addImpact(model, table.position, 'table', 2.1, { force: contact.maximumForce, outcome: 'fall', highlight: { label: 'Commentary Desk Collapse', score: Math.round(table.stress + move.hypeValue + 24), kind: 'table' } });
+    model.announcement = 'COMMENTARY DESK — WRECKED!'; model.announcementTimer = 2;
+  } else {
+    model.hype = clamp(model.hype + (nextStage === 'cracked' ? 12 : 5), 0, 100);
+    model.announcement = nextStage === 'cracked' ? 'COMMENTARY DESK — CRACKING!' : 'DESK BUCKLES UNDER THE IMPACT!'; model.announcementTimer = 1.25;
+  }
 };
 
 export const applyPhysicalContact = (model: MatchModel, contact: BodyWorksContact): boolean => {
@@ -671,8 +692,11 @@ export const applyPhysicalContact = (model: MatchModel, contact: BodyWorksContac
   const moveId = contact.moveId ?? actor.moveId;
   if (actor.attackInstanceId !== contact.attackInstanceId || !moveId) return false;
   const move = getMove(moveId);
+  if ((move.category === 'grapple' || move.category === 'finisher') && !contact.isLanding) return false;
   const legalContactPhase = actor.attackPhase === 'active' || (contact.isLanding && (move.category === 'grapple' || move.category === 'finisher'));
   if (!legalContactPhase) return false;
   if (!expectedContactSegment(move, contact.sourceSegment) || contact.relativeSpeed < .28 && contact.maximumForce < 45) return false;
-  return applyMoveHit(model, contact.sourceFighter, contact.targetFighter, move, contact);
+  const applied = applyMoveHit(model, contact.sourceFighter, contact.targetFighter, move, contact);
+  if (applied) applyPhysicalTableStress(model, contact, move);
+  return applied;
 };

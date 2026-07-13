@@ -17,7 +17,9 @@ export const strikeDriveProfile = (moveId: string): StrikeDriveProfile | null =>
   if (moveId === 'jab') return HAND_STRIKE;
   if (moveId === 'combo') return { source: 'leftHand', target: 'chest', speed: 13.5, response: 17, maximumAcceleration: 185, pelvisAcceleration: 2.2 };
   if (moveId === 'heavy') return { source: 'rightHand', target: 'head', speed: 16.5, response: 18, maximumAcceleration: 225, pelvisAcceleration: 3.4 };
+  if (moveId === 'front_kick') return { source: 'rightFoot', target: 'chest', speed: 16.2, response: 18, maximumAcceleration: 230, pelvisAcceleration: 3.8 };
   if (moveId === 'stiff_arm' || moveId === 'rebound') return { source: 'rightHand', target: 'chest', speed: 15.5, response: 17, maximumAcceleration: 215, pelvisAcceleration: 7.2 };
+  if (moveId === 'spear') return { source: 'chest', target: 'pelvis', speed: 13.8, response: 19, maximumAcceleration: 245, pelvisAcceleration: 8.4 };
   if (moveId === 'prop') return { source: 'rightHand', target: 'head', speed: 15, response: 16, maximumAcceleration: 205, pelvisAcceleration: 3 };
   if (moveId === 'ground' || moveId === 'aerial') return { source: 'rightFoot', target: 'chest', speed: 14.5, response: 16, maximumAcceleration: 210, pelvisAcceleration: moveId === 'aerial' ? 5.8 : 1.2 };
   if (moveId === 'counter') return { source: 'rightHand', target: 'chest', speed: 14, response: 18, maximumAcceleration: 195, pelvisAcceleration: 3.8 };

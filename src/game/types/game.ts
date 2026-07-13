@@ -141,6 +141,8 @@ export interface PropRuntime {
   kind: 'chair' | 'sign' | 'table';
   position: Vec2;
   durability: number;
+  stress: number;
+  failureStage: 'intact' | 'stressed' | 'cracked' | 'failed';
   heldBy: 'player' | 'opponent' | null;
   broken: boolean;
 }
@@ -226,6 +228,7 @@ export interface ChaosEvent {
 }
 
 export interface MatchModel {
+  labMode: boolean;
   ruleset: Ruleset;
   difficulty: Difficulty;
   elapsed: number;
@@ -249,6 +252,8 @@ export interface MatchModel {
   opponentStats: MatchStats;
   aiThinkTimer: number;
   aiIntent: GameCommand | null;
+  aiMovement: Vec2;
+  aiRunning: boolean;
   aiBlockTimer: number;
   grapple: GrappleRuntime | null;
   replayFrames: ReplayFrame[];

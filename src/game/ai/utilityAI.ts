@@ -25,10 +25,10 @@ export const isActionLegal = (model: MatchModel, command: GameCommand, actorKey:
   if (command === 'context') {
     if (actor.state === 'climbing') return !['defeated', 'victorious'].includes(target.state) && targetDistance <= getMove('aerial').maximumRange;
     if (actor.momentum >= 100) return targetDistance <= getMove('finisher').maximumRange && ['staggered', 'downed'].includes(target.state);
-    const nearCorner = Math.abs(actor.position.x) > 4.35 && Math.abs(actor.position.z) > 2.95;
-    if (nearCorner && ['idle', 'locomotion'].includes(actor.state)) return true;
     const pinEligible = actorKey === 'player' || (model.elapsed >= BALANCE.ai.earliestPinSeconds && target.health <= BALANCE.ai.pinHealthThreshold);
     if (pinEligible && target.state === 'downed' && targetDistance <= 1.6) return true;
+    const nearCorner = Math.abs(actor.position.x) > 4.35 && Math.abs(actor.position.z) > 2.95;
+    if (nearCorner && ['idle', 'locomotion'].includes(actor.state)) return true;
     const nearApron = (Math.abs(actor.position.x) > 5.05 && Math.abs(actor.position.x) < 6.9 && Math.abs(actor.position.z) < 4.4)
       || (Math.abs(actor.position.z) > 3.55 && Math.abs(actor.position.z) < 5.6 && Math.abs(actor.position.x) < 5.9);
     return nearApron && ['idle', 'locomotion'].includes(actor.state);
@@ -60,17 +60,30 @@ export const chooseAiDecision = (model: MatchModel, definition: FighterDefinitio
   const incomingMajor = target.attackPhase === 'anticipation' && target.moveId !== 'jab' && separation < 2.2;
   if (incomingMajor && roll < counterChance && isActionLegal(model, 'dodge', 'opponent')) return { command: 'dodge', move: { x: 0, z: 0 }, run: false, nextSeed };
   if (target.attackPhase === 'anticipation' && separation < 2.05 && roll < (hard ? .88 : .67) && isActionLegal(model, 'block', 'opponent')) return { command: 'block', move: { x: 0, z: 0 }, run: false, nextSeed };
+  if (actor.heldPropId && separation <= 2.2 && isActionLegal(model, 'heavy', 'opponent')) return { command: 'heavy', move: { x: 0, z: 0 }, run: false, nextSeed };
   const physicallyCompromised = actor.stamina < 24 || actor.body.balance < 34 || actor.body.muscle < .36;
   if (physicallyCompromised) {
-    const guard = separation < 2.25 && isActionLegal(model, 'block', 'opponent') && roll < .62;
+    if (actor.stamina < 18) return { command: null, move: separation < 2.6 ? { x: -toward.x * .72, z: -toward.z * .72 } : { x: 0, z: 0 }, run: false, nextSeed };
+    const guard = separation < 2.25 && isActionLegal(model, 'block', 'opponent') && roll < .48;
     return { command: guard ? 'block' : separation < 1.5 && isActionLegal(model, 'dodge', 'opponent') ? 'dodge' : null, move: { x: -toward.x * .55, z: -toward.z * .55 }, run: false, nextSeed };
+  }
+  const propTarget = model.ruleset === 'chaos' && !actor.heldPropId
+    ? model.props.filter((prop) => !prop.broken && !prop.heldBy && prop.kind !== 'table').sort((a, b) => distance(actor.position, a.position) - distance(actor.position, b.position))[0]
+    : undefined;
+  const pursuesProp = propTarget && model.elapsed > 6 && (actor.health < 98 || model.elapsed > 10 || personality.dirty > .62);
+  if (propTarget && pursuesProp) {
+    const propDistance = distance(actor.position, propTarget.position); const propDelta = { x: propTarget.position.x - actor.position.x, z: propTarget.position.z - actor.position.z }; const propMagnitude = Math.max(.001, Math.hypot(propDelta.x, propDelta.z));
+    const towardProp = { x: propDelta.x / propMagnitude, z: propDelta.z / propMagnitude };
+    const atSideApron = (Math.abs(actor.position.x) > 5.02 && Math.abs(actor.position.x) < 5.82 && Math.abs(actor.position.z) < 2.9)
+      || (Math.abs(actor.position.z) > 3.52 && Math.abs(actor.position.z) < 4.32 && Math.abs(actor.position.x) < 4.25);
+    if (atSideApron && isActionLegal(model, 'context', 'opponent')) return { command: 'context', move: { x: 0, z: 0 }, run: false, nextSeed };
+    if (propDistance <= 2.15 && isActionLegal(model, 'interact', 'opponent')) return { command: 'interact', move: { x: 0, z: 0 }, run: false, nextSeed };
+    return { command: null, move: towardProp, run: propDistance > 4.2, nextSeed };
   }
   if (target.state === 'downed' && separation < 1.7 && isActionLegal(model, 'context', 'opponent')) return { command: 'context', move: { x: 0, z: 0 }, run: false, nextSeed };
   if (actor.momentum >= 100 && isActionLegal(model, 'context', 'opponent')) return { command: 'context', move: { x: 0, z: 0 }, run: false, nextSeed };
   if (separation > 1.65) {
     if (separation > 3.1 && actor.health > 48 && roll < personality.showman * .13 && isActionLegal(model, 'taunt', 'opponent')) return { command: 'taunt', move: { x: 0, z: 0 }, run: false, nextSeed };
-    const propBias = model.ruleset === 'chaos' && !actor.heldPropId && roll > .92 - personality.dirty * .16 - personality.reckless * .08;
-    if (propBias && isActionLegal(model, 'interact', 'opponent')) return { command: 'interact', move: toward, run: false, nextSeed };
     return { command: null, move: toward, run: separation > 3.4, nextSeed };
   }
   const bias = definition.tendency;
