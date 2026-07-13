@@ -32,9 +32,11 @@ test('Bodyworks lab exposes live Rapier diagnostics and drives real jump/walk in
   expect(Number(await page.locator('html').getAttribute('data-max-jump-pelvis-y'))).toBeGreaterThan(initialY + .2);
   const initialX = Number(await hud.getAttribute('data-player-x')); const initialZ = Number(await hud.getAttribute('data-player-z'));
   await page.evaluate(() => {
-    const deckNode = document.querySelector('[data-testid="control-deck"]'); if (!deckNode) return;
-    const observe = (): void => { if (/MOVING|SPRINTING/.test(deckNode.getAttribute('data-control-state') ?? '')) document.documentElement.dataset.sawLocomotionControl = 'true'; };
-    new MutationObserver(observe).observe(deckNode, { subtree: true, attributes: true }); observe();
+    const observe = (): void => {
+      const deckNode = document.querySelector('[data-testid="control-deck"]');
+      if (/MOVEMENT|SPRINTING/.test(deckNode?.getAttribute('data-control-state') ?? '')) document.documentElement.dataset.sawLocomotionControl = 'true';
+    };
+    new MutationObserver(observe).observe(document.body, { subtree: true, attributes: true, childList: true }); observe();
   });
   await page.keyboard.down('w');
   await expect.poll(async () => Math.hypot(Number(await hud.getAttribute('data-player-x')) - initialX, Number(await hud.getAttribute('data-player-z')) - initialZ), { timeout: 2_800, intervals: [100] }).toBeGreaterThan(.35);
@@ -43,12 +45,12 @@ test('Bodyworks lab exposes live Rapier diagnostics and drives real jump/walk in
   await expect(deck.locator('[data-control="heavy"]')).toHaveAttribute('data-move-label', 'VOLTAGE UPPERCUT');
   await page.keyboard.up('w');
   await page.evaluate(() => {
-    const deckNode = document.querySelector('[data-testid="control-deck"]'); if (!deckNode) return;
     const observe = (): void => {
-      if (deckNode.getAttribute('data-control-state')?.includes('CIRCUIT JAB')) document.documentElement.dataset.sawJabControl = 'true';
-      if (deckNode.querySelector('[data-control="quick"]')?.classList.contains('is-active')) document.documentElement.dataset.sawActiveQuickControl = 'true';
+      const deckNode = document.querySelector('[data-testid="control-deck"]');
+      if (deckNode?.getAttribute('data-control-state')?.includes('CIRCUIT JAB')) document.documentElement.dataset.sawJabControl = 'true';
+      if (deckNode?.querySelector('[data-control="quick"]')?.classList.contains('is-active')) document.documentElement.dataset.sawActiveQuickControl = 'true';
     };
-    new MutationObserver(observe).observe(deckNode, { subtree: true, attributes: true }); observe();
+    new MutationObserver(observe).observe(document.body, { subtree: true, attributes: true, childList: true }); observe();
   });
   await expect(lab.getByRole('button', { name: 'JAB TO HEAD' })).toBeEnabled({ timeout: 4_000 }); await lab.getByRole('button', { name: 'JAB TO HEAD' }).click();
   await expect(hud).toHaveAttribute('data-player-move', 'jab', { timeout: 2_000 }); await expect(page.locator('html')).toHaveAttribute('data-saw-active-quick-control', 'true'); await expect(page.locator('html')).toHaveAttribute('data-saw-jab-control', 'true');

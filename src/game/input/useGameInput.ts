@@ -12,7 +12,8 @@ export interface InputController {
 }
 
 export const readGamepadDirection = (gamepad: Gamepad): { x: number; z: number } => {
-  const first = { x: gamepad.axes[0] ?? 0, z: gamepad.axes[1] ?? 0 }; const second = { x: gamepad.axes[2] ?? 0, z: gamepad.axes[3] ?? 0 };
+  const axes: readonly number[] = gamepad.axes ?? []; const buttons: readonly GamepadButton[] = gamepad.buttons ?? [];
+  const first = { x: axes[0] ?? 0, z: axes[1] ?? 0 }; const second = { x: axes[2] ?? 0, z: axes[3] ?? 0 };
   const chosen = Math.hypot(second.x, second.z) > Math.hypot(first.x, first.z) ? second : first;
   const axisX = chosen.x; const axisY = chosen.z;
   const magnitude = Math.hypot(axisX, axisY);
@@ -21,8 +22,8 @@ export const readGamepadDirection = (gamepad: Gamepad): { x: number; z: number }
     return { x: axisX / magnitude * normalized, z: axisY / magnitude * normalized };
   }
   return {
-    x: (gamepad.buttons[15]?.pressed ? 1 : 0) - (gamepad.buttons[14]?.pressed ? 1 : 0),
-    z: (gamepad.buttons[13]?.pressed ? 1 : 0) - (gamepad.buttons[12]?.pressed ? 1 : 0),
+    x: (buttons[15]?.pressed ? 1 : 0) - (buttons[14]?.pressed ? 1 : 0),
+    z: (buttons[13]?.pressed ? 1 : 0) - (buttons[12]?.pressed ? 1 : 0),
   };
 };
 
