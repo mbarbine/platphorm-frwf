@@ -48,6 +48,11 @@ export interface BodyWorksMetrics {
   maximumGripError: number;
   maximumGripLoad: number;
   lastGripBreakReason: string;
+  worldJointCount: number;
+  gripCreateCount: number;
+  gripInvalidCount: number;
+  worldBodyCount: number;
+  invalidRegisteredBodyCount: number;
   contactCount: number;
   emergencyResetCount: number;
   lastStepMs: number;
@@ -105,7 +110,7 @@ export class BodyWorksRuntime {
   private readonly grips: PhysicalGrip[] = [];
   private readonly pendingLandings = new Map<FighterKey, PendingLanding>();
   readonly replay = new PhysicsReplayBuffer(300);
-  readonly metrics: BodyWorksMetrics = { fixedSteps: 0, bodyCount: 0, jointCount: 0, gripCount: 0, nearestGripDistance: 0, maximumGripError: 0, maximumGripLoad: 0, lastGripBreakReason: 'none', contactCount: 0, emergencyResetCount: 0, lastStepMs: 0, maximumStepMs: 0 };
+  readonly metrics: BodyWorksMetrics = { fixedSteps: 0, bodyCount: 0, jointCount: 0, gripCount: 0, nearestGripDistance: 0, maximumGripError: 0, maximumGripLoad: 0, lastGripBreakReason: 'none', worldJointCount: 0, gripCreateCount: 0, gripInvalidCount: 0, worldBodyCount: 0, invalidRegisteredBodyCount: 0, contactCount: 0, emergencyResetCount: 0, lastStepMs: 0, maximumStepMs: 0 };
 
   registerFighter(fighter: FighterKey, bodies: Partial<Record<BodySegmentId, RapierRigidBody>>, jointCount: number): () => void {
     this.rigs.set(fighter, { bodies, supportContacts: new Set<BodySegmentId>(), jumpQueued: false, jumpCooldown: 0 });
@@ -177,6 +182,12 @@ export class BodyWorksRuntime {
   beforeFixedStep(dt: number, model: MatchModel, world?: World): void {
     const startedAt = performance.now();
     if (world) this.world = world;
+    if (this.world) {
+      this.metrics.worldJointCount = this.world.impulseJoints.len(); this.metrics.worldBodyCount = this.world.bodies.len();
+      let invalidRegisteredBodies = 0;
+      for (const rig of this.rigs.values()) for (const body of Object.values(rig.bodies)) if (body && !body.isValid()) invalidRegisteredBodies += 1;
+      this.metrics.invalidRegisteredBodyCount = invalidRegisteredBodies;
+    }
     if (model.paused || model.resolved) return;
     if (['idle', 'locomotion'].includes(model.opponent.state)) {
       const deltaX = model.player.position.x - model.opponent.position.x; const deltaZ = model.player.position.z - model.opponent.position.z; const distance = Math.hypot(deltaX, deltaZ);
@@ -252,6 +263,7 @@ export class BodyWorksRuntime {
         if (distance > .5) continue;
         const joint = world.createImpulseJoint(JointData.spherical({ x: 0, y: 0, z: 0 }, { x: targetAnchorX, y: 0, z: 0 }), hand, target, true);
         joint.setContactsEnabled(false);
+        this.metrics.gripCreateCount += 1;
         this.grips.push({ joint, attacker: grapple.attacker, defender: grapple.defender, hand: handId, target: targetId, targetAnchorX, moveId: move.id, strength: gripCapacity(attacker), createdAt: model.elapsed });
       }
       this.metrics.nearestGripDistance = Number.isFinite(nearestGripDistance) ? nearestGripDistance : 0;
@@ -259,7 +271,8 @@ export class BodyWorksRuntime {
     const activeGrips = this.grips.filter((grip) => grip.attacker === grapple.attacker && grip.moveId === move.id);
     for (const grip of activeGrips) {
       const hand = attackerRig.bodies[grip.hand]; const target = defenderRig.bodies[grip.target];
-      if (!hand || !target || !grip.joint.isValid()) { this.removeGrip(world, grip, 'invalid-joint'); continue; }
+      if (!hand || !target) { this.removeGrip(world, grip, 'missing-body'); continue; }
+      if (!grip.joint.isValid()) { this.metrics.gripInvalidCount += 1; this.removeGrip(world, grip, 'invalid-joint'); continue; }
       const handPosition = hand.translation(); const targetPosition = bodyAnchorWorld(target, grip.targetAnchorX); const error = Math.hypot(handPosition.x - targetPosition.x, handPosition.y - targetPosition.y, handPosition.z - targetPosition.z);
       const load = Math.hypot(target.linvel().x - hand.linvel().x, target.linvel().y - hand.linvel().y, target.linvel().z - hand.linvel().z) * defender.body.mass / 100;
       this.metrics.maximumGripError = Math.max(this.metrics.maximumGripError, error); this.metrics.maximumGripLoad = Math.max(this.metrics.maximumGripLoad, load);
@@ -355,7 +368,7 @@ export class BodyWorksRuntime {
     this.generation += 1; this.rigs.clear(); this.commands.length = 0; this.contacts.length = 0; this.replay.clear();
     this.pendingLandings.clear(); this.world = null;
     this.intents.player = EMPTY_INTENT(); this.intents.opponent = EMPTY_INTENT();
-    this.metrics.fixedSteps = 0; this.metrics.bodyCount = 0; this.metrics.jointCount = 0; this.metrics.gripCount = 0; this.metrics.nearestGripDistance = 0; this.metrics.maximumGripError = 0; this.metrics.maximumGripLoad = 0; this.metrics.lastGripBreakReason = 'none'; this.metrics.contactCount = 0; this.metrics.lastStepMs = 0; this.metrics.maximumStepMs = 0;
+    this.metrics.fixedSteps = 0; this.metrics.bodyCount = 0; this.metrics.jointCount = 0; this.metrics.gripCount = 0; this.metrics.nearestGripDistance = 0; this.metrics.maximumGripError = 0; this.metrics.maximumGripLoad = 0; this.metrics.lastGripBreakReason = 'none'; this.metrics.worldJointCount = 0; this.metrics.gripCreateCount = 0; this.metrics.gripInvalidCount = 0; this.metrics.worldBodyCount = 0; this.metrics.invalidRegisteredBodyCount = 0; this.metrics.contactCount = 0; this.metrics.lastStepMs = 0; this.metrics.maximumStepMs = 0;
   }
 
   pendingCommandCount(): number { return this.commands.length; }
