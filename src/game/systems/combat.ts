@@ -93,6 +93,13 @@ export const applyMoveHit = (model: MatchModel, actorKey: 'player' | 'opponent',
   if (move.category === 'grapple') stats.grapples += 1;
   if (move.category === 'finisher') stats.finishers += 1;
   if (move.category === 'prop') stats.propImpacts += 1;
+  if (move.category === 'prop' && actor.heldPropId) {
+    const prop = model.props.find((candidate) => candidate.id === actor.heldPropId);
+    if (prop) {
+      prop.durability -= 1;
+      if (prop.durability <= 0) { prop.broken = true; prop.heldBy = null; actor.heldPropId = null; }
+    }
+  }
 
   const direction = normalize({ x: target.position.x - actor.position.x, z: target.position.z - actor.position.z });
   target.velocity = scale(direction, move.knockback * (model.chaosEvent?.type === 'OVERDRIVE ROPES' ? 1.18 : 1));
@@ -111,6 +118,13 @@ export const applyMoveHit = (model: MatchModel, actorKey: 'player' | 'opponent',
 
   const kind: ImpactEvent['kind'] = move.category === 'finisher' ? 'finisher' : move.category === 'prop' ? 'weapon' : move.category === 'grapple' ? 'grapple' : move.category === 'heavy' || move.category === 'aerial' ? 'heavy' : 'light';
   addImpact(model, target.position, kind, move.category === 'finisher' ? 2.2 : Math.max(.6, move.damage / 13));
+  const table = model.props.find((prop) => prop.kind === 'table' && !prop.broken);
+  if (table && ['finisher', 'grapple', 'aerial'].includes(move.category) && distance(target.position, table.position) < 2.6) {
+    table.broken = true;
+    model.hype = clamp(model.hype + 28, 0, 100);
+    addImpact(model, table.position, 'table', 2.1);
+    model.announcement = 'COMMENTARY DESK — WRECKED!'; model.announcementTimer = 2;
+  }
   if (move.category === 'finisher') {
     model.slowMotion = .65;
     model.announcement = `${actorDefinition.signature}!`;
@@ -180,6 +194,8 @@ export const requestCommand = (model: MatchModel, actorKey: 'player' | 'opponent
   if (command === 'taunt') return startMove(actor, target, getMove('taunt'));
   if (command === 'context') {
     if (actor.momentum >= 100 && ['staggered', 'downed'].includes(target.state)) return startMove(actor, target, getMove('finisher'));
+    const nearCorner = Math.abs(actor.position.x) > 4.65 && Math.abs(actor.position.z) > 3.2;
+    if (nearCorner && ['downed', 'staggered'].includes(target.state)) return startMove(actor, target, getMove('aerial'));
     if (target.state === 'downed') return startPin(actor, target);
     return false;
   }
@@ -266,9 +282,18 @@ const updateFighter = (model: MatchModel, actorKey: 'player' | 'opponent', dt: n
   actor.position.x += actor.velocity.x * dt; actor.position.z += actor.velocity.z * dt;
   actor.velocity = scale(actor.velocity, Math.max(0, 1 - dt * 4));
 
-  const ropeX = 5.65; const ropeZ = 4.15;
-  if (Math.abs(actor.position.x) > ropeX) { actor.position.x = Math.sign(actor.position.x) * ropeX; actor.velocity.x *= -.92; actor.ropeRebound = 1.1; addImpact(model, actor.position, 'rope', .55); }
-  if (Math.abs(actor.position.z) > ropeZ) { actor.position.z = Math.sign(actor.position.z) * ropeZ; actor.velocity.z *= -.92; actor.ropeRebound = 1.1; addImpact(model, actor.position, 'rope', .55); }
+  const ropeX = 5.65; const ropeZ = 4.15; const outside = Math.abs(actor.position.x) > ropeX + .2 || Math.abs(actor.position.z) > ropeZ + .2;
+  const impactSpeed = Math.hypot(actor.velocity.x, actor.velocity.z);
+  const deliberateRingOut = (actor.state === 'downed' || actor.state === 'staggered') && impactSpeed > 2.7;
+  if (!outside && !deliberateRingOut && Math.abs(actor.position.x) > ropeX) {
+    actor.position.x = Math.sign(actor.position.x) * ropeX; actor.velocity.x *= -.92;
+    if (actor.ropeRebound <= 0) addImpact(model, actor.position, 'rope', .55); actor.ropeRebound = 1.1;
+  }
+  if (!outside && !deliberateRingOut && Math.abs(actor.position.z) > ropeZ) {
+    actor.position.z = Math.sign(actor.position.z) * ropeZ; actor.velocity.z *= -.92;
+    if (actor.ropeRebound <= 0) addImpact(model, actor.position, 'rope', .55); actor.ropeRebound = 1.1;
+  }
+  actor.position.x = clamp(actor.position.x, -9.2, 9.2); actor.position.z = clamp(actor.position.z, -8.2, 8.2);
   actor.facing = Math.atan2(target.position.x - actor.position.x, target.position.z - actor.position.z);
 }
 
@@ -312,5 +337,9 @@ export const advanceMatch = (model: MatchModel, dt: number, playerInput: FrameIn
   }
   updateFighter(model, 'player', step, playerInput.move, playerInput.run);
   updateFighter(model, 'opponent', step, aiMove, aiRun);
+  const playerThreat = model.opponent.moveId ? getMove(model.opponent.moveId) : null;
+  model.player.counterWindow = playerThreat?.counterWindow && model.opponent.attackPhase === 'anticipation' && distance(model.player.position, model.opponent.position) < playerThreat.maximumRange + .3 && model.opponent.phaseElapsed >= playerThreat.counterWindow[0] && model.opponent.phaseElapsed <= playerThreat.counterWindow[1] ? .1 : 0;
+  const opponentThreat = model.player.moveId ? getMove(model.player.moveId) : null;
+  model.opponent.counterWindow = opponentThreat?.counterWindow && model.player.attackPhase === 'anticipation' && distance(model.player.position, model.opponent.position) < opponentThreat.maximumRange + .3 && model.player.phaseElapsed >= opponentThreat.counterWindow[0] && model.player.phaseElapsed <= opponentThreat.counterWindow[1] ? .1 : 0;
   return model;
 };
