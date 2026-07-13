@@ -9,12 +9,12 @@ export const isActionLegal = (model: MatchModel, command: GameCommand, actorKey:
   const target = actorKey === 'player' ? model.opponent : model.player;
   if (model.paused || model.resolved || actor.state === 'pinned' || actor.state === 'pinning' || actor.state === 'defeated' || actor.state === 'victorious') return false;
   const targetDistance = distance(actor.position, target.position);
-  if (command === 'dodge') return actor.stamina >= 8 && ['idle', 'locomotion', 'staggered'].includes(actor.state);
+  if (command === 'dodge') return actor.stamina >= 8 && ['idle', 'locomotion', 'staggered', 'grabbed'].includes(actor.state);
   if (command === 'taunt') return ['idle', 'locomotion'].includes(actor.state);
   if (command === 'interact') return model.ruleset === 'chaos' && ['idle', 'locomotion'].includes(actor.state);
   if (command === 'context') {
     if (actor.momentum >= 100) return targetDistance <= getMove('finisher').maximumRange && ['staggered', 'downed'].includes(target.state);
-    const pinEligible = actorKey === 'player' || target.health <= 52 || target.finisherPrimed;
+    const pinEligible = actorKey === 'player' || (model.elapsed >= 50 && target.health <= 25);
     return pinEligible && target.state === 'downed' && targetDistance <= 1.6;
   }
   const move = command === 'quick' ? MOVES.jab : command === 'heavy' ? MOVES.heavy : MOVES.slam;

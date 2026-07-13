@@ -16,6 +16,16 @@ const CLAW_FINISHER = {
   rootTilt: .18,
 };
 
+const AIRBORNE_REACTION = {
+  torso: [-.55, 0, .12] as [number, number, number],
+  leftArm: [.95, 0, -.55] as [number, number, number],
+  rightArm: [.75, 0, .55] as [number, number, number],
+  leftLeg: [-.75, 0, 0] as [number, number, number],
+  rightLeg: [.48, 0, 0] as [number, number, number],
+  rootY: .92,
+  rootTilt: -1.08,
+};
+
 interface Props { runtime?: FighterRuntime; fighterId?: FighterId; preview?: boolean; side?: 'player' | 'opponent' }
 
 const limbMaterial = (color: string, emissive: string) => <meshStandardMaterial color={color} roughness={.48} metalness={.22} emissive={emissive} emissiveIntensity={.12} />;
@@ -35,8 +45,13 @@ export function FighterModel({ runtime, fighterId, preview = false, side = 'play
     let key: AnimationKey = 'combatIdle';
     if (preview) key = 'taunt';
     else if (runtime) {
-      if (runtime.moveId) key = getMove(runtime.moveId).animationKey;
+      if (runtime.moveId) {
+        const move = getMove(runtime.moveId);
+        key = move.category === 'grapple' && runtime.attackPhase === 'anticipation' ? 'grappleEntry' : move.animationKey;
+      }
       else if (runtime.state === 'locomotion') key = Math.hypot(runtime.velocity.x, runtime.velocity.z) > 3.8 ? 'run' : 'walk';
+      else if (runtime.state === 'grabbed') key = 'stagger';
+      else if (runtime.state === 'airborne') key = 'knockdown';
       else if (runtime.state === 'downed') key = 'downed';
       else if (runtime.state === 'recovering') key = 'recovery';
       else if (runtime.state === 'staggered') key = 'stagger';
@@ -45,7 +60,7 @@ export function FighterModel({ runtime, fighterId, preview = false, side = 'play
       else if (runtime.state === 'victorious') key = 'victory';
       else if (runtime.state === 'defeated') key = 'defeat';
     }
-    const pose = key === 'finisher' && id === 'chad' ? CLAW_FINISHER : POSES[key]; const smooth = 1 - Math.exp(-delta * 12);
+    const pose = runtime?.state === 'airborne' ? AIRBORNE_REACTION : key === 'finisher' && id === 'chad' ? CLAW_FINISHER : POSES[key]; const smooth = 1 - Math.exp(-delta * 12);
     const bob = ['combatIdle', 'idle', 'taunt'].includes(key) ? Math.sin(t * 2.4 + phaseOffset) * .035 : Math.abs(Math.sin(t * 7)) * .035;
     root.current.position.y += ((pose.rootY + bob) - root.current.position.y) * smooth;
     root.current.rotation.x += (pose.rootTilt - root.current.rotation.x) * smooth;

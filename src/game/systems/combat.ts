@@ -79,14 +79,14 @@ export const applyMoveHit = (model: MatchModel, actorKey: 'player' | 'opponent',
 
   const targetDefinition = fighterById(target.definitionId);
   const actorDefinition = fighterById(actor.definitionId);
-  const scaledDamage = move.damage * .62 * (.78 + actorDefinition.stats.power / 250) * (1.08 - targetDefinition.stats.stamina / 900);
+  const scaledDamage = move.damage * .48 * (.78 + actorDefinition.stats.power / 250) * (1.08 - targetDefinition.stats.stamina / 900);
   const damage = Math.round(scaledDamage * 10) / 10;
   target.health = clamp(target.health - damage, 0, 100);
   actor.hitTargets.push(targetKey);
   const variety = varietyMultiplier(actor, move.id);
   const surge = model.chaosEvent?.type === 'CROWD SURGE' ? 1.6 : 1;
   actor.momentum = clamp(actor.momentum + move.momentumGain * variety * (model.ruleset === 'chaos' ? 1.2 : 1) * surge, 0, 100);
-  model.hype = clamp(model.hype + move.hypeValue * variety, 0, 100);
+  model.hype = clamp(model.hype + move.hypeValue * variety * .55, 0, 100);
   actor.recentMoves = [...actor.recentMoves.slice(-4), move.id];
   const stats = actorKey === 'player' ? model.playerStats : model.opponentStats;
   stats.damageDealt = Math.round((stats.damageDealt + damage) * 10) / 10;
@@ -105,7 +105,8 @@ export const applyMoveHit = (model: MatchModel, actorKey: 'player' | 'opponent',
   target.velocity = scale(direction, move.knockback * (model.chaosEvent?.type === 'OVERDRIVE ROPES' ? 1.18 : 1));
   const lowHealthBonus = target.health < 35 ? .28 : 0;
   if (move.knockdownStrength + lowHealthBonus >= .72 || move.category === 'finisher') {
-    target.state = 'downed';
+    target.state = move.category === 'grapple' ? 'airborne' : 'downed';
+    target.stateElapsed = 0;
     target.downTimer = 1.6 + (100 - target.health) / 75 + (move.category === 'finisher' ? 1.2 : 0);
     target.moveId = null;
     target.attackPhase = null;
@@ -130,6 +131,7 @@ export const applyMoveHit = (model: MatchModel, actorKey: 'player' | 'opponent',
     model.announcement = `${actorDefinition.signature}!`;
     model.announcementTimer = 1.8;
   }
+  if (move.category === 'grapple') { model.announcement = move.displayName.toUpperCase(); model.announcementTimer = .9; }
   if (target.health <= 0 && (move.category === 'finisher' || move.category === 'heavy' || move.category === 'grapple' || move.category === 'prop' || move.category === 'aerial')) resolveMatch(model, actorKey, 'KNOCKOUT');
   return true;
 };
@@ -208,7 +210,11 @@ export const requestCommand = (model: MatchModel, actorKey: 'player' | 'opponent
   if (command === 'heavy') return startMove(actor, target, getMove(actor.heldPropId ? 'prop' : actor.ropeRebound > 0 ? 'rebound' : 'heavy'));
   const moveId = chooseGrapple(actor);
   const started = startMove(actor, target, getMove(moveId));
-  if (started) actor.comboStep += 1;
+  if (started) {
+    actor.comboStep += 1; target.state = 'grabbed'; target.stateElapsed = 0; target.velocity = { x: 0, z: 0 };
+    target.moveId = null; target.attackPhase = null;
+    model.announcement = `GRAPPLE LOCK — ${getMove(moveId).displayName.toUpperCase()}`; model.announcementTimer = .65;
+  }
   return started;
 };
 
@@ -252,6 +258,23 @@ const updateFighter = (model: MatchModel, actorKey: 'player' | 'opponent', dt: n
   const actor = model[actorKey];
   const target = actorKey === 'player' ? model.opponent : model.player;
   actor.stateElapsed += dt; actor.invulnerability = Math.max(0, actor.invulnerability - dt); actor.ropeRebound = Math.max(0, actor.ropeRebound - dt);
+  if (actor.state === 'grabbed') {
+    const holdingMove = target.moveId ? getMove(target.moveId) : null;
+    if (target.state !== 'grappling' || holdingMove?.category !== 'grapple') { actor.state = 'idle'; actor.stateElapsed = 0; }
+    else {
+      const forward = { x: Math.sin(target.facing), z: Math.cos(target.facing) };
+      actor.position = { x: target.position.x + forward.x * .72, z: target.position.z + forward.z * .72 };
+      actor.facing = target.facing + Math.PI;
+      actor.stamina = clamp(actor.stamina + dt * 5, 0, 100);
+      return;
+    }
+  }
+  if (actor.state === 'airborne') {
+    const forward = { x: Math.sin(target.facing), z: Math.cos(target.facing) };
+    actor.position = { x: target.position.x + forward.x * .92, z: target.position.z + forward.z * .92 };
+    if (actor.stateElapsed >= .32) { actor.state = 'downed'; actor.stateElapsed = 0; }
+    return;
+  }
   if (actor.state === 'downed') {
     actor.downTimer -= dt; actor.stamina = clamp(actor.stamina + dt * 10, 0, 100);
     if (actor.downTimer <= 0) { actor.state = 'recovering'; actor.stateElapsed = 0; }

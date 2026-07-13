@@ -68,6 +68,20 @@ describe('deterministic combat rules', () => {
     if (decision.command) expect(isActionLegal(model, decision.command, 'opponent')).toBe(true);
   });
 
+  it('AI cannot steal an early pin after a routine knockdown', () => {
+    const model = createMatch('atlas', 'vex', 'standard', 'normal'); model.player.state = 'downed'; model.player.health = 20; model.opponent.position = { ...model.player.position };
+    expect(isActionLegal(model, 'context', 'opponent')).toBe(false);
+    model.elapsed = 51; expect(isActionLegal(model, 'context', 'opponent')).toBe(true);
+  });
+
+  it('grapple visibly owns the target through grab, lift, and landing states', () => {
+    const model = createMatch('chad', 'atlas', 'standard', 'normal'); model.player.position = { x: 0, z: 0 }; model.opponent.position = { x: 1, z: 0 };
+    expect(requestCommand(model, 'player', 'grapple')).toBe(true); expect(model.opponent.state).toBe('grabbed');
+    model.player.attackPhase = 'active'; expect(applyMoveHit(model, 'player', 'opponent', getMove(model.player.moveId ?? 'slam'))).toBe(true);
+    expect(model.opponent.state).toBe('airborne');
+    model.hitStop = 0; advanceMatch(model, .4, none); expect(model.opponent.state).toBe('downed');
+  });
+
   it('reports explicit anticipation, active, recovery phases', () => {
     const move = getMove('heavy');
     expect(getAttackPhase(move, .1)).toBe('anticipation'); expect(getAttackPhase(move, .45)).toBe('active'); expect(getAttackPhase(move, .7)).toBe('recovery'); expect(getAttackPhase(move, 2)).toBeNull();
@@ -81,7 +95,7 @@ describe('deterministic combat rules', () => {
 
   it('completes a finisher knockout and resets for an immediate rematch', () => {
     const model = createMatch('brick', 'atlas', 'chaos', 'hard'); model.player.position = { x: 0, z: 0 }; model.opponent.position = { x: 1, z: 0 };
-    model.player.momentum = 100; model.opponent.health = 18; model.opponent.state = 'staggered';
+    model.player.momentum = 100; model.opponent.health = 8; model.opponent.state = 'staggered';
     expect(requestCommand(model, 'player', 'context')).toBe(true); model.player.attackPhase = 'active';
     expect(applyMoveHit(model, 'player', 'opponent', getMove('finisher'))).toBe(true);
     expect(model.result).toMatchObject({ winner: 'player', method: 'KNOCKOUT' });

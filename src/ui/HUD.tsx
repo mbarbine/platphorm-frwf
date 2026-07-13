@@ -10,6 +10,7 @@ export function HUD({ device, paused }: { device: ControlDevice; paused: boolean
   const hint = model.player.momentum >= 100 && ['staggered', 'downed'].includes(model.opponent.state) && distance < 2.2 ? 'F  SIGNATURE FINISHER'
     : model.opponent.state === 'downed' && distance < 1.7 ? 'F  PIN  ·  J  GROUND STRIKE'
     : model.player.counterWindow > 0 ? 'SPACE  COUNTER NOW'
+    : distance < 1.8 && ['idle', 'locomotion', 'staggered'].includes(model.opponent.state) ? 'L  GRAPPLE  ·  CYCLES SLAM / SUPLEX / TAKEDOWN / WHIP'
     : model.player.heldPropId ? 'K / E  SWING PROP' : model.ruleset === 'chaos' ? 'E  PICK UP NEARBY PROP' : 'VARY MOVES TO BUILD MOMENTUM';
   return <div className="hud" aria-live="polite">
     <div className="hud__fighters">
