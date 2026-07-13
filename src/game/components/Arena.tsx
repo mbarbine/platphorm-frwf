@@ -38,11 +38,12 @@ function RopeSide({ axis, side, color, emissive }: { axis: 'x' | 'z'; side: -1 |
     if (!group.current) return;
     const model = useMatchStore.getState().model; const overdrive = model.chaosEvent?.type === 'OVERDRIVE ROPES';
     const edge = axis === 'x' ? 5.2 : 3.7; const visualEdge = axis === 'x' ? 5.75 : 4.25;
-    const fighters = [model.player, model.opponent] as const;
-    const edgeDepths = fighters.map((fighter) => (axis === 'x' ? fighter.position.x : fighter.position.z) * side);
-    const contactIndex = edgeDepths[0] >= edgeDepths[1] ? 0 : 1; const contactFighter = fighters[contactIndex];
-    const compression = Math.max(0, Math.min(1, (edgeDepths[contactIndex] - edge) / .54));
-    const rebound = Math.max(...fighters.map((fighter, index) => edgeDepths[index] > edge - 1.55 ? fighter.ropeRebound : 0));
+    const playerEdge = (axis === 'x' ? model.player.position.x : model.player.position.z) * side;
+    const opponentEdge = (axis === 'x' ? model.opponent.position.x : model.opponent.position.z) * side;
+    const contactFighter = playerEdge >= opponentEdge ? model.player : model.opponent;
+    const contactEdge = Math.max(playerEdge, opponentEdge);
+    const compression = Math.max(0, Math.min(1, (contactEdge - edge) / .54));
+    const rebound = Math.max(playerEdge > edge - 1.55 ? model.player.ropeRebound : 0, opponentEdge > edge - 1.55 ? model.opponent.ropeRebound : 0);
     const contactAlong = axis === 'x' ? contactFighter.position.z : contactFighter.position.x;
     const pulse = Math.sin(elapsed.current * (overdrive ? 29 : 21)) * (compression + rebound * .34);
     group.current.position.set(axis === 'x' ? side * visualEdge : 0, 0, axis === 'z' ? side * visualEdge : 0);

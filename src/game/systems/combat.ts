@@ -180,7 +180,8 @@ export const applyMoveHit = (model: MatchModel, actorKey: 'player' | 'opponent',
   if (model.grapple && model.grapple.attacker === actorKey) releaseGrapple(model, 'staggered');
   const lowHealthBonus = target.health < 35 ? .28 : 0;
   const physicalFall = ['trip', 'fall', 'launch'].includes(collisionOutcome);
-  if (move.knockdownStrength + lowHealthBonus >= .72 || move.category === 'finisher' || physicalFall) {
+  const guaranteedRunningKnockdown = move.id === 'stiff_arm' || move.id === 'rebound';
+  if (guaranteedRunningKnockdown || move.knockdownStrength + lowHealthBonus >= .72 || move.category === 'finisher' || physicalFall) {
     // Pure rules tests and non-WebGL simulations retain a bounded deterministic
     // flight proxy. The shipping match never enters this branch: Rapier owns the
     // victim's height and the contact bridge resolves the real mat landing.

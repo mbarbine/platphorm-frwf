@@ -43,8 +43,8 @@ export const solveRopeResponse = (position: Vec2, velocity: Vec2, overdrive = fa
   const side = (Math.sign(axis === 'x' ? position.x : position.z) || 1) as -1 | 1;
   const outwardSpeed = Math.max(0, (axis === 'x' ? velocity.x : velocity.z) * side);
   if (compression <= 0) return { engaged: false, axis, side, compression: 0, outwardSpeed: 0, force: { x: 0, z: 0 } };
-  const spring = (overdrive ? 5_400 : 4_250) * compression;
-  const damping = (overdrive ? 380 : 455) * outwardSpeed;
-  const magnitude = Math.min(overdrive ? 5_600 : 4_600, spring + damping);
+  const spring = (overdrive ? 6_050 : 4_850) * compression;
+  const damping = (overdrive ? 330 : 390) * outwardSpeed;
+  const magnitude = Math.min(overdrive ? 6_300 : 5_250, spring + damping);
   return { engaged: true, axis, side, compression, outwardSpeed, force: axis === 'x' ? { x: -side * magnitude, z: 0 } : { x: 0, z: -side * magnitude } };
 };

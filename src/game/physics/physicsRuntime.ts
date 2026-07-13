@@ -398,7 +398,7 @@ export class BodyWorksRuntime {
       rig.jumpQueued = false;
     }
     this.applyFootPlantDrive(rig, fighter);
-    this.applyRopeController(key, rig, fighter, model);
+    this.applyRopeController(rig, fighter, model);
     this.applyPhysicalStrike(key, rig, fighter, model);
     this.applyPoseDrive(rig, fighter);
   }
@@ -455,7 +455,7 @@ export class BodyWorksRuntime {
     }
   }
 
-  private applyRopeController(key: FighterKey, rig: FighterRigRegistration, fighter: FighterRuntime, model: MatchModel): void {
+  private applyRopeController(rig: FighterRigRegistration, fighter: FighterRuntime, model: MatchModel): void {
     const pelvis = rig.bodies.pelvis; if (!pelvis || ['airborne', 'downed', 'defeated', 'climbing'].includes(fighter.state)) { rig.ropeContact = null; return; }
     const position = pelvis.translation(); const velocity = pelvis.linvel();
     const response = solveRopeResponse({ x: position.x, z: position.z }, { x: velocity.x, z: velocity.z }, model.chaosEvent?.type === 'OVERDRIVE ROPES');
