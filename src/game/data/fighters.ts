@@ -39,7 +39,7 @@ export const FIGHTERS: readonly FighterDefinition[] = [
     signature: 'CLAW HAMMER', taunt: 'Raises one iron claw toward the rafters, then points straight down at the landing zone.', tendency: 'opportunistic',
     palette: { primary: '#8a3f32', secondary: '#263646', skin: '#c58c70', emissive: '#f3b84b' },
     proportions: { height: 1.07, width: 1.12, headwear: 'mullet' },
-    stats: { power: 88, speed: 67, stamina: 86, technique: 74, charisma: 94 },
+    stats: { power: 88, speed: 67, stamina: 42, technique: 74, charisma: 94 },
   },
 ] as const;
 

@@ -318,7 +318,7 @@ const updatePin = (model: MatchModel, dt: number, playerInput: FrameInput): void
   } else if (count >= 3 && pinning.stateElapsed >= 2.85) resolveMatch(model, pinningKey, 'PINFALL');
 };
 
-const updateFighter = (model: MatchModel, actorKey: 'player' | 'opponent', dt: number, movement: Vec2, run: boolean): void => {
+const updateFighter = (model: MatchModel, actorKey: 'player' | 'opponent', dt: number, movement: Vec2, run: boolean, blockingHeld: boolean): void => {
   const actor = model[actorKey];
   const target = actorKey === 'player' ? model.opponent : model.player;
   actor.stateElapsed += dt; actor.invulnerability = Math.max(0, actor.invulnerability - dt); actor.ropeRebound = Math.max(0, actor.ropeRebound - dt);
@@ -329,7 +329,7 @@ const updateFighter = (model: MatchModel, actorKey: 'player' | 'opponent', dt: n
       const forward = { x: Math.sin(target.facing), z: Math.cos(target.facing) };
       actor.position = { x: target.position.x + forward.x * .72, z: target.position.z + forward.z * .72 };
       actor.facing = target.facing + Math.PI;
-      actor.stamina = clamp(actor.stamina + dt * 5, 0, 100);
+      actor.stamina = clamp(actor.stamina + dt * 5, 0, actor.staminaCap);
       return;
     }
   }
@@ -340,10 +340,18 @@ const updateFighter = (model: MatchModel, actorKey: 'player' | 'opponent', dt: n
     return;
   }
   if (actor.state === 'downed') {
-    actor.downTimer -= dt; actor.stamina = clamp(actor.stamina + dt * 10, 0, 100);
+    actor.downTimer -= dt; actor.stamina = clamp(actor.stamina + dt * 10, 0, actor.staminaCap);
     if (actor.downTimer <= 0) { actor.state = 'recovering'; actor.stateElapsed = 0; }
   } else if (actor.state === 'recovering' && actor.stateElapsed > .7) { actor.state = 'idle'; actor.stateElapsed = 0; }
   else if (actor.state === 'staggered' && actor.stateElapsed > .42 + (100 - actor.health) / 240) { actor.state = 'idle'; actor.stateElapsed = 0; }
+
+  if (blockingHeld && ['idle', 'locomotion', 'blocking'].includes(actor.state) && actor.stamina > 0) {
+    actor.state = 'blocking'; actor.velocity = scale(actor.velocity, Math.max(0, 1 - dt * 18));
+    actor.stamina = clamp(actor.stamina - dt * BALANCE.block.holdDrainPerSecond, 0, actor.staminaCap);
+    if (actor.stamina <= 0) { actor.state = 'staggered'; actor.stateElapsed = 0; model.announcement = 'GUARD EXHAUSTED!'; model.announcementTimer = .8; }
+  } else if (actor.state === 'blocking') {
+    actor.state = 'idle'; actor.stateElapsed = 0;
+  }
 
   if (actor.moveId) {
     const move = getMove(actor.moveId);
@@ -361,10 +369,10 @@ const updateFighter = (model: MatchModel, actorKey: 'player' | 'opponent', dt: n
     const speed = (running ? 5.2 : 3.15) * (.72 + definition.stats.speed / 250) * (actor.stamina < 20 ? .78 : 1);
     const direction = normalize(movement); actor.velocity = scale(direction, speed);
     actor.facing = Math.atan2(direction.x, direction.z); actor.state = 'locomotion';
-    if (running) actor.stamina = clamp(actor.stamina - dt * 8, 0, 100);
+    if (running) actor.stamina = clamp(actor.stamina - dt * 8, 0, actor.staminaCap);
   } else if (canMove) {
     actor.state = 'idle'; actor.velocity = scale(actor.velocity, Math.max(0, 1 - dt * 10));
-    actor.stamina = clamp(actor.stamina + dt * (actor.state === 'idle' ? 13 : 8), 0, 100);
+    actor.stamina = clamp(actor.stamina + dt * (actor.state === 'idle' ? 13 : 8), 0, actor.staminaCap);
   }
   actor.position.x += actor.velocity.x * dt; actor.position.z += actor.velocity.z * dt;
   actor.velocity = scale(actor.velocity, Math.max(0, 1 - dt * 4));
@@ -410,20 +418,25 @@ export const advanceMatch = (model: MatchModel, dt: number, playerInput: FrameIn
   updatePin(model, step, playerInput);
   if (model.player.state === 'pinned' || model.opponent.state === 'pinned') return model;
 
-  for (const command of playerInput.commands) requestCommand(model, 'player', command);
+  if (playerInput.block) requestCommand(model, 'player', 'block', playerInput.move);
+  for (const command of playerInput.commands) requestCommand(model, 'player', command, playerInput.move);
+  model.aiBlockTimer = Math.max(0, model.aiBlockTimer - step);
   model.aiThinkTimer -= step;
   let aiMove: Vec2 = { x: 0, z: 0 }; let aiRun = false;
   if (model.aiThinkTimer <= 0) {
     const decision = chooseAiDecision(model, fighterById(model.opponent.definitionId));
     model.seed = decision.nextSeed; model.aiIntent = decision.command; aiMove = decision.move; aiRun = decision.run;
     model.aiThinkTimer = model.difficulty === 'hard' ? .22 : .38;
-    if (decision.command) requestCommand(model, 'opponent', decision.command);
+    if (decision.command) {
+      requestCommand(model, 'opponent', decision.command, decision.move);
+      if (decision.command === 'block') model.aiBlockTimer = model.difficulty === 'hard' ? .72 : .48;
+    }
   } else {
     const delta = { x: model.player.position.x - model.opponent.position.x, z: model.player.position.z - model.opponent.position.z };
     if (distance(model.player.position, model.opponent.position) > 1.8) aiMove = normalize(delta);
   }
-  updateFighter(model, 'player', step, playerInput.move, playerInput.run);
-  updateFighter(model, 'opponent', step, aiMove, aiRun);
+  updateFighter(model, 'player', step, playerInput.move, playerInput.run, playerInput.block);
+  updateFighter(model, 'opponent', step, aiMove, aiRun, model.aiBlockTimer > 0);
   const playerThreat = model.opponent.moveId ? getMove(model.opponent.moveId) : null;
   model.player.counterWindow = playerThreat?.counterWindow && model.opponent.attackPhase === 'anticipation' && distance(model.player.position, model.opponent.position) < playerThreat.maximumRange + .3 && model.opponent.phaseElapsed >= playerThreat.counterWindow[0] && model.opponent.phaseElapsed <= playerThreat.counterWindow[1] ? .1 : 0;
   const opponentThreat = model.player.moveId ? getMove(model.player.moveId) : null;

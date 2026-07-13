@@ -6,7 +6,7 @@ import type { Difficulty, FighterId, MatchModel, Ruleset } from '../types/game';
 interface MatchStore {
   model: MatchModel;
   revision: number;
-  configure: (player: FighterId, opponent: FighterId, rules: Ruleset, difficulty: Difficulty) => void;
+  configure: (player: FighterId, opponent: FighterId, rules: Ruleset, difficulty: Difficulty, playerBeers?: number, opponentBeers?: number) => void;
   advance: (dt: number, input: FrameInput) => void;
   pause: (paused: boolean) => void;
   rematch: () => void;
@@ -15,7 +15,7 @@ interface MatchStore {
 
 export const useMatchStore = create<MatchStore>((set) => ({
   model: createMatch('atlas', 'nova', 'standard', 'normal'), revision: 0,
-  configure: (player, opponent, rules, difficulty) => set((state) => ({ model: createMatch(player, opponent, rules, difficulty), revision: state.revision + 1 })),
+  configure: (player, opponent, rules, difficulty, playerBeers = 0, opponentBeers = 0) => set((state) => ({ model: createMatch(player, opponent, rules, difficulty, 1337, playerBeers, opponentBeers), revision: state.revision + 1 })),
   advance: (dt, input) => set((state) => {
     const model = structuredClone(state.model);
     advanceMatch(model, dt, input);
