@@ -15,7 +15,7 @@ export function SettingsPanel({ onBack }: { onBack: () => void }) {
       {range('UI scale', settings.uiScale, 'uiScale', .85, 1.25, .05)}
       <label className="toggle-row"><span><b>Reduced motion</b><small>Smoother camera, restrained effects</small></span><input type="checkbox" checked={settings.reducedMotion} onChange={(event) => settings.update({ reducedMotion: event.target.checked })} /></label>
     </div>
-    <div className="control-card"><b>CONTROL REFERENCE</b><span>WASD/D-pad move · Shift/RT run · J/X quick · K/Y heavy · L/B lock up · direction + J/K/L selects grapple move · I/LT guard · Space/A dodge/counter · E/LB prop · F/R3 pin/finisher · Q/RB taunt · Esc pause</span></div>
+    <div className="control-card"><b>CONTROL REFERENCE</b><span>WASD/D-pad move · Shift/RT run · C/L3 jump · J/X quick · K/Y heavy · L/B lock up · direction + J/K/L selects grapple move · I/LT guard · Space/A dodge/counter · E/LB prop · F/R3 pin/finisher · Q/RB taunt · Esc pause</span></div>
     <div className="button-row"><button className="button button--quiet" onClick={settings.reset}>RESET SAVED SETTINGS</button><button className="button" onClick={onBack}>DONE</button></div>
   </section>;
 }

@@ -49,8 +49,8 @@ interface SegmentBodyProps {
   fighterId: FighterRuntime['definitionId'];
   side: FighterKey;
   base: readonly [number, number, number];
-  bodyRef: RefObject<RapierRigidBody>;
-  onContactForce: (segment: BodySegmentSchema, bodyRef: RefObject<RapierRigidBody>, payload: ContactForcePayload) => void;
+  bodyRef: RefObject<RapierRigidBody | null>;
+  onContactForce: (segment: BodySegmentSchema, bodyRef: RefObject<RapierRigidBody | null>, payload: ContactForcePayload) => void;
   onFootContact: (foot: BodySegmentId, touching: boolean, payload: CollisionEnterPayload) => void;
 }
 
@@ -72,30 +72,35 @@ function SegmentBody({ schema, fighterId, side, base, bodyRef, onContactForce, o
 export function PhysicalFighterRig({ runtime, side }: Props) {
   const fighter = fighterById(runtime.definitionId); const schema = useMemo(() => buildBodySchema(fighter), [fighter]);
   const byId = useMemo(() => new Map(schema.map((entry) => [entry.id, entry])), [schema]);
-  const pelvis = useRef<RapierRigidBody>(null!); const abdomen = useRef<RapierRigidBody>(null!); const chest = useRef<RapierRigidBody>(null!); const head = useRef<RapierRigidBody>(null!);
-  const leftUpperArm = useRef<RapierRigidBody>(null!); const rightUpperArm = useRef<RapierRigidBody>(null!); const leftForearm = useRef<RapierRigidBody>(null!); const rightForearm = useRef<RapierRigidBody>(null!); const leftHand = useRef<RapierRigidBody>(null!); const rightHand = useRef<RapierRigidBody>(null!);
-  const leftThigh = useRef<RapierRigidBody>(null!); const rightThigh = useRef<RapierRigidBody>(null!); const leftShin = useRef<RapierRigidBody>(null!); const rightShin = useRef<RapierRigidBody>(null!); const leftFoot = useRef<RapierRigidBody>(null!); const rightFoot = useRef<RapierRigidBody>(null!);
-  const refs: Readonly<Record<BodySegmentId, RefObject<RapierRigidBody>>> = useMemo(() => ({ pelvis, abdomen, chest, head, leftUpperArm, rightUpperArm, leftForearm, rightForearm, leftHand, rightHand, leftThigh, rightThigh, leftShin, rightShin, leftFoot, rightFoot }), []);
+  const pelvis = useRef<RapierRigidBody | null>(null); const abdomen = useRef<RapierRigidBody | null>(null); const chest = useRef<RapierRigidBody | null>(null); const head = useRef<RapierRigidBody | null>(null);
+  const leftUpperArm = useRef<RapierRigidBody | null>(null); const rightUpperArm = useRef<RapierRigidBody | null>(null); const leftForearm = useRef<RapierRigidBody | null>(null); const rightForearm = useRef<RapierRigidBody | null>(null); const leftHand = useRef<RapierRigidBody | null>(null); const rightHand = useRef<RapierRigidBody | null>(null);
+  const leftThigh = useRef<RapierRigidBody | null>(null); const rightThigh = useRef<RapierRigidBody | null>(null); const leftShin = useRef<RapierRigidBody | null>(null); const rightShin = useRef<RapierRigidBody | null>(null); const leftFoot = useRef<RapierRigidBody | null>(null); const rightFoot = useRef<RapierRigidBody | null>(null);
+  const refs: Readonly<Record<BodySegmentId, RefObject<RapierRigidBody | null>>> = useMemo(() => ({ pelvis, abdomen, chest, head, leftUpperArm, rightUpperArm, leftForearm, rightForearm, leftHand, rightHand, leftThigh, rightThigh, leftShin, rightShin, leftFoot, rightFoot }), []);
+  const jointRef = (ref: RefObject<RapierRigidBody | null>): RefObject<RapierRigidBody> => ref as RefObject<RapierRigidBody>;
   const value = (id: BodySegmentId): BodySegmentSchema => { const result = byId.get(id); if (!result) throw new Error(`Missing segment ${id}`); return result; };
   const shoulder = Math.abs(value('leftUpperArm').localPosition[0]); const hip = Math.abs(value('leftThigh').localPosition[0]);
-  useSphericalJoint(pelvis, abdomen, [[0, value('pelvis').halfLength * .82, 0], [0, -value('abdomen').halfLength * .82, 0]]);
-  useSphericalJoint(abdomen, chest, [[0, value('abdomen').halfLength * .82, 0], [0, -value('chest').halfLength * .72, 0]]);
-  useSphericalJoint(chest, head, [[0, value('chest').halfLength * .9, 0], [0, -value('head').radius * .86, 0]]);
-  useSphericalJoint(chest, leftUpperArm, [[-shoulder, -.05, 0], [0, value('leftUpperArm').halfLength, 0]]);
-  useSphericalJoint(chest, rightUpperArm, [[shoulder, -.05, 0], [0, value('rightUpperArm').halfLength, 0]]);
-  useRevoluteJoint(leftUpperArm, leftForearm, [[0, -value('leftUpperArm').halfLength, 0], [0, value('leftForearm').halfLength, 0], [1, 0, 0], [-2.65, .08]]);
-  useRevoluteJoint(rightUpperArm, rightForearm, [[0, -value('rightUpperArm').halfLength, 0], [0, value('rightForearm').halfLength, 0], [1, 0, 0], [-2.65, .08]]);
-  useSphericalJoint(leftForearm, leftHand, [[0, -value('leftForearm').halfLength, 0], [0, value('leftHand').halfLength, 0]]);
-  useSphericalJoint(rightForearm, rightHand, [[0, -value('rightForearm').halfLength, 0], [0, value('rightHand').halfLength, 0]]);
-  useSphericalJoint(pelvis, leftThigh, [[-hip, -value('pelvis').halfLength * .62, 0], [0, value('leftThigh').halfLength, 0]]);
-  useSphericalJoint(pelvis, rightThigh, [[hip, -value('pelvis').halfLength * .62, 0], [0, value('rightThigh').halfLength, 0]]);
-  useRevoluteJoint(leftThigh, leftShin, [[0, -value('leftThigh').halfLength, 0], [0, value('leftShin').halfLength, 0], [1, 0, 0], [-.08, 2.58]]);
-  useRevoluteJoint(rightThigh, rightShin, [[0, -value('rightThigh').halfLength, 0], [0, value('rightShin').halfLength, 0], [1, 0, 0], [-.08, 2.58]]);
-  useRevoluteJoint(leftShin, leftFoot, [[0, -value('leftShin').halfLength, 0], [0, value('leftFoot').radius * .4, -.03], [1, 0, 0], [-.58, .68]]);
-  useRevoluteJoint(rightShin, rightFoot, [[0, -value('rightShin').halfLength, 0], [0, value('rightFoot').radius * .4, -.03], [1, 0, 0], [-.58, .68]]);
+  useSphericalJoint(jointRef(pelvis), jointRef(abdomen), [[0, value('pelvis').halfLength * .82, 0], [0, -value('abdomen').halfLength * .82, 0]]);
+  useSphericalJoint(jointRef(abdomen), jointRef(chest), [[0, value('abdomen').halfLength * .82, 0], [0, -value('chest').halfLength * .72, 0]]);
+  useSphericalJoint(jointRef(chest), jointRef(head), [[0, value('chest').halfLength * .9, 0], [0, -value('head').radius * .86, 0]]);
+  useSphericalJoint(jointRef(chest), jointRef(leftUpperArm), [[-shoulder, -.05, 0], [0, value('leftUpperArm').halfLength, 0]]);
+  useSphericalJoint(jointRef(chest), jointRef(rightUpperArm), [[shoulder, -.05, 0], [0, value('rightUpperArm').halfLength, 0]]);
+  useRevoluteJoint(jointRef(leftUpperArm), jointRef(leftForearm), [[0, -value('leftUpperArm').halfLength, 0], [0, value('leftForearm').halfLength, 0], [1, 0, 0], [-2.65, .08]]);
+  useRevoluteJoint(jointRef(rightUpperArm), jointRef(rightForearm), [[0, -value('rightUpperArm').halfLength, 0], [0, value('rightForearm').halfLength, 0], [1, 0, 0], [-2.65, .08]]);
+  useSphericalJoint(jointRef(leftForearm), jointRef(leftHand), [[0, -value('leftForearm').halfLength, 0], [0, value('leftHand').halfLength, 0]]);
+  useSphericalJoint(jointRef(rightForearm), jointRef(rightHand), [[0, -value('rightForearm').halfLength, 0], [0, value('rightHand').halfLength, 0]]);
+  useSphericalJoint(jointRef(pelvis), jointRef(leftThigh), [[-hip, -value('pelvis').halfLength * .62, 0], [0, value('leftThigh').halfLength, 0]]);
+  useSphericalJoint(jointRef(pelvis), jointRef(rightThigh), [[hip, -value('pelvis').halfLength * .62, 0], [0, value('rightThigh').halfLength, 0]]);
+  useRevoluteJoint(jointRef(leftThigh), jointRef(leftShin), [[0, -value('leftThigh').halfLength, 0], [0, value('leftShin').halfLength, 0], [1, 0, 0], [-.08, 2.58]]);
+  useRevoluteJoint(jointRef(rightThigh), jointRef(rightShin), [[0, -value('rightThigh').halfLength, 0], [0, value('rightShin').halfLength, 0], [1, 0, 0], [-.08, 2.58]]);
+  useRevoluteJoint(jointRef(leftShin), jointRef(leftFoot), [[0, -value('leftShin').halfLength, 0], [0, value('leftFoot').radius * .4, -.03], [1, 0, 0], [-.58, .68]]);
+  useRevoluteJoint(jointRef(rightShin), jointRef(rightFoot), [[0, -value('rightShin').halfLength, 0], [0, value('rightFoot').radius * .4, -.03], [1, 0, 0], [-.58, .68]]);
 
-  useEffect(() => bodyWorksRuntime.registerFighter(side, Object.fromEntries(Object.entries(refs).map(([id, ref]) => [id, ref.current])), 15), [refs, side]);
-  const onContactForce = useCallback((segment: BodySegmentSchema, bodyRef: RefObject<RapierRigidBody>, payload: ContactForcePayload): void => {
+  useEffect(() => {
+    const bodies: Partial<Record<BodySegmentId, RapierRigidBody>> = {};
+    for (const [id, ref] of Object.entries(refs) as [BodySegmentId, RefObject<RapierRigidBody | null>][]) if (ref.current) bodies[id] = ref.current;
+    return bodyWorksRuntime.registerFighter(side, bodies, 15);
+  }, [refs, side]);
+  const onContactForce = useCallback((segment: BodySegmentSchema, bodyRef: RefObject<RapierRigidBody | null>, payload: ContactForcePayload): void => {
     const otherData = payload.other.rigidBodyObject?.userData; const target = isRigUserData(otherData) ? otherData : null;
     if (target?.fighter === side || (!segment.attackEligible && payload.totalForceMagnitude < 420)) return;
     const ownVelocity = bodyRef.current?.linvel() ?? { x: 0, y: 0, z: 0 }; const otherVelocity = payload.other.rigidBody?.linvel() ?? { x: 0, y: 0, z: 0 };
@@ -103,7 +108,7 @@ export function PhysicalFighterRig({ runtime, side }: Props) {
     const activeAttack = sourceRuntime.attackPhase === 'active' && sourceRuntime.moveId !== null;
     bodyWorksRuntime.recordContact({
       time: useMatchStore.getState().model.elapsed, sourceFighter: side, sourceSegment: segment.id,
-      targetFighter: target?.fighter ?? null, targetSegment: target?.segment ?? null, targetRegion: target?.region ?? null,
+      targetFighter: target?.fighter ?? null, targetSegment: target?.segment ?? null, targetRegion: target?.region ?? segment.bodyRegion,
       totalForce: payload.totalForceMagnitude, maximumForce: payload.maxForceMagnitude,
       forceDirection: [payload.maxForceDirection.x, payload.maxForceDirection.y, payload.maxForceDirection.z],
       relativeSpeed: Math.hypot(ownVelocity.x - otherVelocity.x, ownVelocity.y - otherVelocity.y, ownVelocity.z - otherVelocity.z),

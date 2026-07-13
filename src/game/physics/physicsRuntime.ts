@@ -44,6 +44,7 @@ export interface BodyWorksMetrics {
   bodyCount: number;
   jointCount: number;
   gripCount: number;
+  nearestGripDistance: number;
   contactCount: number;
   emergencyResetCount: number;
   lastStepMs: number;
@@ -78,6 +79,16 @@ const MAX_COMMANDS = 32;
 const MAX_CONTACTS = 128;
 const COMMAND_BUFFER_SECONDS = .13;
 
+const bodyAnchorWorld = (body: RapierRigidBody, localX: number): { x: number; y: number; z: number } => {
+  const position = body.translation(); const rotation = body.rotation();
+  const doubledX = localX * 2;
+  return {
+    x: position.x + localX * (1 - 2 * (rotation.y * rotation.y + rotation.z * rotation.z)),
+    y: position.y + doubledX * (rotation.x * rotation.y + rotation.w * rotation.z),
+    z: position.z + doubledX * (rotation.x * rotation.z - rotation.w * rotation.y),
+  };
+};
+
 /** Imperative simulation state. It is intentionally outside React and Zustand. */
 export class BodyWorksRuntime {
   private readonly rigs = new Map<FighterKey, FighterRigRegistration>();
@@ -91,7 +102,7 @@ export class BodyWorksRuntime {
   private readonly grips: PhysicalGrip[] = [];
   private readonly pendingLandings = new Map<FighterKey, PendingLanding>();
   readonly replay = new PhysicsReplayBuffer(300);
-  readonly metrics: BodyWorksMetrics = { fixedSteps: 0, bodyCount: 0, jointCount: 0, gripCount: 0, contactCount: 0, emergencyResetCount: 0, lastStepMs: 0, maximumStepMs: 0 };
+  readonly metrics: BodyWorksMetrics = { fixedSteps: 0, bodyCount: 0, jointCount: 0, gripCount: 0, nearestGripDistance: 0, contactCount: 0, emergencyResetCount: 0, lastStepMs: 0, maximumStepMs: 0 };
 
   registerFighter(fighter: FighterKey, bodies: Partial<Record<BodySegmentId, RapierRigidBody>>, jointCount: number): () => void {
     this.rigs.set(fighter, { bodies, supportContacts: new Set<BodySegmentId>(), jumpQueued: false, jumpCooldown: 0 });
@@ -217,29 +228,44 @@ export class BodyWorksRuntime {
     const owned = this.grips.filter((grip) => grip.attacker === grapple.attacker && grip.moveId === move.id);
     if (owned.length < 2) {
       grapple.phase = owned.length === 0 ? 'reach' : 'acquire';
+      let nearestGripDistance = Number.POSITIVE_INFINITY;
       const preferences: readonly [BodySegmentId, BodySegmentId, number][] = gripPreferences(move.id);
       for (const [handId, targetId, targetAnchorX] of preferences) {
         if (this.grips.some((grip) => grip.attacker === grapple.attacker && grip.hand === handId)) continue;
         const hand = attackerRig.bodies[handId]; const target = defenderRig.bodies[targetId]; if (!hand || !target) continue;
-        const handPosition = hand.translation(); const targetPosition = target.translation(); const distance = Math.hypot(handPosition.x - (targetPosition.x + targetAnchorX), handPosition.y - targetPosition.y, handPosition.z - targetPosition.z);
-        if (distance > .72) continue;
+        const handPosition = hand.translation(); const targetPosition = bodyAnchorWorld(target, targetAnchorX);
+        const delta = { x: targetPosition.x - handPosition.x, y: targetPosition.y - handPosition.y, z: targetPosition.z - handPosition.z };
+        const distance = Math.hypot(delta.x, delta.y, delta.z);
+        nearestGripDistance = Math.min(nearestGripDistance, distance);
+        if (distance > 1.38) continue;
+        const handVelocity = hand.linvel(); const targetVelocity = target.linvel();
+        const spring = clamp((distance - .22) * 42, 0, owned.length > 0 ? 44 : 34); const inverseDistance = 1 / Math.max(.001, distance);
+        const force = {
+          x: clamp(delta.x * inverseDistance * spring - (handVelocity.x - targetVelocity.x) * 2.8, -46, 46),
+          y: clamp(delta.y * inverseDistance * spring - (handVelocity.y - targetVelocity.y) * 2.8, -46, 46),
+          z: clamp(delta.z * inverseDistance * spring - (handVelocity.z - targetVelocity.z) * 2.8, -46, 46),
+        };
+        hand.addForce(force, true); target.addForce({ x: -force.x, y: -force.y, z: -force.z }, true);
+        if (distance > .5) continue;
         const joint = world.createImpulseJoint(JointData.spherical({ x: 0, y: 0, z: 0 }, { x: targetAnchorX, y: 0, z: 0 }), hand, target, true);
         joint.setContactsEnabled(false);
         this.grips.push({ joint, attacker: grapple.attacker, defender: grapple.defender, hand: handId, target: targetId, targetAnchorX, moveId: move.id, strength: gripCapacity(attacker), createdAt: model.elapsed });
       }
+      this.metrics.nearestGripDistance = Number.isFinite(nearestGripDistance) ? nearestGripDistance : 0;
     }
     const activeGrips = this.grips.filter((grip) => grip.attacker === grapple.attacker && grip.moveId === move.id);
     for (const grip of activeGrips) {
       const hand = attackerRig.bodies[grip.hand]; const target = defenderRig.bodies[grip.target];
       if (!hand || !target || !grip.joint.isValid()) { this.removeGrip(world, grip); continue; }
-      const handPosition = hand.translation(); const targetPosition = target.translation(); const error = Math.hypot(handPosition.x - (targetPosition.x + grip.targetAnchorX), handPosition.y - targetPosition.y, handPosition.z - targetPosition.z);
+      const handPosition = hand.translation(); const targetPosition = bodyAnchorWorld(target, grip.targetAnchorX); const error = Math.hypot(handPosition.x - targetPosition.x, handPosition.y - targetPosition.y, handPosition.z - targetPosition.z);
       const load = Math.hypot(target.linvel().x - hand.linvel().x, target.linvel().y - hand.linvel().y, target.linvel().z - hand.linvel().z) * defender.body.mass / 100;
-      if (error > .92 || load > grip.strength * 6.4 || !['grappling', 'attacking'].includes(attacker.state)) this.removeGrip(world, grip);
+      const acquisitionGrace = model.elapsed - grip.createdAt < .58;
+      if ((!acquisitionGrace && (error > 1.35 || load > grip.strength * 24)) || !['grappling', 'attacking'].includes(attacker.state)) this.removeGrip(world, grip);
     }
     grapple.gripCount = this.grips.filter((grip) => grip.attacker === grapple.attacker && grip.moveId === move.id).length;
     this.metrics.gripCount = this.grips.length; this.metrics.jointCount = this.rigs.size * 15 + this.grips.length;
     if (grapple.gripCount < 2) {
-      if (grapple.age > 1.25) {
+      if (grapple.age > 1.8) {
         grapple.phase = 'failed'; this.releaseAllGrips(world); model.grapple = null;
         attacker.state = 'staggered'; attacker.stateElapsed = 0; attacker.moveId = null; attacker.attackPhase = null;
         if (defender.state === 'grabbed') defender.state = 'idle';
@@ -247,6 +273,7 @@ export class BodyWorksRuntime {
       }
       return;
     }
+    if (grapple.phase === 'reach' || grapple.phase === 'acquire') grapple.age = 0;
     if (defender.state !== 'grabbed') { defender.state = 'grabbed'; defender.stateElapsed = 0; }
     const progress = clamp(attacker.phaseElapsed / Math.max(.01, move.anticipationDuration), 0, 1);
     const liftFeasibility = clamp((attacker.body.mass * (.55 + fighterPower(attacker) * .55) * attacker.body.muscle) / Math.max(55, defender.body.mass), .42, 1.45);
@@ -321,7 +348,7 @@ export class BodyWorksRuntime {
     this.generation += 1; this.rigs.clear(); this.commands.length = 0; this.contacts.length = 0; this.replay.clear();
     this.pendingLandings.clear(); this.world = null;
     this.intents.player = EMPTY_INTENT(); this.intents.opponent = EMPTY_INTENT();
-    this.metrics.fixedSteps = 0; this.metrics.bodyCount = 0; this.metrics.jointCount = 0; this.metrics.gripCount = 0; this.metrics.contactCount = 0; this.metrics.lastStepMs = 0; this.metrics.maximumStepMs = 0;
+    this.metrics.fixedSteps = 0; this.metrics.bodyCount = 0; this.metrics.jointCount = 0; this.metrics.gripCount = 0; this.metrics.nearestGripDistance = 0; this.metrics.contactCount = 0; this.metrics.lastStepMs = 0; this.metrics.maximumStepMs = 0;
   }
 
   pendingCommandCount(): number { return this.commands.length; }

@@ -112,7 +112,8 @@ export const applyMoveHit = (model: MatchModel, actorKey: 'player' | 'opponent',
   const actor = model[actorKey];
   const target = model[targetKey];
   const hitToken = contact ? `${targetKey}:${actor.attackInstanceId}` : targetKey;
-  if (actor.attackPhase !== 'active' || (!move.multiHit && actor.hitTargets.includes(hitToken))) return false;
+  const isPhysicalLanding = Boolean(contact) && (move.category === 'grapple' || move.category === 'finisher') && actor.attackPhase === 'recovery';
+  if ((!isPhysicalLanding && actor.attackPhase !== 'active') || (!move.multiHit && actor.hitTargets.includes(hitToken))) return false;
   if (target.invulnerability > 0 || (!contact && distance(actor.position, target.position) > move.maximumRange + .4)) return false;
 
   const targetDefinition = fighterById(target.definitionId);
@@ -176,6 +177,13 @@ export const applyMoveHit = (model: MatchModel, actorKey: 'player' | 'opponent',
   const lowHealthBonus = target.health < 35 ? .28 : 0;
   const physicalFall = ['trip', 'fall', 'launch'].includes(collisionOutcome);
   if (move.knockdownStrength + lowHealthBonus >= .72 || move.category === 'finisher' || physicalFall) {
+    // Pure rules tests and non-WebGL simulations retain a bounded deterministic
+    // flight proxy. The shipping match never enters this branch: Rapier owns the
+    // victim's height and the contact bridge resolves the real mat landing.
+    if (!model.physicsAuthority && (move.category === 'grapple' || move.category === 'finisher')) {
+      target.body.verticalOffset = Math.max(target.body.verticalOffset, .34);
+      target.body.verticalVelocity = Math.min(target.body.verticalVelocity, -3.1);
+    }
     const stillAirborne = target.body.verticalOffset > .08 || Math.abs(target.body.verticalVelocity) > 1.2;
     target.state = stillAirborne ? 'airborne' : 'downed';
     target.stateElapsed = 0;
@@ -656,8 +664,10 @@ const expectedContactSegment = (move: MoveDefinition, segment: string): boolean 
 export const applyPhysicalContact = (model: MatchModel, contact: BodyWorksContact): boolean => {
   if (!model.physicsAuthority || !contact.sourceFighter || !contact.targetFighter || contact.sourceFighter === contact.targetFighter || contact.attackInstanceId === null || !contact.sourceSegment) return false;
   const actor = model[contact.sourceFighter];
-  if (actor.attackInstanceId !== contact.attackInstanceId || actor.attackPhase !== 'active' || !actor.moveId) return false;
+  if (actor.attackInstanceId !== contact.attackInstanceId || !actor.moveId) return false;
   const move = getMove(actor.moveId);
+  const legalContactPhase = actor.attackPhase === 'active' || ((move.category === 'grapple' || move.category === 'finisher') && actor.attackPhase === 'recovery');
+  if (!legalContactPhase) return false;
   if (!expectedContactSegment(move, contact.sourceSegment) || contact.relativeSpeed < .28 && contact.maximumForce < 45) return false;
   return applyMoveHit(model, contact.sourceFighter, contact.targetFighter, move, contact);
 };
