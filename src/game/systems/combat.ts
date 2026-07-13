@@ -54,10 +54,16 @@ export const getAttackPhase = (move: MoveDefinition, elapsed: number): 'anticipa
 
 export const canStartMove = (actor: FighterRuntime, target: FighterRuntime, move: MoveDefinition): boolean => {
   const targetDistance = distance(actor.position, target.position);
+  // A wrestler should not ignore a strike because articulated bodies separated
+  // by a few centimetres between input sampling and the active pose. Grapples
+  // and contextual actions retain exact range requirements; standing offense
+  // gets a deliberately small step-in envelope that the swept hurt volume also
+  // understands.
+  const strikeReachAssist = ['quick', 'heavy', 'ground', 'prop'].includes(move.category) ? .24 : 0;
   return move.requiredActorStates.includes(actor.state)
     && actor.stamina >= move.staminaCost
     && targetDistance >= move.minimumRange
-    && targetDistance <= move.maximumRange
+    && targetDistance <= move.maximumRange + strikeReachAssist
     && (!move.requiredTargetStates || move.requiredTargetStates.includes(target.state));
 };
 
