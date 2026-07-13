@@ -24,6 +24,8 @@ const SCENARIOS: readonly LabScenario[] = [
   { id: 'powerbomb', label: 'DOME POWERBOMB', steps: [...tap('KeyL'), ...hold('KeyW', 180, 240), ...tap('KeyL', 230)], duration: 3_300 },
   { id: 'clothesline', label: 'ROPE STIFF-ARM', steps: [...hold('KeyW', 0, 850), ...hold('ShiftLeft', 0, 850), ...tap('KeyK', 620)], duration: 2_000 },
   { id: 'spear', label: 'BREAKER SPEAR', steps: [...hold('KeyW', 0, 850), ...hold('ShiftLeft', 0, 850), ...tap('KeyL', 620)], duration: 2_100 },
+  { id: 'climb', label: 'CLIMB + TAUNT', steps: [...tap('KeyF', 260), ...tap('KeyF', 760), ...tap('KeyF', 1_260), ...tap('KeyQ', 1_760)], duration: 3_400 },
+  { id: 'dive', label: 'TOP-ROPE DIVE', steps: [...tap('KeyF', 260), ...tap('KeyF', 760), ...tap('KeyF', 1_260), ...tap('KeyF', 1_760)], duration: 3_800 },
 ] as const;
 
 const dispatchKey = (code: string, down: boolean): void => {
@@ -43,6 +45,11 @@ export function PhysicsLab() {
   }, []);
   const run = (scenario: LabScenario): void => {
     for (const timer of timers.current) window.clearTimeout(timer); timers.current = []; setActive(scenario.id);
+    const closeRange = ['jab', 'hook', 'guard', 'kick', 'lock', 'slam', 'suplex', 'powerbomb', 'clothesline', 'spear'].includes(scenario.id);
+    const corner = scenario.id === 'climb' || scenario.id === 'dive';
+    if (corner) useMatchStore.getState().prepareLabScenario({ x: -5.02, z: -3.48 }, { x: -.6, z: -.2 });
+    else if (closeRange) useMatchStore.getState().prepareLabScenario({ x: 0, z: -.68 }, { x: 0, z: .68 });
+    else if (scenario.id === 'miss') useMatchStore.getState().prepareLabScenario({ x: 0, z: -2.6 }, { x: 0, z: 2.6 });
     for (const step of scenario.steps) timers.current.push(window.setTimeout(() => dispatchKey(step.code, step.down), step.at));
     timers.current.push(window.setTimeout(() => { for (const step of scenario.steps) if (step.down) dispatchKey(step.code, false); setActive(null); }, scenario.duration));
   };

@@ -226,6 +226,23 @@ export class BodyWorksRuntime {
     rig.ropeContact = null; rig.cornerAnchor = null;
   }
 
+  prepareLabPositions(player: Vec2, opponent: Vec2): void {
+    if (this.world) this.releaseAllGrips(this.world);
+    this.pendingLandings.clear(); this.contacts.length = 0;
+    this.placeFighter('player', player); this.placeFighter('opponent', opponent);
+  }
+
+  private placeFighter(fighter: FighterKey, target: Vec2): void {
+    const rig = this.rigs.get(fighter); const pelvis = rig?.bodies.pelvis; if (!rig || !pelvis) return;
+    const origin = pelvis.translation(); const dx = target.x - origin.x; const dz = target.z - origin.z;
+    for (const body of Object.values(rig.bodies)) {
+      if (!body?.isValid()) continue;
+      const position = body.translation(); body.setTranslation({ x: position.x + dx, y: position.y, z: position.z + dz }, true);
+      body.setLinvel({ x: 0, y: 0, z: 0 }, true); body.setAngvel({ x: 0, y: 0, z: 0 }, true);
+    }
+    rig.supportContacts.clear(); rig.jumpQueued = false; rig.ropeContact = null; rig.cornerAnchor = null; rig.apronAnchor = null;
+  }
+
   setFootContact(fighter: FighterKey, foot: BodySegmentId, touching: boolean): void {
     const rig = this.rigs.get(fighter); if (!rig) return;
     if (touching) rig.supportContacts.add(foot); else rig.supportContacts.delete(foot);
