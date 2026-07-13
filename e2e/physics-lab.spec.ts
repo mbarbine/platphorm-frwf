@@ -35,7 +35,26 @@ test('Bodyworks lab exposes live Rapier diagnostics and drives real jump/walk in
   await lab.getByRole('button', { name: 'WALK + STOP' }).click();
   await expect.poll(async () => Math.hypot(Number(await hud.getAttribute('data-player-x')) - initialX, Number(await hud.getAttribute('data-player-z')) - initialZ), { timeout: 2_100, intervals: [100] }).toBeGreaterThan(.35);
   await expect.poll(async () => await deck.getAttribute('data-control-state'), { timeout: 2_100, intervals: [50, 100] }).toMatch(/MOVING|SPRINTING/);
+  await page.evaluate(() => {
+    const deckNode = document.querySelector('[data-testid="control-deck"]'); if (!deckNode) return;
+    const observe = (): void => {
+      if (deckNode.getAttribute('data-control-state')?.includes('CIRCUIT JAB')) document.documentElement.dataset.sawJabControl = 'true';
+      if (deckNode.querySelector('[data-control="quick"]')?.classList.contains('is-active')) document.documentElement.dataset.sawActiveQuickControl = 'true';
+    };
+    new MutationObserver(observe).observe(deckNode, { subtree: true, attributes: true }); observe();
+  });
   await expect(lab.getByRole('button', { name: 'JAB TO HEAD' })).toBeEnabled({ timeout: 3_000 }); await lab.getByRole('button', { name: 'JAB TO HEAD' }).click();
-  await expect(hud).toHaveAttribute('data-player-move', 'jab', { timeout: 2_000 }); await expect(deck.locator('[data-control="quick"]')).toHaveClass(/is-active/); await expect(deck).toHaveAttribute('data-control-state', /CIRCUIT JAB/);
+  await expect(hud).toHaveAttribute('data-player-move', 'jab', { timeout: 2_000 }); await expect(page.locator('html')).toHaveAttribute('data-saw-active-quick-control', 'true'); await expect(page.locator('html')).toHaveAttribute('data-saw-jab-control', 'true');
+  await expect(lab.getByRole('button', { name: 'ROPE LOAD + STIFF-ARM' })).toBeEnabled({ timeout: 3_000 });
+  await page.evaluate(() => {
+    const liveHud = document.querySelector('.hud'); const deckNode = document.querySelector('[data-testid="control-deck"]'); if (!liveHud || !deckNode) return;
+    const observe = (): void => {
+      if (liveHud.getAttribute('data-player-move') === 'stiff_arm') document.documentElement.dataset.sawStiffArm = 'true';
+      if (deckNode.getAttribute('data-control-state')?.includes('ROPES LOADED') || deckNode.textContent?.includes('STIFF-ARM!')) document.documentElement.dataset.sawRopeCallout = 'true';
+    };
+    new MutationObserver(observe).observe(document.body, { subtree: true, attributes: true, childList: true }); observe();
+  });
+  await lab.getByRole('button', { name: 'ROPE LOAD + STIFF-ARM' }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-saw-rope-callout', 'true', { timeout: 4_000 }); await expect(page.locator('html')).toHaveAttribute('data-saw-stiff-arm', 'true', { timeout: 4_000 });
   await expect(hud).toHaveAttribute('data-physics-emergency-resets', '0'); expect(errors).toEqual([]);
 });

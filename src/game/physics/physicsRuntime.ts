@@ -371,7 +371,8 @@ export class BodyWorksRuntime {
     const inputLength = Math.min(1, Math.hypot(intent.move.x, intent.move.z)) * movementControl;
     const desiredX = intent.move.x * desiredSpeed * inputLength; const desiredZ = intent.move.z * desiredSpeed * inputLength;
     const acceleration = (inputLength <= .08 ? locomotion.braking : intent.run ? locomotion.runAcceleration : locomotion.acceleration) * (movementControl === 1 ? 1 : .24);
-    if (movementControl > 0) pelvis.addForce({ x: clamp(desiredX - velocity.x, -acceleration, acceleration) * fighter.body.mass, y: 0, z: clamp(desiredZ - velocity.z, -acceleration, acceleration) * fighter.body.mass }, true);
+    const velocityGain = inputLength <= .08 ? 8.5 : intent.run ? 7.4 : 8;
+    if (movementControl > 0) pelvis.addForce({ x: clamp((desiredX - velocity.x) * velocityGain, -acceleration, acceleration) * fighter.body.mass, y: 0, z: clamp((desiredZ - velocity.z) * velocityGain, -acceleration, acceleration) * fighter.body.mass }, true);
     if (inputLength > .08) {
       const desiredFacing = Math.atan2(intent.move.x, intent.move.z);
       const rotation = pelvis.rotation();
@@ -413,7 +414,7 @@ export class BodyWorksRuntime {
     for (const [id, planted] of entries) {
       if (!planted) continue;
       const foot = rig.bodies[id]; if (!foot) continue;
-      const velocity = foot.linvel(); const mass = foot.mass(); const strength = fighter.state === 'locomotion' ? 15 : 22;
+      const velocity = foot.linvel(); const mass = foot.mass(); const strength = fighter.state === 'locomotion' ? 6.5 : 22;
       foot.addForce({ x: clamp(-velocity.x * mass * strength, -180, 180), y: 0, z: clamp(-velocity.z * mass * strength, -180, 180) }, true);
     }
   }

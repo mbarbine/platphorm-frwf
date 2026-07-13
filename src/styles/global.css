@@ -132,6 +132,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--cyan); outl
   .tutorial { left: 50%; bottom: 48%; width: min(560px, 88vw); transform: translate(-50%, 50%); padding: .55rem; }.tutorial ul { gap: .22rem; }.tutorial kbd { min-width: 0; padding-inline: .16rem; font-size: .5rem; }.tutorial li span, .tutorial small { font-size: .4rem; }
   .grapple-guide { right: 50%; bottom: calc(max(.55rem, env(safe-area-inset-bottom)) + clamp(158px, 35vw, 210px)); width: min(520px, 72vw); transform: translateX(50%); }.grapple-guide > div span { font-size: .4rem; }
   .event-banner { right: .5rem; top: 21%; min-width: 160px; padding: .4rem .6rem; }.announcement { top: 20%; }
+  .physics-lab { top: 5.2rem; left: 50%; width: min(92vw,24rem); max-height: 42vh; transform: translateX(-50%); }
 }
 @media (max-width: 700px) {
   .init-screen, .menu-screen { padding: 1.25rem; }.init-card { min-width: min(320px, 88vw); padding-inline: 1rem; }
