@@ -10,7 +10,7 @@ import { arenaCollisionGroups, propCollisionGroups } from '../physics/collisionG
 import { bodyWorksRuntime } from '../physics/physicsRuntime';
 import type { FighterKey } from '../physics/physicsRuntime';
 import type { BodySegmentId } from '../physics/bodySchema';
-import type { FighterRuntime, PropRuntime } from '../types/game';
+import type { PropRuntime } from '../types/game';
 
 function Crowd() {
   const ref = useRef<InstancedMesh>(null); const dummy = useMemo(() => new Object3D(), []); const count = 180;
@@ -90,14 +90,14 @@ function Props() {
       {[-1.35, 1.35].flatMap((x) => [-.45, .45].map((z) => <mesh key={`${x}-${z}`} position={[x, -.58, z]}><boxGeometry args={[.12, 1.1, .12]} /><meshStandardMaterial color="#11141b" /></mesh>))}
       <mesh position={[0, .13, 0]}><boxGeometry args={[2.2, .05, .75]} /><meshStandardMaterial color="#27d8ff" emissive="#27d8ff" emissiveIntensity={.8} /></mesh>
     </group></RigidBody>;
-    return <PhysicalProp key={prop.id} prop={prop} owner={owner} initialPosition={position} />;
+    return <PhysicalProp key={prop.id} prop={prop} initialPosition={position} />;
   })}</>;
 }
 
 interface FighterColliderData { bodyWorks: true; fighter: FighterKey; segment: BodySegmentId; region: 'head' | 'chest' | 'ribs' | 'pelvis' | 'leftArm' | 'rightArm' | 'leftLeg' | 'rightLeg' }
 const isFighterColliderData = (value: unknown): value is FighterColliderData => typeof value === 'object' && value !== null && 'bodyWorks' in value && 'fighter' in value && 'segment' in value && 'region' in value;
 
-function PhysicalProp({ prop, owner, initialPosition }: { prop: PropRuntime; owner: FighterRuntime | null; initialPosition: [number, number, number] }) {
+function PhysicalProp({ prop, initialPosition }: { prop: PropRuntime; initialPosition: [number, number, number] }) {
   const body = useRef<RapierRigidBody | null>(null); const previousOwner = useRef<FighterKey | null>(prop.heldBy);
   const rotation = useMemo(() => new Quaternion(), []); const euler = useMemo(() => new Euler(), []);
   useEffect(() => {
