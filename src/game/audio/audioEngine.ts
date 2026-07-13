@@ -14,6 +14,12 @@ class AudioEngine {
       this.context = new AudioContext();
       this.master = this.context.createGain(); this.effects = this.context.createGain(); this.crowd = this.context.createGain();
       this.effects.connect(this.master); this.crowd.connect(this.master); this.master.connect(this.context.destination);
+      const buffer = this.context.createBuffer(1, this.context.sampleRate * 2, this.context.sampleRate);
+      const data = buffer.getChannelData(0); let seed = 29;
+      for (let index = 0; index < data.length; index += 1) { seed = Math.imul(seed, 48271) % 2147483647; data[index] = ((seed / 2147483647) * 2 - 1) * (.35 + Math.sin(index / 1800) * .08); }
+      const source = this.context.createBufferSource(); const filter = this.context.createBiquadFilter(); const bed = this.context.createGain();
+      source.buffer = buffer; source.loop = true; filter.type = 'lowpass'; filter.frequency.value = 520; bed.gain.value = .055;
+      source.connect(filter); filter.connect(bed); bed.connect(this.crowd); source.start();
     }
     void this.context.resume(); this.configure(settings); this.play('confirm', settings);
   }

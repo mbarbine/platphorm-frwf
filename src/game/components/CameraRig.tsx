@@ -12,9 +12,8 @@ export function CameraRig() {
     const model = useMatchStore.getState().model; const a = model.player.position; const b = model.opponent.position;
     const middleX = (a.x + b.x) / 2; const middleZ = (a.z + b.z) / 2; const separation = Math.hypot(a.x - b.x, a.z - b.z);
     const ringside = Math.max(Math.abs(middleX) / 6, Math.abs(middleZ) / 4.5);
-    desired.set(middleX * .32 + 8.4, 7.1 + separation * .2 + ringside, middleZ + 9.4 + separation * .6);
-    const impactAge = lastImpact ? clock.elapsedTime - lastImpact.id * 0 : 99;
-    const shakeAmount = !reduced && model.hitStop > 0 && impactAge < 99 ? shake * (lastImpact?.intensity ?? 0) * .05 : 0;
+    desired.set(middleX * .34, 7.4 + separation * .19 + ringside, middleZ + 11.6 + separation * .52);
+    const shakeAmount = !reduced && model.hitStop > 0 ? shake * (lastImpact?.intensity ?? 0) * .05 : 0;
     desired.x += Math.sin(clock.elapsedTime * 57) * shakeAmount; desired.y += Math.cos(clock.elapsedTime * 43) * shakeAmount;
     const damping = reduced ? 2.5 : 4.8; camera.position.lerp(desired, 1 - Math.exp(-dt * damping));
     target.set(middleX, 1.55, middleZ); camera.lookAt(target);

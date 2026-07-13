@@ -83,7 +83,8 @@ export function Arena() {
     <spotLight position={[7, 10, 4]} intensity={spotlight ? 8 : 3} color="#ff3a95" angle={.42} penumbra={.7} />
     <RigidBody type="fixed" colliders="cuboid" position={[0, 1.52, 0]}><mesh receiveShadow><boxGeometry args={[12, .65, 9]} /><meshStandardMaterial color="#202437" roughness={.68} /></mesh></RigidBody>
     <mesh position={[0, 1.86, 0]} receiveShadow><boxGeometry args={[11.3, .08, 8.3]} /><meshStandardMaterial color="#dde2ec" roughness={.8} /></mesh>
-    <mesh position={[0, 1.89, 0]}><torusGeometry args={[2.1, .06, 8, 48]} /><meshStandardMaterial color="#662bff" emissive="#662bff" emissiveIntensity={1.2} /></mesh>
+    <mesh position={[0, 1.89, 0]} rotation={[-Math.PI / 2, 0, 0]}><torusGeometry args={[2.1, .06, 8, 48]} /><meshStandardMaterial color="#662bff" emissive="#662bff" emissiveIntensity={1.2} /></mesh>
+    <mesh position={[0, 1.9, 0]} rotation={[-Math.PI / 2, 0, -.18]}><boxGeometry args={[3.1, .12, .025]} /><meshStandardMaterial color="#ff3d93" emissive="#ff3d93" emissiveIntensity={1} /></mesh>
     <Ropes /><Post x={-5.75} z={-4.25} /><Post x={5.75} z={-4.25} /><Post x={-5.75} z={4.25} /><Post x={5.75} z={4.25} />
     <mesh position={[0, .2, 0]} receiveShadow><cylinderGeometry args={[15, 15, .4, 48]} /><meshStandardMaterial color="#100d1c" roughness={.8} /></mesh>
     <Crowd /><Props />
