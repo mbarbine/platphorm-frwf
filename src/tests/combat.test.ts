@@ -88,6 +88,12 @@ describe('deterministic combat rules', () => {
     expect(chooseAiDecision(model, fighterById('brick')).command).toBe('context');
   });
 
+  it('AI prioritizes a legal weapon swing once a physical prop is secured', () => {
+    const model = createMatch('atlas', 'nova', 'chaos', 'normal'); const chair = model.props.find((prop) => prop.kind === 'chair'); if (!chair) throw new Error('Missing chair');
+    model.opponent.position = { x: 0, z: 0 }; model.player.position = { x: 1.2, z: 0 }; model.opponent.heldPropId = chair.id; chair.heldBy = 'opponent'; model.opponent.stamina = 30;
+    expect(chooseAiDecision(model, fighterById('nova')).command).toBe('heavy');
+  });
+
   it('AI cannot steal an early pin after a routine knockdown', () => {
     const model = createMatch('atlas', 'vex', 'standard', 'normal'); model.player.state = 'downed'; model.player.health = 20; model.opponent.position = { ...model.player.position };
     expect(isActionLegal(model, 'context', 'opponent')).toBe(false);

@@ -52,7 +52,7 @@ export function ReplayDirector() {
   const replayedImpact = useRef(0); const frames = useRef<readonly PhysicsReplayFrame[]>([]); const elapsed = useRef(0); const frame = useRef<PhysicsReplayFrame | null>(null);
   useEffect(() => {
     if (!lastImpact || lastImpact.id === replayedImpact.current || active || reducedMotion) return;
-    const replayWorthy = lastImpact.kind === 'finisher' || lastImpact.kind === 'table' || lastImpact.kind === 'ko' || lastImpact.intensity >= 2.05;
+    const replayWorthy = lastImpact.kind === 'finisher' || lastImpact.kind === 'table' || lastImpact.kind === 'ko' || lastImpact.intensity >= 1.5;
     if (!replayWorthy || bodyWorksRuntime.replay.size < 45) return;
     replayedImpact.current = lastImpact.id; useMatchStore.getState().startReplay();
   }, [active, lastImpact, reducedMotion]);

@@ -60,6 +60,7 @@ export const chooseAiDecision = (model: MatchModel, definition: FighterDefinitio
   const incomingMajor = target.attackPhase === 'anticipation' && target.moveId !== 'jab' && separation < 2.2;
   if (incomingMajor && roll < counterChance && isActionLegal(model, 'dodge', 'opponent')) return { command: 'dodge', move: { x: 0, z: 0 }, run: false, nextSeed };
   if (target.attackPhase === 'anticipation' && separation < 2.05 && roll < (hard ? .88 : .67) && isActionLegal(model, 'block', 'opponent')) return { command: 'block', move: { x: 0, z: 0 }, run: false, nextSeed };
+  if (actor.heldPropId && separation <= 2.2 && isActionLegal(model, 'heavy', 'opponent')) return { command: 'heavy', move: { x: 0, z: 0 }, run: false, nextSeed };
   const physicallyCompromised = actor.stamina < 24 || actor.body.balance < 34 || actor.body.muscle < .36;
   if (physicallyCompromised) {
     if (actor.stamina < 18) return { command: null, move: separation < 2.6 ? { x: -toward.x * .72, z: -toward.z * .72 } : { x: 0, z: 0 }, run: false, nextSeed };

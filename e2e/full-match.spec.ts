@@ -54,12 +54,20 @@ test('fighter select through guarded combat, grapple, result, and rematch', asyn
     const separation = Math.hypot(playerX - opponentX, playerZ - opponentZ);
     if (/idle|locomotion/.test(playerState ?? '') && !/blocking|downed|pinned|defeated/.test(opponentState ?? '') && separation <= 1.58) {
       await page.keyboard.press('l');
-      await page.waitForTimeout(2_250);
+      await page.waitForTimeout(220);
+      if (await hud.getAttribute('data-player-state') === 'grappling') {
+        await page.keyboard.down('w'); await page.keyboard.press('k'); await page.keyboard.up('w');
+      }
+      await page.waitForTimeout(2_600);
     } else {
       await page.waitForTimeout(250);
     }
   }
   expect(Number(await hud.getAttribute('data-total-grapples'))).toBeGreaterThan(0);
+  await expect(page.locator('.replay-overlay')).toBeVisible({ timeout: 6_000 });
+  await expect(page.getByRole('button', { name: 'SKIP REPLAY' })).toBeVisible();
+  await page.getByRole('button', { name: 'SKIP REPLAY' }).click();
+  await expect(page.locator('.replay-overlay')).toHaveCount(0);
 
   const automationId = await page.evaluate(() => {
     let exchange = 0;
