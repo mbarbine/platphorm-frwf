@@ -22,7 +22,7 @@ export function HUD({ device, paused }: { device: ControlDevice; paused: boolean
   const distance = Math.hypot(model.player.position.x - model.opponent.position.x, model.player.position.z - model.opponent.position.z);
   const touch = device === 'touch' || mobileInput.isActive(); const context = touch ? 'ACTION' : 'F'; const power = touch ? 'POWER' : 'K'; const quick = touch ? 'JAB' : 'J'; const grapple = touch ? 'LOCK' : 'L'; const guard = touch ? 'GUARD' : 'I'; const counter = touch ? 'COUNTER' : 'SPACE';
   const hint = model.player.momentum >= 100 && ['staggered', 'downed'].includes(model.opponent.state) && distance < 2.2 ? `${context}  SIGNATURE FINISHER`
-    : model.player.state === 'climbing' ? `${context}  DOMEFALL DIVE`
+    : model.player.state === 'climbing' ? model.player.climbStage < 3 ? `${context}  CLIMB TO ${model.player.climbStage === 1 ? 'MIDDLE' : 'TOP'} ROPE  ·  MOVE INWARD TO DESCEND` : `${context}  DOMEFALL DIVE  ·  Q CROWD TAUNT`
     : model.player.ropeRebound > 0 ? `${power}  REBOUND STIFF-ARM NOW`
     : model.player.state === 'grappling' ? `GRAPPLE LOCK · HOLD DIRECTION + ${quick} / ${power} / ${grapple}`
     : model.opponent.state === 'downed' && distance < 1.7 ? `${context}  PIN  ·  ${quick}  GROUND STRIKE`

@@ -19,8 +19,9 @@ export function CameraRig() {
     const middleX = (predictedA.x + predictedB.x) / 2; const middleZ = (predictedA.z + predictedB.z) / 2; const separation = Math.hypot(predictedA.x - predictedB.x, predictedA.z - predictedB.z);
     const ringside = Math.max(Math.abs(middleX) / 6, Math.abs(middleZ) / 4.5);
     const playerMove = model.player.moveId ? getMove(model.player.moveId) : null; const opponentMove = model.opponent.moveId ? getMove(model.opponent.moveId) : null;
-    const cinematicActor = playerMove && ['grapple', 'finisher'].includes(playerMove.category) ? model.player
-      : opponentMove && ['grapple', 'finisher'].includes(opponentMove.category) ? model.opponent : null;
+    const securedGrapple = model.grapple && model.grapple.gripCount >= 2 && !['reach', 'acquire', 'failed'].includes(model.grapple.phase) ? model.grapple.attacker : null;
+    const cinematicActor = securedGrapple === 'player' && playerMove && ['grapple', 'finisher'].includes(playerMove.category) ? model.player
+      : securedGrapple === 'opponent' && opponentMove && ['grapple', 'finisher'].includes(opponentMove.category) ? model.opponent : null;
     const cinematicMove = cinematicActor === model.player ? playerMove : cinematicActor === model.opponent ? opponentMove : null;
     if (replayActive) {
       const angle = elapsed.current * .58; const radius = 8.4 + separation * .18;

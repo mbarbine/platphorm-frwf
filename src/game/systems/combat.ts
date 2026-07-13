@@ -20,7 +20,7 @@ export const createFighterRuntime = (definitionId: FighterId, position: Vec2, be
   definitionId, position, velocity: { x: 0, z: 0 }, facing: 0, health: 100, stamina: staminaCap, staminaCap, beersDrunk: beers, momentum: 0,
   state: 'idle', moveId: null, attackPhase: null, phaseElapsed: 0, stateElapsed: 0, hitTargets: [], attackInstanceId: 0, downTimer: 0,
   counterWindow: 0, invulnerability: 0, pinCount: 0, pinEscape: 0, heldPropId: null, comboStep: 0, recentMoves: [],
-  lastActionAt: 0, ropeRebound: 0, finisherPrimed: false,
+  lastActionAt: 0, ropeRebound: 0, finisherPrimed: false, climbStage: 0,
   body: createBodyDynamics(definition),
   });
 };
@@ -63,7 +63,8 @@ export const canStartMove = (actor: FighterRuntime, target: FighterRuntime, move
 
 export const startMove = (actor: FighterRuntime, target: FighterRuntime, move: MoveDefinition): boolean => {
   if (!canStartMove(actor, target, move)) return false;
-  actor.state = move.category === 'grapple' ? 'grappling' : 'attacking';
+  const turnbuckleTaunt = actor.state === 'climbing' && move.id === 'taunt';
+  actor.state = move.category === 'grapple' ? 'grappling' : turnbuckleTaunt ? 'climbing' : 'attacking';
   actor.moveId = move.id;
   actor.attackPhase = 'anticipation';
   actor.phaseElapsed = 0;
@@ -194,11 +195,13 @@ export const applyMoveHit = (model: MatchModel, actorKey: 'player' | 'opponent',
     target.moveId = null;
     target.attackPhase = null;
     target.finisherPrimed = move.category === 'finisher';
+    target.climbStage = 0;
   } else {
     target.state = 'staggered';
     target.stateElapsed = 0;
     target.moveId = null;
     target.attackPhase = null;
+    target.climbStage = 0;
   }
 
   const kind: ImpactEvent['kind'] = move.category === 'finisher' ? 'finisher' : move.category === 'prop' ? 'weapon' : move.category === 'grapple' ? 'grapple' : move.category === 'heavy' || move.category === 'aerial' ? 'heavy' : 'light';
@@ -237,7 +240,7 @@ export const performCounter = (model: MatchModel, defenderKey: 'player' | 'oppon
   const incoming = getMove(attacker.moveId);
   if (!incoming.counterWindow || attacker.phaseElapsed < incoming.counterWindow[0] || attacker.phaseElapsed > incoming.counterWindow[1]) return false;
   if (model.grapple) releaseGrapple(model, 'idle');
-  attacker.state = 'staggered'; attacker.moveId = null; attacker.attackPhase = null; attacker.stateElapsed = 0;
+  attacker.state = 'staggered'; attacker.moveId = null; attacker.attackPhase = null; attacker.climbStage = 0; attacker.stateElapsed = 0;
   defender.state = 'attacking'; defender.moveId = 'counter'; defender.attackPhase = 'active'; defender.phaseElapsed = getMove('counter').anticipationDuration;
   defender.stamina = clamp(defender.stamina - 10, 0, defender.staminaCap); defender.momentum = clamp(defender.momentum + 18, 0, 100);
   const stats = defenderKey === 'player' ? model.playerStats : model.opponentStats;
@@ -317,7 +320,7 @@ export const requestCommand = (model: MatchModel, actorKey: 'player' | 'opponent
   }
   if (command === 'dodge') {
     if (performCounter(model, actorKey, targetKey)) return true;
-    actor.state = 'locomotion'; actor.invulnerability = .32; actor.stamina = clamp(actor.stamina - 8, 0, actor.staminaCap);
+    actor.state = 'locomotion'; actor.climbStage = 0; actor.invulnerability = .32; actor.stamina = clamp(actor.stamina - 8, 0, actor.staminaCap);
     const away = normalize({ x: actor.position.x - target.position.x, z: actor.position.z - target.position.z });
     actor.velocity = scale(away, 3.2); return true;
   }
@@ -330,10 +333,18 @@ export const requestCommand = (model: MatchModel, actorKey: 'player' | 'opponent
   if (command === 'taunt') return startMove(actor, target, getMove('taunt'));
   if (command === 'context') {
     if (actor.state === 'climbing') {
+      if (actor.climbStage < 3) {
+        actor.climbStage = (actor.climbStage + 1) as 2 | 3;
+        actor.stateElapsed = 0;
+        model.announcement = actor.climbStage === 2 ? 'MIDDLE ROPE — ONE MORE STEP!' : 'TOP TURNBUCKLE — F TO FLY!';
+        model.announcementTimer = 1.05;
+        return true;
+      }
       if (!['defeated', 'victorious'].includes(target.state) && distance(actor.position, target.position) <= getMove('aerial').maximumRange) {
         model.announcement = 'DOMEFALL — AIRBORNE!'; model.announcementTimer = 1;
         const started = startMove(actor, target, getMove('aerial'));
         if (started) {
+          actor.climbStage = 0;
           actor.body.verticalOffset = Math.max(actor.body.verticalOffset, .92);
           actor.body.verticalVelocity = 4.2;
           const flight = normalize({ x: target.position.x - actor.position.x, z: target.position.z - actor.position.z });
@@ -355,9 +366,9 @@ export const requestCommand = (model: MatchModel, actorKey: 'player' | 'opponent
     if (target.state === 'downed' && distance(actor.position, target.position) <= 1.7) return startPin(actor, target);
     const nearCorner = Math.abs(actor.position.x) > 4.35 && Math.abs(actor.position.z) > 2.95;
     if (nearCorner) {
-      actor.state = 'climbing'; actor.stateElapsed = 0; actor.velocity = { x: 0, z: 0 };
+      actor.state = 'climbing'; actor.climbStage = 1; actor.stateElapsed = 0; actor.velocity = { x: 0, z: 0 };
       if (!model.physicsAuthority) actor.position = { x: Math.sign(actor.position.x) * 5.25, z: Math.sign(actor.position.z) * 3.7 };
-      model.announcement = 'TURNBUCKLE CLIMB — F TO FLY!'; model.announcementTimer = 1.4;
+      model.announcement = 'LOWER ROPE — F TO CLIMB HIGHER'; model.announcementTimer = 1.4;
       return true;
     }
     const nearXApron = Math.abs(actor.position.x) > 5.05 && Math.abs(actor.position.x) < 6.9 && Math.abs(actor.position.z) < 4.4;
@@ -478,7 +489,12 @@ const updateFighter = (model: MatchModel, actorKey: 'player' | 'opponent', dt: n
     actor.velocity = scale(actor.velocity, Math.exp(-dt * 12));
     actor.stamina = clamp(actor.stamina + dt * 4, 0, actor.staminaCap);
     actor.facing = Math.atan2(target.position.x - actor.position.x, target.position.z - actor.position.z);
-    return;
+    const inward = { x: -(Math.sign(actor.position.x) || 1), z: -(Math.sign(actor.position.z) || 1) };
+    if (!actor.moveId && actor.stateElapsed > .28 && movement.x * inward.x + movement.z * inward.z > .25) {
+      actor.state = 'locomotion'; actor.climbStage = 0; actor.stateElapsed = 0;
+      actor.velocity = scale(normalize(inward), 1.6);
+      model.announcement = 'SAFE CLIMB DOWN'; model.announcementTimer = .65;
+    } else if (!actor.moveId) return;
   }
 
   if (actor.state === 'grabbed') {
@@ -533,8 +549,16 @@ const updateFighter = (model: MatchModel, actorKey: 'player' | 'opponent', dt: n
     }
     if (actor.attackPhase === 'active' && !model.physicsAuthority) applyMoveHit(model, actorKey, actorKey === 'player' ? 'opponent' : 'player', move);
     if (!actor.attackPhase) {
+      const completedTurnbuckleTaunt = move.id === 'taunt' && actor.state === 'climbing';
+      if (move.id === 'taunt') {
+        const variety = varietyMultiplier(actor, move.id); const surge = model.chaosEvent?.type === 'CROWD SURGE' ? 1.6 : 1;
+        actor.momentum = clamp(actor.momentum + move.momentumGain * variety * (model.ruleset === 'chaos' ? 1.2 : 1) * surge, 0, 100);
+        model.hype = clamp(model.hype + move.hypeValue * variety * BALANCE.hypeScale, 0, 100);
+        actor.recentMoves = [...actor.recentMoves.slice(-4), move.id];
+        model.announcement = `${fighterById(actor.definitionId).name} — CROWD CALL!`; model.announcementTimer = .9;
+      }
       if (model.grapple?.attacker === actorKey) releaseGrapple(model, 'idle');
-      actor.moveId = null; actor.state = 'idle'; actor.stateElapsed = 0; actor.finisherPrimed = false;
+      actor.moveId = null; actor.state = completedTurnbuckleTaunt ? 'climbing' : 'idle'; actor.stateElapsed = 0; actor.finisherPrimed = false;
     }
   }
 

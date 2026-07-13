@@ -20,10 +20,10 @@ export const isActionLegal = (model: MatchModel, command: GameCommand, actorKey:
   if (command === 'jump') return actor.stamina >= 8 && actor.body.verticalOffset <= .05 && ['idle', 'locomotion'].includes(actor.state);
   if (actor.state === 'grappling' && actor.attackPhase === 'anticipation' && ['quick', 'heavy', 'grapple'].includes(command)) return true;
   if (command === 'dodge') return actor.stamina >= 8 && ['idle', 'locomotion', 'climbing', 'staggered', 'grabbed'].includes(actor.state);
-  if (command === 'taunt') return ['idle', 'locomotion'].includes(actor.state);
+  if (command === 'taunt') return ['idle', 'locomotion', 'climbing'].includes(actor.state);
   if (command === 'interact') return model.ruleset === 'chaos' && ['idle', 'locomotion'].includes(actor.state);
   if (command === 'context') {
-    if (actor.state === 'climbing') return !['defeated', 'victorious'].includes(target.state) && targetDistance <= getMove('aerial').maximumRange;
+    if (actor.state === 'climbing') return actor.climbStage < 3 || (!['defeated', 'victorious'].includes(target.state) && targetDistance <= getMove('aerial').maximumRange);
     if (actor.momentum >= 100) return targetDistance <= getMove('finisher').maximumRange && ['staggered', 'downed'].includes(target.state);
     const pinEligible = actorKey === 'player' || (model.elapsed >= BALANCE.ai.earliestPinSeconds && target.health <= BALANCE.ai.pinHealthThreshold);
     if (pinEligible && target.state === 'downed' && targetDistance <= 1.6) return true;

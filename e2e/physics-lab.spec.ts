@@ -10,8 +10,11 @@ test('Bodyworks lab exposes live Rapier diagnostics and drives real jump/walk in
   await page.getByRole('button', { name: 'START MATCH' }).click();
   const hud = page.locator('.hud'); const lab = page.getByTestId('physics-lab');
   await expect(lab).toBeVisible(); await expect(hud).toHaveAttribute('data-physics-bodies', '32', { timeout: 30_000 }); await expect(hud).toHaveAttribute('data-physics-joints', '30');
+  await expect(hud).toHaveAttribute('data-player-state', 'idle');
+  await page.waitForTimeout(2_500);
   const initialY = Number(await hud.getAttribute('data-player-pelvis-y')); let apex = initialY;
   await page.keyboard.press('c');
+  await expect(hud).toHaveAttribute('data-player-state', 'jumping', { timeout: 2_500 });
   await expect.poll(async () => { apex = Math.max(apex, Number(await hud.getAttribute('data-player-pelvis-y'))); return apex; }, { timeout: 7_000, intervals: [50, 100] }).toBeGreaterThan(initialY + .2);
   await expect(lab.getByRole('button', { name: 'WALK + STOP' })).toBeEnabled({ timeout: 3_000 });
   const initialX = Number(await hud.getAttribute('data-player-x')); const initialZ = Number(await hud.getAttribute('data-player-z'));

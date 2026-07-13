@@ -294,8 +294,27 @@ describe('deterministic combat rules', () => {
 
   it('climbs a turnbuckle before launching a playable aerial attack', () => {
     const model = createMatch('vex', 'atlas', 'standard', 'normal'); model.player.position = { x: 5, z: 3.5 }; model.opponent.position = { x: 1, z: 0 }; model.opponent.state = 'downed';
-    expect(requestCommand(model, 'player', 'context')).toBe(true); expect(model.player.state).toBe('climbing');
-    expect(requestCommand(model, 'player', 'context')).toBe(true); expect(model.player.moveId).toBe('aerial'); expect(model.player.state).toBe('attacking');
+    expect(requestCommand(model, 'player', 'context')).toBe(true); expect(model.player.state).toBe('climbing'); expect(model.player.climbStage).toBe(1);
+    expect(requestCommand(model, 'player', 'context')).toBe(true); expect(model.player.climbStage).toBe(2); expect(model.player.moveId).toBeNull();
+    expect(requestCommand(model, 'player', 'context')).toBe(true); expect(model.player.climbStage).toBe(3); expect(model.player.moveId).toBeNull();
+    expect(requestCommand(model, 'player', 'context')).toBe(true); expect(model.player.moveId).toBe('aerial'); expect(model.player.state).toBe('attacking'); expect(model.player.climbStage).toBe(0);
+  });
+
+  it('rewards only a completed taunt and preserves a top-turnbuckle perch', () => {
+    const model = createMatch('chad', 'atlas', 'standard', 'normal'); model.player.position = { x: 5, z: 3.5 }; model.opponent.position = { x: 1, z: 0 };
+    requestCommand(model, 'player', 'context'); requestCommand(model, 'player', 'context'); requestCommand(model, 'player', 'context');
+    const beforeMomentum = model.player.momentum; const beforeHype = model.hype;
+    expect(requestCommand(model, 'player', 'taunt')).toBe(true); expect(model.player.state).toBe('climbing');
+    for (let frame = 0; frame < 90; frame += 1) advanceMatch(model, 1 / 60, STILL);
+    expect(model.player.state).toBe('climbing'); expect(model.player.climbStage).toBe(3);
+    expect(model.player.momentum).toBeGreaterThan(beforeMomentum); expect(model.hype).toBeGreaterThan(beforeHype);
+  });
+
+  it('lets inward movement safely cancel a staged climb', () => {
+    const model = createMatch('vex', 'atlas', 'standard', 'normal'); model.player.position = { x: 5, z: 3.5 }; model.opponent.position = { x: 0, z: 0 };
+    requestCommand(model, 'player', 'context'); model.player.stateElapsed = .4;
+    advanceMatch(model, 1 / 60, { ...STILL, move: { x: -1, z: -1 } });
+    expect(model.player.state).toBe('locomotion'); expect(model.player.climbStage).toBe(0);
   });
 
   it('converts running heavy offense into a knockdown stiff-arm', () => {

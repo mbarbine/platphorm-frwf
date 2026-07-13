@@ -78,7 +78,7 @@ interface FighterRigRegistration {
   jumpQueued: boolean;
   jumpCooldown: number;
   ropeContact: { axis: 'x' | 'z'; side: -1 | 1; peakCompression: number; entrySpeed: number } | null;
-  cornerAnchor: Vec2 | null;
+  cornerAnchor: (Vec2 & { stage: 1 | 2 | 3 }) | null;
   apronAnchor: { target: Vec2; inside: boolean; age: number } | null;
 }
 
@@ -202,9 +202,9 @@ export class BodyWorksRuntime {
 
   requestJump(fighter: FighterKey): void { const rig = this.rigs.get(fighter); if (rig) rig.jumpQueued = true; }
 
-  requestCornerClimb(fighter: FighterKey, from: Vec2): void {
+  requestCornerClimb(fighter: FighterKey, from: Vec2, stage: 1 | 2 | 3 = 1): void {
     const rig = this.rigs.get(fighter); if (!rig) return;
-    rig.cornerAnchor = { x: (Math.sign(from.x) || 1) * 5.08, z: (Math.sign(from.z) || 1) * 3.58 };
+    rig.cornerAnchor = { x: (Math.sign(from.x) || 1) * 5.08, z: (Math.sign(from.z) || 1) * 3.58, stage };
     rig.ropeContact = null;
   }
 
@@ -331,9 +331,12 @@ export class BodyWorksRuntime {
       if ((planarDistance < .28 && Math.abs(targetY - position.y) < .45) || anchor.age > 1.55) rig.apronAnchor = null;
       return;
     }
+    if (fighter.state === 'climbing' && !rig.cornerAnchor && fighter.climbStage > 0) this.requestCornerClimb(key, fighter.position, fighter.climbStage);
     if (fighter.state === 'climbing' && rig.cornerAnchor) {
       const position = pelvis.translation(); const target = rig.cornerAnchor;
-      pelvis.addForce({ x: clamp((target.x - position.x) * fighter.body.mass * 36 - velocity.x * fighter.body.mass * 8, -4_600, 4_600), y: clamp((4.28 - position.y) * fighter.body.mass * 38 - velocity.y * fighter.body.mass * 8.5, -5_200, 5_200), z: clamp((target.z - position.z) * fighter.body.mass * 36 - velocity.z * fighter.body.mass * 8, -4_600, 4_600) }, true);
+      target.stage = fighter.climbStage || 1;
+      const targetY = target.stage === 1 ? 2.72 : target.stage === 2 ? 3.46 : 4.28;
+      pelvis.addForce({ x: clamp((target.x - position.x) * fighter.body.mass * 36 - velocity.x * fighter.body.mass * 8, -4_600, 4_600), y: clamp((targetY - position.y) * fighter.body.mass * 38 - velocity.y * fighter.body.mass * 8.5, -5_200, 5_200), z: clamp((target.z - position.z) * fighter.body.mass * 36 - velocity.z * fighter.body.mass * 8, -4_600, 4_600) }, true);
       this.applyPoseDrive(rig, fighter);
       return;
     }
