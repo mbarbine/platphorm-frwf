@@ -480,7 +480,7 @@ export class BodyWorksRuntime {
     const move = getMove(fighter.moveId); const attackSpeed = Math.hypot(fighter.velocity.x, fighter.velocity.z); const velocityFacing = (move.id === 'stiff_arm' || move.id === 'rebound') && attackSpeed > 1.2;
     const forwardX = velocityFacing ? fighter.velocity.x / attackSpeed : Math.sin(fighter.facing); const forwardZ = velocityFacing ? fighter.velocity.z / attackSpeed : Math.cos(fighter.facing); const targetX = targetFighter.position.x - fighter.position.x; const targetZ = targetFighter.position.z - fighter.position.z;
     const facingDot = (forwardX * targetX + forwardZ * targetZ) / Math.max(.001, pelvisDistance);
-    const hurtRadius = move.category === 'aerial' ? 1.35 : move.id === 'stiff_arm' || move.id === 'rebound' || move.id === 'spear' ? 1.18 : move.category === 'heavy' || move.category === 'prop' ? 1.05 : .92;
+    const hurtRadius = move.category === 'aerial' ? 1.35 : move.id === 'stiff_arm' || move.id === 'rebound' || move.id === 'spear' ? 1.45 : move.category === 'heavy' || move.category === 'prop' ? 1.05 : .92;
     if (pelvisDistance > move.maximumRange + .22 || segmentDistance > hurtRadius || facingDot < -.12) return;
     const sourceVelocity = source.linvel(); const targetVelocity = target.linvel(); const actualRelativeSpeed = Math.hypot(sourceVelocity.x - targetVelocity.x, sourceVelocity.y - targetVelocity.y, sourceVelocity.z - targetVelocity.z);
     const authoredRelativeSpeed = Math.max(actualRelativeSpeed, profile.speed * .46); const maximumForce = Math.max(48, source.mass() * profile.maximumAcceleration * .2);
@@ -490,6 +490,16 @@ export class BodyWorksRuntime {
       totalForce: maximumForce * 1.35, maximumForce, forceDirection: [dx / segmentDistance, dy / segmentDistance, dz / segmentDistance], relativeSpeed: authoredRelativeSpeed,
       attackInstanceId: fighter.attackInstanceId, moveId: move.id, sourceObjectId: null, targetSurface: null, isLanding: false,
     });
+    if (move.id === 'stiff_arm' || move.id === 'rebound' || move.id === 'spear') {
+      const targetPelvis = targetRig.bodies.pelvis;
+      const chestMass = target.mass();
+      target.applyImpulse({ x: forwardX * chestMass * 2.8, y: chestMass * 1.15, z: forwardZ * chestMass * 2.8 }, true);
+      target.applyTorqueImpulse({ x: forwardZ * -.11, y: 0, z: forwardX * .11 }, true);
+      if (targetPelvis) {
+        const pelvisMass = targetPelvis.mass();
+        targetPelvis.applyImpulse({ x: forwardX * pelvisMass * 3.6, y: pelvisMass * .5, z: forwardZ * pelvisMass * 3.6 }, true);
+      }
+    }
   }
 
   private applyRopeController(rig: FighterRigRegistration, fighter: FighterRuntime, model: MatchModel): void {
