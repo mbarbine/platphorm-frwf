@@ -292,6 +292,23 @@ describe('deterministic combat rules', () => {
     expect(requestCommand(model, 'player', 'grapple')).toBe(true); expect(model.player.moveId).toBe('slam'); expect(model.grapple?.phase).toBe('reach');
   });
 
+  it('completes fifty neutral body slams across the full weight and approach matrix without a stuck attacker', () => {
+    const fighters = FIGHTERS.map((fighter) => fighter.id);
+    let attempts = 0;
+    for (const attacker of fighters) for (const defender of fighters) for (const side of [-1, 1] as const) {
+      const model = createMatch(attacker, defender, 'standard', 'hard', 900 + attempts); model.labMode = true;
+      model.player.position = { x: side * .4, z: -.35 }; model.opponent.position = { x: side * .4 + side * 1.12, z: .15 };
+      model.player.facing = side > 0 ? Math.PI / 2 : -Math.PI / 2; model.player.stamina = model.player.staminaCap;
+      expect(requestCommand(model, 'player', 'grapple')).toBe(true);
+      expect(model.player.moveId).toBe('slam'); expect(model.grapple?.phase).toBe('reach');
+      for (let frame = 0; frame < 240; frame += 1) advanceMatch(model, 1 / 60, none);
+      expect(model.opponent.health).toBeLessThan(100); expect(model.player.moveId).toBeNull();
+      expect(['idle', 'locomotion']).toContain(model.player.state); expect(model.grapple).toBeNull();
+      attempts += 1;
+    }
+    expect(attempts).toBe(50);
+  });
+
   it('climbs a turnbuckle before launching a playable aerial attack', () => {
     const model = createMatch('vex', 'atlas', 'standard', 'normal'); model.player.position = { x: 5, z: 3.5 }; model.opponent.position = { x: 1, z: 0 }; model.opponent.state = 'downed';
     expect(requestCommand(model, 'player', 'context')).toBe(true); expect(model.player.state).toBe('climbing'); expect(model.player.climbStage).toBe(1);
@@ -301,19 +318,20 @@ describe('deterministic combat rules', () => {
   });
 
   it('rewards only a completed taunt and preserves a top-turnbuckle perch', () => {
-    const model = createMatch('chad', 'atlas', 'standard', 'normal'); model.player.position = { x: 5, z: 3.5 }; model.opponent.position = { x: 1, z: 0 };
+    const model = createMatch('chad', 'atlas', 'standard', 'normal'); model.labMode = true; model.player.position = { x: 5, z: 3.5 }; model.opponent.position = { x: 1, z: 0 };
     requestCommand(model, 'player', 'context'); requestCommand(model, 'player', 'context'); requestCommand(model, 'player', 'context');
     const beforeMomentum = model.player.momentum; const beforeHype = model.hype;
     expect(requestCommand(model, 'player', 'taunt')).toBe(true); expect(model.player.state).toBe('climbing');
-    for (let frame = 0; frame < 90; frame += 1) advanceMatch(model, 1 / 60, STILL);
+    for (let frame = 0; frame < 90; frame += 1) advanceMatch(model, 1 / 60, none);
     expect(model.player.state).toBe('climbing'); expect(model.player.climbStage).toBe(3);
     expect(model.player.momentum).toBeGreaterThan(beforeMomentum); expect(model.hype).toBeGreaterThan(beforeHype);
+    expect(model.opponent.health).toBe(100); expect(model.opponent.state).toBe('idle');
   });
 
   it('lets inward movement safely cancel a staged climb', () => {
     const model = createMatch('vex', 'atlas', 'standard', 'normal'); model.player.position = { x: 5, z: 3.5 }; model.opponent.position = { x: 0, z: 0 };
     requestCommand(model, 'player', 'context'); model.player.stateElapsed = .4;
-    advanceMatch(model, 1 / 60, { ...STILL, move: { x: -1, z: -1 } });
+    advanceMatch(model, 1 / 60, { ...none, move: { x: -1, z: -1 } });
     expect(model.player.state).toBe('locomotion'); expect(model.player.climbStage).toBe(0);
   });
 

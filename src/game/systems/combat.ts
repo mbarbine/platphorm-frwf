@@ -547,7 +547,7 @@ const updateFighter = (model: MatchModel, actorKey: 'player' | 'opponent', dt: n
       actor.velocity.x += chase.x * dt * 6.5;
       actor.velocity.z += chase.z * dt * 6.5;
     }
-    if (actor.attackPhase === 'active' && !model.physicsAuthority) applyMoveHit(model, actorKey, actorKey === 'player' ? 'opponent' : 'player', move);
+    if (actor.attackPhase === 'active' && !model.physicsAuthority && move.id !== 'taunt') applyMoveHit(model, actorKey, actorKey === 'player' ? 'opponent' : 'player', move);
     if (!actor.attackPhase) {
       const completedTurnbuckleTaunt = move.id === 'taunt' && actor.state === 'climbing';
       if (move.id === 'taunt') {

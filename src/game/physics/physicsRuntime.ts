@@ -331,7 +331,7 @@ export class BodyWorksRuntime {
       if ((planarDistance < .28 && Math.abs(targetY - position.y) < .45) || anchor.age > 1.55) rig.apronAnchor = null;
       return;
     }
-    if (fighter.state === 'climbing' && !rig.cornerAnchor && fighter.climbStage > 0) this.requestCornerClimb(key, fighter.position, fighter.climbStage);
+    if (fighter.state === 'climbing' && !rig.cornerAnchor && fighter.climbStage > 0) this.requestCornerClimb(key, fighter.position, fighter.climbStage as 1 | 2 | 3);
     if (fighter.state === 'climbing' && rig.cornerAnchor) {
       const position = pelvis.translation(); const target = rig.cornerAnchor;
       target.stage = fighter.climbStage || 1;
@@ -766,12 +766,38 @@ const locomotionPoseFor = (fighter: FighterRuntime): Pose => {
   };
 };
 
+const climbPoseFor = (fighter: FighterRuntime): Pose => {
+  const stage = fighter.climbStage || 1;
+  return {
+    ...POSES.climb,
+    torso: [stage === 1 ? .42 : stage === 2 ? .24 : .08, 0, 0],
+    leftArm: stage === 3 ? [-.72, 0, -.62] : [-1.18, 0, -.52],
+    rightArm: stage === 3 ? [-.72, 0, .62] : [-1.18, 0, .52],
+    leftLeg: [stage === 1 ? -.92 : stage === 2 ? -.58 : -.22, 0, 0],
+    rightLeg: [stage === 1 ? -.52 : stage === 2 ? -.36 : -.12, 0, 0],
+    leftShin: [stage === 1 ? -1.1 : -.52, 0, 0], rightShin: [stage === 1 ? -.72 : -.35, 0, 0],
+    rootY: stage === 1 ? .18 : stage === 2 ? .58 : .96,
+    rootTilt: stage === 3 ? .02 : .18,
+  };
+};
+
+const tauntPoseFor = (fighter: FighterRuntime): Pose => {
+  const base = POSES.taunt;
+  if (fighter.definitionId === 'atlas') return { ...base, leftArm: [-2.82, 0, -.32], rightArm: [-2.82, 0, .32], leftForearm: [-.3, 0, 0], rightForearm: [-.3, 0, 0], rootTilt: -.06 };
+  if (fighter.definitionId === 'vex') return { ...base, leftArm: [-.55, 0, -.48], rightArm: [-2.9, .25, .22], leftForearm: [-1.1, 0, 0], rightForearm: [-.18, 0, 0], rootRoll: -.12 };
+  if (fighter.definitionId === 'nova') return { ...base, leftArm: [-1.62, -.65, -.54], rightArm: [-1.62, .65, .54], leftForearm: [-1.22, 0, 0], rightForearm: [-1.22, 0, 0], rootYaw: .2 };
+  if (fighter.definitionId === 'brick') return { ...base, leftArm: [-.72, .25, -.5], rightArm: [-.72, -.25, .5], leftForearm: [-1.5, 0, 0], rightForearm: [-1.5, 0, 0], rootTilt: .12 };
+  return { ...base, leftArm: [-2.78, 0, -.18], rightArm: [-1.08, 0, .62], leftForearm: [-.25, 0, 0], rightForearm: [-.5, 0, 0], rootRoll: .08 };
+};
+
 const targetPoseFor = (fighter: FighterRuntime): Pose => {
   if (fighter.moveId) {
     const move = getMove(fighter.moveId);
+    if (move.id === 'taunt') return tauntPoseFor(fighter);
     return getPairedPose(move, 'actor', fighter.attackPhase, fighter.phaseElapsed, fighter.definitionId) ?? getStrikePose(move, fighter.attackPhase, fighter.phaseElapsed) ?? POSES[move.animationKey];
   }
   if (fighter.state === 'blocking') return POSES.block;
+  if (fighter.state === 'climbing') return climbPoseFor(fighter);
   if (fighter.state === 'jumping' || fighter.state === 'airborne') return POSES.aerial;
   if (fighter.state === 'staggered') return POSES.stagger;
   if (fighter.state === 'downed' || fighter.state === 'defeated') return POSES.downed;
