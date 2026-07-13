@@ -9,6 +9,7 @@ test('fighter select through guarded combat, grapple, result, and rematch', asyn
   await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
   await page.getByRole('button', { name: 'PLAY', exact: true }).click();
   await page.getByRole('button', { name: /CHAD “THE CLAW” KINSEY/ }).click();
+  await expect(page.getByRole('heading', { name: 'FIGHTER SELECT' })).toBeInViewport();
   await expect(page.getByText('CLAW HAMMER')).toBeVisible();
   await expect(page.locator('.fighter-preview canvas')).toBeVisible();
   await page.getByRole('button', { name: /LOCK IN CHAD/ }).click();
