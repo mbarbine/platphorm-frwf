@@ -309,6 +309,8 @@ export class BodyWorksRuntime {
     for (const rig of this.rigs.values()) this.capRigVelocity(rig);
     this.applyFighterController('player', model.player, dt, model);
     this.applyFighterController('opponent', model.opponent, dt, model);
+    this.emitStrikeVolumeContact('player', model);
+    this.emitStrikeVolumeContact('opponent', model);
     this.applyCloseRangeSeparation(model);
     if (this.world) this.syncPhysicalProps(this.world, model);
     if (this.world) this.advancePhysicalGrapple(this.world, model, dt);
@@ -464,6 +466,27 @@ export class BodyWorksRuntime {
         source.addForce({ x: guardedForce.x * .38, y: guardedForce.y * .38, z: guardedForce.z * .38 }, true);
       }
     }
+  }
+
+  private emitStrikeVolumeContact(key: FighterKey, model: MatchModel): void {
+    const fighter = model[key]; const targetKey: FighterKey = key === 'player' ? 'opponent' : 'player'; const targetFighter = model[targetKey];
+    if (!fighter.moveId || fighter.attackPhase !== 'active' || fighter.hitTargets.includes(targetKey)) return;
+    const profile = strikeDriveProfile(fighter.moveId); const rig = this.rigs.get(key); const targetRig = this.rigs.get(targetKey);
+    const source = rig?.bodies[profile?.source ?? 'rightHand']; const target = targetRig?.bodies[profile?.target ?? 'chest']; if (!profile || !source || !target) return;
+    const sourcePosition = source.translation(); const targetPosition = target.translation(); const dx = targetPosition.x - sourcePosition.x; const dy = targetPosition.y - sourcePosition.y; const dz = targetPosition.z - sourcePosition.z;
+    const segmentDistance = Math.max(.001, Math.hypot(dx, dy, dz)); const pelvisDistance = Math.hypot(targetFighter.position.x - fighter.position.x, targetFighter.position.z - fighter.position.z);
+    const move = getMove(fighter.moveId); const forwardX = Math.sin(fighter.facing); const forwardZ = Math.cos(fighter.facing); const targetX = targetFighter.position.x - fighter.position.x; const targetZ = targetFighter.position.z - fighter.position.z;
+    const facingDot = (forwardX * targetX + forwardZ * targetZ) / Math.max(.001, pelvisDistance);
+    const hurtRadius = move.category === 'aerial' ? 1.35 : move.id === 'stiff_arm' || move.id === 'rebound' || move.id === 'spear' ? 1.18 : move.category === 'heavy' || move.category === 'prop' ? 1.05 : .92;
+    if (pelvisDistance > move.maximumRange + .22 || segmentDistance > hurtRadius || facingDot < -.12) return;
+    const sourceVelocity = source.linvel(); const targetVelocity = target.linvel(); const actualRelativeSpeed = Math.hypot(sourceVelocity.x - targetVelocity.x, sourceVelocity.y - targetVelocity.y, sourceVelocity.z - targetVelocity.z);
+    const authoredRelativeSpeed = Math.max(actualRelativeSpeed, profile.speed * .46); const maximumForce = Math.max(48, source.mass() * profile.maximumAcceleration * .2);
+    this.recordContact({
+      time: model.elapsed, sourceFighter: key, sourceSegment: profile.source, targetFighter: targetKey, targetSegment: profile.target,
+      targetRegion: profile.target === 'head' ? 'head' : profile.target.includes('Shin') || profile.target.includes('Foot') ? profile.target.startsWith('left') ? 'leftLeg' : 'rightLeg' : profile.target === 'pelvis' ? 'pelvis' : 'chest',
+      totalForce: maximumForce * 1.35, maximumForce, forceDirection: [dx / segmentDistance, dy / segmentDistance, dz / segmentDistance], relativeSpeed: authoredRelativeSpeed,
+      attackInstanceId: fighter.attackInstanceId, moveId: move.id, sourceObjectId: null, targetSurface: null, isLanding: false,
+    });
   }
 
   private applyRopeController(rig: FighterRigRegistration, fighter: FighterRuntime, model: MatchModel): void {

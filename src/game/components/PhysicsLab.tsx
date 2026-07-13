@@ -12,7 +12,7 @@ const SCENARIOS: readonly LabScenario[] = [
   { id: 'walk', label: 'WALK + STOP', steps: hold('KeyW', 0, 2_000), duration: 3_000 },
   { id: 'turn', label: 'RAPID TURN', steps: [...hold('KeyA', 0, 500), ...hold('KeyD', 560, 650)], duration: 1_800 },
   { id: 'ropes', label: 'RUN INTO ROPES', steps: [...hold('KeyD', 0, 2_050), ...hold('ShiftLeft', 0, 2_050)], duration: 2_800 },
-  { id: 'ropeStrike', label: 'ROPE LOAD + STIFF-ARM', steps: [...hold('KeyD', 0, 680), ...hold('ShiftLeft', 0, 680), ...tap('KeyK', 860)], duration: 2_300 },
+  { id: 'ropeStrike', label: 'ROPE LOAD + STIFF-ARM', steps: [...hold('KeyD', 0, 650), ...hold('ShiftLeft', 0, 650), ...tap('KeyK', 420, 140)], duration: 2_200 },
   { id: 'jump', label: 'STANDING JUMP', steps: tap('KeyC', 0, 480), duration: 2_000 },
   { id: 'kickup', label: 'KICK-UP RECOVERY', steps: tap('Space', 620, 180), duration: 2_100 },
   { id: 'jab', label: 'JAB TO HEAD', steps: tap('KeyJ'), duration: 1_200 },
