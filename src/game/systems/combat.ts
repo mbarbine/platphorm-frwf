@@ -32,7 +32,7 @@ const initialProps = (enabled: boolean): PropRuntime[] => enabled ? [
 ] : [{ id: 'table-1', kind: 'table', position: { x: 0, z: -7.2 }, durability: 1, stress: 0, failureStage: 'intact', heldBy: null, broken: false }];
 
 export const createMatch = (playerId: FighterId, opponentId: FighterId, ruleset: Ruleset, difficulty: Difficulty, seed = 1337, playerBeers = 0, opponentBeers = 0): MatchModel => ({
-  ruleset, difficulty, elapsed: 0, paused: false, physicsAuthority: false, resolved: false,
+  labMode: false, ruleset, difficulty, elapsed: 0, paused: false, physicsAuthority: false, resolved: false,
   player: createFighterRuntime(playerId, { x: -2.3, z: 0 }, playerBeers), opponent: createFighterRuntime(opponentId, { x: 2.3, z: 0 }, opponentBeers),
   hype: 8, props: initialProps(ruleset === 'chaos'), chaosEvent: null, nextChaosAt: 38, lastImpact: null, impactSequence: 0,
   announcement: 'ROUND ONE — FIGHT!', announcementTimer: 2.2, hitStop: 0, slowMotion: 0, result: null,
@@ -40,7 +40,10 @@ export const createMatch = (playerId: FighterId, opponentId: FighterId, ruleset:
   grapple: null, replayFrames: [], replaySampleTimer: 0, highlights: [], runtimeId: seed, seed,
 });
 
-export const resetTransientState = (model: MatchModel): MatchModel => createMatch(model.player.definitionId, model.opponent.definitionId, model.ruleset, model.difficulty, model.seed + 97, model.player.beersDrunk, model.opponent.beersDrunk);
+export const resetTransientState = (model: MatchModel): MatchModel => {
+  const reset = createMatch(model.player.definitionId, model.opponent.definitionId, model.ruleset, model.difficulty, model.seed + 97, model.player.beersDrunk, model.opponent.beersDrunk);
+  reset.labMode = model.labMode; return reset;
+};
 
 export const getAttackPhase = (move: MoveDefinition, elapsed: number): 'anticipation' | 'active' | 'recovery' | null => {
   if (elapsed < move.anticipationDuration) return 'anticipation';
@@ -629,7 +632,9 @@ export const advanceMatch = (model: MatchModel, dt: number, playerInput: FrameIn
   model.aiBlockTimer = Math.max(0, model.aiBlockTimer - step);
   model.aiThinkTimer -= step;
   let aiMove: Vec2 = { ...model.aiMovement }; let aiRun = model.aiRunning;
-  if (model.aiThinkTimer <= 0) {
+  if (model.labMode) {
+    aiMove = { x: 0, z: 0 }; aiRun = false; model.aiIntent = null; model.aiBlockTimer = 0;
+  } else if (model.aiThinkTimer <= 0) {
     const decision = chooseAiDecision(model, fighterById(model.opponent.definitionId));
     model.seed = decision.nextSeed; model.aiIntent = decision.command; aiMove = decision.move; aiRun = decision.run;
     model.aiThinkTimer = model.difficulty === 'hard' ? .22 : .38;

@@ -12,6 +12,7 @@ interface MatchStore {
   configure: (player: FighterId, opponent: FighterId, rules: Ruleset, difficulty: Difficulty, playerBeers?: number, opponentBeers?: number) => void;
   advance: (dt: number, input: FrameInput) => void;
   pause: (paused: boolean) => void;
+  setLabMode: (active: boolean) => void;
   setPhysicsAuthority: (active: boolean) => void;
   resolvePhysicsContacts: (contacts: readonly BodyWorksContact[]) => void;
   rematch: () => void;
@@ -54,6 +55,7 @@ export const useMatchStore = create<MatchStore>((set) => ({
     return state;
   }),
   pause: (paused) => set((state) => ({ model: { ...state.model, paused }, revision: state.revision + 1 })),
+  setLabMode: (active) => set((state) => ({ model: { ...state.model, labMode: active, aiIntent: null, aiMovement: { x: 0, z: 0 }, aiRunning: false, aiBlockTimer: 0 }, revision: state.revision + 1 })),
   setPhysicsAuthority: (active) => set((state) => ({ model: { ...state.model, physicsAuthority: active }, revision: state.revision + 1 })),
   resolvePhysicsContacts: (contacts) => set((state) => {
     let changed = false;

@@ -28,7 +28,7 @@ export function App() {
 
   const confirm = (next: Screen): void => { audioEngine.play('confirm', settings); setScreen(next); };
   const enter = (): void => { audioEngine.unlock(settings); setScreen('main'); };
-  const start = (): void => { configure(selected, opponentId, rules, difficulty, beers, 0); setPaused(false); confirm('match'); audioEngine.play('bell', settings); };
+  const start = (): void => { configure(selected, opponentId, rules, difficulty, beers, 0); if (physicsLab) useMatchStore.getState().setLabMode(true); setPaused(false); confirm('match'); audioEngine.play('bell', settings); };
   const togglePause = useCallback(() => {
     const next = !useMatchStore.getState().model.paused;
     useMatchStore.getState().pause(next);
