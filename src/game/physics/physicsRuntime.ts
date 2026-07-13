@@ -8,6 +8,7 @@ import type { BodySegmentId } from './bodySchema';
 import { computeMotorTorque } from './motorController';
 import { PhysicsReplayBuffer } from './replayBuffer';
 import { getMove } from '../data/moves';
+import { fighterById } from '../data/fighters';
 import { getPairedPose, getStrikePose } from '../animation/choreography';
 import { POSES } from '../animation/poses';
 import type { Pose } from '../animation/poses';
@@ -225,6 +226,13 @@ export class BodyWorksRuntime {
     const pelvis = rig.bodies.pelvis; if (!pelvis) return;
     const intent = this.intents[key];
     const velocity = pelvis.linvel();
+    const definition = fighterById(fighter.definitionId);
+    const groundedControl = ['idle', 'locomotion', 'blocking', 'attacking', 'grappling', 'victorious'].includes(fighter.state);
+    if (groundedControl && rig.supportContacts.size > 0) {
+      const targetPelvisY = 1.92 + 1.12 * (definition.physics.standingHeightM / 1.88) - fighter.body.pelvisDrop * .32;
+      const supportAcceleration = clamp(18 + (targetPelvisY - pelvis.translation().y) * 42 - velocity.y * 8.5, 0, 48) * fighter.body.muscle;
+      pelvis.addForce({ x: 0, y: fighter.body.mass * supportAcceleration, z: 0 }, true);
+    }
     const desiredSpeed = (intent.run ? 5.4 : 3.25) * (.78 + fighterBySpeed(fighter) / 235) * (fighter.body.muscle < .3 ? .72 : 1);
     const inputLength = Math.min(1, Math.hypot(intent.move.x, intent.move.z));
     const desiredX = intent.move.x * desiredSpeed * inputLength; const desiredZ = intent.move.z * desiredSpeed * inputLength;
