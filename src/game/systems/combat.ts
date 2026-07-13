@@ -178,10 +178,24 @@ export const performCounter = (model: MatchModel, defenderKey: 'player' | 'oppon
   return true;
 };
 
-const chooseGrapple = (actor: FighterRuntime): string => {
-  const options = ['slam', 'suplex', 'takedown', 'whip'];
-  return options[actor.comboStep % options.length] ?? 'slam';
+type GrappleButton = 'quick' | 'heavy' | 'grapple';
+type GrappleDirection = 'neutral' | 'up' | 'down' | 'left' | 'right';
+
+const grappleDirection = (direction: Vec2): GrappleDirection => {
+  if (Math.hypot(direction.x, direction.z) < .35) return 'neutral';
+  if (Math.abs(direction.x) > Math.abs(direction.z)) return direction.x < 0 ? 'left' : 'right';
+  return direction.z < 0 ? 'up' : 'down';
 };
+
+const GRAPPLE_GRID: Readonly<Record<GrappleDirection, Readonly<Record<GrappleButton, string>>>> = {
+  neutral: { quick: 'takedown', heavy: 'slam', grapple: 'suplex' },
+  up: { quick: 'arm_drag', heavy: 'skyhook', grapple: 'powerbomb' },
+  down: { quick: 'takedown', heavy: 'spinebuster', grapple: 'mountain_drop' },
+  left: { quick: 'clutch', heavy: 'spinebuster', grapple: 'whip' },
+  right: { quick: 'side_toss', heavy: 'slam', grapple: 'suplex' },
+};
+
+export const selectDirectionalGrapple = (direction: Vec2, button: GrappleButton): string => GRAPPLE_GRID[grappleDirection(direction)][button];
 
 const startPin = (actor: FighterRuntime, target: FighterRuntime): boolean => {
   if (target.state !== 'downed' || distance(actor.position, target.position) > 1.7) return false;
@@ -206,14 +220,28 @@ const useProp = (model: MatchModel, actorKey: 'player' | 'opponent'): boolean =>
   return true;
 };
 
-export const requestCommand = (model: MatchModel, actorKey: 'player' | 'opponent', command: GameCommand): boolean => {
-  if (!isActionLegal(model, command, actorKey)) return false;
+export const requestCommand = (model: MatchModel, actorKey: 'player' | 'opponent', command: GameCommand, direction: Vec2 = { x: 0, z: 0 }): boolean => {
   const actor = model[actorKey];
   const targetKey = actorKey === 'player' ? 'opponent' : 'player';
   const target = model[targetKey];
+  if (actor.state === 'grappling' && actor.attackPhase === 'anticipation' && (command === 'quick' || command === 'heavy' || command === 'grapple')) {
+    const moveId = selectDirectionalGrapple(direction, command);
+    const selected = getMove(moveId);
+    if (actor.stamina < Math.max(0, selected.staminaCost - 12)) return false;
+    actor.moveId = moveId;
+    actor.phaseElapsed = Math.min(actor.phaseElapsed, selected.anticipationDuration * .55);
+    model.announcement = `${grappleDirection(direction).toUpperCase()} + ${command.toUpperCase()} — ${selected.displayName.toUpperCase()}`;
+    model.announcementTimer = .75;
+    return true;
+  }
+  if (!isActionLegal(model, command, actorKey)) return false;
+  if (command === 'block') {
+    actor.state = 'blocking'; actor.stateElapsed = 0; actor.velocity = scale(actor.velocity, .15);
+    return true;
+  }
   if (command === 'dodge') {
     if (performCounter(model, actorKey, targetKey)) return true;
-    actor.state = 'locomotion'; actor.invulnerability = .32; actor.stamina = clamp(actor.stamina - 8, 0, 100);
+    actor.state = 'locomotion'; actor.invulnerability = .32; actor.stamina = clamp(actor.stamina - 8, 0, actor.staminaCap);
     const away = normalize({ x: actor.position.x - target.position.x, z: actor.position.z - target.position.z });
     actor.velocity = scale(away, 3.2); return true;
   }
@@ -233,7 +261,18 @@ export const requestCommand = (model: MatchModel, actorKey: 'player' | 'opponent
     return started;
   }
   if (command === 'heavy') return startMove(actor, target, getMove(actor.heldPropId ? 'prop' : actor.ropeRebound > 0 ? 'rebound' : 'heavy'));
-  const moveId = chooseGrapple(actor);
+  if (target.state === 'blocking') {
+    target.stamina = clamp(target.stamina - BALANCE.block.grappleStaminaCost, 0, target.staminaCap);
+    if (target.stamina > 0) {
+      actor.state = 'staggered'; actor.stateElapsed = 0; actor.velocity = scale(normalize({ x: actor.position.x - target.position.x, z: actor.position.z - target.position.z }), 1.5);
+      model.announcement = 'GRAPPLE STUFFED!'; model.announcementTimer = .9;
+      model.hype = clamp(model.hype + 7, 0, 100); addImpact(model, target.position, 'blocked', 1);
+      return true;
+    }
+    target.state = 'staggered'; target.stateElapsed = 0;
+    model.announcement = 'GUARD BROKEN — GRAPPLE!'; model.announcementTimer = .9;
+  }
+  const moveId = selectDirectionalGrapple(direction, 'grapple');
   const started = startMove(actor, target, getMove(moveId));
   if (started) {
     actor.comboStep += 1; target.state = 'grabbed'; target.stateElapsed = 0; target.velocity = { x: 0, z: 0 };

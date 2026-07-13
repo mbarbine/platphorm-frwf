@@ -1,4 +1,5 @@
 import { getMove, MOVES } from '../data/moves';
+import { BALANCE } from '../data/balance';
 import { distance, seededRandom } from '../utils/math';
 import type { FighterDefinition, GameCommand, MatchModel } from '../types/game';
 
@@ -9,12 +10,13 @@ export const isActionLegal = (model: MatchModel, command: GameCommand, actorKey:
   const target = actorKey === 'player' ? model.opponent : model.player;
   if (model.paused || model.resolved || actor.state === 'pinned' || actor.state === 'pinning' || actor.state === 'defeated' || actor.state === 'victorious') return false;
   const targetDistance = distance(actor.position, target.position);
+  if (command === 'block') return actor.stamina > 2 && ['idle', 'locomotion', 'blocking', 'staggered'].includes(actor.state);
   if (command === 'dodge') return actor.stamina >= 8 && ['idle', 'locomotion', 'staggered', 'grabbed'].includes(actor.state);
   if (command === 'taunt') return ['idle', 'locomotion'].includes(actor.state);
   if (command === 'interact') return model.ruleset === 'chaos' && ['idle', 'locomotion'].includes(actor.state);
   if (command === 'context') {
     if (actor.momentum >= 100) return targetDistance <= getMove('finisher').maximumRange && ['staggered', 'downed'].includes(target.state);
-    const pinEligible = actorKey === 'player' || (model.elapsed >= 50 && target.health <= 25);
+    const pinEligible = actorKey === 'player' || (model.elapsed >= BALANCE.ai.earliestPinSeconds && target.health <= BALANCE.ai.pinHealthThreshold);
     return pinEligible && target.state === 'downed' && targetDistance <= 1.6;
   }
   const move = command === 'quick' ? MOVES.jab : command === 'heavy' ? MOVES.heavy : MOVES.slam;
@@ -34,6 +36,7 @@ export const chooseAiDecision = (model: MatchModel, definition: FighterDefinitio
   const counterChance = hard ? .68 : .38;
   const incomingMajor = target.attackPhase === 'anticipation' && target.moveId !== 'jab' && separation < 2.2;
   if (incomingMajor && roll < counterChance && isActionLegal(model, 'dodge', 'opponent')) return { command: 'dodge', move: { x: 0, z: 0 }, run: false, nextSeed };
+  if (target.attackPhase === 'anticipation' && separation < 2.05 && roll < (hard ? .88 : .67) && isActionLegal(model, 'block', 'opponent')) return { command: 'block', move: { x: 0, z: 0 }, run: false, nextSeed };
   if (actor.stamina < 24) return { command: separation < 2.5 ? 'dodge' : null, move: { x: -toward.x * .45, z: -toward.z * .45 }, run: false, nextSeed };
   if (target.state === 'downed' && separation < 1.7 && isActionLegal(model, 'context', 'opponent')) return { command: 'context', move: { x: 0, z: 0 }, run: false, nextSeed };
   if (actor.momentum >= 100 && isActionLegal(model, 'context', 'opponent')) return { command: 'context', move: { x: 0, z: 0 }, run: false, nextSeed };
