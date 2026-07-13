@@ -13,10 +13,10 @@ test('mobile player can enter a match, move, guard, and attack', async ({ page }
   await expect(controls).toBeVisible();
   await expect(page.locator('html')).toHaveAttribute('data-game-input-ready', 'true', { timeout: 30_000 });
   await expect(hud).toHaveAttribute('data-physics-bodies', '32', { timeout: 30_000 });
-  const quick = controls.getByRole('button', { name: 'Quick strike' });
-  await expect(quick).toBeVisible();
-  await expect(controls.getByRole('button', { name: 'Heavy strike or stiff-arm' })).toBeVisible();
-  await expect(controls.getByRole('button', { name: 'Grapple', exact: true })).toBeVisible();
+  const quick = controls.locator('.mobile-action--quick');
+  await expect(quick).toBeVisible(); await expect(quick).toHaveAttribute('data-move-label', 'CIRCUIT JAB');
+  await expect(controls.locator('.mobile-action--power')).toHaveAttribute('data-move-label', 'FAULT HOOK');
+  await expect(controls.locator('.mobile-action--grapple')).toHaveAttribute('data-move-label', 'LOCK UP');
   await expect(controls.getByRole('button', { name: 'Jump' })).toBeVisible();
   await expect(controls.getByRole('button', { name: 'Pick up, drop, or throw prop' })).toBeVisible();
   await expect(controls.getByRole('button', { name: 'Taunt' })).toBeVisible();

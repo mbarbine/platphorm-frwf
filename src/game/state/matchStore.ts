@@ -4,7 +4,7 @@ import type { FrameInput } from '../systems/combat';
 import { bodyWorksRuntime } from '../physics/physicsRuntime';
 import { getMove } from '../data/moves';
 import type { BodyWorksContact } from '../physics/physicsRuntime';
-import type { Difficulty, FighterId, MatchModel, Ruleset, Vec2 } from '../types/game';
+import type { Difficulty, FighterId, FighterState, MatchModel, Ruleset, Vec2 } from '../types/game';
 
 interface MatchStore {
   model: MatchModel;
@@ -14,7 +14,7 @@ interface MatchStore {
   advance: (dt: number, input: FrameInput) => void;
   pause: (paused: boolean) => void;
   setLabMode: (active: boolean) => void;
-  prepareLabScenario: (playerPosition: Vec2, opponentPosition: Vec2) => void;
+  prepareLabScenario: (playerPosition: Vec2, opponentPosition: Vec2, playerState?: Extract<FighterState, 'idle' | 'downed'>) => void;
   setPhysicsAuthority: (active: boolean) => void;
   resolvePhysicsContacts: (contacts: readonly BodyWorksContact[]) => void;
   rematch: () => void;
@@ -59,11 +59,12 @@ export const useMatchStore = create<MatchStore>((set) => ({
   }),
   pause: (paused) => set((state) => ({ model: { ...state.model, paused }, revision: state.revision + 1 })),
   setLabMode: (active) => set((state) => ({ model: { ...state.model, labMode: active, aiIntent: null, aiMovement: { x: 0, z: 0 }, aiRunning: false, aiBlockTimer: 0 }, revision: state.revision + 1 })),
-  prepareLabScenario: (playerPosition, opponentPosition) => set((state) => {
+  prepareLabScenario: (playerPosition, opponentPosition, playerState = 'idle') => set((state) => {
     if (!state.model.labMode) return state;
     bodyWorksRuntime.prepareLabPositions(playerPosition, opponentPosition);
     const player = createFighterRuntime(state.model.player.definitionId, { ...playerPosition }, state.model.player.beersDrunk);
     const opponent = createFighterRuntime(state.model.opponent.definitionId, { ...opponentPosition }, state.model.opponent.beersDrunk);
+    player.state = playerState; player.downTimer = playerState === 'downed' ? 5 : 0;
     return { model: { ...state.model, player, opponent, grapple: null, lastImpact: null, hitStop: 0, slowMotion: 0, announcement: 'LAB RESET — INPUT LIVE', announcementTimer: .65, aiIntent: null, aiMovement: { x: 0, z: 0 }, aiRunning: false, aiBlockTimer: 0 }, revision: state.revision + 1, replayActive: false };
   }),
   setPhysicsAuthority: (active) => set((state) => ({ model: { ...state.model, physicsAuthority: active }, revision: state.revision + 1 })),

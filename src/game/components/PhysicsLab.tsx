@@ -14,6 +14,7 @@ const SCENARIOS: readonly LabScenario[] = [
   { id: 'ropes', label: 'RUN INTO ROPES', steps: [...hold('KeyD', 0, 2_050), ...hold('ShiftLeft', 0, 2_050)], duration: 2_800 },
   { id: 'ropeStrike', label: 'ROPE LOAD + STIFF-ARM', steps: [...hold('KeyD', 0, 680), ...hold('ShiftLeft', 0, 680), ...tap('KeyK', 860)], duration: 2_300 },
   { id: 'jump', label: 'STANDING JUMP', steps: tap('KeyC', 0, 480), duration: 2_000 },
+  { id: 'kickup', label: 'KICK-UP RECOVERY', steps: tap('Space', 620, 180), duration: 2_100 },
   { id: 'jab', label: 'JAB TO HEAD', steps: tap('KeyJ'), duration: 1_200 },
   { id: 'hook', label: 'TORSO POWER', steps: tap('KeyK'), duration: 1_400 },
   { id: 'guard', label: 'BLOCK WINDOW', steps: hold('KeyI', 0, 1_250), duration: 1_700 },
@@ -49,6 +50,7 @@ export function PhysicsLab() {
     const closeRange = ['jab', 'hook', 'guard', 'kick', 'lock', 'slam', 'suplex', 'powerbomb', 'clothesline', 'spear'].includes(scenario.id);
     const corner = scenario.id === 'climb' || scenario.id === 'dive';
     if (corner) useMatchStore.getState().prepareLabScenario({ x: -4.52, z: -3.08 }, { x: -.6, z: -.2 });
+    else if (scenario.id === 'kickup') useMatchStore.getState().prepareLabScenario({ x: 0, z: -.7 }, { x: 0, z: 3.4 }, 'downed');
     else if (scenario.id === 'ropeStrike') useMatchStore.getState().prepareLabScenario({ x: 4.48, z: .2 }, { x: 3.65, z: -.12 });
     else if (closeRange) useMatchStore.getState().prepareLabScenario({ x: 0, z: -.68 }, { x: 0, z: .68 });
     else if (scenario.id === 'miss') useMatchStore.getState().prepareLabScenario({ x: 0, z: -2.6 }, { x: 0, z: 2.6 });

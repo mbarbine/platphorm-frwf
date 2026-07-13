@@ -222,7 +222,7 @@ export const applyMoveHit = (model: MatchModel, actorKey: 'player' | 'opponent',
   }
   if (move.category === 'grapple') {
     if (move.damage >= 18) model.slowMotion = Math.max(model.slowMotion, .24);
-    model.announcement = move.displayName.toUpperCase(); model.announcementTimer = 1.2;
+    if (move.damage >= 18) { model.announcement = move.displayName.toUpperCase(); model.announcementTimer = 1.2; }
   }
   const majorImpact = move.category === 'finisher' || move.category === 'heavy' || move.category === 'grapple' || move.category === 'prop' || move.category === 'aerial';
   const exhaustionKnockout = model.elapsed >= BALANCE.knockout.earliestSeconds
@@ -593,7 +593,7 @@ const updateFighter = (model: MatchModel, actorKey: 'player' | 'opponent', dt: n
         actor.momentum = clamp(actor.momentum + move.momentumGain * variety * (model.ruleset === 'chaos' ? 1.2 : 1) * surge, 0, 100);
         model.hype = clamp(model.hype + move.hypeValue * variety * BALANCE.hypeScale, 0, 100);
         actor.recentMoves = [...actor.recentMoves.slice(-4), move.id];
-        model.announcement = `${fighterById(actor.definitionId).name} — CROWD CALL!`; model.announcementTimer = .9;
+        if (variety >= .65) { model.announcement = `${fighterById(actor.definitionId).name} — CROWD CALL!`; model.announcementTimer = .9; }
       }
       if (model.grapple?.attacker === actorKey) releaseGrapple(model, 'idle');
       actor.moveId = null; actor.state = completedTurnbuckleTaunt ? 'climbing' : 'idle'; actor.stateElapsed = 0; actor.finisherPrimed = false;

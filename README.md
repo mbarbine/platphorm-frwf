@@ -29,19 +29,26 @@ npm run preview
 
 | Action | Keyboard | Standard gamepad |
 |---|---|---|
-| Move / choose grapple direction | WASD | Left stick or D-pad |
+| Move / aim / choose strike or grapple direction | WASD | Left stick or D-pad |
 | Run | Left Shift | Right trigger |
 | Quick strike / ground strike | J | X / Square |
 | Heavy / rope rebound / prop swing | K | Y / Triangle |
 | Enter grapple / choose grapple move | L, then direction + J/K/L | B, then direction + X/Y/B |
 | Hold guard / stuff grapple | I | Left trigger |
-| Dodge / timed counter / kickout | Space | A / Cross |
+| Dodge / timed counter / downed kick-up / kickout / climb down | Space | A / Cross |
+| Standing jump / hop | C | Left-stick press |
 | Pick up, swing, drop, or throw a prop | E | Left bumper |
 | Ring exit/re-entry, turnbuckle climb/dive, pin, or signature | F | Right stick press |
 | Signature taunt | Q | Right bumper |
 | Pause | Escape | Menu / Options |
 
-Movement is camera-relative. L enters a visible collar-and-elbow lock; during its anticipation window, a direction plus J/K/L selects one of fifteen directional outcomes including arm drags, trips, chokes, spinebusters, suplexes, powerbombs, side tosses, slams, and an Irish whip. Hold I/LT to guard: strikes deal tiny chip damage and drain guard stamina, while a grapple can be stuffed until the guard breaks. Running K becomes a stiff-arm. Run into the ropes to rebound; powerful throws can produce a deliberate ring-out. Press F at the ropes to deliberately step ringside or return. At a turnbuckle, F climbs first and F again launches a Domefall Dive at a vulnerable rival. Fill Momentum, stagger or drop the opponent, and press F to perform that fighter's signature.
+Movement is camera-relative and the live control deck always names the move that will fire. With no direction, J/K are Circuit Jab/Fault Hook. Aim forward for Skyline Cross/Voltage Uppercut, backward for Circuit Low Kick/Piston Boot, left for Neon One-Two/Arc Roundhouse, and right for Skyline Cross/Halo High Kick.
+
+L enters a visible collar-and-elbow lock; during its anticipation window, a direction plus J/K/L selects one of fifteen named outcomes including arm drags, trips, chokes, spinebusters, suplexes, powerbombs, side tosses, slams, and an Irish whip. Hold I/LT to guard: strikes deal tiny chip damage and drain guard stamina, while a grapple can be stuffed until the guard breaks. Space performs a visible, stamina-bound Livewire Kick-Up while downed.
+
+Running K becomes a Railway Stiff-Arm and a registered hit guarantees a knockdown. Sprint into an elastically deforming rope to load a faster rebound window. Press F near a center rope to crouch through the middle ropes to ringside or return; at a corner, F is reserved for lower, middle, and top turnbuckle stages. From the top: J is Neon Drop Elbow, K is Top-Rope Missile Kick, F is Domefall Dive, Q taunts, and Space descends one stage. Fill Momentum, stagger or drop the opponent, and press F to perform that fighter's signature.
+
+On browsers that expose `immersive-vr`, the in-match **ENTER ARENA XR** action starts a `local-floor` WebXR session suitable for Meta Quest, Steam Frame/OpenXR-compatible runtimes, and other standards-based headsets. The left XR stick moves, left trigger runs, left squeeze guards, and right-controller buttons map to strike, grapple, counter, and contextual actions. Desktop and XR both use HRTF-positioned procedural impacts, footfalls, rope snaps, and arena sounds; no remote audio assets are loaded.
 
 ### Cinematic wrestling engine
 
@@ -68,7 +75,7 @@ src/
   game/
     ai/         utility-based shared-rule opponent decisions
     animation/  interpolated hierarchical pose library
-    audio/      gesture-gated procedural Web Audio
+    audio/      gesture-gated procedural Web Audio with HRTF spatial emitters
     components/ Three/Rapier arena, fighters, camera, effects
     data/       immutable fighter and move definitions
     input/      keyboard/gamepad abstraction
@@ -113,9 +120,11 @@ Vitest covers:
 - complete finisher victory and rematch reset
 - strike and grapple guard pressure, guard breaks, and legal transitions
 - five-beer stamina caps and Chad's deliberately low gas tank
-- paired grapple choreography, phase interpolation, articulated strike contact/reactions, directional grapple selection, turnbuckle aerials, stiff-arms, and ringside traversal
+- paired grapple choreography, phase interpolation, articulated strike contact/reactions, the five-direction strike grid, directional grapple selection, visual kick-up, staged turnbuckles, three aerials, elastic rebound stiff-arms, and center-rope traversal
+- a fifty-slam weight/approach soak that proves clean release without a stuck attacker
+- standard and WebXR gamepad axis normalization, including alternate XR thumbstick axes and missing-button fallbacks
 
-Playwright runs one production-preview journey covering initialization, Chad selection, five-beer setup, Chaos Circuit selection, held guard, an observed grapple lock and active grapple impact, live combat through a real pin/KO result, clean console output, and instant rematch:
+Playwright covers the production-preview full match plus controlled Bodyworks and mobile journeys: initialization, Chad selection, five-beer setup, Chaos Circuit, exact situational controls, movement, jumping, a live kick-up, elastic rope load, stiff-arm, observed grapple lock/impact, three-stage climb, top-rope options, real pin/KO resolution, clean console output, and instant rematch.
 
 ```bash
 npm run test:e2e
