@@ -11,7 +11,7 @@ test('Bodyworks lab exposes live Rapier diagnostics and drives real jump/walk in
   const hud = page.locator('.hud'); const lab = page.getByTestId('physics-lab'); const deck = page.getByTestId('control-deck');
   await expect(lab).toBeVisible(); await expect(hud).toHaveAttribute('data-physics-bodies', '32', { timeout: 30_000 }); await expect(hud).toHaveAttribute('data-physics-joints', '30');
   await expect(deck).toBeVisible(); await expect(deck).toContainText('LIVE WRESTLING CONTROLS');
-  for (const label of ['MOVE', 'RUN', 'QUICK', 'POWER', 'GRAPPLE', 'GUARD', 'COUNTER', 'JUMP', 'PROP', 'PIN / FINISH', 'TAUNT']) await expect(deck).toContainText(label);
+  for (const label of ['MOVE / AIM', 'RUN', 'CIRCUIT JAB', 'FAULT HOOK', 'CLOSE DISTANCE', 'GUARD', 'COUNTER', 'JUMP / HOP', 'PICK UP PROP', 'WRESTLING ACTION', 'TAUNT']) await expect(deck).toContainText(label);
   await expect(hud).toHaveAttribute('data-player-state', 'idle');
   await page.waitForTimeout(2_500);
   const initialY = Number(await hud.getAttribute('data-player-pelvis-y'));

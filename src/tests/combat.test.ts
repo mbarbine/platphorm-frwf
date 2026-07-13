@@ -3,7 +3,7 @@ import { chooseAiDecision, isActionLegal } from '../game/ai/utilityAI';
 import { cinematicProgress, getPairedPose, getStrikePose, getStrikeReactionPose } from '../game/animation/choreography';
 import { FIGHTERS, fighterById } from '../game/data/fighters';
 import { getMove } from '../game/data/moves';
-import { advanceMatch, applyMoveHit, applyPhysicalContact, createMatch, getAttackPhase, requestCommand, resetTransientState, selectDirectionalGrapple, startMove } from '../game/systems/combat';
+import { advanceMatch, applyMoveHit, applyPhysicalContact, createMatch, getAttackPhase, requestCommand, resetTransientState, selectDirectionalGrapple, selectDirectionalStrike, startMove } from '../game/systems/combat';
 import { canTransition } from '../game/systems/stateMachine';
 import type { FrameInput } from '../game/systems/combat';
 import { BodyWorksRuntime } from '../game/physics/physicsRuntime';
@@ -247,6 +247,43 @@ describe('deterministic combat rules', () => {
       selectDirectionalGrapple({ x: -1, z: 0 }, 'quick'), selectDirectionalGrapple({ x: 1, z: 0 }, 'quick'), selectDirectionalGrapple({ x: 0, z: 1 }, 'grapple'),
     ]);
     expect(moveIds.size).toBe(6); for (const id of moveIds) expect(getMove(id).category).toBe('grapple');
+  });
+
+  it('maps deliberate directions to high punch, uppercut, low kick, high kick, and roundhouse', () => {
+    expect(selectDirectionalStrike({ x: 0, z: -1 }, 'quick')).toBe('high_punch');
+    expect(selectDirectionalStrike({ x: 0, z: -1 }, 'heavy')).toBe('uppercut');
+    expect(selectDirectionalStrike({ x: 0, z: 1 }, 'quick')).toBe('low_kick');
+    expect(selectDirectionalStrike({ x: 1, z: 0 }, 'heavy')).toBe('high_kick');
+    expect(selectDirectionalStrike({ x: -1, z: 0 }, 'heavy')).toBe('roundhouse');
+    for (const id of ['high_punch', 'uppercut', 'low_kick', 'high_kick', 'roundhouse']) expect(getStrikePose(getMove(id), 'active', getMove(id).anticipationDuration + .03)).not.toBeNull();
+  });
+
+  it('turns a downed counter input into a visible stamina-bound kick-up', () => {
+    const model = createMatch('vex', 'atlas', 'standard', 'normal'); model.player.state = 'downed'; model.player.downTimer = 2;
+    const stamina = model.player.stamina;
+    expect(isActionLegal(model, 'dodge', 'player')).toBe(true); expect(requestCommand(model, 'player', 'dodge')).toBe(true);
+    expect(model.player.state).toBe('recovering'); expect(model.player.moveId).toBe('kick_up'); expect(model.player.stamina).toBe(stamina - getMove('kick_up').staminaCost);
+    expect(getStrikePose(getMove('kick_up'), 'active', getMove('kick_up').anticipationDuration + .05)).not.toBeNull();
+  });
+
+  it('guarantees a knockdown when a rebound stiff-arm registers', () => {
+    const model = createMatch('brick', 'atlas', 'standard', 'normal'); model.player.position = { x: 0, z: 0 }; model.opponent.position = { x: 1, z: 0 }; model.player.ropeRebound = 1;
+    expect(requestCommand(model, 'player', 'heavy')).toBe(true); expect(model.player.moveId).toBe('stiff_arm');
+    model.player.attackPhase = 'active'; expect(applyMoveHit(model, 'player', 'opponent', getMove('stiff_arm'))).toBe(true);
+    expect(['airborne', 'downed']).toContain(model.opponent.state);
+  });
+
+  it('uses F at a center rope opening to exit and re-enter without requiring a corner', () => {
+    const model = createMatch('atlas', 'vex', 'standard', 'normal'); model.player.position = { x: 4.9, z: 0 };
+    expect(isActionLegal(model, 'context', 'player')).toBe(true); expect(requestCommand(model, 'player', 'context')).toBe(true); expect(model.player.position.x).toBeGreaterThan(6);
+    model.player.state = 'idle'; expect(requestCommand(model, 'player', 'context')).toBe(true); expect(model.player.position.x).toBeLessThan(5.2);
+  });
+
+  it('offers distinct quick, power, and context aerials from the top turnbuckle', () => {
+    for (const [command, moveId] of [['quick', 'aerial_elbow'], ['heavy', 'aerial_kick'], ['context', 'aerial']] as const) {
+      const model = createMatch('vex', 'atlas', 'standard', 'normal'); model.player.position = { x: -5.1, z: -3.6 }; model.opponent.position = { x: 0, z: 0 }; model.player.state = 'climbing'; model.player.climbStage = 3;
+      expect(requestCommand(model, 'player', command)).toBe(true); expect(model.player.moveId).toBe(moveId); expect(model.player.state).toBe('attacking');
+    }
   });
 
   it('makes AI choose a directional finish while it owns a grapple lock', () => {
