@@ -40,22 +40,27 @@ test('standing articulated wrestlers remain visually stable at idle', async ({ p
 
 test('rope rebound produces a loaded stiff-arm and physical knockdown', async ({ page }) => {
   const errors = captureErrors(page); await enterLabMatch(page);
-  const hud = page.locator('.hud'); const lab = page.getByTestId('physics-lab'); const html = page.locator('html');
-  await page.evaluate(() => {
+  const hud = page.locator('.hud'); const lab = page.getByTestId('physics-lab'); const html = page.locator('html'); const startingHealth = Number(await hud.getAttribute('data-opponent-health'));
+  await page.evaluate((health) => {
     const observe = (): void => {
       const liveHud = document.querySelector('.hud'); const deck = document.querySelector('[data-testid="control-deck"]');
+      const physics = liveHud?.querySelector('[data-physics-last-contact]'); const contact = physics?.getAttribute('data-physics-last-contact') ?? '';
       if (liveHud?.getAttribute('data-player-move') === 'stiff_arm') document.documentElement.dataset.sawDeterministicStiffArm = 'true';
       if (/downed|airborne/.test(liveHud?.getAttribute('data-opponent-state') ?? '')) document.documentElement.dataset.sawDeterministicKnockdown = 'true';
+      if (/^(?:left|right)(?:Hand|Forearm|UpperArm)>/.test(contact)) document.documentElement.dataset.sawDeterministicRopeContact = 'true';
+      if (Number(liveHud?.getAttribute('data-opponent-health')) < health) document.documentElement.dataset.sawDeterministicRopeImpact = 'true';
       if (deck?.textContent?.includes('STIFF-ARM!') || deck?.textContent?.includes('ROPES LOADED')) document.documentElement.dataset.sawDeterministicRopeLoad = 'true';
       const x = Math.abs(Number(liveHud?.getAttribute('data-player-x'))); const maximum = Number(document.documentElement.dataset.maximumRopeX ?? 0);
       if (Number.isFinite(x) && x > maximum) document.documentElement.dataset.maximumRopeX = x.toFixed(3);
       if (liveHud?.getAttribute('data-player-ringside') === 'true') document.documentElement.dataset.sawRopeTunnel = 'true';
     };
     new MutationObserver(observe).observe(document.body, { subtree: true, attributes: true, childList: true }); observe();
-  });
+  }, startingHealth);
   await lab.getByRole('button', { name: 'ROPE LOAD + STIFF-ARM' }).click();
   await expect(html).toHaveAttribute('data-saw-deterministic-rope-load', 'true', { timeout: 6_000 });
   await expect(html).toHaveAttribute('data-saw-deterministic-stiff-arm', 'true', { timeout: 6_000 });
+  await expect(html).toHaveAttribute('data-saw-deterministic-rope-contact', 'true', { timeout: 8_000 });
+  await expect(html).toHaveAttribute('data-saw-deterministic-rope-impact', 'true', { timeout: 8_000 });
   await expect(html).toHaveAttribute('data-saw-deterministic-knockdown', 'true', { timeout: 8_000 });
   expect(Number(await html.getAttribute('data-maximum-rope-x'))).toBeLessThanOrEqual(RINGSIDE_THRESHOLD.x);
   await expect(html).not.toHaveAttribute('data-saw-rope-tunnel', 'true');
@@ -68,7 +73,9 @@ test('top-rope dive tracks the target and lands physical damage', async ({ page 
   await page.evaluate((health) => {
     const observe = (): void => {
       const liveHud = document.querySelector('.hud'); const aerial = /aerial/.test(liveHud?.getAttribute('data-player-move') ?? '');
+      const contact = liveHud?.querySelector('[data-physics-last-contact]')?.getAttribute('data-physics-last-contact') ?? '';
       if (aerial) document.documentElement.dataset.sawDeterministicDive = 'true';
+      if (contact === 'chest>chest') document.documentElement.dataset.sawDeterministicDiveContact = 'true';
       if (Number(liveHud?.getAttribute('data-opponent-health')) < health) document.documentElement.dataset.sawDeterministicDiveImpact = 'true';
       if (!aerial) return;
       const playerX = Number(liveHud?.getAttribute('data-player-x')); const playerZ = Number(liveHud?.getAttribute('data-player-z'));
@@ -82,6 +89,7 @@ test('top-rope dive tracks the target and lands physical damage', async ({ page 
   await expect(html).toHaveAttribute('data-saw-deterministic-dive', 'true', { timeout: 8_000 });
   await expect.poll(async () => Number(await html.getAttribute('data-dive-minimum-distance')), { timeout: 10_000, intervals: [100, 200] }).toBeLessThan(2.4);
   await expect(html).toHaveAttribute('data-saw-deterministic-dive-impact', 'true', { timeout: 10_000 });
+  await expect(html).toHaveAttribute('data-saw-deterministic-dive-contact', 'true', { timeout: 10_000 });
   await expect(hud).toHaveAttribute('data-physics-emergency-resets', '0'); expect(errors).toEqual([]);
 });
 
@@ -98,8 +106,16 @@ test('ringside wrestler returns through the apron without crossing a wall', asyn
 test('physical body slam collapses the commentary table', async ({ page }) => {
   test.setTimeout(90_000);
   const errors = captureErrors(page); await enterLabMatch(page);
-  const hud = page.locator('.hud'); const lab = page.getByTestId('physics-lab');
+  const hud = page.locator('.hud'); const lab = page.getByTestId('physics-lab'); const html = page.locator('html');
+  await page.evaluate(() => {
+    const observe = (): void => {
+      const contact = document.querySelector('.hud [data-physics-last-contact]')?.getAttribute('data-physics-last-contact') ?? '';
+      if (contact === 'chest>table') document.documentElement.dataset.sawDeterministicTableContact = 'true';
+    };
+    new MutationObserver(observe).observe(document.body, { subtree: true, attributes: true }); observe();
+  });
   await lab.getByRole('button', { name: 'TABLE COLLAPSE' }).click();
+  await expect(html).toHaveAttribute('data-saw-deterministic-table-contact', 'true', { timeout: 20_000 });
   await expect(hud.locator('[data-table-stage]')).toHaveAttribute('data-table-stage', 'failed', { timeout: 20_000 });
   await expect(hud).toHaveAttribute('data-physics-emergency-resets', '0'); expect(errors).toEqual([]);
 });

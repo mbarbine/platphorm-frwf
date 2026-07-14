@@ -17,7 +17,7 @@ interface MatchStore {
   setToyTestMode: (active: boolean) => void;
   configureLab: (player: FighterId, opponent: FighterId, seed: number, playerStaminaPercent: number, opponentStaminaPercent: number, playerAdditionalMass?: number, opponentAdditionalMass?: number) => void;
   requestLabCommand: (fighter: 'player' | 'opponent', command: GameCommand, direction?: Vec2, running?: boolean) => void;
-  prepareLabScenario: (playerPosition: Vec2, opponentPosition: Vec2, playerState?: Extract<FighterState, 'idle' | 'downed'>, opponentHealth?: number, recoveryOrientation?: RecoveryOrientation, downTimer?: number, playerStaminaPercent?: number) => void;
+  prepareLabScenario: (playerPosition: Vec2, opponentPosition: Vec2, playerState?: Extract<FighterState, 'idle' | 'blocking' | 'downed'>, opponentHealth?: number, recoveryOrientation?: RecoveryOrientation, downTimer?: number, playerStaminaPercent?: number) => void;
   setPhysicsAuthority: (active: boolean) => void;
   resolvePhysicsContacts: (contacts: readonly BodyWorksContact[]) => void;
   rematch: () => void;

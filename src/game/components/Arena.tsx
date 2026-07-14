@@ -163,15 +163,24 @@ function Props() {
 }
 
 function CommentaryTable({ prop }: { prop: PropRuntime }) {
+  const body = useRef<RapierRigidBody | null>(null);
+  useEffect(() => {
+    if (!body.current) return;
+    return bodyWorksRuntime.registerLandingSurface(prop.id, 'table', body.current);
+  }, [prop.id]);
   const bend = prop.failureStage === 'cracked' ? .095 : prop.failureStage === 'stressed' ? .035 : 0;
   const accent = prop.failureStage === 'cracked' ? '#ff3c64' : prop.failureStage === 'stressed' ? '#ffc83d' : '#27d8ff';
-  return <RigidBody type="fixed" position={[prop.position.x, .72, prop.position.z]} colliders={false} collisionGroups={propCollisionGroups} solverGroups={propCollisionGroups} userData={{ surface: true, prop: prop.id, kind: prop.kind }}>
+  return <RigidBody ref={body} type="fixed" position={[prop.position.x, .72, prop.position.z]} colliders={false} collisionGroups={propCollisionGroups} solverGroups={propCollisionGroups} userData={{ surface: true, prop: prop.id, kind: prop.kind }}>
     <CuboidCollider args={[1.7, .12, .65]} rotation={[0, 0, bend]} />
+    <CuboidCollider args={[1.35, .18, .48]} position={[0, .48, 0]} rotation={[0, 0, bend]} />
     <CuboidCollider args={[.08, .55, .08]} position={[-1.35, -.58, -.45]} /><CuboidCollider args={[.08, .55, .08]} position={[-1.35, -.58, .45]} />
     <CuboidCollider args={[.08, .55, .08]} position={[1.35, -.58, -.45]} /><CuboidCollider args={[.08, .55, .08]} position={[1.35, -.58, .45]} />
     <group rotation={[0, 0, bend]}>
       <mesh castShadow><boxGeometry args={[3.4, .2, 1.3]} /><meshStandardMaterial color="#2a3140" metalness={.6} roughness={.3} /></mesh>
       <mesh position={[0, .13, 0]}><boxGeometry args={[2.2, .05, .75]} /><meshStandardMaterial color={accent} emissive={accent} emissiveIntensity={prop.failureStage === 'intact' ? .8 : 1.8} /></mesh>
+      <mesh castShadow position={[0, .48, 0]}><boxGeometry args={[2.7, .36, .96]} /><meshStandardMaterial color="#111722" metalness={.72} roughness={.22} /></mesh>
+      <mesh position={[0, .675, .14]} rotation={[-.22, 0, 0]}><boxGeometry args={[2.24, .025, .52]} /><meshStandardMaterial color={accent} emissive={accent} emissiveIntensity={prop.failureStage === 'intact' ? 1.05 : 2.2} metalness={.35} roughness={.24} /></mesh>
+      {[-.72, 0, .72].map((x, index) => <mesh key={x} position={[x, .695, -.25]} rotation={[-.22, 0, 0]}><boxGeometry args={[.48, .035, .21]} /><meshStandardMaterial color={index === 1 ? '#ff3c91' : '#5bf0ff'} emissive={index === 1 ? '#a9145a' : '#168899'} emissiveIntensity={1.5} /></mesh>)}
       {prop.failureStage === 'cracked' && <mesh position={[.18, .125, 0]} rotation={[0, .2, -.22]}><boxGeometry args={[.08, .035, 1.18]} /><meshStandardMaterial color="#fff0b8" emissive="#ff4d63" emissiveIntensity={2.6} /></mesh>}
     </group>
     {[-1.35, 1.35].flatMap((x) => [-.45, .45].map((z) => <mesh key={`${x}-${z}`} position={[x, -.58, z]} rotation={[0, 0, x < 0 ? bend * 1.8 : -bend * .5]}><boxGeometry args={[.12, 1.1, .12]} /><meshStandardMaterial color="#11141b" /></mesh>))}

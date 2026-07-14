@@ -34,7 +34,7 @@ const segment = (definition: FighterDefinition, id: BodySegmentId, side: Segment
   const left = side === 'left';
   const bodyRegion = id === 'head' ? 'head' : id === 'chest' ? 'chest' : id === 'abdomen' ? 'ribs' : id === 'pelvis' ? 'pelvis'
     : arm ? left ? 'leftArm' : 'rightArm' : left ? 'leftLeg' : 'rightLeg';
-  const strike = id.includes('Hand') || id.includes('Foot');
+  const strike = id.includes('Hand') || id.includes('Forearm') || id.includes('Foot');
   const support = id.includes('Foot');
   return {
     id, side, bodyRegion, colliderRole: support ? 'support' : strike ? 'strike' : 'body',

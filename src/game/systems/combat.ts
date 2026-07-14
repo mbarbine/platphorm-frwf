@@ -547,12 +547,12 @@ const updateFighter = (model: MatchModel, actorKey: 'player' | 'opponent', dt: n
   actor.invulnerability = Math.max(0, actor.invulnerability - dt);
   actor.ropeRebound = Math.max(0, actor.ropeRebound - dt);
   const landing = stepBodyDynamics(actor, dt);
-  if (landing.landed && landing.landingEnergy > 2.2) {
+  if (!model.physicsAuthority && landing.landed && landing.landingEnergy > 2.2) {
     addImpact(model, actor.position, 'grapple', clamp(landing.landingEnergy / 7, .55, 1.8), {
       region: 'chest', force: landing.landingEnergy, outcome: 'fall',
     });
   }
-  if (landing.landed && actor.state === 'airborne') {
+  if (!model.physicsAuthority && landing.landed && actor.state === 'airborne') {
     actor.state = 'downed'; actor.stateElapsed = 0;
     actor.downTimer = Math.max(actor.downTimer, 1.25 + (100 - actor.health) / 90);
   }
@@ -583,7 +583,7 @@ const updateFighter = (model: MatchModel, actorKey: 'player' | 'opponent', dt: n
     }
   }
 
-  if (actor.state === 'airborne' && actor.body.verticalOffset <= .001 && actor.body.verticalVelocity <= .01) {
+  if (!model.physicsAuthority && actor.state === 'airborne' && actor.body.verticalOffset <= .001 && actor.body.verticalVelocity <= .01) {
     actor.state = 'downed'; actor.stateElapsed = 0;
     actor.downTimer = Math.max(actor.downTimer, 1.25 + (100 - actor.health) / 90);
   }
@@ -792,7 +792,7 @@ export const advanceMatch = (model: MatchModel, dt: number, playerInput: FrameIn
 const expectedContactSegment = (move: MoveDefinition, segment: string): boolean => {
   if (move.id === 'aerial_elbow') return segment.includes('Forearm') || segment.includes('UpperArm') || segment === 'chest';
   if (move.category === 'aerial' || move.id === 'ground' || move.id === 'front_kick' || move.id === 'low_kick' || move.id === 'high_kick' || move.id === 'roundhouse') return segment.includes('Foot') || segment.includes('Shin') || segment.includes('chest');
-  if (move.id === 'rebound' || move.id === 'stiff_arm') return segment.includes('Hand') || segment.includes('UpperArm') || segment === 'chest';
+  if (move.id === 'rebound' || move.id === 'stiff_arm') return segment.includes('Hand') || segment.includes('Forearm') || segment.includes('UpperArm') || segment === 'chest';
   if (move.id === 'spear') return segment === 'chest' || segment.includes('UpperArm');
   if (move.category === 'quick' || move.category === 'heavy' || move.category === 'prop' || move.id === 'counter') return segment.includes('Hand');
   return move.category === 'grapple' || move.category === 'finisher';

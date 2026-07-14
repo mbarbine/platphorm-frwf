@@ -87,10 +87,13 @@ export function PhysicsLab() {
     else if (scenario.id === 'cornerSmash') useMatchStore.getState().prepareLabScenario({ x: 3.72, z: 2.45 }, { x: 4.45, z: 3.02 });
     else if (scenario.id === 'apronReturn') useMatchStore.getState().prepareLabScenario({ x: 6.52, z: 0 }, { x: 0, z: 2.4 });
     else if (scenario.id === 'tableCollapse') useMatchStore.getState().prepareLabScenario({ x: 0, z: -5.25 }, { x: 0, z: -6.05 });
-    else if (scenario.id === 'blockedJab') useMatchStore.getState().prepareLabScenario({ x: 0, z: -.27 }, { x: 0, z: .27 });
+    else if (scenario.id === 'blockedJab') useMatchStore.getState().prepareLabScenario({ x: 0, z: -.27 }, { x: 0, z: .27 }, 'blocking');
     else if (recoveryOrientation) useMatchStore.getState().prepareLabScenario({ x: 0, z: -.7 }, { x: 0, z: 3.4 }, 'downed', 100, recoveryOrientation, .38);
     else if (scenario.id === 'kickup') useMatchStore.getState().prepareLabScenario({ x: 0, z: -.7 }, { x: 0, z: 3.4 }, 'downed');
-    else if (scenario.id === 'ropeStrike') useMatchStore.getState().prepareLabScenario({ x: 4.92, z: .08 }, { x: 0, z: 0 });
+    // The production camera maps keyboard D onto a slightly diagonal arena
+    // lane. Place the deterministic defender on that measured rebound lane so
+    // this scenario verifies contact timing rather than a deliberate sidestep.
+    else if (scenario.id === 'ropeStrike') useMatchStore.getState().prepareLabScenario({ x: 5.12, z: .08 }, { x: 0, z: .58 });
     else if (closeRange) useMatchStore.getState().prepareLabScenario({ x: 0, z: -.4 }, { x: 0, z: .4 }, 'idle', scenario.id === 'soakRound' ? 1 : 100, 'back', 5, scenario.id === 'failedLift' ? 34 : undefined);
     else if (scenario.id === 'miss' || scenario.id === 'jabWhiff') useMatchStore.getState().prepareLabScenario({ x: 0, z: -2.6 }, { x: 0, z: 2.6 });
     else useMatchStore.getState().prepareLabScenario({ x: -1.4, z: 0 }, { x: 2.2, z: 0 });
@@ -108,7 +111,10 @@ export function PhysicsLab() {
       reboundWatcher = window.setInterval(() => {
         const player = useMatchStore.getState().model.player; if (player.ropeRebound <= 0) return;
         const opponent = useMatchStore.getState().model.opponent;
-        if (Math.hypot(player.position.x - opponent.position.x, player.position.z - opponent.position.z) > 1.45) return;
+        // At rebound speed the 160 ms stiff-arm wind-up covers roughly one
+        // metre. Queue inside legal move range, before the chest has already
+        // crossed the opponent, so the real hand collider reaches on active.
+        if (Math.hypot(player.position.x - opponent.position.x, player.position.z - opponent.position.z) > 1.6) return;
         if (reboundWatcher !== null) window.clearInterval(reboundWatcher); reboundWatcher = null;
         dispatchKey('KeyK', true); timers.current.push(window.setTimeout(() => dispatchKey('KeyK', false), 180));
       }, 8); timers.current.push(reboundWatcher);

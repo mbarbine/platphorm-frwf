@@ -24,7 +24,11 @@ export const strikeDriveProfile = (moveId: string): StrikeDriveProfile | null =>
   if (moveId === 'high_kick') return { source: 'rightFoot', target: 'head', speed: 17.2, response: 19, maximumAcceleration: 240, pelvisAcceleration: 3.9 };
   if (moveId === 'roundhouse') return { source: 'rightFoot', target: 'head', speed: 18.5, response: 20, maximumAcceleration: 255, pelvisAcceleration: 4.5 };
   if (moveId === 'front_kick') return { source: 'rightFoot', target: 'chest', speed: 16.2, response: 18, maximumAcceleration: 230, pelvisAcceleration: 3.8 };
-  if (moveId === 'stiff_arm' || moveId === 'rebound') return { source: 'rightHand', target: 'chest', speed: 15.5, response: 17, maximumAcceleration: 215, pelvisAcceleration: 7.2 };
+  // A wrestling stiff-arm lands through the braced forearm/elbow line. Driving
+  // the tiny hand collider made the readable arm pass beside a runner even
+  // though the rebound itself was correct. The forearm remains a real Rapier
+  // body and still requires a solved collision before damage is eligible.
+  if (moveId === 'stiff_arm' || moveId === 'rebound') return { source: 'rightForearm', target: 'chest', speed: 18.5, response: 24, maximumAcceleration: 340, pelvisAcceleration: 11 };
   if (moveId === 'spear') return { source: 'chest', target: 'pelvis', speed: 13.8, response: 19, maximumAcceleration: 245, pelvisAcceleration: 8.4 };
   if (moveId === 'prop') return { source: 'rightHand', target: 'head', speed: 15, response: 16, maximumAcceleration: 205, pelvisAcceleration: 3 };
   if (moveId === 'ground') return { source: 'rightFoot', target: 'chest', speed: 14.5, response: 16, maximumAcceleration: 210, pelvisAcceleration: 1.2 };
