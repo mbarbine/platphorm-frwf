@@ -58,6 +58,15 @@ describe('live wrestling control deck', () => {
     expect(down.quick).toBe('CIRCUIT LOW KICK');
   });
 
+  it('surfaces wrestler-facing button names in the neutral standing deck', () => {
+    const model = createMatch('atlas', 'nova', 'standard', 'normal');
+    const labels = buildControlLabels(model.player, model.opponent, 0, 1.4);
+    expect(labels.quick).toBe('PUNCH / HEADBUTT');
+    expect(labels.heavy).toBe('KICK');
+    expect(labels.grapple).toBe('BODY SLAM');
+    expect(labels.context).toBe('SPECIAL');
+  });
+
   it('switches the whole action deck for grapple, turnbuckle, rope exit, and kick-up states', () => {
     const model = createMatch('chad', 'atlas', 'standard', 'normal');
     model.player.state = 'grappling'; model.player.moveId = 'slam'; model.player.attackPhase = 'anticipation';

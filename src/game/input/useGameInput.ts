@@ -4,7 +4,17 @@ import type { ControlDevice, GameCommand } from '../types/game';
 import { BoundedCommandBuffer } from './commandBuffer';
 import { mobileInput } from './mobileInput';
 
-const COMMAND_KEYS: Readonly<Record<string, GameCommand>> = { KeyJ: 'quick', KeyK: 'heavy', KeyL: 'grapple', Space: 'dodge', KeyC: 'jump', KeyE: 'interact', KeyF: 'context', KeyQ: 'taunt' };
+const COMMAND_KEYS: Readonly<Record<string, GameCommand>> = {
+  KeyH: 'quick',
+  KeyJ: 'quick',
+  KeyK: 'heavy',
+  KeyL: 'grapple',
+  Space: 'dodge',
+  KeyC: 'jump',
+  KeyE: 'interact',
+  KeyF: 'context',
+  KeyQ: 'taunt',
+};
 const MOVEMENT_KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowLeft', 'ArrowDown', 'ArrowRight', 'ShiftLeft', 'ShiftRight', 'KeyI']);
 
 export interface InputController {

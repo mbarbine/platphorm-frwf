@@ -18,15 +18,15 @@ export interface ControlReadout {
 }
 
 const DEVICE_KEYS: Readonly<Record<ControlDevice, Readonly<Record<ControlId, string>>>> = {
-  keyboard: { move: 'WASD', run: 'SHIFT', quick: 'J', heavy: 'K', grapple: 'L', block: 'I', counter: 'SPACE', jump: 'C', interact: 'E', context: 'F', taunt: 'Q' },
+  keyboard: { move: 'WASD', run: 'SHIFT', quick: 'H / J', heavy: 'K', grapple: 'L', block: 'I', counter: 'SPACE', jump: 'C', interact: 'E', context: 'F', taunt: 'Q' },
   gamepad: { move: 'L STICK', run: 'RT', quick: 'X / □', heavy: 'Y / △', grapple: 'B / ○', block: 'LT', counter: 'A / ×', jump: 'L3', interact: 'LB', context: 'R3', taunt: 'RB' },
-  touch: { move: 'STICK', run: 'RUN', quick: 'QUICK', heavy: 'POWER', grapple: 'LOCK', block: 'GUARD', counter: '↯', jump: 'JUMP', interact: 'PROP', context: 'ACTION', taunt: 'TAUNT' },
+  touch: { move: 'STICK', run: 'RUN', quick: 'QUICK', heavy: 'KICK', grapple: 'BODY SLAM', block: 'GUARD', counter: '↯', jump: 'JUMP', interact: 'PROP', context: 'SPECIAL', taunt: 'TAUNT' },
 };
 
 export const controlPrompt = (device: ControlDevice, control: ControlId): string => DEVICE_KEYS[device][control];
 
 const BASE_LABELS: Readonly<Record<ControlId, string>> = {
-  move: 'MOVE / AIM', run: 'RUN', quick: 'CIRCUIT JAB', heavy: 'FAULT HOOK', grapple: 'LOCK UP', block: 'GUARD', counter: 'COUNTER', jump: 'JUMP / HOP', interact: 'PROP', context: 'WRESTLING ACTION', taunt: 'TAUNT',
+  move: 'MOVE / AIM', run: 'RUN', quick: 'PUNCH / HEADBUTT', heavy: 'KICK', grapple: 'BODY SLAM', block: 'GUARD', counter: 'KICK-UP', jump: 'JUMP / HOP', interact: 'PROP', context: 'SPECIAL', taunt: 'TAUNT',
 };
 
 const moveLabel = (moveId: string): string => getMove(moveId).displayName.toUpperCase();
@@ -36,11 +36,16 @@ export function buildControlLabels(player: FighterRuntime, opponent: FighterRunt
   const nearCorner = Math.abs(player.position.x) > 4.35 && Math.abs(player.position.z) > 2.95;
   const ringside = Math.abs(player.position.x) > 5.82 || Math.abs(player.position.z) > 4.32;
   const clinchCornerDistance = Math.hypot(opponent.position.x - Math.sign(opponent.position.x || player.position.x || 1) * 5.35, opponent.position.z - Math.sign(opponent.position.z || player.position.z || 1) * 3.85);
+  const directionId = combatDirection(direction);
+  const isStanding = ['idle', 'locomotion', 'blocking', 'attacking', 'staggered', 'recovering', 'airborne', 'jumping'].includes(player.state);
 
-  labels.quick = opponent.state === 'downed' ? moveLabel('ground') : moveLabel(selectDirectionalStrike(direction, 'quick', player.comboStep));
+  labels.quick = opponent.state === 'downed' ? moveLabel('ground')
+    : isStanding && directionId === 'neutral' ? BASE_LABELS.quick
+      : moveLabel(selectDirectionalStrike(direction, 'quick', player.comboStep));
   labels.heavy = player.heldPropId ? moveLabel('prop')
     : player.ropeRebound > 0 || running && speed > 3.6 ? moveLabel('stiff_arm')
-      : moveLabel(selectDirectionalStrike(direction, 'heavy', player.comboStep));
+      : isStanding && directionId === 'neutral' ? BASE_LABELS.heavy
+        : moveLabel(selectDirectionalStrike(direction, 'heavy', player.comboStep));
 
   if (player.state === 'grappling') {
     labels.quick = moveLabel(selectDirectionalGrapple(direction, 'quick'));
@@ -60,12 +65,12 @@ export function buildControlLabels(player: FighterRuntime, opponent: FighterRunt
   } else if (player.state === 'pinned') {
     labels.quick = 'RECOVER'; labels.heavy = 'RECOVER'; labels.grapple = 'RECOVER'; labels.counter = 'KICK OUT'; labels.context = 'KICK OUT';
   } else {
-    labels.grapple = distance < 1.8 ? 'COLLAR & ELBOW' : 'CLOSE DISTANCE';
+    labels.grapple = distance < 1.8 ? BASE_LABELS.grapple : 'CLOSE DISTANCE';
     if (player.momentum >= 100 && ['staggered', 'downed'].includes(opponent.state) && distance < 2.2) labels.context = 'SIGNATURE FINISHER';
     else if (opponent.state === 'downed' && distance < 1.7) labels.context = 'PIN SHOULDERS';
     else if (nearCorner) labels.context = 'CLIMB TURNBUCKLE';
     else if (canTransitionThroughRopes(player.position)) labels.context = ringside ? 'ENTER CENTER ROPE' : 'EXIT CENTER ROPE';
-    else labels.context = 'WRESTLING ACTION';
+    else labels.context = BASE_LABELS.context;
   }
   labels.interact = player.heldPropId ? 'DROP / THROW PROP' : 'PICK UP PROP';
   return labels;

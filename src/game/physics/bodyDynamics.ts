@@ -129,6 +129,10 @@ export const stepBodyDynamics = (fighter: FighterRuntime, dt: number): { landed:
   body.headVelocity += -body.headSnap * dt * 21;
   const damping = Math.exp(-dt * (4.2 + body.muscle * 2.4));
   body.leanVelocity *= damping; body.sideVelocity *= damping; body.twistVelocity *= damping; body.headVelocity *= damping;
+  if (['idle', 'locomotion', 'blocking', 'recovering'].includes(fighter.state) && body.verticalOffset <= .002 && Math.abs(body.verticalVelocity) <= .18) {
+    body.verticalOffset = 0;
+    body.verticalVelocity = 0;
+  }
   body.leanForward = clamp(body.leanForward + body.leanVelocity * dt, -.95, .95);
   body.leanSide = clamp(body.leanSide + body.sideVelocity * dt, -.85, .85);
   body.twist = clamp(body.twist + body.twistVelocity * dt, -1.2, 1.2);
@@ -144,9 +148,9 @@ export const stepBodyDynamics = (fighter: FighterRuntime, dt: number): { landed:
     if (body.verticalOffset <= 0) {
       landingEnergy = Math.abs(body.verticalVelocity) * body.mass / 115;
       landed = body.verticalVelocity < -1.2;
+      const rebound = body.verticalVelocity < -4 ? -body.verticalVelocity * .14 : 0;
       body.verticalOffset = 0;
-      body.verticalVelocity = body.verticalVelocity < -4 ? -body.verticalVelocity * .14 : 0;
-      if (body.verticalVelocity > 0) body.verticalOffset = .01;
+      body.verticalVelocity = rebound > .25 ? rebound : 0;
       body.balance = clamp(body.balance - landingEnergy * .7, 0, 100);
       body.leanVelocity -= landingEnergy * .025;
     }

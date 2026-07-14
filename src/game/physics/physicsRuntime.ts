@@ -677,7 +677,7 @@ export class BodyWorksRuntime {
       const recoveryBlend = fighter.state === 'recovering' ? clamp(fighter.stateElapsed / .7, 0, 1) : 1;
       const recoveryTargetY = targetPelvisY - (1 - recoveryBlend) * .62;
       const contactMultiplier = rig.supportContacts.size > 0 ? 1 : pelvis.translation().y < recoveryTargetY + .2 ? .72 : 0;
-      const supportAcceleration = clamp(18 + (recoveryTargetY - pelvis.translation().y) * 30 - velocity.y * 10.5, 0, 38) * fighter.body.muscle * contactMultiplier * (.42 + recoveryBlend * .58);
+      const supportAcceleration = clamp((recoveryTargetY - pelvis.translation().y) * 30 - velocity.y * 10.5, -18, 38) * fighter.body.muscle * contactMultiplier * (.42 + recoveryBlend * .58);
       this.applyRigAcceleration(rig, { x: 0, y: supportAcceleration, z: 0 });
     }
     const movementControl = ['idle', 'locomotion'].includes(fighter.state) ? 1 : fighter.state === 'recovering' ? .08 : 0;
