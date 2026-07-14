@@ -24,7 +24,7 @@ const createHeadlessRig = (world: World, fighterId: FighterId, x: number): Headl
   const byId = schemaById(schema); const bodies = {} as Record<BodySegmentId, RigidBody>;
   for (const segment of schema) {
     const body = world.createRigidBody(RigidBodyDesc.dynamic()
-      .setTranslation(x + segment.localPosition[0], 1.92 + segment.localPosition[1], segment.localPosition[2])
+      .setTranslation(x + segment.localPosition[0], 1.8 + segment.localPosition[1], segment.localPosition[2])
       .setLinearDamping(.55).setAngularDamping(2.2).setCanSleep(true).setCcdEnabled(segment.attackEligible || segment.id === 'head'));
     const collider = segment.id === 'head' ? ColliderDesc.ball(segment.radius)
       : segment.id.includes('Foot') || segment.id.includes('Hand')
@@ -82,7 +82,7 @@ describe('Rapier-backed Bodyworks integration', () => {
     expect(Object.values(rig.bodies).every((body) => [body.translation().x, body.translation().y, body.translation().z, body.linvel().x, body.linvel().y, body.linvel().z].every(Number.isFinite))).toBe(true);
     expect(snapshot.pelvisY).toBeGreaterThan(2.65); expect(snapshot.pelvisY).toBeLessThan(3.35); expect(snapshot.upright).toBeGreaterThan(.72);
     expect(Math.hypot(model.player.position.x - initialPosition.x, model.player.position.z - initialPosition.z)).toBeLessThan(.08);
-    expect(runtime.metrics.emergencyResetCount).toBe(0); expect(runtime.metrics.invalidRegisteredBodyCount).toBe(0); expect(world.bodies.len()).toBe(17); expect(world.impulseJoints.len()).toBe(15);
+    expect(runtime.metrics.emergencyResetCount, JSON.stringify(runtime.metrics)).toBe(0); expect(runtime.metrics.invalidRegisteredBodyCount).toBe(0); expect(world.bodies.len()).toBe(17); expect(world.impulseJoints.len()).toBe(15);
     runtime.reset(); expect(runtime.metrics.bodyCount).toBe(0); expect(runtime.metrics.jointCount).toBe(0); expect(runtime.replay.size).toBe(0); world.free();
   });
 
@@ -94,7 +94,7 @@ describe('Rapier-backed Bodyworks integration', () => {
     expect(runtime.fighterSnapshot('player').speed).toBeLessThan(1.2);
     model.player.state = 'jumping'; runtime.requestJump('player'); let apex = runtime.fighterSnapshot('player').pelvisY;
     for (let frame = 0; frame < 150; frame += 1) { stepHarness(world, runtime, model); apex = Math.max(apex, runtime.fighterSnapshot('player').pelvisY); }
-    expect(apex).toBeGreaterThan(startX + .25); expect(runtime.fighterSnapshot('player').pelvisY).toBeGreaterThan(2.65); expect(runtime.metrics.emergencyResetCount).toBe(0);
+    expect(apex).toBeGreaterThan(startX + .25); expect(runtime.fighterSnapshot('player').pelvisY).toBeGreaterThan(2.65); expect(runtime.metrics.emergencyResetCount, JSON.stringify(runtime.metrics)).toBe(0);
     runtime.reset(); expect(runtime.pendingCommandCount()).toBe(0); expect(runtime.metrics.worldBodyCount).toBe(0); expect(runtime.metrics.worldJointCount).toBe(0); world.free();
   });
 

@@ -1,5 +1,7 @@
 # Bodyworks capability matrix
 
+> Superseded planning snapshot. Current capability status and release blockers live in `CAPABILITY_PLAN.md`; historical “Complete” labels below do not certify the current rewrite.
+
 Status vocabulary: **complete** is implemented and covered by a release gate; **partial** is useful but has a documented limitation; **device-required** cannot be honestly certified in headless CI.
 
 | Capability | Baseline | This pass | Evidence gate |

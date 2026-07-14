@@ -175,7 +175,27 @@ const SPINE_VICTIM: readonly PoseKeyframe[] = [
   { at: .79, pose: matVictim }, { at: 1, pose: POSES.downed },
 ];
 
+const PILEDRIVER_ACTOR: readonly PoseKeyframe[] = [
+  { at: 0, pose: POSES.combatIdle },
+  { at: .1, pose: lockActor },
+  { at: .32, pose: pose({ ...lockActor, torso: [.48, 0, 0], leftLeg: [.68, 0, 0], rightLeg: [.68, 0, 0], leftShin: [-1.12, 0, 0], rightShin: [-1.12, 0, 0], rootY: -.32 }) },
+  { at: .52, pose: pose({ torso: [-.12, 0, 0], leftArm: [-1.92, 0, -.3], rightArm: [-1.92, 0, .3], leftForearm: [-.62, 0, 0], rightForearm: [-.62, 0, 0], rootY: .22 }) },
+  { at: .68, pose: pose({ torso: [-.08, 0, 0], leftArm: [-1.98, 0, -.28], rightArm: [-1.98, 0, .28], rootY: .28 }) },
+  { at: .78, pose: pose({ torso: [.92, 0, 0], leftLeg: [.65, 0, 0], rightLeg: [.65, 0, 0], leftShin: [-1.22, 0, 0], rightShin: [-1.22, 0, 0], rootY: -.48, rootTilt: .78 }) },
+  { at: 1, pose: POSES.recovery },
+];
+const PILEDRIVER_VICTIM: readonly PoseKeyframe[] = [
+  { at: 0, pose: POSES.stagger },
+  { at: .1, pose: lockVictim },
+  { at: .32, pose: pose({ ...lockVictim, rootY: .42, rootZ: -.14, rootTilt: -.38 }) },
+  { at: .52, pose: pose({ torso: [.22, 0, 0], leftArm: [.65, 0, -.62], rightArm: [.65, 0, .62], leftForearm: [-.24, 0, 0], rightForearm: [-.24, 0, 0], leftLeg: [-1.12, 0, 0], rightLeg: [-1.12, 0, 0], leftShin: [-.72, 0, 0], rightShin: [-.72, 0, 0], rootY: 1.58, rootZ: -.28, rootTilt: 2.68 }) },
+  { at: .68, pose: pose({ torso: [.18, 0, 0], leftArm: [.58, 0, -.6], rightArm: [.58, 0, .6], leftLeg: [-1.22, 0, 0], rightLeg: [-1.22, 0, 0], leftShin: [-.68, 0, 0], rightShin: [-.68, 0, 0], rootY: 1.88, rootTilt: 2.92 }) },
+  { at: .78, pose: pose({ torso: [-.28, 0, 0], leftArm: [.75, 0, -.52], rightArm: [.75, 0, .52], leftForearm: [-.3, 0, 0], rightForearm: [-.3, 0, 0], leftLeg: [-1.35, 0, 0], rightLeg: [-1.35, 0, 0], rootY: -.78, rootTilt: -1.82 }) },
+  { at: 1, pose: POSES.downed },
+];
+
 const GRAPPLE_STYLES: Readonly<Record<string, readonly [readonly PoseKeyframe[], readonly PoseKeyframe[]]>> = {
+  piledriver: [PILEDRIVER_ACTOR, PILEDRIVER_VICTIM],
   slam: [SLAM_ACTOR, SLAM_VICTIM], mountain_drop: [SLAM_ACTOR, SLAM_VICTIM],
   suplex: [SUPLEX_ACTOR, SUPLEX_VICTIM], skyhook: [SUPLEX_ACTOR, SUPLEX_VICTIM],
   powerbomb: [POWERBOMB_ACTOR, POWERBOMB_VICTIM],
@@ -218,6 +238,26 @@ export const getPairedPose = (move: MoveDefinition, role: Role, phase: AttackPha
   return stagedGrappleVariant(sample(role === 'actor' ? pair[0] : pair[1], progress), move.id, role, progress, actorId);
 };
 
+const TAUNT_POSES: Readonly<Record<FighterId, Pose>> = {
+  atlas: pose({ torso: [.18, 0, 0], leftArm: [-2.7, 0, -.32], rightArm: [-2.7, 0, .32], leftForearm: [-.42, 0, 0], rightForearm: [-.42, 0, 0], leftLeg: [.28, 0, 0], rightLeg: [.28, 0, 0], leftShin: [-.72, 0, 0], rightShin: [-.72, 0, 0], rootY: -.12, rootTilt: .16 }),
+  vex: pose({ torso: [-.12, .48, -.12], leftArm: [-.58, 0, -.5], rightArm: [-2.45, -.35, .32], leftForearm: [-1.12, 0, 0], rightForearm: [-.25, 0, 0], leftLeg: [-.22, 0, 0], rightLeg: [.25, 0, 0], rootY: .14, rootYaw: .42, rootRoll: -.16 }),
+  nova: pose({ torso: [.08, -.52, 0], leftArm: [-1.28, -.25, -.7], rightArm: [-1.28, .25, .7], leftForearm: [-1.34, 0, 0], rightForearm: [-.42, 0, 0], leftLeg: [.16, 0, 0], rightLeg: [-.16, 0, 0], rootYaw: -.38, rootRoll: .08 }),
+  brick: pose({ torso: [.32, 0, .05], leftArm: [-1.05, .18, -.48], rightArm: [-1.05, -.18, .48], leftForearm: [-1.46, 0, .35], rightForearm: [-1.46, 0, -.35], leftLeg: [.34, 0, 0], rightLeg: [.26, 0, 0], rootY: -.14, rootTilt: .28 }),
+  chad: pose({ torso: [-.08, .18, -.08], leftArm: [-2.62, -.18, -.28], rightArm: [-1.58, .15, .62], leftForearm: [-.3, 0, 0], rightForearm: [-.22, 0, 0], leftLeg: [-.2, 0, 0], rightLeg: [.2, 0, 0], rootY: .12, rootYaw: .22, rootRoll: -.1 }),
+};
+
+export const getTauntPose = (fighterId: FighterId, move: MoveDefinition, phase: AttackPhase, elapsed: number): Pose => {
+  const signature = TAUNT_POSES[fighterId];
+  const windup = mixPose(POSES.combatIdle, signature, .42);
+  return sample([
+    { at: 0, pose: POSES.combatIdle },
+    { at: .34, pose: windup },
+    { at: .66, pose: signature },
+    { at: .84, pose: signature },
+    { at: 1, pose: POSES.combatIdle },
+  ], cinematicProgress(move, phase, elapsed));
+};
+
 const strikeFrames = (moveId: string): readonly PoseKeyframe[] => {
   if (moveId === 'jab') return [
     { at: 0, pose: POSES.combatIdle },
@@ -254,6 +294,12 @@ const strikeFrames = (moveId: string): readonly PoseKeyframe[] => {
     { at: 0, pose: POSES.run },
     { at: .5, pose: pose({ ...POSES.run, rightArm: [-.72, 0, .45], rightForearm: [-1.25, 0, 0], leftArm: [.45, 0, -.35], rootTilt: .22 }) },
     { at: .76, pose: pose({ ...POSES.run, rightArm: [-1.48, 0, .08], rightForearm: [-.04, 0, 0], leftArm: [-.42, 0, -.45], rootZ: .28, rootTilt: .3 }) },
+    { at: 1, pose: POSES.combatIdle },
+  ];
+  if (moveId === 'rebound') return [
+    { at: 0, pose: POSES.run },
+    { at: .5, pose: pose({ ...POSES.run, leftArm: [-.72, 0, -.45], leftForearm: [-1.25, 0, 0], rightArm: [.45, 0, .35], rootTilt: .22, rootRoll: -.14 }) },
+    { at: .76, pose: pose({ ...POSES.run, leftArm: [-1.48, 0, -.08], leftForearm: [-.04, 0, 0], rightArm: [-.42, 0, .45], rootZ: .28, rootTilt: .3, rootRoll: -.22 }) },
     { at: 1, pose: POSES.combatIdle },
   ];
   if (moveId === 'front_kick') return [
@@ -293,14 +339,14 @@ const strikeFrames = (moveId: string): readonly PoseKeyframe[] => {
   ];
   if (moveId === 'aerial_elbow') return [
     { at: 0, pose: POSES.climb },
-    { at: .45, pose: pose({ torso: [.35, 0, 0], rightArm: [-.72, 0, .82], rightForearm: [-1.72, 0, 0], leftArm: [-1.18, 0, -.42], leftForearm: [-.65, 0, 0], leftLeg: [.5, 0, 0], rightLeg: [-.4, 0, 0], rootTilt: .48, rootY: .38 }) },
-    { at: .72, pose: pose({ torso: [.78, 0, 0], rightArm: [-1.08, 0, .38], rightForearm: [-1.48, 0, 0], leftArm: [-1.5, 0, -.28], leftForearm: [-.45, 0, 0], leftLeg: [.28, 0, 0], rightLeg: [.42, 0, 0], leftShin: [-.8, 0, 0], rightShin: [-.7, 0, 0], rootTilt: .92, rootZ: .42, rootY: .12 }) },
+    { at: .45, pose: pose({ torso: [.48, 0, .28], rightArm: [-.42, 0, .98], rightForearm: [-1.72, 0, 0], leftArm: [-1.42, 0, -.72], leftForearm: [-.58, 0, 0], leftLeg: [.72, 0, 0], rightLeg: [-.72, 0, 0], rootTilt: .7, rootRoll: .72, rootY: .32 }) },
+    { at: .72, pose: pose({ torso: [.96, 0, .1], rightArm: [-1.22, 0, .42], rightForearm: [-1.45, 0, 0], leftArm: [-1.62, 0, -.18], leftForearm: [-.42, 0, 0], leftLeg: [.22, 0, 0], rightLeg: [.58, 0, 0], leftShin: [-.9, 0, 0], rightShin: [-.62, 0, 0], rootTilt: 1.02, rootRoll: .92, rootZ: .5, rootY: .16 }) },
     { at: 1, pose: POSES.recovery },
   ];
   if (moveId === 'aerial_kick' || moveId === 'aerial') return [
     { at: 0, pose: POSES.climb },
-    { at: .46, pose: pose({ torso: [.2, 0, 0], rightLeg: [1.1, 0, 0], rightShin: [-1.45, 0, 0], leftLeg: [.3, 0, 0], leftShin: [-1.1, 0, 0], leftArm: [-1.35, 0, -.62], rightArm: [-1.28, 0, .62], rootY: .42, rootTilt: .25 }) },
-    { at: .72, pose: pose({ torso: [.48, 0, 0], rightLeg: [-1.46, 0, 0], rightShin: [.06, 0, 0], leftLeg: [-1.1, 0, 0], leftShin: [.1, 0, 0], leftArm: [-1.6, 0, -.38], rightArm: [-1.55, 0, .4], rootZ: .48, rootTilt: .62, rootY: .08 }) },
+    { at: .46, pose: pose({ torso: [.1, 0, .45], rightLeg: [1.12, 0, 0], rightShin: [-1.45, 0, 0], leftLeg: [-.7, 0, 0], leftShin: [-.5, 0, 0], leftArm: [-1.5, 0, -.75], rightArm: [-.45, 0, .8], rootY: .54, rootTilt: .18, rootRoll: .78 }) },
+    { at: .72, pose: pose({ torso: [.52, 0, .18], rightLeg: [-1.42, 0, 0], rightShin: [.06, 0, 0], leftLeg: [-1.05, 0, 0], leftShin: [.1, 0, 0], leftArm: [-1.68, 0, -.42], rightArm: [-1.38, 0, .22], rootZ: .52, rootTilt: .66, rootRoll: 1.02, rootY: .1 }) },
     { at: 1, pose: POSES.recovery },
   ];
   if (moveId === 'kick_up') return [

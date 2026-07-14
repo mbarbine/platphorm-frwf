@@ -1,5 +1,7 @@
 # Bodyworks release and rollback
 
+> No current-candidate deployment has been promoted. The production record below is rollback history for the preceding release. Current status and blockers are in `STATUS.md`.
+
 ## Promotion gate
 
 Do not promote a deployment because the static build is green. Promotion requires the full Gold Master sequence: lint, strict typecheck, all unit/integration tests, 50-match AI soak, production bundle inspection, deterministic browser suite, six-rematch heap/body soak, immutable preview smoke, and discovery/platform smoke.
@@ -25,7 +27,7 @@ Ringfall does not ship a permanent second engine or a fake runtime feature flag.
 
 The rollback trigger is any startup collapse, recurring vibration, non-finite body, ordinary-match containment, wall traversal, missing controls, match-resolution failure, console crash, or material device regression.
 
-## Current production record — 2026-07-13
+## Previous production record — 2026-07-13
 
 - Verified preview: `dpl_73dSYfWhAccjJHN7bHAV66vKKZUq`
 - Promoted production: `dpl_HrVffReG45hfrGuYgsMNhovp27L2`

@@ -1,6 +1,8 @@
 # Bodyworks test report
 
-Status: Gold Master deployed and canonical production gameplay verified.
+Status: **superseded historical report; current candidate unverified and not deployed**.
+
+The tables below record the preceding release. They are not reused for the revised BodyWorks contract. Current implementation status is in `STATUS.md`; current acceptance requirements are in `CAPABILITY_PLAN.md`. A new dated result block is added only after every final command runs on one commit.
 
 The previous production baseline at commit `34144fa` passed lint, typecheck, 101 Vitest tests, 12 Playwright scenarios, production build, and a live smoke. This pass changes runtime loading, quality selection, metrics, props, barricades, recovery, corner grapples, device scenarios, lab tooling, and soak coverage, so previous evidence is not reused as final certification.
 
@@ -17,7 +19,7 @@ The previous production baseline at commit `34144fa` passed lint, typecheck, 101
 | Preview smoke | immutable preview URL | menu, match, controls, physics, and discovery routes |
 | Production smoke | canonical alias after promotion | no promotion unless all earlier gates pass |
 
-## Final local evidence — 2026-07-13
+## Historical local evidence — 2026-07-13
 
 | Gate | Result |
 | --- | --- |
@@ -36,7 +38,7 @@ Six-rematch browser soak: 32 fighter bodies and 30 permanent fighter joints afte
 
 Production chunks: GameScene 62.99 KB / 17.94 KB gzip; React Rapier 23.07 / 7.72; Fiber 148.77 / 47.48; React runtime 189.69 / 59.69; Three core 724.62 / 184.61; Rapier WASM 2,236.67 / 842.37. The build warning is limited to the intentionally isolated Rapier WASM chunk exceeding 900 KB minified.
 
-## Deployment evidence — 2026-07-13
+## Historical deployment evidence — 2026-07-13
 
 - Immutable preview `dpl_73dSYfWhAccjJHN7bHAV66vKKZUq` reached Ready at `https://platphorm-frwf-9nt87eqs5-platphormnews.vercel.app`. Team Deployment Protection correctly redirected the unauthenticated browser to Vercel login, so the preview is recorded as protected rather than falsely reported as a public gameplay smoke.
 - The exact preview source was promoted as production deployment `dpl_HrVffReG45hfrGuYgsMNhovp27L2`, which reached Ready at `https://platphorm-frwf-96mnzf2hs-platphormnews.vercel.app`.

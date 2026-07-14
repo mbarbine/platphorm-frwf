@@ -32,7 +32,7 @@ test('standard gamepad axes, run trigger, and quick attack drive the live match'
     const pad = (window as Window & { __ringfallPad?: { axes: number[]; buttons: Array<{ pressed: boolean; touched: boolean; value: number }> } }).__ringfallPad;
     if (!pad) return; pad.axes[0] = 0; const trigger = pad.buttons[7]; if (trigger) { trigger.pressed = false; trigger.value = 0; }
   });
-  const lab = page.getByTestId('physics-lab'); await lab.getByRole('button', { name: 'JAB TO HEAD' }).click(); await page.waitForTimeout(1_400);
+  const lab = page.getByTestId('physics-lab'); await lab.getByRole('button', { name: 'CONTACT-TRUE JAB' }).click(); await page.waitForTimeout(1_400);
   await page.evaluate(() => {
     const hudNode = document.querySelector('.hud'); if (!hudNode) return;
     const observe = (): void => { if (/jab|combo|high_punch|low_kick/.test(hudNode.getAttribute('data-player-move') ?? '')) document.documentElement.dataset.sawGamepadAttack = 'true'; };
@@ -52,4 +52,3 @@ test('WebXR-capable browsers expose the arena entry without loading XR before th
   await expect(page.getByTestId('xr-entry')).toBeVisible();
   await expect(page.getByTestId('xr-entry')).toContainText('ENTER ARENA XR');
 });
-

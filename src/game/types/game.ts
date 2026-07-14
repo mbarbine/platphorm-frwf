@@ -141,7 +141,7 @@ export interface FighterRuntime {
 
 export interface PropRuntime {
   id: string;
-  kind: 'chair' | 'sign' | 'trash' | 'table';
+  kind: 'chair' | 'sign' | 'trash' | 'bell' | 'table';
   position: Vec2;
   durability: number;
   stress: number;
@@ -196,13 +196,34 @@ export interface GrappleRuntime {
 }
 
 export interface ReplayFighterFrame {
+  definitionId: FighterId;
   position: Vec2;
+  velocity: Vec2;
   facing: number;
-  verticalOffset: number;
-  leanForward: number;
-  leanSide: number;
   state: FighterState;
+  stateElapsed: number;
   moveId: string | null;
+  attackPhase: AttackPhase;
+  phaseElapsed: number;
+  health: number;
+  stamina: number;
+  staminaCap: number;
+  momentum: number;
+  climbStage: 0 | 1 | 2 | 3;
+  recoveryOrientation: RecoveryOrientation;
+  body: {
+    verticalOffset: number;
+    leanForward: number;
+    leanSide: number;
+    twist: number;
+    headSnap: number;
+    pelvisDrop: number;
+    muscle: number;
+    gaitPhase: number;
+    stride: number;
+    leftFoot: FootPlantRuntime;
+    rightFoot: FootPlantRuntime;
+  };
 }
 
 export interface ReplayFrame {

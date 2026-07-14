@@ -23,9 +23,9 @@ export interface BodySegmentSchema {
 }
 
 const SEGMENT_RATIOS: Readonly<Record<BodySegmentId, number>> = {
-  pelvis: .15, abdomen: .1, chest: .18, head: .07,
-  leftUpperArm: .035, rightUpperArm: .035, leftForearm: .025, rightForearm: .025, leftHand: .0125, rightHand: .0125,
-  leftThigh: .09, rightThigh: .09, leftShin: .055, rightShin: .055, leftFoot: .04, rightFoot: .04,
+  pelvis: .15, abdomen: .1, chest: .18, head: .08,
+  leftUpperArm: .03, rightUpperArm: .03, leftForearm: .02, rightForearm: .02, leftHand: .01, rightHand: .01,
+  leftThigh: .1, rightThigh: .1, leftShin: .05, rightShin: .05, leftFoot: .035, rightFoot: .035,
 };
 
 const segment = (definition: FighterDefinition, id: BodySegmentId, side: SegmentSide, y: number, x: number, halfLength: number, radius: number): BodySegmentSchema => {
@@ -34,7 +34,7 @@ const segment = (definition: FighterDefinition, id: BodySegmentId, side: Segment
   const left = side === 'left';
   const bodyRegion = id === 'head' ? 'head' : id === 'chest' ? 'chest' : id === 'abdomen' ? 'ribs' : id === 'pelvis' ? 'pelvis'
     : arm ? left ? 'leftArm' : 'rightArm' : left ? 'leftLeg' : 'rightLeg';
-  const strike = id.includes('Hand') || id.includes('Foot');
+  const strike = id.includes('Hand') || id.includes('Forearm') || id.includes('Foot');
   const support = id.includes('Foot');
   return {
     id, side, bodyRegion, colliderRole: support ? 'support' : strike ? 'strike' : 'body',
@@ -61,10 +61,10 @@ export const buildBodySchema = (definition: FighterDefinition): readonly BodySeg
     segment(definition, 'head', 'center', 2.08 * heightScale, 0, .15, .18),
     segment(definition, 'leftUpperArm', 'left', 1.48 * heightScale, -shoulder, .19 * arm, .105),
     segment(definition, 'rightUpperArm', 'right', 1.48 * heightScale, shoulder, .19 * arm, .105),
-    segment(definition, 'leftForearm', 'left', 1.08 * heightScale, -shoulder, .18 * arm, .09),
-    segment(definition, 'rightForearm', 'right', 1.08 * heightScale, shoulder, .18 * arm, .09),
-    segment(definition, 'leftHand', 'left', .78 * heightScale, -shoulder, .09, .09),
-    segment(definition, 'rightHand', 'right', .78 * heightScale, shoulder, .09, .09),
+    segment(definition, 'leftForearm', 'left', 1.08 * heightScale, -shoulder, .18 * arm, .11),
+    segment(definition, 'rightForearm', 'right', 1.08 * heightScale, shoulder, .18 * arm, .11),
+    segment(definition, 'leftHand', 'left', .78 * heightScale, -shoulder, .09, .1),
+    segment(definition, 'rightHand', 'right', .78 * heightScale, shoulder, .09, .1),
     segment(definition, 'leftThigh', 'left', .83 * heightScale, -hip, .23 * leg, .13),
     segment(definition, 'rightThigh', 'right', .83 * heightScale, hip, .23 * leg, .13),
     segment(definition, 'leftShin', 'left', .4 * heightScale, -hip, .21 * leg, .105),

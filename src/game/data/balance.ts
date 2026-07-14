@@ -1,5 +1,5 @@
 export const BALANCE = {
-  damageScale: .78,
+  damageScale: .92,
   hypeScale: .55,
   stamina: {
     baseCap: 55,
@@ -19,10 +19,10 @@ export const BALANCE = {
     pinHealthThreshold: 62,
   },
   knockout: {
-    earliestSeconds: 75,
-    healthThreshold: 50,
-    staminaThreshold: 12,
-    minimumMoveDamage: 13,
+    earliestSeconds: 60,
+    healthThreshold: 55,
+    staminaThreshold: 15,
+    minimumMoveDamage: 11,
   },
 } as const;
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { recoveryPose } from '../game/animation/recoveryMotion';
 import { POSES } from '../game/animation/poses';
+import { stepBodyDynamics } from '../game/physics/bodyDynamics';
 import { resolveRuntimeQuality } from '../game/runtime/quality';
 import { createMatch, requestCommand } from '../game/systems/combat';
 
@@ -26,6 +27,16 @@ describe('Bodyworks playability upgrade', () => {
     expect(model.player.state).toBe('grappling');
     expect(requestCommand(model, 'player', 'context')).toBe(true);
     expect(model.player.moveId).toBe('corner_smash'); expect(model.announcement).toContain('RAIL SHOT');
+  });
+
+  it('settles a tiny post-impact hover back to the mat', () => {
+    const model = createMatch('atlas', 'nova', 'standard', 'normal');
+    model.player.state = 'idle';
+    model.player.body.verticalOffset = .04;
+    model.player.body.verticalVelocity = .14;
+    for (let frame = 0; frame < 20; frame += 1) stepBodyDynamics(model.player, 1 / 60);
+    expect(model.player.body.verticalOffset).toBe(0);
+    expect(model.player.body.verticalVelocity).toBe(0);
   });
 });
 

@@ -43,3 +43,4 @@ export function selectCameraShot(context: CameraDirectorContext): CameraShot {
 export function cameraShotIsUrgent(shot: CameraShot): boolean {
   return shot === 'replay' || shot === 'slam' || shot === 'aerial' || shot === 'table';
 }
+

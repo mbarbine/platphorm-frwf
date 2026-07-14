@@ -163,15 +163,24 @@ function Props() {
 }
 
 function CommentaryTable({ prop }: { prop: PropRuntime }) {
+  const body = useRef<RapierRigidBody | null>(null);
+  useEffect(() => {
+    if (!body.current) return;
+    return bodyWorksRuntime.registerLandingSurface(prop.id, 'table', body.current);
+  }, [prop.id]);
   const bend = prop.failureStage === 'cracked' ? .095 : prop.failureStage === 'stressed' ? .035 : 0;
   const accent = prop.failureStage === 'cracked' ? '#ff3c64' : prop.failureStage === 'stressed' ? '#ffc83d' : '#27d8ff';
-  return <RigidBody type="fixed" position={[prop.position.x, .72, prop.position.z]} colliders={false} collisionGroups={propCollisionGroups} solverGroups={propCollisionGroups} userData={{ surface: true, prop: prop.id, kind: prop.kind }}>
+  return <RigidBody ref={body} type="fixed" position={[prop.position.x, .72, prop.position.z]} colliders={false} collisionGroups={propCollisionGroups} solverGroups={propCollisionGroups} userData={{ surface: true, prop: prop.id, kind: prop.kind }}>
     <CuboidCollider args={[1.7, .12, .65]} rotation={[0, 0, bend]} />
+    <CuboidCollider args={[1.35, .18, .48]} position={[0, .48, 0]} rotation={[0, 0, bend]} />
     <CuboidCollider args={[.08, .55, .08]} position={[-1.35, -.58, -.45]} /><CuboidCollider args={[.08, .55, .08]} position={[-1.35, -.58, .45]} />
     <CuboidCollider args={[.08, .55, .08]} position={[1.35, -.58, -.45]} /><CuboidCollider args={[.08, .55, .08]} position={[1.35, -.58, .45]} />
     <group rotation={[0, 0, bend]}>
       <mesh castShadow><boxGeometry args={[3.4, .2, 1.3]} /><meshStandardMaterial color="#2a3140" metalness={.6} roughness={.3} /></mesh>
       <mesh position={[0, .13, 0]}><boxGeometry args={[2.2, .05, .75]} /><meshStandardMaterial color={accent} emissive={accent} emissiveIntensity={prop.failureStage === 'intact' ? .8 : 1.8} /></mesh>
+      <mesh castShadow position={[0, .48, 0]}><boxGeometry args={[2.7, .36, .96]} /><meshStandardMaterial color="#111722" metalness={.72} roughness={.22} /></mesh>
+      <mesh position={[0, .675, .14]} rotation={[-.22, 0, 0]}><boxGeometry args={[2.24, .025, .52]} /><meshStandardMaterial color={accent} emissive={accent} emissiveIntensity={prop.failureStage === 'intact' ? 1.05 : 2.2} metalness={.35} roughness={.24} /></mesh>
+      {[-.72, 0, .72].map((x, index) => <mesh key={x} position={[x, .695, -.25]} rotation={[-.22, 0, 0]}><boxGeometry args={[.48, .035, .21]} /><meshStandardMaterial color={index === 1 ? '#ff3c91' : '#5bf0ff'} emissive={index === 1 ? '#a9145a' : '#168899'} emissiveIntensity={1.5} /></mesh>)}
       {prop.failureStage === 'cracked' && <mesh position={[.18, .125, 0]} rotation={[0, .2, -.22]}><boxGeometry args={[.08, .035, 1.18]} /><meshStandardMaterial color="#fff0b8" emissive="#ff4d63" emissiveIntensity={2.6} /></mesh>}
     </group>
     {[-1.35, 1.35].flatMap((x) => [-.45, .45].map((z) => <mesh key={`${x}-${z}`} position={[x, -.58, z]} rotation={[0, 0, x < 0 ? bend * 1.8 : -bend * .5]}><boxGeometry args={[.12, 1.1, .12]} /><meshStandardMaterial color="#11141b" /></mesh>))}
@@ -180,6 +189,27 @@ function CommentaryTable({ prop }: { prop: PropRuntime }) {
 
 interface FighterColliderData { bodyWorks: true; fighter: FighterKey; segment: BodySegmentId; region: 'head' | 'chest' | 'ribs' | 'pelvis' | 'leftArm' | 'rightArm' | 'leftLeg' | 'rightLeg' }
 const isFighterColliderData = (value: unknown): value is FighterColliderData => typeof value === 'object' && value !== null && 'bodyWorks' in value && 'fighter' in value && 'segment' in value && 'region' in value;
+
+function PropVisual({ kind }: { kind: PropRuntime['kind'] }) {
+  if (kind === 'table') return null;
+  if (kind === 'chair') return <group>
+    <mesh><boxGeometry args={[.9, .11, .82]} /><meshStandardMaterial color="#929dac" metalness={.82} roughness={.2} /></mesh>
+    <mesh position={[0, .69, .35]}><boxGeometry args={[.9, 1.16, .1]} /><meshStandardMaterial color="#4cdcff" emissive="#157c8c" emissiveIntensity={.4} metalness={.6} roughness={.25} /></mesh>
+    {[-1, 1].map((side) => <group key={side} position={[side * .34, -.06, 0]}>
+      <mesh position={[0, -.48, .2]} rotation={[.43, 0, 0]}><cylinderGeometry args={[.035, .035, 1.12, 8]} /><meshStandardMaterial color="#c8d0d8" metalness={.92} roughness={.18} /></mesh>
+      <mesh position={[0, -.48, -.2]} rotation={[-.43, 0, 0]}><cylinderGeometry args={[.035, .035, 1.12, 8]} /><meshStandardMaterial color="#c8d0d8" metalness={.92} roughness={.18} /></mesh>
+      <mesh position={[0, -.18, 0]} rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[.075, .025, 6, 12]} /><meshStandardMaterial color="#5bf0ff" emissive="#1da7bb" emissiveIntensity={.5} /></mesh>
+    </group>)}
+    <mesh position={[0, -.42, 0]} rotation={[0, 0, Math.PI / 2]}><cylinderGeometry args={[.025, .025, .7, 7]} /><meshStandardMaterial color="#9ba6b2" metalness={.9} /></mesh>
+  </group>;
+  if (kind === 'trash') return <group><mesh><cylinderGeometry args={[.46, .39, 1.18, 14]} /><meshStandardMaterial color="#8793a3" metalness={.9} roughness={.25} /></mesh><mesh position={[0, .64, 0]}><cylinderGeometry args={[.5, .5, .08, 14]} /><meshStandardMaterial color="#b2bfcc" metalness={.94} roughness={.2} /></mesh><mesh position={[0, .73, 0]}><torusGeometry args={[.16, .035, 6, 12]} /><meshStandardMaterial color="#56efff" emissive="#21a6ba" emissiveIntensity={.7} metalness={.8} /></mesh>{[-.26, 0, .26].map((x) => <mesh key={x} position={[x, 0, .405]}><boxGeometry args={[.035, .92, .02]} /><meshStandardMaterial color="#c7d1dc" metalness={.9} /></mesh>)}</group>;
+  if (kind === 'bell') return <group>
+    <mesh position={[0, -.12, 0]}><cylinderGeometry args={[.48, .54, .12, 16]} /><meshStandardMaterial color="#442b18" roughness={.62} /></mesh>
+    <mesh position={[0, .1, 0]}><sphereGeometry args={[.38, 18, 10, 0, Math.PI * 2, 0, Math.PI / 2]} /><meshStandardMaterial color="#e6b83e" emissive="#7c4c08" emissiveIntensity={.16} metalness={.92} roughness={.16} /></mesh>
+    <mesh position={[0, .47, 0]}><sphereGeometry args={[.095, 12, 8]} /><meshStandardMaterial color="#f7d76b" metalness={.9} roughness={.14} /></mesh>
+  </group>;
+  return <group rotation={[0, 0, .1]}><mesh><boxGeometry args={[1.35, .85, .1]} /><meshStandardMaterial color="#ff3c91" emissive="#951654" emissiveIntensity={.4} /></mesh><mesh position={[0, -.82, 0]}><boxGeometry args={[.08, .85, .08]} /><meshStandardMaterial color="#d8e3eb" /></mesh></group>;
+}
 
 function PhysicalProp({ prop, initialPosition }: { prop: PropRuntime; initialPosition: [number, number, number] }) {
   const body = useRef<RapierRigidBody | null>(null);
@@ -203,12 +233,12 @@ function PhysicalProp({ prop, initialPosition }: { prop: PropRuntime; initialPos
     const moveId = heldBy ? 'prop' : released?.moveId; const attackInstanceId = heldBy ? actor.attackInstanceId : released?.attackInstanceId;
     if (!isFighterColliderData(targetData) || targetData.fighter === source || !moveId || attackInstanceId === undefined || actor.moveId !== moveId || actor.attackPhase !== 'active') return;
     const propVelocity = body.current?.linvel() ?? { x: 0, y: 0, z: 0 }; const targetVelocity = payload.other.rigidBody?.linvel() ?? { x: 0, y: 0, z: 0 };
-    bodyWorksRuntime.recordContact({ time: model.elapsed, sourceFighter: source, sourceSegment: 'rightHand', targetFighter: targetData.fighter, targetSegment: targetData.segment, targetRegion: targetData.region, totalForce: payload.totalForceMagnitude, maximumForce: payload.maxForceMagnitude, forceDirection: [payload.maxForceDirection.x, payload.maxForceDirection.y, payload.maxForceDirection.z], relativeSpeed: Math.hypot(propVelocity.x - targetVelocity.x, propVelocity.y - targetVelocity.y, propVelocity.z - targetVelocity.z), attackInstanceId, moveId, sourceObjectId: prop.id, targetSurface: null, isLanding: false });
+    const propPosition = body.current?.translation() ?? { x: prop.position.x, y: .55, z: prop.position.z };
+    bodyWorksRuntime.recordContact({ time: model.elapsed, sourceFighter: source, sourceSegment: 'rightHand', targetFighter: targetData.fighter, targetSegment: targetData.segment, targetRegion: targetData.region, totalForce: payload.totalForceMagnitude, maximumForce: payload.maxForceMagnitude, forceDirection: [payload.maxForceDirection.x, payload.maxForceDirection.y, payload.maxForceDirection.z], point: [propPosition.x, propPosition.y, propPosition.z], relativeSpeed: Math.hypot(propVelocity.x - targetVelocity.x, propVelocity.y - targetVelocity.y, propVelocity.z - targetVelocity.z), attackInstanceId, moveId, sourceObjectId: prop.id, targetSurface: null, isLanding: false });
   };
-  return <RigidBody ref={body} type="dynamic" position={initialPosition} colliders="cuboid" mass={prop.kind === 'chair' ? 3.4 : prop.kind === 'trash' ? 4.8 : .75} linearDamping={1.15} angularDamping={1.05} restitution={prop.kind === 'chair' ? .2 : prop.kind === 'trash' ? .16 : .34} collisionGroups={propCollisionGroups} solverGroups={propCollisionGroups} userData={{ surface: true, prop: prop.id, kind: prop.kind }} onContactForce={onContactForce}>
-    <group visible={!replayActive}>{prop.kind === 'chair' ? <group><mesh><boxGeometry args={[.9, .12, .85]} /><meshStandardMaterial color="#9099aa" metalness={.82} roughness={.2} /></mesh><mesh position={[0, .7, .36]}><boxGeometry args={[.9, 1.2, .12]} /><meshStandardMaterial color="#4cdcff" emissive="#157c8c" emissiveIntensity={.4} /></mesh></group>
-      : prop.kind === 'trash' ? <group><mesh><cylinderGeometry args={[.46, .39, 1.18, 14]} /><meshStandardMaterial color="#8793a3" metalness={.9} roughness={.25} /></mesh><mesh position={[0, .64, 0]}><cylinderGeometry args={[.5, .5, .08, 14]} /><meshStandardMaterial color="#b2bfcc" metalness={.94} roughness={.2} /></mesh><mesh position={[0, .73, 0]}><torusGeometry args={[.16, .035, 6, 12]} /><meshStandardMaterial color="#56efff" emissive="#21a6ba" emissiveIntensity={.7} metalness={.8} /></mesh>{[-.26,0,.26].map((x) => <mesh key={x} position={[x,0,.405]}><boxGeometry args={[.035,.92,.02]} /><meshStandardMaterial color="#c7d1dc" metalness={.9} /></mesh>)}</group>
-        : <group rotation={[0, 0, .1]}><mesh><boxGeometry args={[1.35, .85, .1]} /><meshStandardMaterial color="#ff3c91" emissive="#951654" emissiveIntensity={.4} /></mesh><mesh position={[0, -.82, 0]}><boxGeometry args={[.08, .85, .08]} /><meshStandardMaterial color="#d8e3eb" /></mesh></group>}</group>
+  const mass = prop.kind === 'chair' ? 3.4 : prop.kind === 'trash' ? 4.8 : prop.kind === 'bell' ? 1.3 : .75;
+  return <RigidBody ref={body} type="dynamic" position={initialPosition} colliders="cuboid" mass={mass} linearDamping={1.15} angularDamping={1.05} restitution={prop.kind === 'chair' ? .2 : prop.kind === 'trash' ? .16 : .34} collisionGroups={propCollisionGroups} solverGroups={propCollisionGroups} userData={{ surface: true, prop: prop.id, kind: prop.kind }} onContactForce={onContactForce}>
+    <group visible={!replayActive}><PropVisual kind={prop.kind} /></group>
   </RigidBody>;
 }
 

@@ -30,6 +30,7 @@ const initialProps = (enabled: boolean): PropRuntime[] => enabled ? [
   { id: 'chair-1', kind: 'chair', position: { x: -7.1, z: 2.8 }, durability: 3, stress: 0, failureStage: 'intact', heldBy: null, broken: false },
   { id: 'sign-1', kind: 'sign', position: { x: 7, z: -2.4 }, durability: 2, stress: 0, failureStage: 'intact', heldBy: null, broken: false },
   { id: 'trash-1', kind: 'trash', position: { x: 8.35, z: 5.5 }, durability: 4, stress: 0, failureStage: 'intact', heldBy: null, broken: false },
+  { id: 'bell-1', kind: 'bell', position: { x: 4.9, z: -5.25 }, durability: 2, stress: 0, failureStage: 'intact', heldBy: null, broken: false },
   { id: 'table-1', kind: 'table', position: { x: VOLT_DOME.commentaryTable.x, z: VOLT_DOME.commentaryTable.z }, durability: 1, stress: 0, failureStage: 'intact', heldBy: null, broken: false },
 ] : [{ id: 'table-1', kind: 'table', position: { x: VOLT_DOME.commentaryTable.x, z: VOLT_DOME.commentaryTable.z }, durability: 1, stress: 0, failureStage: 'intact', heldBy: null, broken: false }];
 
@@ -56,12 +57,10 @@ export const getAttackPhase = (move: MoveDefinition, elapsed: number): 'anticipa
 
 export const canStartMove = (actor: FighterRuntime, target: FighterRuntime, move: MoveDefinition): boolean => {
   const targetDistance = distance(actor.position, target.position);
-  // A wrestler should not ignore a strike because articulated bodies separated
-  // by a few centimetres between input sampling and the active pose. Grapples
-  // and contextual actions retain exact range requirements; standing offense
-  // gets a deliberately small step-in envelope that the swept hurt volume also
-  // understands.
-  const strikeReachAssist = ['quick', 'heavy', 'ground', 'prop'].includes(move.category) ? .24 : 0;
+  // Keep a small input-sampling envelope for a fighter already stepping into
+  // range. It only admits the motion task; damage still requires Rapier limb
+  // contact during the active phase.
+  const strikeReachAssist = ['quick', 'heavy', 'ground', 'prop'].includes(move.category) ? .12 : 0;
   return move.requiredActorStates.includes(actor.state)
     && actor.stamina >= move.staminaCost
     && targetDistance >= move.minimumRange
@@ -114,7 +113,7 @@ const addImpact = (model: MatchModel, position: Vec2, kind: ImpactEvent['kind'],
       ...metadata.highlight,
     }];
   }
-  model.hitStop = Math.max(model.hitStop, intensity * .045);
+  model.hitStop = Math.max(model.hitStop, intensity * .09);
 };
 
 const varietyMultiplier = (actor: FighterRuntime, moveId: string): number => {
@@ -125,6 +124,7 @@ const varietyMultiplier = (actor: FighterRuntime, moveId: string): number => {
 export const applyMoveHit = (model: MatchModel, actorKey: 'player' | 'opponent', targetKey: 'player' | 'opponent', move: MoveDefinition, contact?: BodyWorksContact): boolean => {
   const actor = model[actorKey];
   const target = model[targetKey];
+  const impactPosition = contact?.point ? { x: contact.point[0], z: contact.point[2] } : target.position;
   const hitToken = contact ? `${targetKey}:${actor.attackInstanceId}` : targetKey;
   const isPhysicalLanding = contact?.isLanding === true && (move.category === 'grapple' || move.category === 'finisher');
   if ((!isPhysicalLanding && actor.attackPhase !== 'active') || (!move.multiHit && actor.hitTargets.includes(hitToken))) return false;
@@ -145,6 +145,17 @@ export const applyMoveHit = (model: MatchModel, actorKey: 'player' | 'opponent',
   } : baseImpact;
   const spatialGuard = contact ? target.state === 'blocking' && (contact.targetSegment?.includes('Forearm') === true || contact.targetSegment?.includes('Hand') === true) : target.state === 'blocking';
   if (spatialGuard && move.category !== 'grapple' && move.category !== 'finisher' && move.category !== 'utility') {
+    if (move.category === 'aerial' && target.stamina > Math.max(6, move.damage * .45)) {
+      actor.hitTargets.push(hitToken);
+      target.stamina = clamp(target.stamina - Math.max(6, move.damage * .45), 0, target.staminaCap);
+      target.state = 'attacking'; target.moveId = 'counter'; target.attackPhase = 'active'; target.phaseElapsed = getMove('counter').anticipationDuration; target.stateElapsed = 0;
+      actor.state = 'downed'; actor.stateElapsed = 0; actor.downTimer = 1.1 + (100 - actor.health) / 120; actor.moveId = null; actor.attackPhase = null; actor.climbStage = 0;
+      actor.body.verticalOffset = 0; actor.body.verticalVelocity = 0; actor.recoveryOrientation = 'back';
+      model.hype = clamp(model.hype + 12, 0, 100);
+      model.announcement = 'BLOCK CATCH!'; model.announcementTimer = .95;
+      addImpact(model, impactPosition, 'counter', 1.05, { region: calculatedImpact.region, force: calculatedImpact.force * .84, torque: calculatedImpact.torque, outcome: 'spin', moveId: move.id });
+      return true;
+    }
     actor.hitTargets.push(hitToken);
     const guardCost = Math.max(2, move.damage * BALANCE.block.strikeStaminaMultiplier);
     target.stamina = clamp(target.stamina - guardCost, 0, target.staminaCap);
@@ -156,14 +167,15 @@ export const applyMoveHit = (model: MatchModel, actorKey: 'player' | 'opponent',
       target.state = 'staggered'; target.stateElapsed = -BALANCE.block.guardBreakStagger;
       model.announcement = 'GUARD BREAK!'; model.announcementTimer = 1.1;
       model.hype = clamp(model.hype + 5, 0, 100);
-      addImpact(model, target.position, 'heavy', 1.15, { region: calculatedImpact.region, force: guardedImpact.force, torque: guardedImpact.torque, outcome: 'stagger', moveId: move.id });
+      addImpact(model, impactPosition, 'heavy', 1.15, { region: calculatedImpact.region, force: guardedImpact.force, torque: guardedImpact.torque, outcome: 'stagger', moveId: move.id });
     } else {
-      addImpact(model, target.position, 'blocked', .72, { region: calculatedImpact.region, force: guardedImpact.force, torque: guardedImpact.torque, outcome: 'absorbed', moveId: move.id });
+      addImpact(model, impactPosition, 'blocked', .72, { region: calculatedImpact.region, force: guardedImpact.force, torque: guardedImpact.torque, outcome: 'absorbed', moveId: move.id });
     }
     return true;
   }
   if (!model.toyTestMode) target.health = clamp(target.health - damage, 0, 100);
   actor.hitTargets.push(hitToken);
+  target.comboStep = 0; // reset opponent combo streak on hit
   const variety = varietyMultiplier(actor, move.id);
   const surge = model.chaosEvent?.type === 'CROWD SURGE' ? 1.6 : 1;
   const stats = actorKey === 'player' ? model.playerStats : model.opponentStats;
@@ -188,6 +200,7 @@ export const applyMoveHit = (model: MatchModel, actorKey: 'player' | 'opponent',
     ? { ...calculatedImpact, force: calculatedImpact.force * 1.18 }
     : calculatedImpact;
   const collisionOutcome = applyLocalizedImpact(target, impact);
+  if (move.id === 'stiff_arm' || move.id === 'rebound' || move.id === 'spear') target.recoveryOrientation = 'back';
   const targetForward = { x: Math.sin(target.facing), z: Math.cos(target.facing) }; const targetRight = { x: Math.cos(target.facing), z: -Math.sin(target.facing) };
   const forwardImpact = impact.direction.x * targetForward.x + impact.direction.z * targetForward.z; const sideImpact = impact.direction.x * targetRight.x + impact.direction.z * targetRight.z;
   target.recoveryOrientation = Math.abs(sideImpact) > Math.abs(forwardImpact) * .82 ? sideImpact > 0 ? 'right' : 'left' : forwardImpact > 0 ? 'front' : 'back';
@@ -223,7 +236,7 @@ export const applyMoveHit = (model: MatchModel, actorKey: 'player' | 'opponent',
   const highlightKind: HighlightMoment['kind'] = move.category === 'grapple' || move.category === 'finisher' ? 'slam'
     : move.category === 'prop' ? 'weapon' : move.category === 'aerial' ? 'aerial' : move.id === 'rebound' ? 'rope' : 'strike';
   const highlightScore = Math.round((impact.force * 4 + move.hypeValue + (collisionOutcome === 'launch' ? 18 : 0) + (move.category === 'finisher' ? 28 : 0)) * 10) / 10;
-  addImpact(model, target.position, kind, move.category === 'finisher' ? 2.2 : Math.max(.6, move.damage / 13), {
+  addImpact(model, impactPosition, kind, move.category === 'finisher' ? 2.2 : Math.max(.6, move.damage / 13), {
     region: impact.region,
     force: impact.force,
     torque: impact.torque,
@@ -231,14 +244,30 @@ export const applyMoveHit = (model: MatchModel, actorKey: 'player' | 'opponent',
     highlight: move.category === 'quick' && impact.force < 7 ? undefined : { label: move.category === 'finisher' ? actorDefinition.signature : move.displayName, score: highlightScore, kind: highlightKind },
     moveId: move.id,
   });
+  if (move.category === 'quick' || move.category === 'heavy' || move.category === 'grapple' || move.category === 'aerial') {
+    model.slowMotion = Math.max(model.slowMotion, move.category === 'quick' ? .08 : move.category === 'heavy' ? .14 : move.category === 'aerial' ? .18 : .22);
+  }
   if (move.category === 'finisher') {
     model.slowMotion = .82;
     model.announcement = `${actorDefinition.signature}!`;
     model.announcementTimer = 2.1;
   }
   if (move.category === 'grapple') {
-    if (move.damage >= 18) model.slowMotion = Math.max(model.slowMotion, .24);
-    if (move.damage >= 18) { model.announcement = move.displayName.toUpperCase(); model.announcementTimer = 1.2; }
+    if (move.id === 'piledriver') {
+      model.slowMotion = Math.max(model.slowMotion, .52);
+      model.announcement = 'VOLTAGE PILEDRIVER!'; model.announcementTimer = 2.1;
+      model.hitStop = Math.max(model.hitStop, .18);
+    } else if (move.damage >= 18) {
+      model.slowMotion = Math.max(model.slowMotion, .24);
+      model.announcement = move.displayName.toUpperCase(); model.announcementTimer = 1.2;
+    }
+  }
+  // Combo streak announcement
+  if (!model.toyTestMode && (move.category === 'quick' || move.category === 'heavy') && actor.comboStep >= 2) {
+    if (actor.comboStep === 2) { model.announcement = 'ONE-TWO!'; model.announcementTimer = .5; }
+    else if (actor.comboStep === 3) { model.announcement = 'TRIPLE!'; model.announcementTimer = .58; }
+    else if (actor.comboStep === 4) { model.announcement = '4× COMBO!'; model.announcementTimer = .68; model.hype = clamp(model.hype + 4, 0, 100); }
+    else if (actor.comboStep >= 5) { model.announcement = 'UNSTOPPABLE!'; model.announcementTimer = .88; model.hype = clamp(model.hype + 9, 0, 100); }
   }
   const majorImpact = move.category === 'finisher' || move.category === 'heavy' || move.category === 'grapple' || move.category === 'prop' || move.category === 'aerial';
   const exhaustionKnockout = model.elapsed >= BALANCE.knockout.earliestSeconds
@@ -278,7 +307,7 @@ export const combatDirection = (direction: Vec2): CombatDirection => {
 };
 
 const GRAPPLE_GRID: Readonly<Record<CombatDirection, Readonly<Record<GrappleButton, string>>>> = {
-  neutral: { quick: 'takedown', heavy: 'slam', grapple: 'slam' },
+  neutral: { quick: 'takedown', heavy: 'slam', grapple: 'piledriver' },
   up: { quick: 'arm_drag', heavy: 'skyhook', grapple: 'powerbomb' },
   down: { quick: 'takedown', heavy: 'spinebuster', grapple: 'mountain_drop' },
   left: { quick: 'clutch', heavy: 'spinebuster', grapple: 'whip' },
@@ -296,7 +325,11 @@ const STRIKE_GRID: Readonly<Record<CombatDirection, Readonly<Record<StrikeButton
 export const selectDirectionalGrapple = (direction: Vec2, button: GrappleButton): string => GRAPPLE_GRID[combatDirection(direction)][button];
 export const selectDirectionalStrike = (direction: Vec2, button: StrikeButton, comboStep = 0): string => {
   const directionId = combatDirection(direction);
-  if (directionId === 'neutral' && button === 'quick') return comboStep % 2 === 0 ? 'jab' : 'combo';
+  if (directionId === 'neutral' && button === 'quick') {
+    // 3-step combo: jab → cross → low kick → repeat
+    const step = comboStep % 3;
+    return step === 0 ? 'jab' : step === 1 ? 'combo' : 'low_kick';
+  }
   return STRIKE_GRID[directionId][button];
 };
 
@@ -365,6 +398,27 @@ export const requestCommand = (model: MatchModel, actorKey: 'player' | 'opponent
   const target = model[targetKey];
   if (actor.state === 'climbing' && actor.climbStage === 3 && (command === 'quick' || command === 'heavy')) {
     return launchAerial(model, actor, target, command === 'quick' ? 'aerial_elbow' : 'aerial_kick');
+  }
+  if (actor.state === 'climbing' && actor.climbStage === 3 && command === 'jump') {
+    return launchAerial(model, actor, target, 'aerial');
+  }
+  // Mid-lift throw: while opponent is held overhead, quick press hurls them in movement direction
+  if (actor.state === 'grappling' && model.grapple?.phase === 'lift' && model.grapple?.attacker === actorKey && command === 'quick') {
+    const throwDir = Math.hypot(direction.x, direction.z) > .12
+      ? normalize(direction)
+      : { x: Math.sin(actor.facing), z: Math.cos(actor.facing) };
+    releaseGrapple(model, 'idle');
+    target.state = 'airborne'; target.stateElapsed = 0; target.moveId = null; target.attackPhase = null; target.climbStage = 0; target.finisherPrimed = false;
+    target.velocity.x = throwDir.x * 8.5; target.velocity.z = throwDir.z * 8.5;
+    target.body.verticalVelocity = Math.max(target.body.verticalVelocity, 4.5);
+    target.body.verticalOffset = Math.max(target.body.verticalOffset, .7);
+    target.downTimer = Math.max(target.downTimer, 1.8 + (100 - target.health) / 80);
+    target.recoveryOrientation = 'back';
+    model.hype = clamp(model.hype + 18, 0, 100);
+    model.announcement = 'HURLED!'; model.announcementTimer = 1.1;
+    model.slowMotion = Math.max(model.slowMotion, .18);
+    addImpact(model, actor.position, 'heavy', 1.5, { force: 10, outcome: 'launch' });
+    return true;
   }
   if (actor.state === 'grappling' && actor.attackPhase === 'anticipation' && (command === 'quick' || command === 'heavy' || command === 'grapple')) {
     const moveId = selectDirectionalGrapple(direction, command);
@@ -460,8 +514,9 @@ export const requestCommand = (model: MatchModel, actorKey: 'player' | 'opponent
   }
   if (command === 'heavy') {
     const moveId = actor.heldPropId ? 'prop'
-      : actor.ropeRebound > 0 || running && Math.hypot(actor.velocity.x, actor.velocity.z) > 3.6 ? 'stiff_arm'
-        : selectDirectionalStrike(direction, 'heavy', actor.comboStep);
+      : actor.ropeRebound > 0 ? direction.x < 0 ? 'rebound' : 'stiff_arm'
+        : running && Math.hypot(actor.velocity.x, actor.velocity.z) > 3.6 ? 'stiff_arm'
+          : selectDirectionalStrike(direction, 'heavy', actor.comboStep);
     return startMove(actor, target, getMove(moveId));
   }
   if (running && Math.hypot(actor.velocity.x, actor.velocity.z) > 3.75 && target.state !== 'downed') return startMove(actor, target, getMove('spear'));
@@ -516,7 +571,24 @@ const updatePin = (model: MatchModel, dt: number, playerInput: FrameInput): void
   const pinnedKey = pinningKey === 'player' ? 'opponent' : 'player';
   const pinning = model[pinningKey]; const pinned = model[pinnedKey];
   pinning.stateElapsed += dt; pinned.stateElapsed += dt;
-  if (pinnedKey === 'player' && playerInput.commands.includes('dodge')) pinned.pinEscape += 14 + pinned.stamina * .035;
+  if (pinnedKey === 'player') {
+    // Any button contributes — U (dodge), J (quick), K (heavy) all help
+    if (playerInput.commands.includes('dodge')) pinned.pinEscape += 16 + pinned.stamina * .04;
+    if (playerInput.commands.includes('quick')) pinned.pinEscape += 10 + pinned.stamina * .022;
+    if (playerInput.commands.includes('heavy')) pinned.pinEscape += 7 + pinned.stamina * .016;
+    // PIN REVERSAL: press F (context) in the first second with 38+ stamina
+    if (playerInput.commands.includes('context') && pinned.stamina > 38 && pinning.stateElapsed < 1.05 && Math.floor(pinning.stateElapsed) === 0) {
+      pinned.stamina = clamp(pinned.stamina - 30, 0, pinned.staminaCap);
+      // Swap pinner / pinned in place
+      pinned.state = 'pinning'; pinned.stateElapsed = 0; pinned.pinCount = 0; pinned.pinEscape = 0;
+      pinning.state = 'pinned'; pinning.stateElapsed = 0; pinning.pinCount = 0; pinning.pinEscape = 0;
+      model.slowMotion = Math.max(model.slowMotion, .44); model.hitStop = Math.max(model.hitStop, .16);
+      model.hype = clamp(model.hype + 28, 0, 100);
+      model.announcement = 'PIN REVERSAL!'; model.announcementTimer = 2.0;
+      addImpact(model, model[pinnedKey].position, 'counter', 2.0, { outcome: 'spin' });
+      return;
+    }
+  }
   if (pinnedKey === 'opponent') {
     const difficultyFactor = model.difficulty === 'hard' ? 1.08 : .92;
     pinned.pinEscape += dt * (9 + pinned.health * .2 + pinned.stamina * .08) * difficultyFactor;
@@ -524,14 +596,18 @@ const updatePin = (model: MatchModel, dt: number, playerInput: FrameInput): void
   const count = Math.min(3, Math.floor(pinning.stateElapsed) + 1);
   if (count !== pinning.pinCount) {
     pinning.pinCount = count; pinned.pinCount = count;
-    model.announcement = count === 1 ? 'ONE' : count === 2 ? 'TWO' : 'THREE'; model.announcementTimer = .85;
+    model.announcement = count === 1 ? 'ONE' : count === 2 ? 'TWO' : 'THREE';
+    model.announcementTimer = count === 3 ? 1.4 : .85;
+    if (count === 2) model.slowMotion = Math.max(model.slowMotion, .16);
+    if (count === 3) { model.slowMotion = Math.max(model.slowMotion, .54); model.hitStop = Math.max(model.hitStop, .18); }
   }
   const threshold = 76 + (100 - pinned.health) * .36 + (pinned.finisherPrimed ? 14 : 0);
   if (pinned.pinEscape >= threshold && count < 3) {
-    pinning.state = 'idle'; pinned.state = 'downed'; pinned.downTimer = .8; pinning.pinCount = 0;
+    pinning.state = 'idle'; pinned.state = 'downed'; pinned.downTimer = .8; pinning.pinCount = 0; pinned.pinCount = 0; pinned.pinEscape = 0;
     const stats = pinningKey === 'player' ? model.playerStats : model.opponentStats; stats.nearFalls += 1;
+    model.slowMotion = Math.max(model.slowMotion, .36); model.hitStop = Math.max(model.hitStop, .14);
     model.hype = clamp(model.hype + 16, 0, 100); model.announcement = `${count}.9 — KICKOUT!`; model.announcementTimer = 1.6;
-    addImpact(model, pinned.position, 'nearfall', 1.5);
+    addImpact(model, pinned.position, 'nearfall', 1.9);
   } else if (count >= 3 && pinning.stateElapsed >= 2.85) {
     if (model.toyTestMode) {
       pinning.state = 'idle'; pinned.state = 'downed'; pinned.downTimer = .8; pinning.pinCount = 0; pinned.pinCount = 0; pinned.pinEscape = 0;
@@ -547,12 +623,12 @@ const updateFighter = (model: MatchModel, actorKey: 'player' | 'opponent', dt: n
   actor.invulnerability = Math.max(0, actor.invulnerability - dt);
   actor.ropeRebound = Math.max(0, actor.ropeRebound - dt);
   const landing = stepBodyDynamics(actor, dt);
-  if (landing.landed && landing.landingEnergy > 2.2) {
+  if (!model.physicsAuthority && landing.landed && landing.landingEnergy > 2.2) {
     addImpact(model, actor.position, 'grapple', clamp(landing.landingEnergy / 7, .55, 1.8), {
       region: 'chest', force: landing.landingEnergy, outcome: 'fall',
     });
   }
-  if (landing.landed && actor.state === 'airborne') {
+  if (!model.physicsAuthority && landing.landed && actor.state === 'airborne') {
     actor.state = 'downed'; actor.stateElapsed = 0;
     actor.downTimer = Math.max(actor.downTimer, 1.25 + (100 - actor.health) / 90);
   }
@@ -583,7 +659,7 @@ const updateFighter = (model: MatchModel, actorKey: 'player' | 'opponent', dt: n
     }
   }
 
-  if (actor.state === 'airborne' && actor.body.verticalOffset <= .001 && actor.body.verticalVelocity <= .01) {
+  if (!model.physicsAuthority && actor.state === 'airborne' && actor.body.verticalOffset <= .001 && actor.body.verticalVelocity <= .01) {
     actor.state = 'downed'; actor.stateElapsed = 0;
     actor.downTimer = Math.max(actor.downTimer, 1.25 + (100 - actor.health) / 90);
   }
@@ -595,7 +671,7 @@ const updateFighter = (model: MatchModel, actorKey: 'player' | 'opponent', dt: n
     if (actor.downTimer <= 0) { actor.state = 'recovering'; actor.stateElapsed = 0; }
   } else if (actor.state === 'recovering' && !actor.moveId && actor.stateElapsed > .7) {
     actor.state = 'idle'; actor.stateElapsed = 0; actor.finisherPrimed = false;
-  } else if (actor.state === 'staggered' && actor.stateElapsed > .42 + (100 - actor.health) / 240) {
+  } else if (actor.state === 'staggered' && actor.stateElapsed > .55 + (100 - actor.health) / 200) {
     actor.state = 'idle'; actor.stateElapsed = 0;
   }
 
@@ -709,13 +785,34 @@ const updateChaos = (model: MatchModel, dt: number): void => {
 };
 
 const replayFighterFrame = (fighter: FighterRuntime): ReplayFighterFrame => ({
+  definitionId: fighter.definitionId,
   position: { ...fighter.position },
+  velocity: { ...fighter.velocity },
   facing: fighter.facing,
-  verticalOffset: fighter.body.verticalOffset,
-  leanForward: fighter.body.leanForward,
-  leanSide: fighter.body.leanSide,
   state: fighter.state,
+  stateElapsed: fighter.stateElapsed,
   moveId: fighter.moveId,
+  attackPhase: fighter.attackPhase,
+  phaseElapsed: fighter.phaseElapsed,
+  health: fighter.health,
+  stamina: fighter.stamina,
+  staminaCap: fighter.staminaCap,
+  momentum: fighter.momentum,
+  climbStage: fighter.climbStage,
+  recoveryOrientation: fighter.recoveryOrientation,
+  body: {
+    verticalOffset: fighter.body.verticalOffset,
+    leanForward: fighter.body.leanForward,
+    leanSide: fighter.body.leanSide,
+    twist: fighter.body.twist,
+    headSnap: fighter.body.headSnap,
+    pelvisDrop: fighter.body.pelvisDrop,
+    muscle: fighter.body.muscle,
+    gaitPhase: fighter.body.gaitPhase,
+    stride: fighter.body.stride,
+    leftFoot: { ...fighter.body.leftFoot, offset: { ...fighter.body.leftFoot.offset } },
+    rightFoot: { ...fighter.body.rightFoot, offset: { ...fighter.body.rightFoot.offset } },
+  },
 });
 
 const sampleReplay = (model: MatchModel, dt: number): void => {
@@ -745,7 +842,7 @@ export const advanceMatch = (model: MatchModel, dt: number, playerInput: FrameIn
   } else if (model.aiThinkTimer <= 0) {
     const decision = chooseAiDecision(model, fighterById(model.opponent.definitionId));
     model.seed = decision.nextSeed; model.aiIntent = decision.command; aiMove = decision.move; aiRun = decision.run;
-    model.aiThinkTimer = model.difficulty === 'hard' ? .22 : .38;
+      model.aiThinkTimer = model.difficulty === 'hard' ? .13 : .22;
     if (decision.command) {
       requestCommand(model, 'opponent', decision.command, decision.move, model.aiRunning);
       if (decision.command === 'block') model.aiBlockTimer = model.difficulty === 'hard' ? .72 : .48;
@@ -771,7 +868,7 @@ export const advanceMatch = (model: MatchModel, dt: number, playerInput: FrameIn
 const expectedContactSegment = (move: MoveDefinition, segment: string): boolean => {
   if (move.id === 'aerial_elbow') return segment.includes('Forearm') || segment.includes('UpperArm') || segment === 'chest';
   if (move.category === 'aerial' || move.id === 'ground' || move.id === 'front_kick' || move.id === 'low_kick' || move.id === 'high_kick' || move.id === 'roundhouse') return segment.includes('Foot') || segment.includes('Shin') || segment.includes('chest');
-  if (move.id === 'rebound' || move.id === 'stiff_arm') return segment.includes('Hand') || segment.includes('UpperArm') || segment === 'chest';
+  if (move.id === 'rebound' || move.id === 'stiff_arm') return segment.includes('Hand') || segment.includes('Forearm') || segment.includes('UpperArm') || segment === 'chest';
   if (move.id === 'spear') return segment === 'chest' || segment.includes('UpperArm');
   if (move.category === 'quick' || move.category === 'heavy' || move.category === 'prop' || move.id === 'counter') return segment.includes('Hand');
   return move.category === 'grapple' || move.category === 'finisher';

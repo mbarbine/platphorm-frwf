@@ -18,15 +18,15 @@ export interface ControlReadout {
 }
 
 const DEVICE_KEYS: Readonly<Record<ControlDevice, Readonly<Record<ControlId, string>>>> = {
-  keyboard: { move: 'WASD', run: 'SHIFT', quick: 'J', heavy: 'K', grapple: 'L', block: 'I', counter: 'SPACE', jump: 'C', interact: 'E', context: 'F', taunt: 'Q' },
+  keyboard: { move: 'WASD', run: 'SHIFT', quick: 'J', heavy: 'K', grapple: 'L', block: 'I', counter: 'U', jump: 'SPACE', interact: 'E', context: 'F', taunt: 'Q' },
   gamepad: { move: 'L STICK', run: 'RT', quick: 'X / □', heavy: 'Y / △', grapple: 'B / ○', block: 'LT', counter: 'A / ×', jump: 'L3', interact: 'LB', context: 'R3', taunt: 'RB' },
-  touch: { move: 'STICK', run: 'RUN', quick: 'QUICK', heavy: 'POWER', grapple: 'LOCK', block: 'GUARD', counter: '↯', jump: 'JUMP', interact: 'PROP', context: 'ACTION', taunt: 'TAUNT' },
+  touch: { move: 'STICK', run: 'RUN', quick: 'QUICK', heavy: 'KICK', grapple: 'BODY SLAM', block: 'GUARD', counter: '↯', jump: 'JUMP', interact: 'PROP', context: 'SPECIAL / PIN', taunt: 'TAUNT' },
 };
 
 export const controlPrompt = (device: ControlDevice, control: ControlId): string => DEVICE_KEYS[device][control];
 
 const BASE_LABELS: Readonly<Record<ControlId, string>> = {
-  move: 'MOVE / AIM', run: 'RUN', quick: 'CIRCUIT JAB', heavy: 'FAULT HOOK', grapple: 'LOCK UP', block: 'GUARD', counter: 'COUNTER', jump: 'JUMP / HOP', interact: 'PROP', context: 'WRESTLING ACTION', taunt: 'TAUNT',
+  move: 'MOVE', run: 'SPRINT', quick: 'PUNCH', heavy: 'KICK', grapple: 'BODY SLAM', block: 'GUARD (HOLD)', counter: 'DODGE / COUNTER', jump: 'JUMP', interact: 'PROP', context: 'SPECIAL / PIN', taunt: 'TAUNT',
 };
 
 const moveLabel = (moveId: string): string => getMove(moveId).displayName.toUpperCase();
@@ -36,11 +36,18 @@ export function buildControlLabels(player: FighterRuntime, opponent: FighterRunt
   const nearCorner = Math.abs(player.position.x) > 4.35 && Math.abs(player.position.z) > 2.95;
   const ringside = Math.abs(player.position.x) > 5.82 || Math.abs(player.position.z) > 4.32;
   const clinchCornerDistance = Math.hypot(opponent.position.x - Math.sign(opponent.position.x || player.position.x || 1) * 5.35, opponent.position.z - Math.sign(opponent.position.z || player.position.z || 1) * 3.85);
+  const directionId = combatDirection(direction);
+  const isStanding = ['idle', 'locomotion', 'blocking', 'attacking', 'staggered', 'recovering', 'airborne', 'jumping'].includes(player.state);
 
-  labels.quick = opponent.state === 'downed' ? moveLabel('ground') : moveLabel(selectDirectionalStrike(direction, 'quick', player.comboStep));
+  labels.quick = opponent.state === 'downed' ? moveLabel('ground')
+    : isStanding && directionId === 'neutral' ? BASE_LABELS.quick
+      : moveLabel(selectDirectionalStrike(direction, 'quick', player.comboStep));
   labels.heavy = player.heldPropId ? moveLabel('prop')
-    : player.ropeRebound > 0 || running && speed > 3.6 ? moveLabel('stiff_arm')
-      : moveLabel(selectDirectionalStrike(direction, 'heavy', player.comboStep));
+    : player.ropeRebound > 0
+      ? directionId === 'left' ? 'LEFT ARM STIFF-ARM' : directionId === 'right' ? 'RIGHT ARM STIFF-ARM' : moveLabel('stiff_arm')
+      : running || speed > 3.6 ? moveLabel('stiff_arm')
+        : isStanding && directionId === 'neutral' ? BASE_LABELS.heavy
+          : moveLabel(selectDirectionalStrike(direction, 'heavy', player.comboStep));
 
   if (player.state === 'grappling') {
     labels.quick = moveLabel(selectDirectionalGrapple(direction, 'quick'));
@@ -60,12 +67,12 @@ export function buildControlLabels(player: FighterRuntime, opponent: FighterRunt
   } else if (player.state === 'pinned') {
     labels.quick = 'RECOVER'; labels.heavy = 'RECOVER'; labels.grapple = 'RECOVER'; labels.counter = 'KICK OUT'; labels.context = 'KICK OUT';
   } else {
-    labels.grapple = distance < 1.8 ? 'COLLAR & ELBOW' : 'CLOSE DISTANCE';
+    labels.grapple = distance < 1.8 ? BASE_LABELS.grapple : 'CLOSE DISTANCE';
     if (player.momentum >= 100 && ['staggered', 'downed'].includes(opponent.state) && distance < 2.2) labels.context = 'SIGNATURE FINISHER';
     else if (opponent.state === 'downed' && distance < 1.7) labels.context = 'PIN SHOULDERS';
     else if (nearCorner) labels.context = 'CLIMB TURNBUCKLE';
     else if (canTransitionThroughRopes(player.position)) labels.context = ringside ? 'ENTER CENTER ROPE' : 'EXIT CENTER ROPE';
-    else labels.context = 'WRESTLING ACTION';
+    else labels.context = BASE_LABELS.context;
   }
   labels.interact = player.heldPropId ? 'DROP / THROW PROP' : 'PICK UP PROP';
   return labels;
@@ -74,6 +81,11 @@ export function buildControlLabels(player: FighterRuntime, opponent: FighterRunt
 export function buildControlReadout(player: FighterRuntime, opponent: FighterRuntime, speed: number, distance: number, paused: boolean, device: ControlDevice = 'keyboard', direction: Vec2 = { x: 0, z: 0 }, runHeld = false): ControlReadout {
   const active = new Set<ControlId>();
   const labels = buildControlLabels(player, opponent, speed, distance, direction, runHeld);
+  // Detect lift phase so the throw command is discoverable
+  const liftMoveIds = new Set(['slam', 'piledriver', 'powerbomb', 'skyhook', 'mountain_drop', 'suplex']);
+  const isInLift = player.state === 'grappling' && player.moveId !== null && liftMoveIds.has(player.moveId)
+    && player.attackPhase === 'anticipation'
+    && player.phaseElapsed > getMove(player.moveId).anticipationDuration * .36;
   const movementHeld = Math.hypot(direction.x, direction.z) > .08;
   if (player.state === 'locomotion' || movementHeld) active.add(runHeld || speed > 3.75 ? 'run' : 'move');
   if (player.state === 'jumping' || player.state === 'airborne') active.add('jump');
@@ -87,10 +99,11 @@ export function buildControlReadout(player: FighterRuntime, opponent: FighterRun
   if (player.heldPropId) active.add('interact');
   if (player.ropeRebound > 0) { active.add('run'); active.add('heavy'); }
 
-  let state = paused ? 'MATCH PAUSED' : 'READY TO WRESTLE';
+  let state = paused ? 'MATCH PAUSED' : distance > 5.5 ? 'APPROACH YOUR OPPONENT' : 'READY TO FIGHT';
   if (!paused && player.moveId) {
     const move = getMove(player.moveId);
-    state = `${move.displayName.toUpperCase()} · ${(player.attackPhase ?? player.state).toUpperCase()}`;
+    const phaseLabel = isInLift ? 'LIFT ACTIVE — THROW OR SLAM' : (player.attackPhase ?? player.state).toUpperCase();
+    state = `${move.displayName.toUpperCase()} · ${phaseLabel}`;
     if (move.category === 'quick' || move.category === 'ground') active.add('quick');
     if (move.category === 'heavy' || move.category === 'aerial' || move.category === 'finisher' || move.category === 'prop') active.add('heavy');
     if (move.category === 'grapple') active.add('grapple');
@@ -109,23 +122,31 @@ export function buildControlReadout(player: FighterRuntime, opponent: FighterRun
   const nearCorner = Math.abs(player.position.x) > 4.35 && Math.abs(player.position.z) > 2.95;
   const ringside = Math.abs(player.position.x) > 5.82 || Math.abs(player.position.z) > 4.32;
   const clinchCornerDistance = Math.hypot(opponent.position.x - Math.sign(opponent.position.x || player.position.x || 1) * 5.35, opponent.position.z - Math.sign(opponent.position.z || player.position.z || 1) * 3.85);
-  let callout = `DIRECTION CHANGES ${keys.quick} / ${keys.heavy} MOVES · ${keys.grapple} LOCKS UP`;
+  let callout = distance > 5.5
+    ? `${keys.move} MOVE · ${keys.run} SPRINT · CLOSE IN THEN ${keys.quick} PUNCH OR ${keys.grapple} BODY SLAM`
+    : `${keys.quick} PUNCH · ${keys.heavy} KICK · ${keys.grapple} BODY SLAM · ${keys.jump} JUMP · ${keys.block} GUARD`;
   if (paused) callout = 'SIMULATION STOPPED · RESUME TO WRESTLE';
   else if (player.state === 'pinned') callout = `${keys.counter} RAPIDLY · KICK OUT BEFORE THREE`;
   else if (player.state === 'downed' || player.moveId === 'kick_up') callout = `${keys.counter} · LIVEWIRE KICK-UP`;
-  else if (player.ropeRebound > 0) callout = `${keys.heavy} NOW · RAILWAY STIFF-ARM KNOCKDOWN`;
+  else if (player.ropeRebound > 0) callout = directionId === 'LEFT'
+    ? `${keys.heavy} NOW · LEFT ARM STIFF-ARM`
+    : directionId === 'RIGHT'
+      ? `${keys.heavy} NOW · RIGHT ARM STIFF-ARM`
+      : `${keys.heavy} NOW · RAILWAY STIFF-ARM KNOCKDOWN`;
   else if (player.climbStage > 0 && player.climbStage < 3) callout = `${actionKey} AGAIN · CLIMB TO ${player.climbStage === 1 ? 'MIDDLE' : 'TOP'} ROPE · ${keys.counter} DOWN`;
   else if (player.climbStage === 3) callout = `${keys.quick} ELBOW · ${keys.heavy} MISSILE KICK · ${actionKey} DOMEFALL · ${keys.taunt} POSE`;
+  else if (isInLift) callout = `${keys.quick} THROW · WASD WALK CARRYING · ${keys.heavy} POWER SLAM`;
   else if (player.state === 'grappling') callout = clinchCornerDistance <= 3.15
     ? `${actionKey} ${labels.context} · ${directionId} CLINCH · ${keys.quick} / ${keys.heavy} / ${keys.grapple} THROW`
     : `${directionId} CLINCH · ${keys.quick} ${labels.quick} · ${keys.heavy} ${labels.heavy} · ${keys.grapple} ${labels.grapple}`;
   else if (player.momentum >= 100 && ['staggered', 'downed'].includes(opponent.state) && distance < 2.2) callout = `${actionKey} · SIGNATURE FINISHER READY`;
   else if (opponent.state === 'downed' && distance < 1.7) callout = `${actionKey} PIN · ${keys.quick} GROUND STRIKE`;
   else if (nearCorner) callout = `${actionKey} · CLIMB LOWER TURNBUCKLE`;
-  else if (canTransitionThroughRopes(player.position)) callout = `${actionKey} · ${ringside ? 'ENTER' : 'EXIT'} THROUGH CENTER ROPE`;
+  else if (canTransitionThroughRopes(player.position)) callout = `${actionKey} · ${ringside ? 'ENTER RING' : 'EXIT TO RINGSIDE'} THROUGH CENTER ROPE`;
+  else if (!nearCorner && (Math.abs(player.position.x) > 4.1 || Math.abs(player.position.z) > 3.2)) callout = `NEAR ROPES · SPRINT TO REBOUND · ${actionKey} AT APRON TO EXIT RING`;
   else if (player.counterWindow > 0) callout = `${keys.counter} NOW · REVERSE THE ATTACK`;
-  else if (distance < 1.8) callout = `${keys.grapple} LOCK UP · HOLD DIRECTION TO CHOOSE THE THROW`;
-  else if (distance < 4.8 && movementHeld && !runHeld) callout = `LOCK-ON ACTIVE · ${keys.quick} / ${keys.heavy} STRIKE TOWARD YOUR RIVAL`;
+  else if (distance < 1.8) callout = `${keys.quick} RAPID COMBO · UP+${keys.quick}=CROSS · DOWN+${keys.quick}=KICK · ${keys.grapple} BODY SLAM`;
+  else if (distance < 4.8 && movementHeld && !runHeld) callout = `IN RANGE · RAPID ${keys.quick}=JAB→CROSS→KICK · HOLD WASD+${keys.quick}/${keys.heavy} FOR DIRECTIONAL STRIKES`;
 
   return { active, callout, labels, state };
 }

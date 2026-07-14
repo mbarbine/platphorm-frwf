@@ -12,7 +12,7 @@ export interface StrikeDriveProfile {
   pelvisAcceleration: number;
 }
 
-const HAND_STRIKE: StrikeDriveProfile = { source: 'rightHand', target: 'head', speed: 12.5, response: 15, maximumAcceleration: 165, pelvisAcceleration: 1.8 };
+const HAND_STRIKE: StrikeDriveProfile = { source: 'rightHand', target: 'chest', speed: 18, response: 32, maximumAcceleration: 600, pelvisAcceleration: 5.4 };
 
 export const strikeDriveProfile = (moveId: string): StrikeDriveProfile | null => {
   if (moveId === 'jab') return HAND_STRIKE;
@@ -24,10 +24,16 @@ export const strikeDriveProfile = (moveId: string): StrikeDriveProfile | null =>
   if (moveId === 'high_kick') return { source: 'rightFoot', target: 'head', speed: 17.2, response: 19, maximumAcceleration: 240, pelvisAcceleration: 3.9 };
   if (moveId === 'roundhouse') return { source: 'rightFoot', target: 'head', speed: 18.5, response: 20, maximumAcceleration: 255, pelvisAcceleration: 4.5 };
   if (moveId === 'front_kick') return { source: 'rightFoot', target: 'chest', speed: 16.2, response: 18, maximumAcceleration: 230, pelvisAcceleration: 3.8 };
-  if (moveId === 'stiff_arm' || moveId === 'rebound') return { source: 'rightHand', target: 'chest', speed: 15.5, response: 17, maximumAcceleration: 215, pelvisAcceleration: 7.2 };
+  if (moveId === 'piledriver') return { source: 'chest', target: 'head', speed: 20, response: 30, maximumAcceleration: 520, pelvisAcceleration: 18 };
+  // A wrestling stiff-arm lands through the braced forearm/elbow line. The
+  // rope rebound uses the opposite arm so the player can pick left or right.
+  if (moveId === 'stiff_arm') return { source: 'rightForearm', target: 'chest', speed: 18.5, response: 24, maximumAcceleration: 340, pelvisAcceleration: 11 };
+  if (moveId === 'rebound') return { source: 'leftForearm', target: 'chest', speed: 18.5, response: 24, maximumAcceleration: 340, pelvisAcceleration: 11 };
   if (moveId === 'spear') return { source: 'chest', target: 'pelvis', speed: 13.8, response: 19, maximumAcceleration: 245, pelvisAcceleration: 8.4 };
   if (moveId === 'prop') return { source: 'rightHand', target: 'head', speed: 15, response: 16, maximumAcceleration: 205, pelvisAcceleration: 3 };
-  if (moveId === 'ground' || moveId === 'aerial' || moveId === 'aerial_kick') return { source: 'rightFoot', target: 'chest', speed: 14.5, response: 16, maximumAcceleration: 210, pelvisAcceleration: moveId.startsWith('aerial') ? 5.8 : 1.2 };
+  if (moveId === 'ground') return { source: 'rightFoot', target: 'chest', speed: 14.5, response: 16, maximumAcceleration: 210, pelvisAcceleration: 1.2 };
+  if (moveId === 'aerial') return { source: 'chest', target: 'chest', speed: 14.5, response: 16, maximumAcceleration: 210, pelvisAcceleration: 5.8 };
+  if (moveId === 'aerial_kick') return { source: 'rightFoot', target: 'chest', speed: 14.5, response: 16, maximumAcceleration: 210, pelvisAcceleration: 5.8 };
   if (moveId === 'aerial_elbow') return { source: 'rightForearm', target: 'chest', speed: 15.2, response: 18, maximumAcceleration: 230, pelvisAcceleration: 5.4 };
   if (moveId === 'counter') return { source: 'rightHand', target: 'chest', speed: 14, response: 18, maximumAcceleration: 195, pelvisAcceleration: 3.8 };
   return null;

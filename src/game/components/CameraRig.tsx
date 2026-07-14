@@ -16,6 +16,7 @@ export function CameraRig() {
   const impactId = useRef(0); const impactImpulse = useRef(0); const elapsed = useRef(0);
   const shot = useRef<CameraShot>('broadcast'); const shotChangedAt = useRef(0); const shotSide = useRef<1 | -1>(1);
   const shake = useSettings((state) => state.shake); const reduced = useSettings((state) => state.reducedMotion);
+  const cameraCuts = useSettings((state) => state.cameraCuts);
 
   useFrame((_, dt) => {
     if (gl.xr.isPresenting) return;
@@ -29,13 +30,16 @@ export function CameraRig() {
     const playerMove = model.player.moveId ? getMove(model.player.moveId) : null; const opponentMove = model.opponent.moveId ? getMove(model.opponent.moveId) : null;
     const securedGrapple = Boolean(model.grapple && model.grapple.gripCount >= 2 && !['reach', 'acquire', 'failed'].includes(model.grapple.phase));
     const table = model.props.find((prop) => prop.kind === 'table' && !prop.broken) ?? null;
-    const requestedShot = selectCameraShot({
+    const directedShot = selectCameraShot({
       replayActive, middleX, middleZ, separation, playerState: model.player.state, opponentState: model.opponent.state,
       playerMoveCategory: playerMove?.category ?? null, opponentMoveCategory: opponentMove?.category ?? null, securedGrapple,
       playerAttackPhase: model.player.attackPhase, opponentAttackPhase: model.opponent.attackPhase, grapplePhase: model.grapple?.phase ?? null,
       tablePosition: table?.position ?? null, lastImpactKind: model.lastImpact?.kind ?? null,
     });
-    if (requestedShot !== shot.current && (cameraShotIsUrgent(requestedShot) || elapsed.current - shotChangedAt.current >= .72)) {
+    const requestedShot = cameraCuts === 'off' && directedShot !== 'replay' ? 'broadcast' : directedShot;
+    const cutInterval = cameraCuts === 'reduced' ? 1.8 : .72;
+    const urgent = (cameraCuts === 'full' && cameraShotIsUrgent(requestedShot)) || requestedShot === 'replay';
+    if (requestedShot !== shot.current && (urgent || elapsed.current - shotChangedAt.current >= cutInterval)) {
       shot.current = requestedShot; shotChangedAt.current = elapsed.current;
       document.documentElement.dataset.cameraShot = requestedShot;
     }
@@ -51,14 +55,19 @@ export function CameraRig() {
       }
       case 'grapple': {
         const forwardX = Math.sin(grappleActor.facing); const forwardZ = Math.cos(grappleActor.facing); const rightX = forwardZ; const rightZ = -forwardX;
-        const distance = grappleMove?.category === 'finisher' ? 9.8 : 10.35;
-        desired.set(middleX + rightX * distance * shotSide.current - forwardX * 1.45, grappleMove?.category === 'finisher' ? 6.05 : 5.8, middleZ + rightZ * distance * shotSide.current - forwardZ * 1.45);
+        const distance = grappleMove?.category === 'finisher' ? 8.4 : 7.8;
+        const height = grappleMove?.category === 'finisher' ? 5.2 : 4.5;
+        desired.set(middleX + rightX * distance * shotSide.current - forwardX * 2.8, height, middleZ + rightZ * distance * shotSide.current - forwardZ * 2.8);
         break;
       }
       case 'slam': {
         const forwardX = Math.sin(grappleActor.facing); const forwardZ = Math.cos(grappleActor.facing); const rightX = forwardZ; const rightZ = -forwardX;
-        const peakLift = grapplePhase === 'lift' ? Math.min(1.1, grappleLift * .48) : 0;
-        desired.set(middleX + rightX * 10.65 * shotSide.current - forwardX * 1.15, 5.35 + peakLift, middleZ + rightZ * 10.65 * shotSide.current - forwardZ * 1.15);
+        const isPiledriver = grappleActor.moveId === 'piledriver';
+        const peakLift = grapplePhase === 'lift' ? Math.min(isPiledriver ? 2.2 : 1.6, grappleLift * (isPiledriver ? 1.0 : .72)) : 0;
+        const distance = isPiledriver ? 7.0 : 9.2;
+        // Piledriver: camera near ground looking UP at the inversion — the most dramatic shot
+        const baseHeight = isPiledriver ? 2.2 : 3.8;
+        desired.set(middleX + rightX * distance * shotSide.current - forwardX * (isPiledriver ? .6 : 1.15), baseHeight + peakLift, middleZ + rightZ * distance * shotSide.current - forwardZ * (isPiledriver ? .6 : 1.15));
         break;
       }
       case 'strike': {
@@ -107,6 +116,12 @@ export function CameraRig() {
       impactId.current = impact.id;
       const hierarchy = impact.kind === 'finisher' || impact.kind === 'ko' ? 1.5 : impact.kind === 'grapple' || impact.kind === 'table' ? 1.22 : impact.kind === 'heavy' || impact.kind === 'weapon' ? 1.02 : impact.kind === 'light' || impact.kind === 'blocked' ? .5 : .85;
       impactImpulse.current = impact.intensity * hierarchy;
+      // Force cut to strike camera on major heavy or counter impacts
+      const isMajorStrike = (impact.kind === 'heavy' || impact.kind === 'counter' || impact.kind === 'weapon') && impact.intensity >= 1.3;
+      if (isMajorStrike && !['slam', 'aerial', 'grapple', 'replay'].includes(shot.current) && cameraCuts === 'full') {
+        shot.current = 'strike'; shotChangedAt.current = elapsed.current;
+        document.documentElement.dataset.cameraShot = 'strike';
+      }
     }
     impactImpulse.current = Math.max(0, impactImpulse.current - dt * 4.8);
     const shakeAmount = !reduced ? shake * impactImpulse.current * .042 : 0;
@@ -119,7 +134,7 @@ export function CameraRig() {
     if ('fov' in camera) {
       const perspective = camera as PerspectiveCamera;
       const baseFov = shot.current === 'replay' ? 39 : shot.current === 'grapple' ? grappleMove?.category === 'finisher' ? 40 : 43
-        : shot.current === 'slam' ? 42 : shot.current === 'strike' ? 43 : shot.current === 'corner' ? 46 : shot.current === 'aerial' ? 43 : shot.current === 'table' ? 41 : shot.current === 'wide' ? 50 : shot.current.startsWith('ringside') ? 46 : 44 + Math.min(9, separation * 1.15);
+        : shot.current === 'slam' ? (grappleActor?.moveId === 'piledriver' ? 32 : 40) : shot.current === 'strike' ? 43 : shot.current === 'corner' ? 46 : shot.current === 'aerial' ? 43 : shot.current === 'table' ? 41 : shot.current === 'wide' ? 50 : shot.current.startsWith('ringside') ? 46 : 44 + Math.min(9, separation * 1.15);
       const desiredFov = baseFov + impactImpulse.current * 1.15 + (model.slowMotion > 0 ? -2.5 : 0);
       perspective.fov += (desiredFov - perspective.fov) * (1 - Math.exp(-dt * 7.5)); perspective.updateProjectionMatrix();
     }

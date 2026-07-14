@@ -2,7 +2,7 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { AdaptiveDpr, BakeShadows } from '@react-three/drei';
 import { Physics, useAfterPhysicsStep, useBeforePhysicsStep } from '@react-three/rapier';
 import { JointData } from '@dimforge/rapier3d-compat';
-import { Component, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Component, lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ErrorInfo, ReactNode } from 'react';
 import { Vector3 } from 'three';
 import type { Group } from 'three';
@@ -19,16 +19,21 @@ import { useSettings } from '../state/settings';
 import type { ControlDevice } from '../types/game';
 import { bodyWorksRuntime } from '../physics/physicsRuntime';
 import { useThree } from '@react-three/fiber';
-import { ReplayDirector } from './ReplayFighter';
-import { physicsLabEnabled } from './PhysicsLab';
+import { physicsLabEnabled } from '../runtime/runtimeModes';
 import { cameraInputBasis, transformCameraRelative, updateStableBasis } from '../input/cameraRelative';
 import type { CameraInputBasis } from '../input/cameraRelative';
 import { getMove } from '../data/moves';
 import { browserRuntimeQuality } from '../runtime/quality';
 import { usePhysicsLabStore } from '../state/physicsLabStore';
-import { BodyWorksDebugOverlay } from './BodyWorksDebugOverlay';
+import { pulseConnectedGamepads } from '../input/gamepadHaptics';
+import { renderDiagnostics, resetRenderDiagnostics, sampleRenderDiagnostics } from '../runtime/renderDiagnostics';
+import { selectFighterDetail } from '../presentation/presentationManifest';
+import type { FighterDetail } from '../presentation/presentationManifest';
 
 interface Props { onPause: () => void; onDevice: (device: ControlDevice) => void; onFinished: () => void }
+
+const ReplayDirector = lazy(async () => ({ default: (await import('./ReplayFighter')).ReplayDirector }));
+const BodyWorksDebugOverlay = lazy(async () => ({ default: (await import('./BodyWorksDebugOverlay')).BodyWorksDebugOverlay }));
 
 bodyWorksRuntime.setJointData(JointData);
 
@@ -63,7 +68,17 @@ function Simulation({ onPause, onDevice, onFinished }: Props) {
     listeningCamera.getWorldPosition(listenerPosition.current); listeningCamera.getWorldDirection(listenerForward.current);
     audioEngine.setListener({ position: [listenerPosition.current.x, listenerPosition.current.y, listenerPosition.current.z], forward: [listenerForward.current.x, listenerForward.current.y, listenerForward.current.z], up: [0, 1, 0] });
     const liveSettings = useSettings.getState(); const audioSettings = model.toyTestMode ? { ...liveSettings, crowdVolume: 0 } : liveSettings;
-    if (model.lastImpact && model.lastImpact.id !== lastImpactId.current) { lastImpactId.current = model.lastImpact.id; audioEngine.impact(model.lastImpact, audioSettings); }
+    if (model.lastImpact && model.lastImpact.id !== lastImpactId.current) {
+      lastImpactId.current = model.lastImpact.id;
+      audioEngine.impact(model.lastImpact, audioSettings);
+      pulseConnectedGamepads(model.lastImpact);
+      document.documentElement.dataset.lastImpactKind = model.lastImpact.kind;
+      document.documentElement.dataset.lastImpactMove = model.lastImpact.moveId ?? '';
+      window.setTimeout(() => {
+        if (document.documentElement.dataset.lastImpactKind === model.lastImpact?.kind) delete document.documentElement.dataset.lastImpactKind;
+        if (document.documentElement.dataset.lastImpactMove === model.lastImpact?.moveId) delete document.documentElement.dataset.lastImpactMove;
+      }, 120);
+    }
     const actionAudio = `${model.player.state}:${model.player.moveId ?? ''}:${model.player.attackInstanceId}:${model.player.climbStage}`;
     if (actionAudio !== lastActionAudio.current) {
       const previous = lastActionAudio.current; lastActionAudio.current = actionAudio;
@@ -83,15 +98,22 @@ function Simulation({ onPause, onDevice, onFinished }: Props) {
   return null;
 }
 
-function Fighters() {
+function RuntimeDiagnosticsSampler() {
+  const { gl } = useThree();
+  useEffect(() => { resetRenderDiagnostics(); return resetRenderDiagnostics; }, []);
+  useFrame((_, dt) => sampleRenderDiagnostics(gl, dt));
+  return null;
+}
+
+function Fighters({ detail, showPhysical }: { detail: FighterDetail; showPhysical: boolean }) {
   const player = useMatchStore((state) => state.model.player); const opponent = useMatchStore((state) => state.model.opponent);
   const runtimeId = useMatchStore((state) => state.model.runtimeId);
   const replayActive = useMatchStore((state) => state.replayActive);
   return <group key={runtimeId} visible={!replayActive}>
-    <PhysicalFighterRig runtime={player} side="player" showVisuals={false} />
-    <PhysicalFighterRig runtime={opponent} side="opponent" showVisuals={false} />
-    <FighterModel runtime={player} counterpart={opponent} side="player" />
-    <FighterModel runtime={opponent} counterpart={player} side="opponent" />
+    <PhysicalFighterRig runtime={player} side="player" showVisuals={showPhysical} />
+    <PhysicalFighterRig runtime={opponent} side="opponent" showVisuals={showPhysical} />
+    {!showPhysical && <><FighterModel runtime={player} counterpart={opponent} side="player" detail={detail} />
+    <FighterModel runtime={opponent} counterpart={player} side="opponent" detail={detail} /></>}
   </group>;
 }
 
@@ -121,6 +143,7 @@ export function GameScene(props: Props) {
   const labRate = usePhysicsLabStore((state) => state.rate); const labDebug = usePhysicsLabStore((state) => state.debug);
   const graphicsQuality = useSettings((state) => state.graphicsQuality); const reducedMotion = useSettings((state) => state.reducedMotion);
   const quality = useMemo(() => browserRuntimeQuality(graphicsQuality, reducedMotion, lab), [graphicsQuality, lab, reducedMotion]);
+  const fighterDetail = selectFighterDetail(quality.tier);
   const renderer = useRef<WebGLRenderer | null>(null); const [xrAvailable, setXrAvailable] = useState(false); const [xrPresenting, setXrPresenting] = useState(false); const [xrError, setXrError] = useState('');
   const enterXR = async (): Promise<void> => {
     if (!navigator.xr || !renderer.current) return;
@@ -131,12 +154,12 @@ export function GameScene(props: Props) {
     } catch (error: unknown) { setXrError(error instanceof Error ? error.message : 'XR session could not start'); }
   };
   const exitXR = async (): Promise<void> => { await renderer.current?.xr.getSession()?.end(); };
-  return <SceneBoundary><div className="game-canvas" data-testid="game-canvas" data-toy-test={toyTestMode ? 'true' : 'false'} data-graphics-tier={quality.tier} data-physics-bodies={bodyWorksRuntime.metrics.bodyCount} data-physics-steps={bodyWorksRuntime.metrics.fixedSteps} data-player-move={playerMove ?? ''} data-player-x={playerPosition.x.toFixed(3)} data-player-z={playerPosition.z.toFixed(3)} data-opponent-health={opponentHealth.toFixed(1)}>
+  return <SceneBoundary><div className="game-canvas" data-testid="game-canvas" data-toy-test={toyTestMode ? 'true' : 'false'} data-graphics-tier={quality.tier} data-physics-bodies={bodyWorksRuntime.metrics.bodyCount} data-physics-steps={bodyWorksRuntime.metrics.fixedSteps} data-draw-calls={renderDiagnostics.drawCalls} data-triangles={renderDiagnostics.triangles} data-geometries={renderDiagnostics.geometries} data-textures={renderDiagnostics.textures} data-shader-programs={renderDiagnostics.shaderPrograms} data-frame-p95-ms={renderDiagnostics.frameP95Ms.toFixed(2)} data-frame-p99-ms={renderDiagnostics.frameP99Ms.toFixed(2)} data-frames-over-100-ms={renderDiagnostics.framesOver100Ms} data-player-move={playerMove ?? ''} data-player-x={playerPosition.x.toFixed(3)} data-player-z={playerPosition.z.toFixed(3)} data-opponent-health={opponentHealth.toFixed(1)}>
     <Canvas shadows={quality.shadows ? 'basic' : false} dpr={quality.dpr} gl={{ antialias: quality.antialias, alpha: false, powerPreference: 'high-performance' }} camera={{ position: [8, 7, 11], fov: 48, near: .1, far: 72 }} onCreated={({ gl }) => {
       renderer.current = gl; gl.xr.enabled = true;
       if (navigator.xr) void navigator.xr.isSessionSupported('immersive-vr').then(setXrAvailable).catch(() => setXrAvailable(false));
     }}>
-      <Suspense fallback={null}><Physics gravity={[0, -18, 0]} timeStep={(lab ? labRate : 1) / 60} paused={paused || replayActive} debug={lab && labDebug} interpolate numSolverIterations={8} numInternalPgsIterations={2} maxCcdSubsteps={2}><Arena crowdCount={quality.crowdCount} /><Fighters />{lab && labDebug && <BodyWorksDebugOverlay />}<PlayerControlBeacon /><ImpactEffects /><Simulation {...props} /></Physics><ReplayDirector /><CameraRig /><AdaptiveDpr pixelated />{quality.bakeShadows && <BakeShadows />}</Suspense>
+      <Suspense fallback={null}><Physics gravity={[0, -18, 0]} timeStep={(lab ? labRate : 1) / 60} paused={paused || replayActive} debug={lab && labDebug} interpolate numSolverIterations={8} numInternalPgsIterations={2} maxCcdSubsteps={2}><Arena crowdCount={quality.crowdCount} /><Fighters detail={fighterDetail} showPhysical={lab && labDebug} />{lab && labDebug && <BodyWorksDebugOverlay />}<PlayerControlBeacon /><ImpactEffects /><Simulation {...props} /></Physics><ReplayDirector /><CameraRig /><RuntimeDiagnosticsSampler /><AdaptiveDpr pixelated />{quality.bakeShadows && <BakeShadows />}</Suspense>
     </Canvas>
     {xrAvailable && <button type="button" className="xr-entry" data-testid="xr-entry" onClick={() => void (xrPresenting ? exitXR() : enterXR())}>{xrPresenting ? 'EXIT ARENA XR' : 'ENTER ARENA XR'}<small>QUEST · STEAM FRAME · OPENXR</small></button>}
     {xrError && <div className="xr-error" role="status">XR UNAVAILABLE · {xrError}</div>}

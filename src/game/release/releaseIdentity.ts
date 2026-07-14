@@ -7,6 +7,7 @@ export interface ReleaseIdentity {
   moveManifestVersion: string;
   arenaManifestVersion: string;
   assetManifestVersion: string;
+  presentationRigVersion: string;
   deploymentEnvironment: string;
   fighterCount: number;
   moveCount: number;

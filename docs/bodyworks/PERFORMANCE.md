@@ -1,5 +1,7 @@
 # Bodyworks performance plan
 
+> Current candidate performance is uncertified until the consolidated gate and `pnpm test:soak:5m` finish on the same commit. Numbers under “Final local measurement” are retained as historical baseline evidence only.
+
 ## Runtime strategy
 
 - Interaction-triggered preload overlaps Three/Rapier download with fighter and rules selection while preserving a light first menu.
@@ -23,7 +25,7 @@ The final consolidated gate records:
 
 Headless and local browser numbers are evidence for regression control, not a claim that every physical phone or headset has identical performance. The hardware matrix remains a device-required release task.
 
-## Final local measurement
+## Historical local measurement
 
 - Six-rematch browser soak: 12 FPS baseline, 23 FPS final, 0.338 ms physics average, 0.500 ms p95, 208.3 KB physical replay, and a flat 29.4 MB requested-GC heap across seven samples.
 - Fifty-match rules soak: 50 complete, zero timeout, 0.0027 ms average step, 4.82 ms p95 whole-match wall time, 75 maximum replay frames, and 4 maximum props.

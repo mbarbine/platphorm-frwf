@@ -1,0 +1,53 @@
+# RINGFALL local development stack.
+# Provides game-server + Redis without requiring a cloud account.
+# Run: docker compose up --build
+
+services:
+  game-server:
+    build:
+      context: .
+      dockerfile: docker/game-server.Dockerfile
+      target: development
+    container_name: frwf-game-server
+    ports:
+      - '2567:2567'
+    environment:
+      NODE_ENV: development
+      PORT: 2567
+      HOSTNAME: 0.0.0.0
+      REDIS_URL: redis://redis:6379
+      CORS_ORIGIN: 'http://localhost:5173'
+      MONITOR_ENABLED: 'true'
+    volumes:
+      # Hot reload — mount source so ts-node-dev picks up changes
+      - ./server/src:/app/server/src:ro
+      - ./packages:/app/packages:ro
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:2567/health']
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  redis:
+    image: redis:7-alpine
+    container_name: frwf-redis
+    ports:
+      - '6379:6379'
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  redis-data:
+    driver: local

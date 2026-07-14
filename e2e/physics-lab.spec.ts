@@ -62,7 +62,7 @@ test('Bodyworks lab exposes live Rapier diagnostics and drives real jump/walk in
     };
     new MutationObserver(observe).observe(document.body, { subtree: true, attributes: true, childList: true }); observe();
   });
-  await expect(lab.getByRole('button', { name: 'JAB TO HEAD' })).toBeEnabled({ timeout: 4_000 }); const healthBeforeJab = Number(await hud.getAttribute('data-opponent-health')); await lab.getByRole('button', { name: 'JAB TO HEAD' }).click();
+  await expect(lab.getByRole('button', { name: 'CONTACT-TRUE JAB' })).toBeEnabled({ timeout: 4_000 }); const healthBeforeJab = Number(await hud.getAttribute('data-opponent-health')); await lab.getByRole('button', { name: 'CONTACT-TRUE JAB' }).click();
   await expect(hud).toHaveAttribute('data-player-move', 'jab', { timeout: 2_000 }); await expect(page.locator('html')).toHaveAttribute('data-saw-active-quick-control', 'true'); await expect(page.locator('html')).toHaveAttribute('data-saw-jab-control', 'true');
   await expect.poll(async () => Number(await hud.getAttribute('data-opponent-health')), { timeout: 4_000, intervals: [80, 120] }).toBeLessThan(healthBeforeJab);
   await page.evaluate(() => {
