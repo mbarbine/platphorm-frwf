@@ -5,12 +5,14 @@ import { useMatchStore } from '../state/matchStore';
 import { useSettings } from '../state/settings';
 
 interface Burst { id: number; x: number; z: number; color: string; count: number; kind: 'body' | 'mat'; tier: 'light' | 'heavy' | 'major' | 'finisher'; intensity: number; lowFlash: boolean }
+interface HitFlash { id: number; x: number; z: number; y: number; scale: number }
 
 export function ImpactEffects() {
   const impact = useMatchStore((state) => state.model.lastImpact);
   const impactId = impact?.id ?? 0;
   const lowFlash = useSettings((state) => state.lowFlash);
   const [bursts, setBursts] = useState<Burst[]>([]);
+  const [hitFlashes, setHitFlashes] = useState<HitFlash[]>([]);
   useEffect(() => {
     if (!impact) return;
     const color = impact.kind === 'counter' || impact.kind === 'blocked' ? '#58f5ff' : impact.kind === 'finisher' || impact.kind === 'ko' ? '#fff13b' : impact.kind === 'weapon' ? '#ff4a88' : impact.kind === 'grapple' || impact.kind === 'table' ? '#dcff46' : '#ff8b3d';
@@ -19,14 +21,40 @@ export function ImpactEffects() {
     const baseCount = tier === 'light' ? 6 : tier === 'heavy' ? 14 : tier === 'major' ? 24 : 32;
     const count = Math.min(38, Math.round(baseCount + impact.intensity * 5.5));
     setBursts((current) => current.some((burst) => burst.id === impact.id) ? current : [...current.slice(-5), { id: impact.id, x: impact.position.x, z: impact.position.z, color, kind, tier, intensity: impact.intensity, lowFlash, count: lowFlash ? Math.max(4, Math.ceil(count * .58)) : count }]);
+    // Contact flash sphere at the impact body region
+    if (!lowFlash && ['light', 'heavy', 'counter', 'weapon'].includes(impact.kind)) {
+      const y = impact.region === 'head' ? 3.85 : impact.region === 'pelvis' || impact.region?.includes('Leg') ? 2.15 : 3.25;
+      const scale = impact.kind === 'heavy' || impact.kind === 'counter' ? 1.45 : 1.0;
+      setHitFlashes((prev) => [...prev.slice(-4), { id: impact.id, x: impact.position.x, z: impact.position.z, y, scale }]);
+    }
   }, [impactId, lowFlash]);
   const player = useMatchStore((state) => state.model.player); const opponent = useMatchStore((state) => state.model.opponent);
   return <>{bursts.map((burst) => <BurstView key={burst.id} burst={burst} />)}
+    {hitFlashes.map((flash) => <HitFlashView key={flash.id} flash={flash} />)}
     {player.counterWindow > 0 && <CounterCue x={player.position.x} z={player.position.z} />}
     {opponent.counterWindow > 0 && <CounterCue x={opponent.position.x} z={opponent.position.z} hostile />}
     {player.state === 'blocking' && <GuardCue x={player.position.x} z={player.position.z} facing={player.facing} />}
     {opponent.state === 'blocking' && <GuardCue x={opponent.position.x} z={opponent.position.z} facing={opponent.facing} hostile />}
   </>;
+}
+
+function HitFlashView({ flash }: { flash: HitFlash }) {
+  const ref = useRef<Mesh>(null);
+  const age = useRef(0);
+  useFrame((_, dt) => {
+    age.current += dt;
+    if (!ref.current) return;
+    const opacity = Math.max(0, 1 - age.current * 8.5);
+    const scale = flash.scale * (1 + age.current * 2.8);
+    ref.current.scale.setScalar(scale);
+    if (ref.current.material) (ref.current.material as MeshBasicMaterial).opacity = opacity;
+  });
+  return (
+    <mesh ref={ref} position={[flash.x, flash.y, flash.z]}>
+      <sphereGeometry args={[.2, 8, 6]} />
+      <meshBasicMaterial color="#ffffff" transparent opacity={1} toneMapped={false} depthWrite={false} />
+    </mesh>
+  );
 }
 
 function CounterCue({ x, z, hostile = false }: { x: number; z: number; hostile?: boolean }) {

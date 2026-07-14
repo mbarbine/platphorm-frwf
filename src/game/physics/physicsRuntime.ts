@@ -1720,8 +1720,12 @@ const targetPoseFor = (fighter: FighterRuntime): Pose => {
   if (fighter.state === 'victorious') return POSES.victory;
   if (fighter.state === 'pinning') return POSES.pin;
   if (fighter.state === 'pinned') return fighter.pinEscape > 52 ? POSES.kickout : POSES.downed;
-  const neutralPose = fighter.state === 'locomotion' ? locomotionPoseFor(fighter) : POSES.combatIdle;
-  return applyBodyLanguage(neutralPose, fighter);
+  if (fighter.state === 'locomotion') return applyBodyLanguage(locomotionPoseFor(fighter), fighter);
+  // Breathing combat idle: subtle torso sway and weight shift to make fighters feel alive
+  const breathe = Math.sin(fighter.stateElapsed * 2.2) * .024;
+  const sway = Math.cos(fighter.stateElapsed * .88) * .016;
+  const idlePose: Pose = { ...POSES.combatIdle, torso: [breathe, sway, 0], rootY: breathe * .38 };
+  return applyBodyLanguage(idlePose, fighter);
 };
 
 const physicalPoseTargets = (pose: Pose, facing: number): Record<BodySegmentId, QuaternionValue> => {
