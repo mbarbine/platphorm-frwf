@@ -1,6 +1,7 @@
 import { Canvas, useFrame } from '@react-three/fiber';
 import { AdaptiveDpr, BakeShadows } from '@react-three/drei';
 import { Physics, useAfterPhysicsStep, useBeforePhysicsStep } from '@react-three/rapier';
+import { JointData } from '@dimforge/rapier3d-compat';
 import { Component, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import type { ErrorInfo, ReactNode } from 'react';
 import { Vector3 } from 'three';
@@ -25,6 +26,8 @@ import type { CameraInputBasis } from '../input/cameraRelative';
 import { getMove } from '../data/moves';
 
 interface Props { onPause: () => void; onDevice: (device: ControlDevice) => void; onFinished: () => void }
+
+bodyWorksRuntime.setJointData(JointData);
 
 function Simulation({ onPause, onDevice, onFinished }: Props) {
   const pause = useCallback(onPause, [onPause]); const input = useGameInput(pause); const lastImpactId = useRef(0); const lastActionAudio = useRef(''); const finishNotified = useRef(false); const finishTimer = useRef<number | null>(null); const { camera, gl } = useThree();
@@ -124,7 +127,7 @@ export function GameScene(props: Props) {
   };
   const exitXR = async (): Promise<void> => { await renderer.current?.xr.getSession()?.end(); };
   return <SceneBoundary><div className="game-canvas" data-testid="game-canvas" data-toy-test={toyTestMode ? 'true' : 'false'} data-player-move={playerMove ?? ''} data-player-x={playerPosition.x.toFixed(3)} data-player-z={playerPosition.z.toFixed(3)} data-opponent-health={opponentHealth.toFixed(1)}>
-    <Canvas shadows={lab ? false : 'basic'} dpr={lab ? .5 : [.75, 1.5]} gl={{ antialias: !lab, alpha: false, powerPreference: 'high-performance' }} camera={{ position: [8, 7, 11], fov: 48, near: .1, far: 60 }} onCreated={({ gl }) => {
+    <Canvas shadows={lab ? false : 'basic'} dpr={lab ? .5 : [.75, 1.5]} gl={{ antialias: !lab, alpha: false, powerPreference: 'high-performance' }} camera={{ position: [8, 7, 11], fov: 48, near: .1, far: 72 }} onCreated={({ gl }) => {
       renderer.current = gl; gl.xr.enabled = true;
       if (navigator.xr) void navigator.xr.isSessionSupported('immersive-vr').then(setXrAvailable).catch(() => setXrAvailable(false));
     }}>

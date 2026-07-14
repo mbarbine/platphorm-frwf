@@ -2,15 +2,15 @@
 
 An original, local-first 3D arcade wrestling game built with React, TypeScript, Vite, Three.js, React Three Fiber, Rapier, Zustand, and Vitest.
 
-Five original fighters collide in **The Volt Dome** across two-to-four-minute matches. Combat rules are deterministic and phase-based, while a 16-body articulated Rapier rig per fighter owns locomotion, hand contact, two-hand grips, lift weight, knockback, and mat landings.
+Five original fighters collide in **The Volt Dome** across two-to-four-minute matches. Combat rules are deterministic and phase-based. A 16-body articulated Rapier contact rig per fighter owns locomotion, hand contact, two-hand grips, lift weight, knockback, and measured landings, while a richer hierarchical wrestler model mirrors that authoritative state to keep the player-facing silhouette stable and expressive.
 
 ## Run locally
 
-Requires a current Node.js LTS release and npm.
+Requires a current Node.js LTS release and pnpm 9.15 or a compatible Corepack-provided pnpm release.
 
 ```bash
-npm install
-npm run dev
+pnpm install --frozen-lockfile
+pnpm dev
 ```
 
 Open the local URL printed by Vite. The game has no backend, login, cloud state, advertisements, remote assets, or runtime network requests.
@@ -18,11 +18,11 @@ Open the local URL printed by Vite. The game has no backend, login, cloud state,
 Production and verification commands:
 
 ```bash
-npm run typecheck
-npm run lint
-npm test
-npm run build
-npm run preview
+pnpm typecheck
+pnpm lint
+pnpm test
+pnpm build
+pnpm preview
 ```
 
 ## Controls
@@ -44,7 +44,7 @@ npm run preview
 
 Movement is camera-relative and the live control deck always names the move that will fire. With no direction, J/K are Circuit Jab/Fault Hook. Aim forward for Skyline Cross/Voltage Uppercut, backward for Circuit Low Kick/Piston Boot, left for Neon One-Two/Arc Roundhouse, and right for Skyline Cross/Halo High Kick.
 
-L enters a visible collar-and-elbow lock; during its anticipation window, a direction plus J/K/L selects one of fifteen named outcomes including arm drags, trips, chokes, spinebusters, suplexes, powerbombs, side tosses, slams, and an Irish whip. Hold I/LT to guard: strikes deal tiny chip damage and drain guard stamina, while a grapple can be stuffed until the guard breaks. Space performs a visible, stamina-bound Livewire Kick-Up while downed.
+L enters a visible collar-and-elbow lock; during its anticipation window, a direction plus J/K/L selects one of fifteen named outcomes including arm drags, trips, chokes, spinebusters, suplexes, powerbombs, side tosses, slams, and an Irish whip. A direction held through release also drives the physical throw. When the defender is already committed over the commentary desk, bounded environmental aim assist keeps the slam on the desk instead of launching the ragdoll past it. Hold I/LT to guard: strikes deal tiny chip damage and drain guard stamina, while a grapple can be stuffed until the guard breaks. Space performs a visible, stamina-bound Livewire Kick-Up while downed.
 
 Running K becomes a Railway Stiff-Arm and a registered hit guarantees a knockdown. Sprint into an elastically deforming rope to load a faster rebound window. Press F near a center rope to crouch through the middle ropes to ringside or return; at a corner, F is reserved for lower, middle, and top turnbuckle stages. From the top: J is Neon Drop Elbow, K is Top-Rope Missile Kick, F is Domefall Dive, Q taunts, and Space descends one stage. Fill Momentum, stagger or drop the opponent, and press F to perform that fighter's signature.
 
@@ -54,9 +54,15 @@ On browsers that expose `immersive-vr`, the in-match **ENTER ARENA XR** action s
 
 Strikes and throws use authored phase keyframes rather than one animation pose for an entire move. Jabs retract, make contact, and recover; hooks rotate through the hips and shoulders; struck fighters snap, stagger, or leave their feet according to impact weight. Elbows and knees are independently articulated, boots stay planted on the mat, and damage triggers a short body flash plus a capped contact burst.
 
-Grapples are paired two-fighter sequences. The attacker owns the victim through a visible lock, load, lift, contact, and safe release. Powerbombs, front slams, suplexes, chokes, spinebusters, arm drags, side tosses, trips, and Irish whips have distinct victim orientation and attacker leverage. Major landings add restrained slow motion, hit-stop, a mat shock ring, a layered synthesized thump, crowd response, and a higher/wider broadcast camera cut. AI commits to its selected throw instead of changing moves during the lock.
+Grapples are paired two-fighter sequences. The attacker owns the victim through a visible lock, load, lift, contact, and safe release. Powerbombs, front slams, suplexes, chokes, spinebusters, arm drags, side tosses, trips, and Irish whips have distinct victim orientation and attacker leverage. Release impulses are distributed by segment mass across the complete articulated body, preventing the pelvis stretch and vibration caused by applying a heavyweight's total impulse to one rigid body. Major landings add restrained slow motion, hit-stop, a mat shock ring, a layered synthesized thump, crowd response, and a purpose-selected camera shot. AI commits to its selected throw instead of changing moves during the lock.
 
 The core body slam is deliberately staged: reach, two-hand grip, pull, visible resistance, foot adjustment, lowered hips, lift, peak, drive, shoulder/back landing, impact pause, and recovery. The ring deck flexes in a bounded wave whose strength follows the same presentation hierarchy as the camera and audio. Healthy, hurt, exhausted, and high-momentum fighters carry different posture even before the HUD is read.
+
+### The Volt Dome level and camera director
+
+The playable floor extends beyond every apron into a larger barricaded ringside map. The commentary desk, physical three-tier steel steps, entrance lane, reactive perimeter ribbons, expanded crowd bowl, lighting truss, stage wall, and tunnel create readable destinations instead of a dark void around the ring. The ring, floor, desk, steps, ropes, posts, props, and barricades have collision authority; decorative architecture stays out of gameplay physics.
+
+The camera director uses stable broadcast, wide, ringside-X, ringside-Z, commentary-table, aerial, grapple, and replay modes. It predicts bounded motion, holds a shot long enough to prevent rapid cuts, selects one camera hemisphere for continuity, and separately damps the look target. Camera-relative controls freeze their basis while input or a cinematic action is active, so a camera move cannot turn a held forward grapple into a side move. Reduced Motion lowers movement and disables impact shake.
 
 Every fighter receives five optional pre-match beers. Drinking one adds five points to that match's stamina cap; unopened cans stay on the bench. Chad “The Claw” Kinsey deliberately has the roster's lowest base stamina, so choosing how much to drink is a meaningful part of his high-power, low-gas identity. Rematches preserve the selected allotment.
 
@@ -78,8 +84,9 @@ src/
     ai/         utility-based shared-rule opponent decisions
     animation/  interpolated hierarchical pose library
     audio/      gesture-gated procedural Web Audio with HRTF spatial emitters
+    camera/     deterministic shot selection and priority
     components/ Three/Rapier arena, fighters, camera, effects
-    data/       immutable fighter and move definitions
+    data/       immutable fighter, move, balance, and arena definitions
     input/      keyboard/gamepad abstraction
     state/      Zustand match and persistent settings stores
     systems/    deterministic combat and legal state transitions
@@ -103,7 +110,7 @@ All match-shaping constants live in `src/game/data/balance.ts` instead of being 
 | Grapple readability | Visible lock, directional selection window, lift/contact/landing sequence |
 | Crowd Hype | Variety beats repetition; counters, finishers, near falls, and environment spike it |
 
-Deterministic rules remain separate from presentation, but physical contacts are authoritative in the shipping match. The articulated rigs use bounded muscle motors and authored target poses rather than uncontrolled ragdoll impulses. Crowd and ring-deck geometry are instanced, particles are capped, the initial shell is code-split from the Three/Rapier arena, and device pixel ratio is adaptive.
+Deterministic rules remain separate from presentation, but physical contacts are authoritative in the shipping match. The articulated rigs use bounded muscle motors, shared center-of-mass locomotion, planted-state rotation limits, and authored target poses rather than uncontrolled ragdoll impulses. The initial shell lazily loads the game scene, and the production build splits React, Three core, React Three Fiber, Drei, React Rapier, and Rapier WASM into separate cacheable chunks. Crowd and ring-deck geometry are instanced, particles are capped, shadows are baked, and device pixel ratio is adaptive.
 
 ### UI-free Toy Test
 
@@ -133,33 +140,37 @@ Vitest covers:
 
 Playwright covers the production-preview full match plus controlled Bodyworks, Toy Test, and mobile journeys: initialization, Chad selection, five-beer setup, Chaos Circuit, exact situational controls, movement and braking, jumping, punch and directional-kick damage, visible guard, a live kick-up, elastic rope load, stiff-arm knockdown, observed two-hand grapple and physical slam landing, three-stage climb, top-rope options, real pin/KO resolution, clean console output, and instant rematch.
 
+Dedicated deterministic browser scenarios prove idle-body stability, rope rebound into a stiff-arm knockdown, a tracked top-rope dive, apron exit/re-entry, and a physical commentary-table collapse. A bounded three-rematch soak checks Rapier body/joint cleanup, emergency resets, frame cost, and browser heap growth without turning the test into an unbounded benchmark.
+
 ```bash
-npm run test:e2e
+pnpm test:playability
+pnpm test:soak
+pnpm test:e2e
 ```
 
 The Vite development server also surfaces browser console errors in its terminal, which is used during live gameplay smoke testing.
 
 ## Vercel deployment
 
-`vercel.json` declares the Vite framework, SPA fallback, clean URLs, and security headers. Static public discovery includes health, OpenAPI, LLM, sitemap, feed, manifest, security, trust, agent, and honest unsupported-MCP declarations.
+`vercel.json` declares the Vite framework, clean URLs, build output, XR policy, and security headers. Static public discovery includes health, OpenAPI, LLM, sitemap, feed, manifest, security, trust, agent, and honest unsupported-MCP declarations.
 
 ```bash
-vercel link --yes --project platphorm-frwf
-vercel pull --yes --environment=preview
-vercel build
-vercel deploy --prebuilt
+pnpm exec vercel link --yes --project platphorm-frwf
+pnpm exec vercel pull --yes --environment=preview
+pnpm exec vercel build
+pnpm exec vercel deploy --prebuilt
 # Verify the immutable preview, then:
-vercel promote <preview-url>
-vercel inspect <production-url>
-vercel logs <production-url> --since 1h --level error
+pnpm exec vercel promote <preview-url>
+pnpm exec vercel inspect <production-url>
+pnpm exec vercel logs <production-url> --since 1h --level error
 ```
 
 For a direct production rebuild, keep the prebuild and deploy targets aligned:
 
 ```bash
-vercel pull --yes --environment=production
-vercel build --prod
-vercel deploy --prebuilt --prod
+pnpm exec vercel pull --yes --environment=production
+pnpm exec vercel build --prod
+pnpm exec vercel deploy --prebuilt --prod
 ```
 
 The game intentionally does not install Vercel Analytics, Speed Insights, databases, flags, queues, functions, or Marketplace storage: each would add runtime behavior or telemetry that conflicts with this product's no-backend/no-runtime-network contract. Vercel is used for immutable static delivery, routing, headers, previews, promotion, and release inspection.

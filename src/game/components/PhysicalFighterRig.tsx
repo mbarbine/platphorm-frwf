@@ -65,7 +65,7 @@ function SegmentBody({ schema, fighterId, side, base, bodyRef, onContactForce, o
     : isFoot || isHand ? <CuboidCollider args={[schema.radius, isFoot ? schema.radius * .5 : schema.halfLength, isFoot ? schema.halfLength * 1.35 : schema.radius]} mass={schema.massKg} friction={isFoot ? 1.45 : .72} restitution={.02} />
     : <CapsuleCollider args={[schema.halfLength, schema.radius]} mass={schema.massKg} friction={.76} restitution={.015} />;
   const isCore = schema.id === 'pelvis' || schema.id === 'abdomen' || schema.id === 'chest';
-  return <RigidBody ref={bodyRef} name={`${side}-${schema.id}`} type="dynamic" position={position} colliders={false} collisionGroups={fighterCollisionGroups(side)} solverGroups={fighterCollisionGroups(side)} canSleep={false} linearDamping={.42} angularDamping={1.8} additionalSolverIterations={4} ccd={schema.attackEligible || isHead || isCore} userData={userData}
+  return <RigidBody ref={bodyRef} name={`${side}-${schema.id}`} type="dynamic" position={position} colliders={false} collisionGroups={fighterCollisionGroups(side)} solverGroups={fighterCollisionGroups(side)} canSleep linearDamping={.55} angularDamping={2.2} additionalSolverIterations={4} ccd={schema.attackEligible || isHead || isCore} userData={userData}
     onContactForce={(payload) => onContactForce(schema, bodyRef, payload)}
     onCollisionEnter={isFoot ? (payload) => onFootContact(schema.id, true, payload) : undefined}
     onCollisionExit={isFoot ? (payload) => onFootContact(schema.id, false, payload as CollisionEnterPayload) : undefined}>

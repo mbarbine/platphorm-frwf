@@ -11,6 +11,7 @@ import { bodyWorksRuntime } from '../physics/physicsRuntime';
 import type { FighterKey } from '../physics/physicsRuntime';
 import type { BodySegmentId } from '../physics/bodySchema';
 import type { PropRuntime } from '../types/game';
+import { VOLT_DOME } from '../data/arena';
 
 function Crowd() {
   const ref = useRef<InstancedMesh>(null); const dummy = useMemo(() => new Object3D(), []); const elapsed = useRef(0);
@@ -21,7 +22,7 @@ function Crowd() {
     const hype = useMatchStore.getState().model.hype;
     for (let index = 0; index < count; index += 1) {
       const row = Math.floor(index / 36); const col = index % 36; const angle = (col / 36) * Math.PI * 2;
-      const radius = 9.5 + row * 1.25; const bounce = Math.sin(elapsed.current * (2 + hype / 30) + index * .71) * (.04 + hype / 700);
+      const radius = 13.25 + row * 1.32; const bounce = Math.sin(elapsed.current * (2 + hype / 30) + index * .71) * (.04 + hype / 700);
       dummy.position.set(Math.cos(angle) * radius, 1.3 + row * .55 + bounce, Math.sin(angle) * radius);
       dummy.rotation.y = -angle + Math.PI / 2; dummy.scale.set(.42, .7 + (index % 3) * .12, .32); dummy.updateMatrix(); ref.current.setMatrixAt(index, dummy.matrix);
     }
@@ -30,6 +31,23 @@ function Crowd() {
   return <instancedMesh ref={ref} args={[undefined, undefined, count]} castShadow={false} receiveShadow={false}>
     <boxGeometry args={[.7, 1.6, .5]} /><meshStandardMaterial color="#342d5a" emissive="#6b42c9" emissiveIntensity={.13} roughness={.75} />
   </instancedMesh>;
+}
+
+function ArenaRibbon() {
+  const cyan = useRef<MeshStandardMaterial>(null); const pink = useRef<MeshStandardMaterial>(null); const elapsed = useRef(0);
+  useFrame((_, dt) => {
+    elapsed.current += dt;
+    const model = useMatchStore.getState().model; const energy = .8 + model.hype / 52 + (model.chaosEvent ? .45 : 0);
+    if (cyan.current) cyan.current.emissiveIntensity = energy + Math.sin(elapsed.current * 5.2) * .16;
+    if (pink.current) pink.current.emissiveIntensity = energy + Math.cos(elapsed.current * 4.7) * .16;
+  });
+  const horizontal = VOLT_DOME.barricade.halfWidth * 2; const vertical = VOLT_DOME.barricade.halfDepth * 2;
+  return <group position={[0, 1.55, 0]}>
+    <mesh position={[0, 0, -VOLT_DOME.barricade.halfDepth + .18]}><boxGeometry args={[horizontal, .12, .06]} /><meshStandardMaterial ref={cyan} color="#6cf7ff" emissive="#23dff7" emissiveIntensity={1} metalness={.55} roughness={.22} /></mesh>
+    <mesh position={[0, 0, VOLT_DOME.barricade.halfDepth - .18]}><boxGeometry args={[horizontal, .12, .06]} /><meshStandardMaterial ref={pink} color="#ff56a7" emissive="#ff278d" emissiveIntensity={1} metalness={.55} roughness={.22} /></mesh>
+    <mesh position={[-VOLT_DOME.barricade.halfWidth + .18, 0, 0]}><boxGeometry args={[.06, .12, vertical]} /><meshStandardMaterial color="#d7ff45" emissive="#a7e92f" emissiveIntensity={1.35} /></mesh>
+    <mesh position={[VOLT_DOME.barricade.halfWidth - .18, 0, 0]}><boxGeometry args={[.06, .12, vertical]} /><meshStandardMaterial color="#ff713a" emissive="#ff4e2d" emissiveIntensity={1.35} /></mesh>
+  </group>;
 }
 
 function RopeSide({ axis, side, color, emissive }: { axis: 'x' | 'z'; side: -1 | 1; color: string; emissive: string }) {
@@ -185,6 +203,34 @@ function BrokenTable({ x, z }: { x: number; z: number }) {
   </RigidBody>)}</>;
 }
 
+function SteelSteps() {
+  const { x, z } = VOLT_DOME.steelSteps;
+  const steps = [
+    { x: 0, y: .12, z: .22, width: 1.35, height: .12, depth: .72 },
+    { x: -.16, y: .34, z: .04, width: 1.18, height: .12, depth: .56 },
+    { x: -.31, y: .56, z: -.12, width: 1, height: .12, depth: .42 },
+  ] as const;
+  return <RigidBody type="fixed" colliders={false} position={[x, .2, z]} collisionGroups={arenaCollisionGroups} solverGroups={arenaCollisionGroups} userData={{ surface: true, kind: 'steps' }}>
+    {steps.map((step, index) => <group key={index} position={[step.x, step.y, step.z]}>
+      <CuboidCollider args={[step.width / 2, step.height, step.depth / 2]} friction={.82} />
+      <mesh castShadow receiveShadow><boxGeometry args={[step.width, step.height * 2, step.depth]} /><meshStandardMaterial color={index === 2 ? '#6d7d92' : '#414d60'} metalness={.88} roughness={.2} /></mesh>
+      <mesh position={[0, step.height + .006, 0]}><boxGeometry args={[step.width * .92, .018, step.depth * .82]} /><meshStandardMaterial color="#91a7bb" metalness={.96} roughness={.18} /></mesh>
+    </group>)}
+  </RigidBody>;
+}
+
+function EntranceLane() {
+  const { x, z, width, depth } = VOLT_DOME.entrance;
+  return <RigidBody type="fixed" colliders={false} position={[x, .38, z]} collisionGroups={arenaCollisionGroups} solverGroups={arenaCollisionGroups} userData={{ surface: true, kind: 'entrance-ramp' }}>
+    <CuboidCollider args={[width / 2, .12, depth / 2]} friction={1.05} />
+    <mesh receiveShadow><boxGeometry args={[width, .22, depth]} /><meshStandardMaterial color="#181527" metalness={.48} roughness={.42} emissive="#2e1268" emissiveIntensity={.18} /></mesh>
+    {[-2.35, -1.57, -.79, 0, .79, 1.57, 2.35].map((lane, index) => <mesh key={lane} position={[lane, .13, 0]}><boxGeometry args={[.1, .025, depth * .92]} /><meshStandardMaterial color={index % 2 ? '#ff4a9b' : '#54efff'} emissive={index % 2 ? '#ff2486' : '#24d9ff'} emissiveIntensity={1.75} /></mesh>)}
+    <group position={[0, .52, depth / 2 - .4]}>
+      {[-2.5, 2.5].map((post) => <group key={post} position={[post, 0, 0]}><mesh><cylinderGeometry args={[.08, .12, 1.05, 8]} /><meshStandardMaterial color="#9cacc3" metalness={.9} roughness={.18} /></mesh><pointLight position={[0, .4, -.1]} intensity={1.3} distance={5} color={post < 0 ? '#4beaff' : '#ff3c93'} /></group>)}
+    </group>
+  </RigidBody>;
+}
+
 function Barricades() {
   const material = <meshStandardMaterial color="#242638" metalness={.62} roughness={.34} emissive="#35157c" emissiveIntensity={.18} />;
   const rails = (length: number, count: number, axis: 'x' | 'z') => Array.from({ length: count }, (_, index) => {
@@ -195,22 +241,22 @@ function Barricades() {
     </group>;
   });
   return <>
-    <RigidBody type="fixed" colliders={false} position={[0, .65, -8.35]} collisionGroups={arenaCollisionGroups} solverGroups={arenaCollisionGroups} userData={{ surface: true, kind: 'barricade' }}><CuboidCollider args={[9.1, .65, .12]} />{rails(18.2, 12, 'x')}</RigidBody>
-    <RigidBody type="fixed" colliders={false} position={[0, .65, 8.35]} collisionGroups={arenaCollisionGroups} solverGroups={arenaCollisionGroups} userData={{ surface: true, kind: 'barricade' }}><CuboidCollider args={[9.1, .65, .12]} />{rails(18.2, 12, 'x')}</RigidBody>
-    <RigidBody type="fixed" colliders={false} position={[-9.1, .65, 0]} collisionGroups={arenaCollisionGroups} solverGroups={arenaCollisionGroups} userData={{ surface: true, kind: 'barricade' }}><CuboidCollider args={[.12, .65, 8.2]} />{rails(16.4, 10, 'z')}</RigidBody>
-    <RigidBody type="fixed" colliders={false} position={[9.1, .65, 0]} collisionGroups={arenaCollisionGroups} solverGroups={arenaCollisionGroups} userData={{ surface: true, kind: 'barricade' }}><CuboidCollider args={[.12, .65, 8.2]} />{rails(16.4, 10, 'z')}</RigidBody>
+    <RigidBody type="fixed" colliders={false} position={[0, .65, -VOLT_DOME.barricade.halfDepth]} collisionGroups={arenaCollisionGroups} solverGroups={arenaCollisionGroups} userData={{ surface: true, kind: 'barricade' }}><CuboidCollider args={[VOLT_DOME.barricade.halfWidth, .65, .12]} />{rails(VOLT_DOME.barricade.halfWidth * 2, 16, 'x')}</RigidBody>
+    <RigidBody type="fixed" colliders={false} position={[0, .65, VOLT_DOME.barricade.halfDepth]} collisionGroups={arenaCollisionGroups} solverGroups={arenaCollisionGroups} userData={{ surface: true, kind: 'barricade' }}><CuboidCollider args={[VOLT_DOME.barricade.halfWidth, .65, .12]} />{rails(VOLT_DOME.barricade.halfWidth * 2, 16, 'x')}</RigidBody>
+    <RigidBody type="fixed" colliders={false} position={[-VOLT_DOME.barricade.halfWidth, .65, 0]} collisionGroups={arenaCollisionGroups} solverGroups={arenaCollisionGroups} userData={{ surface: true, kind: 'barricade' }}><CuboidCollider args={[.12, .65, VOLT_DOME.barricade.halfDepth - .15]} />{rails(VOLT_DOME.barricade.halfDepth * 2, 14, 'z')}</RigidBody>
+    <RigidBody type="fixed" colliders={false} position={[VOLT_DOME.barricade.halfWidth, .65, 0]} collisionGroups={arenaCollisionGroups} solverGroups={arenaCollisionGroups} userData={{ surface: true, kind: 'barricade' }}><CuboidCollider args={[.12, .65, VOLT_DOME.barricade.halfDepth - .15]} />{rails(VOLT_DOME.barricade.halfDepth * 2, 14, 'z')}</RigidBody>
   </>;
 }
 
 function BroadcastSet() {
   return <>
-    <group position={[0, 4.25, 11.8]}>
-      <mesh><boxGeometry args={[6.4, 2.8, .45]} /><meshStandardMaterial color="#101121" emissive="#241867" emissiveIntensity={.72} metalness={.3} roughness={.32} /></mesh>
-      {[-2.25, -1.5, -.75, 0, .75, 1.5, 2.25].map((x, index) => <mesh key={x} position={[x, .18 + Math.sin(index) * .18, -.26]}><boxGeometry args={[.4, 1.6 - (index % 3) * .2, .035]} /><meshStandardMaterial color={index % 2 ? '#ff408e' : '#52efff'} emissive={index % 2 ? '#ff2078' : '#24d8ff'} emissiveIntensity={2.2} /></mesh>)}
-      <mesh position={[0, -1.03, -.28]}><boxGeometry args={[5.5, .16, .04]} /><meshStandardMaterial color="#dfff45" emissive="#b8ef26" emissiveIntensity={2.4} /></mesh>
+    <group position={[0, 4.9, 13.7]}>
+      <mesh><boxGeometry args={[8.4, 3.4, .5]} /><meshStandardMaterial color="#101121" emissive="#241867" emissiveIntensity={.72} metalness={.3} roughness={.32} /></mesh>
+      {[-3, -2, -1, 0, 1, 2, 3].map((x, index) => <mesh key={x} position={[x, .18 + Math.sin(index) * .18, -.28]}><boxGeometry args={[.52, 2.05 - (index % 3) * .24, .035]} /><meshStandardMaterial color={index % 2 ? '#ff408e' : '#52efff'} emissive={index % 2 ? '#ff2078' : '#24d8ff'} emissiveIntensity={2.2} /></mesh>)}
+      <mesh position={[0, -1.3, -.3]}><boxGeometry args={[7.3, .18, .04]} /><meshStandardMaterial color="#dfff45" emissive="#b8ef26" emissiveIntensity={2.4} /></mesh>
     </group>
-    <group position={[0, 1.55, 15]}><mesh><boxGeometry args={[6.4, 4.1, 1]} /><meshStandardMaterial color="#090916" metalness={.3} roughness={.46} /></mesh>{[-2.2, -1.1, 0, 1.1, 2.2].map((x, index) => <mesh key={x} position={[x, .1, -.56]}><boxGeometry args={[.36, 3.1, .08]} /><meshStandardMaterial color={index % 2 ? '#ef3d96' : '#7738ff'} emissive={index % 2 ? '#ef3d96' : '#7738ff'} emissiveIntensity={1.65} /></mesh>)}</group>
-    <mesh position={[0, .52, 10.5]} rotation={[-.045, 0, 0]} receiveShadow><boxGeometry args={[6, .22, 9.2]} /><meshStandardMaterial color="#171424" metalness={.45} roughness={.5} emissive="#32136f" emissiveIntensity={.14} /></mesh>
+    <group position={[0, 2.05, 17]}><mesh><boxGeometry args={[8.8, 5.1, 1.1]} /><meshStandardMaterial color="#090916" metalness={.3} roughness={.46} /></mesh>{[-3.2, -1.6, 0, 1.6, 3.2].map((x, index) => <mesh key={x} position={[x, .1, -.61]}><boxGeometry args={[.48, 3.8, .08]} /><meshStandardMaterial color={index % 2 ? '#ef3d96' : '#7738ff'} emissive={index % 2 ? '#ef3d96' : '#7738ff'} emissiveIntensity={1.65} /></mesh>)}</group>
+    <group position={[0, 8.8, 0]}>{[-10.4, 10.4].flatMap((x) => [-8.6, 8.6].map((z) => <group key={`${x}-${z}`} position={[x, 0, z]}><mesh rotation={[0, 0, Math.PI / 2]}><cylinderGeometry args={[.08, .08, 4.4, 8]} /><meshStandardMaterial color="#65738a" metalness={.9} roughness={.2} /></mesh><mesh><cylinderGeometry args={[.08, .08, 4.4, 8]} /><meshStandardMaterial color="#65738a" metalness={.9} roughness={.2} /></mesh></group>))}</group>
   </>;
 }
 
@@ -219,7 +265,7 @@ export function Arena() {
   const toyTest = useMatchStore((state) => state.model.toyTestMode);
   return <>
     <color attach="background" args={[spotlight ? '#020106' : '#070611']} />
-    <fog attach="fog" args={[new Color('#090715'), 15, 30]} />
+    <fog attach="fog" args={[new Color('#090715'), 20, 42]} />
     <ambientLight intensity={spotlight ? .12 : .45} color="#786dff" />
     <hemisphereLight intensity={spotlight ? .15 : .62} color="#9aefff" groundColor="#160721" />
     <directionalLight castShadow position={[4, 12, 6]} intensity={spotlight ? .35 : 2.2} color="#f0f6ff" shadow-mapSize={[1024, 1024]} />
@@ -242,9 +288,9 @@ export function Arena() {
       <mesh position={[0, 1.48, 4.66]}><boxGeometry args={[5.4, .2, .03]} /><meshStandardMaterial color="#ff388b" emissive="#ff388b" emissiveIntensity={1.7} /></mesh>
     </group>
     <Ropes /><Post x={-5.75} z={-4.25} /><Post x={5.75} z={-4.25} /><Post x={-5.75} z={4.25} /><Post x={5.75} z={4.25} />
-    <group position={[6.65, .36, 4.65]}>{[0, .28, .56].map((y, index) => <mesh key={y} position={[index * .18, y, 0]}><boxGeometry args={[1.15 - index * .12, .22, 1.2]} /><meshStandardMaterial color="#394151" metalness={.75} roughness={.24} /></mesh>)}</group>
-    <RigidBody type="fixed" colliders="hull" position={[0, .2, 0]} collisionGroups={arenaCollisionGroups} solverGroups={arenaCollisionGroups} userData={{ surface: true, kind: 'floor' }}><mesh receiveShadow><cylinderGeometry args={[15, 15, .4, 48]} /><meshStandardMaterial color="#100d1c" roughness={.8} /></mesh></RigidBody>
-    <Barricades />{!toyTest && <Crowd />}<Props />
+    <SteelSteps />
+    <RigidBody type="fixed" colliders="hull" position={[0, .2, 0]} collisionGroups={arenaCollisionGroups} solverGroups={arenaCollisionGroups} userData={{ surface: true, kind: 'floor' }}><mesh receiveShadow><cylinderGeometry args={[VOLT_DOME.floor.radius, VOLT_DOME.floor.radius, .4, 64]} /><meshStandardMaterial color="#100d1c" roughness={.8} /></mesh></RigidBody>
+    <EntranceLane /><Barricades /><ArenaRibbon />{!toyTest && <Crowd />}<Props />
     <group position={[0, 13, 0]}>
       {[0, Math.PI / 2, Math.PI, Math.PI * 1.5].map((angle) => <group key={angle} rotation={[0, angle, 0]}>
         <mesh position={[0, -.65, -7.75]} rotation={[.15, 0, 0]}><cylinderGeometry args={[.18, .36, .65, 10]} /><meshStandardMaterial color="#8eeeff" emissive="#41dcff" emissiveIntensity={2.4} /></mesh>
@@ -253,8 +299,8 @@ export function Arena() {
     </group>
     <group position={[0, 8.7, 0]}>{[-7.2, 7.2].flatMap((x) => [-5.8, 5.8].map((z) => <group key={`${x}-${z}`} position={[x, 0, z]}><mesh><cylinderGeometry args={[.13, .2, .44, 8]} /><meshStandardMaterial color="#adb8c7" metalness={.8} roughness={.2} /></mesh><pointLight position={[0, -.3, 0]} intensity={1.25} distance={10} color={x * z > 0 ? '#ff3f8f' : '#48e7ff'} /></group>))}</group>
     <BroadcastSet />
-    <group position={[-8, .6, -5]}><mesh><boxGeometry args={[4.2, 1.1, .18]} /><meshStandardMaterial color="#272334" /></mesh></group>
-    <group position={[8, .6, 4]}><mesh><boxGeometry args={[4.2, 1.1, .18]} /><meshStandardMaterial color="#272334" /></mesh></group>
+    <group position={[-10.7, .7, -6.4]}><mesh><boxGeometry args={[4.6, 1.25, .18]} /><meshStandardMaterial color="#272334" emissive="#27105b" emissiveIntensity={.18} /></mesh></group>
+    <group position={[10.7, .7, 6.4]}><mesh><boxGeometry args={[4.6, 1.25, .18]} /><meshStandardMaterial color="#272334" emissive="#5b123a" emissiveIntensity={.18} /></mesh></group>
     <mesh position={[5.3, 2.3, -5.3]}><cylinderGeometry args={[.22, .3, .26, 16]} /><meshStandardMaterial color="#d7a940" metalness={.8} roughness={.22} /></mesh>
   </>;
 }

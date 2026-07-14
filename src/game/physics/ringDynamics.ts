@@ -27,10 +27,10 @@ export const apronTransitionTarget = (position: Vec2): ApronTransitionTarget => 
   const useX = Math.abs(position.x) / RING_ROPE_LIMIT.x >= Math.abs(position.z) / RING_ROPE_LIMIT.z;
   if (useX) {
     const side = Math.sign(position.x) || 1;
-    return { target: { x: side * (inside ? 4.72 : 6.42), z: Math.max(-3.3, Math.min(3.3, position.z)) }, inside };
+    return { target: { x: side * (inside ? 4.58 : 6.42), z: Math.max(-3.3, Math.min(3.3, position.z)) }, inside };
   }
   const side = Math.sign(position.z) || 1;
-  return { target: { x: Math.max(-4.65, Math.min(4.65, position.x)), z: side * (inside ? 3.28 : 4.96) }, inside };
+  return { target: { x: Math.max(-4.65, Math.min(4.65, position.x)), z: side * (inside ? 3.16 : 4.96) }, inside };
 };
 
 export const solveRopeResponse = (position: Vec2, velocity: Vec2, overdrive = false): RopeResponse => {
