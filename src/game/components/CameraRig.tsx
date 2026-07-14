@@ -16,6 +16,7 @@ export function CameraRig() {
   const impactId = useRef(0); const impactImpulse = useRef(0); const elapsed = useRef(0);
   const shot = useRef<CameraShot>('broadcast'); const shotChangedAt = useRef(0); const shotSide = useRef<1 | -1>(1);
   const shake = useSettings((state) => state.shake); const reduced = useSettings((state) => state.reducedMotion);
+  const cameraCuts = useSettings((state) => state.cameraCuts);
 
   useFrame((_, dt) => {
     if (gl.xr.isPresenting) return;
@@ -29,13 +30,16 @@ export function CameraRig() {
     const playerMove = model.player.moveId ? getMove(model.player.moveId) : null; const opponentMove = model.opponent.moveId ? getMove(model.opponent.moveId) : null;
     const securedGrapple = Boolean(model.grapple && model.grapple.gripCount >= 2 && !['reach', 'acquire', 'failed'].includes(model.grapple.phase));
     const table = model.props.find((prop) => prop.kind === 'table' && !prop.broken) ?? null;
-    const requestedShot = selectCameraShot({
+    const directedShot = selectCameraShot({
       replayActive, middleX, middleZ, separation, playerState: model.player.state, opponentState: model.opponent.state,
       playerMoveCategory: playerMove?.category ?? null, opponentMoveCategory: opponentMove?.category ?? null, securedGrapple,
       playerAttackPhase: model.player.attackPhase, opponentAttackPhase: model.opponent.attackPhase, grapplePhase: model.grapple?.phase ?? null,
       tablePosition: table?.position ?? null, lastImpactKind: model.lastImpact?.kind ?? null,
     });
-    if (requestedShot !== shot.current && (cameraShotIsUrgent(requestedShot) || elapsed.current - shotChangedAt.current >= .72)) {
+    const requestedShot = cameraCuts === 'off' && directedShot !== 'replay' ? 'broadcast' : directedShot;
+    const cutInterval = cameraCuts === 'reduced' ? 1.8 : .72;
+    const urgent = (cameraCuts === 'full' && cameraShotIsUrgent(requestedShot)) || requestedShot === 'replay';
+    if (requestedShot !== shot.current && (urgent || elapsed.current - shotChangedAt.current >= cutInterval)) {
       shot.current = requestedShot; shotChangedAt.current = elapsed.current;
       document.documentElement.dataset.cameraShot = requestedShot;
     }

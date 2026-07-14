@@ -12,6 +12,7 @@ describe('public-safe release identity', () => {
       moveManifestVersion: RELEASE_MANIFEST.moveVersion,
       arenaManifestVersion: RELEASE_MANIFEST.arenaVersion,
       assetManifestVersion: RELEASE_MANIFEST.assetVersion,
+      presentationRigVersion: RELEASE_MANIFEST.presentationRigVersion,
       fighterCount: 5,
       moveCount: 34,
       criticalAssetCount: 1,

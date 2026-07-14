@@ -10,9 +10,12 @@ export interface Settings {
   uiScale: number;
   graphicsQuality: GraphicsQuality;
   grappleGuide: 'full' | 'minimal' | 'off';
+  cameraCuts: 'full' | 'reduced' | 'off';
+  lowFlash: boolean;
+  highContrast: boolean;
 }
 
-const DEFAULTS: Settings = { masterVolume: .72, effectsVolume: .86, crowdVolume: .66, shake: .65, reducedMotion: false, uiScale: 1, graphicsQuality: 'auto', grappleGuide: 'full' };
+const DEFAULTS: Settings = { masterVolume: .72, effectsVolume: .86, crowdVolume: .66, shake: .65, reducedMotion: false, uiScale: 1, graphicsQuality: 'auto', grappleGuide: 'full', cameraCuts: 'full', lowFlash: false, highContrast: false };
 const STORAGE_KEY = 'ringfall-settings-v1';
 
 const load = (): Settings => {
@@ -30,6 +33,9 @@ const load = (): Settings => {
       uiScale: typeof candidate.uiScale === 'number' ? Math.min(1.25, Math.max(.85, candidate.uiScale)) : DEFAULTS.uiScale,
       graphicsQuality: candidate.graphicsQuality === 'performance' || candidate.graphicsQuality === 'quality' ? candidate.graphicsQuality : 'auto',
       grappleGuide: candidate.grappleGuide === 'minimal' || candidate.grappleGuide === 'off' ? candidate.grappleGuide : 'full',
+      cameraCuts: candidate.cameraCuts === 'reduced' || candidate.cameraCuts === 'off' ? candidate.cameraCuts : 'full',
+      lowFlash: typeof candidate.lowFlash === 'boolean' ? candidate.lowFlash : DEFAULTS.lowFlash,
+      highContrast: typeof candidate.highContrast === 'boolean' ? candidate.highContrast : DEFAULTS.highContrast,
     };
   } catch { return DEFAULTS; }
 };
@@ -44,7 +50,7 @@ const persist = (settings: Settings): void => localStorage.setItem(STORAGE_KEY, 
 export const useSettings = create<SettingsStore>((set) => ({
   ...load(),
   update: (patch) => set((current) => {
-    const next: Settings = { masterVolume: current.masterVolume, effectsVolume: current.effectsVolume, crowdVolume: current.crowdVolume, shake: current.shake, reducedMotion: current.reducedMotion, uiScale: current.uiScale, graphicsQuality: current.graphicsQuality, grappleGuide: current.grappleGuide, ...patch };
+    const next: Settings = { masterVolume: current.masterVolume, effectsVolume: current.effectsVolume, crowdVolume: current.crowdVolume, shake: current.shake, reducedMotion: current.reducedMotion, uiScale: current.uiScale, graphicsQuality: current.graphicsQuality, grappleGuide: current.grappleGuide, cameraCuts: current.cameraCuts, lowFlash: current.lowFlash, highContrast: current.highContrast, ...patch };
     persist(next); return next;
   }),
   reset: () => { persist(DEFAULTS); set(DEFAULTS); },

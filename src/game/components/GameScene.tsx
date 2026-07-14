@@ -27,6 +27,8 @@ import { browserRuntimeQuality } from '../runtime/quality';
 import { usePhysicsLabStore } from '../state/physicsLabStore';
 import { pulseConnectedGamepads } from '../input/gamepadHaptics';
 import { renderDiagnostics, resetRenderDiagnostics, sampleRenderDiagnostics } from '../runtime/renderDiagnostics';
+import { selectFighterDetail } from '../presentation/presentationManifest';
+import type { FighterDetail } from '../presentation/presentationManifest';
 
 interface Props { onPause: () => void; onDevice: (device: ControlDevice) => void; onFinished: () => void }
 
@@ -93,15 +95,15 @@ function RuntimeDiagnosticsSampler() {
   return null;
 }
 
-function Fighters() {
+function Fighters({ detail }: { detail: FighterDetail }) {
   const player = useMatchStore((state) => state.model.player); const opponent = useMatchStore((state) => state.model.opponent);
   const runtimeId = useMatchStore((state) => state.model.runtimeId);
   const replayActive = useMatchStore((state) => state.replayActive);
   return <group key={runtimeId} visible={!replayActive}>
     <PhysicalFighterRig runtime={player} side="player" showVisuals={false} />
     <PhysicalFighterRig runtime={opponent} side="opponent" showVisuals={false} />
-    <FighterModel runtime={player} counterpart={opponent} side="player" />
-    <FighterModel runtime={opponent} counterpart={player} side="opponent" />
+    <FighterModel runtime={player} counterpart={opponent} side="player" detail={detail} />
+    <FighterModel runtime={opponent} counterpart={player} side="opponent" detail={detail} />
   </group>;
 }
 
@@ -131,6 +133,7 @@ export function GameScene(props: Props) {
   const labRate = usePhysicsLabStore((state) => state.rate); const labDebug = usePhysicsLabStore((state) => state.debug);
   const graphicsQuality = useSettings((state) => state.graphicsQuality); const reducedMotion = useSettings((state) => state.reducedMotion);
   const quality = useMemo(() => browserRuntimeQuality(graphicsQuality, reducedMotion, lab), [graphicsQuality, lab, reducedMotion]);
+  const fighterDetail = selectFighterDetail(quality.tier);
   const renderer = useRef<WebGLRenderer | null>(null); const [xrAvailable, setXrAvailable] = useState(false); const [xrPresenting, setXrPresenting] = useState(false); const [xrError, setXrError] = useState('');
   const enterXR = async (): Promise<void> => {
     if (!navigator.xr || !renderer.current) return;
@@ -146,7 +149,7 @@ export function GameScene(props: Props) {
       renderer.current = gl; gl.xr.enabled = true;
       if (navigator.xr) void navigator.xr.isSessionSupported('immersive-vr').then(setXrAvailable).catch(() => setXrAvailable(false));
     }}>
-      <Suspense fallback={null}><Physics gravity={[0, -18, 0]} timeStep={(lab ? labRate : 1) / 60} paused={paused || replayActive} debug={lab && labDebug} interpolate numSolverIterations={8} numInternalPgsIterations={2} maxCcdSubsteps={2}><Arena crowdCount={quality.crowdCount} /><Fighters />{lab && labDebug && <BodyWorksDebugOverlay />}<PlayerControlBeacon /><ImpactEffects /><Simulation {...props} /></Physics><ReplayDirector /><CameraRig /><RuntimeDiagnosticsSampler /><AdaptiveDpr pixelated />{quality.bakeShadows && <BakeShadows />}</Suspense>
+      <Suspense fallback={null}><Physics gravity={[0, -18, 0]} timeStep={(lab ? labRate : 1) / 60} paused={paused || replayActive} debug={lab && labDebug} interpolate numSolverIterations={8} numInternalPgsIterations={2} maxCcdSubsteps={2}><Arena crowdCount={quality.crowdCount} /><Fighters detail={fighterDetail} />{lab && labDebug && <BodyWorksDebugOverlay />}<PlayerControlBeacon /><ImpactEffects /><Simulation {...props} /></Physics><ReplayDirector /><CameraRig /><RuntimeDiagnosticsSampler /><AdaptiveDpr pixelated />{quality.bakeShadows && <BakeShadows />}</Suspense>
     </Canvas>
     {xrAvailable && <button type="button" className="xr-entry" data-testid="xr-entry" onClick={() => void (xrPresenting ? exitXR() : enterXR())}>{xrPresenting ? 'EXIT ARENA XR' : 'ENTER ARENA XR'}<small>QUEST · STEAM FRAME · OPENXR</small></button>}
     {xrError && <div className="xr-error" role="status">XR UNAVAILABLE · {xrError}</div>}

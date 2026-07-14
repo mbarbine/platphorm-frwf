@@ -22,6 +22,7 @@ export default defineConfig(({ mode }) => {
     moveManifestVersion: RELEASE_MANIFEST.moveVersion,
     arenaManifestVersion: RELEASE_MANIFEST.arenaVersion,
     assetManifestVersion: RELEASE_MANIFEST.assetVersion,
+    presentationRigVersion: RELEASE_MANIFEST.presentationRigVersion,
     deploymentEnvironment: process.env.VERCEL_ENV ?? mode,
     fighterCount: releaseManifestCounts.fighters,
     moveCount: releaseManifestCounts.moves,

@@ -218,6 +218,26 @@ export const getPairedPose = (move: MoveDefinition, role: Role, phase: AttackPha
   return stagedGrappleVariant(sample(role === 'actor' ? pair[0] : pair[1], progress), move.id, role, progress, actorId);
 };
 
+const TAUNT_POSES: Readonly<Record<FighterId, Pose>> = {
+  atlas: pose({ torso: [.18, 0, 0], leftArm: [-2.7, 0, -.32], rightArm: [-2.7, 0, .32], leftForearm: [-.42, 0, 0], rightForearm: [-.42, 0, 0], leftLeg: [.28, 0, 0], rightLeg: [.28, 0, 0], leftShin: [-.72, 0, 0], rightShin: [-.72, 0, 0], rootY: -.12, rootTilt: .16 }),
+  vex: pose({ torso: [-.12, .48, -.12], leftArm: [-.58, 0, -.5], rightArm: [-2.45, -.35, .32], leftForearm: [-1.12, 0, 0], rightForearm: [-.25, 0, 0], leftLeg: [-.22, 0, 0], rightLeg: [.25, 0, 0], rootY: .14, rootYaw: .42, rootRoll: -.16 }),
+  nova: pose({ torso: [.08, -.52, 0], leftArm: [-1.28, -.25, -.7], rightArm: [-1.28, .25, .7], leftForearm: [-1.34, 0, 0], rightForearm: [-.42, 0, 0], leftLeg: [.16, 0, 0], rightLeg: [-.16, 0, 0], rootYaw: -.38, rootRoll: .08 }),
+  brick: pose({ torso: [.32, 0, .05], leftArm: [-1.05, .18, -.48], rightArm: [-1.05, -.18, .48], leftForearm: [-1.46, 0, .35], rightForearm: [-1.46, 0, -.35], leftLeg: [.34, 0, 0], rightLeg: [.26, 0, 0], rootY: -.14, rootTilt: .28 }),
+  chad: pose({ torso: [-.08, .18, -.08], leftArm: [-2.62, -.18, -.28], rightArm: [-1.58, .15, .62], leftForearm: [-.3, 0, 0], rightForearm: [-.22, 0, 0], leftLeg: [-.2, 0, 0], rightLeg: [.2, 0, 0], rootY: .12, rootYaw: .22, rootRoll: -.1 }),
+};
+
+export const getTauntPose = (fighterId: FighterId, move: MoveDefinition, phase: AttackPhase, elapsed: number): Pose => {
+  const signature = TAUNT_POSES[fighterId];
+  const windup = mixPose(POSES.combatIdle, signature, .42);
+  return sample([
+    { at: 0, pose: POSES.combatIdle },
+    { at: .34, pose: windup },
+    { at: .66, pose: signature },
+    { at: .84, pose: signature },
+    { at: 1, pose: POSES.combatIdle },
+  ], cinematicProgress(move, phase, elapsed));
+};
+
 const strikeFrames = (moveId: string): readonly PoseKeyframe[] => {
   if (moveId === 'jab') return [
     { at: 0, pose: POSES.combatIdle },

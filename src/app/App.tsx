@@ -30,7 +30,12 @@ export function App() {
   const toyTest = new URLSearchParams(window.location.search).get('toyTest') === '1';
   const settings = useSettings(); const configure = useMatchStore((state) => state.configure); const rematch = useMatchStore((state) => state.rematch); const result = useMatchStore((state) => state.model.result); const replayActive = useMatchStore((state) => state.replayActive);
   const opponentId = opponentFor(selected); const fighter = fighterById(selected); const opponent = fighterById(opponentId);
-  useEffect(() => { document.documentElement.style.setProperty('--ui-scale', String(settings.uiScale)); audioEngine.configure(settings); }, [settings]);
+  useEffect(() => {
+    document.documentElement.style.setProperty('--ui-scale', String(settings.uiScale));
+    document.documentElement.dataset.highContrast = settings.highContrast ? 'true' : 'false';
+    document.documentElement.dataset.lowFlash = settings.lowFlash ? 'true' : 'false';
+    audioEngine.configure(settings);
+  }, [settings]);
 
   const confirm = (next: Screen): void => { audioEngine.play('confirm', settings); setScreen(next); };
   const preloadRuntime = useCallback((): void => {

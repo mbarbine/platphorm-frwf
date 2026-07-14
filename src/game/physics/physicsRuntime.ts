@@ -1,7 +1,7 @@
 import type { RapierRigidBody } from '@react-three/rapier';
 import type { ImpulseJoint, JointData, World } from '@dimforge/rapier3d-compat';
 import type { FrameInput } from '../systems/combat';
-import type { BodyRegion, FighterRuntime, GameCommand, MatchModel, Vec2 } from '../types/game';
+import type { BodyRegion, FighterRuntime, GameCommand, MatchModel, PropRuntime, Vec2 } from '../types/game';
 import { clamp } from '../utils/math';
 import type { BodySegmentId } from './bodySchema';
 import { computeMotorTorque } from './motorController';
@@ -118,7 +118,7 @@ interface GrappleEnvironmentTarget {
 
 interface RegisteredProp {
   body: RapierRigidBody;
-  kind: 'chair' | 'sign' | 'trash';
+  kind: Exclude<PropRuntime['kind'], 'table'>;
 }
 
 interface PhysicalPropGrip {
@@ -207,7 +207,7 @@ export class BodyWorksRuntime {
     for (const body of bodies) body.setAdditionalMass(perBody, true);
   }
 
-  registerProp(id: string, kind: 'chair' | 'sign' | 'trash', body: RapierRigidBody): () => void {
+  registerProp(id: string, kind: Exclude<PropRuntime['kind'], 'table'>, body: RapierRigidBody): () => void {
     this.props.set(id, { body, kind });
     this.metrics.propBodyCount = this.props.size;
     const registeredGeneration = this.generation;

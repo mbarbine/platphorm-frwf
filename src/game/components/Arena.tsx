@@ -181,7 +181,8 @@ function CommentaryTable({ prop }: { prop: PropRuntime }) {
 interface FighterColliderData { bodyWorks: true; fighter: FighterKey; segment: BodySegmentId; region: 'head' | 'chest' | 'ribs' | 'pelvis' | 'leftArm' | 'rightArm' | 'leftLeg' | 'rightLeg' }
 const isFighterColliderData = (value: unknown): value is FighterColliderData => typeof value === 'object' && value !== null && 'bodyWorks' in value && 'fighter' in value && 'segment' in value && 'region' in value;
 
-function PropVisual({ kind }: { kind: Exclude<PropRuntime['kind'], 'table'> }) {
+function PropVisual({ kind }: { kind: PropRuntime['kind'] }) {
+  if (kind === 'table') return null;
   if (kind === 'chair') return <group>
     <mesh><boxGeometry args={[.9, .11, .82]} /><meshStandardMaterial color="#929dac" metalness={.82} roughness={.2} /></mesh>
     <mesh position={[0, .69, .35]}><boxGeometry args={[.9, 1.16, .1]} /><meshStandardMaterial color="#4cdcff" emissive="#157c8c" emissiveIntensity={.4} metalness={.6} roughness={.25} /></mesh>
@@ -225,10 +226,9 @@ function PhysicalProp({ prop, initialPosition }: { prop: PropRuntime; initialPos
     const propVelocity = body.current?.linvel() ?? { x: 0, y: 0, z: 0 }; const targetVelocity = payload.other.rigidBody?.linvel() ?? { x: 0, y: 0, z: 0 };
     bodyWorksRuntime.recordContact({ time: model.elapsed, sourceFighter: source, sourceSegment: 'rightHand', targetFighter: targetData.fighter, targetSegment: targetData.segment, targetRegion: targetData.region, totalForce: payload.totalForceMagnitude, maximumForce: payload.maxForceMagnitude, forceDirection: [payload.maxForceDirection.x, payload.maxForceDirection.y, payload.maxForceDirection.z], relativeSpeed: Math.hypot(propVelocity.x - targetVelocity.x, propVelocity.y - targetVelocity.y, propVelocity.z - targetVelocity.z), attackInstanceId, moveId, sourceObjectId: prop.id, targetSurface: null, isLanding: false });
   };
-  return <RigidBody ref={body} type="dynamic" position={initialPosition} colliders="cuboid" mass={prop.kind === 'chair' ? 3.4 : prop.kind === 'trash' ? 4.8 : .75} linearDamping={1.15} angularDamping={1.05} restitution={prop.kind === 'chair' ? .2 : prop.kind === 'trash' ? .16 : .34} collisionGroups={propCollisionGroups} solverGroups={propCollisionGroups} userData={{ surface: true, prop: prop.id, kind: prop.kind }} onContactForce={onContactForce}>
-    <group visible={!replayActive}>{prop.kind === 'chair' ? <group><mesh><boxGeometry args={[.9, .12, .85]} /><meshStandardMaterial color="#9099aa" metalness={.82} roughness={.2} /></mesh><mesh position={[0, .7, .36]}><boxGeometry args={[.9, 1.2, .12]} /><meshStandardMaterial color="#4cdcff" emissive="#157c8c" emissiveIntensity={.4} /></mesh></group>
-      : prop.kind === 'trash' ? <group><mesh><cylinderGeometry args={[.46, .39, 1.18, 14]} /><meshStandardMaterial color="#8793a3" metalness={.9} roughness={.25} /></mesh><mesh position={[0, .64, 0]}><cylinderGeometry args={[.5, .5, .08, 14]} /><meshStandardMaterial color="#b2bfcc" metalness={.94} roughness={.2} /></mesh><mesh position={[0, .73, 0]}><torusGeometry args={[.16, .035, 6, 12]} /><meshStandardMaterial color="#56efff" emissive="#21a6ba" emissiveIntensity={.7} metalness={.8} /></mesh>{[-.26,0,.26].map((x) => <mesh key={x} position={[x,0,.405]}><boxGeometry args={[.035,.92,.02]} /><meshStandardMaterial color="#c7d1dc" metalness={.9} /></mesh>)}</group>
-        : <group rotation={[0, 0, .1]}><mesh><boxGeometry args={[1.35, .85, .1]} /><meshStandardMaterial color="#ff3c91" emissive="#951654" emissiveIntensity={.4} /></mesh><mesh position={[0, -.82, 0]}><boxGeometry args={[.08, .85, .08]} /><meshStandardMaterial color="#d8e3eb" /></mesh></group>}</group>
+  const mass = prop.kind === 'chair' ? 3.4 : prop.kind === 'trash' ? 4.8 : prop.kind === 'bell' ? 1.3 : .75;
+  return <RigidBody ref={body} type="dynamic" position={initialPosition} colliders="cuboid" mass={mass} linearDamping={1.15} angularDamping={1.05} restitution={prop.kind === 'chair' ? .2 : prop.kind === 'trash' ? .16 : .34} collisionGroups={propCollisionGroups} solverGroups={propCollisionGroups} userData={{ surface: true, prop: prop.id, kind: prop.kind }} onContactForce={onContactForce}>
+    <group visible={!replayActive}><PropVisual kind={prop.kind} /></group>
   </RigidBody>;
 }
 

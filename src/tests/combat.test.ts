@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { chooseAiDecision, isActionLegal } from '../game/ai/utilityAI';
-import { cinematicProgress, getPairedPose, getStrikePose, getStrikeReactionPose } from '../game/animation/choreography';
+import { cinematicProgress, getPairedPose, getStrikePose, getStrikeReactionPose, getTauntPose } from '../game/animation/choreography';
 import { FIGHTERS, fighterById } from '../game/data/fighters';
 import { getMove } from '../game/data/moves';
 import { advanceMatch, applyMoveHit, applyPhysicalContact, createMatch, getAttackPhase, requestCommand, resetTransientState, selectDirectionalGrapple, selectDirectionalStrike, startMove } from '../game/systems/combat';
@@ -157,6 +157,12 @@ describe('deterministic combat rules', () => {
     const slam = getMove('slam'); const elapsed = slam.anticipationDuration + slam.activeDuration * .25;
     const peaks = FIGHTERS.map((fighter) => getPairedPose(slam, 'victim', 'active', elapsed, fighter.id));
     expect(new Set(peaks.map((entry) => `${entry?.rootY.toFixed(3)}:${entry?.rootYaw.toFixed(3)}:${entry?.rootRoll.toFixed(3)}:${entry?.rootTilt.toFixed(3)}`)).size).toBe(5);
+  });
+
+  it('gives all five wrestlers a distinct signature taunt silhouette', () => {
+    const taunt = getMove('taunt');
+    const fingerprints = FIGHTERS.map((fighter) => JSON.stringify(getTauntPose(fighter.id, taunt, 'active', taunt.anticipationDuration + taunt.activeDuration * .35)));
+    expect(new Set(fingerprints).size).toBe(FIGHTERS.length);
   });
 
   it('gives powerbombs, chokes, and suplexes visibly different victim staging', () => {

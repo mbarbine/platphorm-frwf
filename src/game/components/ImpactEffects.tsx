@@ -2,12 +2,14 @@ import { useFrame } from '@react-three/fiber';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Group, Mesh, MeshBasicMaterial } from 'three';
 import { useMatchStore } from '../state/matchStore';
+import { useSettings } from '../state/settings';
 
-interface Burst { id: number; x: number; z: number; color: string; count: number; kind: 'body' | 'mat'; tier: 'light' | 'heavy' | 'major' | 'finisher'; intensity: number }
+interface Burst { id: number; x: number; z: number; color: string; count: number; kind: 'body' | 'mat'; tier: 'light' | 'heavy' | 'major' | 'finisher'; intensity: number; lowFlash: boolean }
 
 export function ImpactEffects() {
   const impact = useMatchStore((state) => state.model.lastImpact);
   const impactId = impact?.id ?? 0;
+  const lowFlash = useSettings((state) => state.lowFlash);
   const [bursts, setBursts] = useState<Burst[]>([]);
   useEffect(() => {
     if (!impact) return;
@@ -15,8 +17,9 @@ export function ImpactEffects() {
     const kind = ['grapple', 'finisher', 'table', 'nearfall', 'ko'].includes(impact.kind) ? 'mat' : 'body';
     const tier = impact.kind === 'finisher' || impact.kind === 'ko' ? 'finisher' : impact.kind === 'grapple' || impact.kind === 'table' ? 'major' : impact.kind === 'heavy' || impact.kind === 'weapon' || impact.kind === 'counter' ? 'heavy' : 'light';
     const baseCount = tier === 'light' ? 4 : tier === 'heavy' ? 8 : tier === 'major' ? 12 : 16;
-    setBursts((current) => current.some((burst) => burst.id === impact.id) ? current : [...current.slice(-3), { id: impact.id, x: impact.position.x, z: impact.position.z, color, kind, tier, intensity: impact.intensity, count: Math.min(22, Math.round(baseCount + impact.intensity * 3)) }]);
-  }, [impactId]);
+    const count = Math.min(22, Math.round(baseCount + impact.intensity * 3));
+    setBursts((current) => current.some((burst) => burst.id === impact.id) ? current : [...current.slice(-3), { id: impact.id, x: impact.position.x, z: impact.position.z, color, kind, tier, intensity: impact.intensity, lowFlash, count: lowFlash ? Math.max(3, Math.ceil(count * .55)) : count }]);
+  }, [impactId, lowFlash]);
   const player = useMatchStore((state) => state.model.player); const opponent = useMatchStore((state) => state.model.opponent);
   return <>{bursts.map((burst) => <BurstView key={burst.id} burst={burst} />)}
     {player.counterWindow > 0 && <CounterCue x={player.position.x} z={player.position.z} />}
@@ -65,13 +68,13 @@ function BurstView({ burst }: { burst: Burst }) {
       <ringGeometry args={[.18, burst.tier === 'finisher' ? .34 : .26, 24]} /><meshBasicMaterial ref={register} color={burst.color} transparent depthWrite={false} opacity={.9} toneMapped={false} />
     </mesh>}
     <mesh scale={burst.kind === 'mat' ? [1.4, .08, 1.4] : [.7, .7, .18]}>
-      <sphereGeometry args={[.19, 8, 6]} /><meshBasicMaterial ref={register} color="#ffffff" transparent depthWrite={false} opacity={.8} toneMapped={false} />
+      <sphereGeometry args={[.19, 8, 6]} /><meshBasicMaterial ref={register} color="#ffffff" transparent depthWrite={false} opacity={burst.lowFlash ? .28 : .8} toneMapped={false} />
     </mesh>
     {(burst.tier === 'major' || burst.tier === 'finisher') && <>
       <mesh rotation={[-Math.PI / 2, 0, 0]} scale={[1.5, 1.5, 1]}><ringGeometry args={[.26, .32, 28]} /><meshBasicMaterial ref={register} color="#ffffff" transparent depthWrite={false} opacity={.58} toneMapped={false} /></mesh>
       <mesh position={[0, .035, 0]} rotation={[-Math.PI / 2, 0, 0]} scale={[1.2 + burst.intensity * .12, 1.2 + burst.intensity * .12, 1]}><circleGeometry args={[.26, 24]} /><meshBasicMaterial ref={register} color={burst.color} transparent depthWrite={false} opacity={.16} toneMapped={false} /></mesh>
     </>}
-    {burst.tier === 'finisher' && Array.from({ length: 8 }, (_, index) => index / 8 * Math.PI * 2).map((angle) => <mesh key={angle} position={[Math.cos(angle) * .18, .26, Math.sin(angle) * .18]} rotation={[0, -angle, 0]}><boxGeometry args={[.025, .6, .025]} /><meshBasicMaterial ref={register} color={indexColor(angle, burst.color)} transparent depthWrite={false} opacity={.75} toneMapped={false} /></mesh>)}
+    {burst.tier === 'finisher' && !burst.lowFlash && Array.from({ length: 8 }, (_, index) => index / 8 * Math.PI * 2).map((angle) => <mesh key={angle} position={[Math.cos(angle) * .18, .26, Math.sin(angle) * .18]} rotation={[0, -angle, 0]}><boxGeometry args={[.025, .6, .025]} /><meshBasicMaterial ref={register} color={indexColor(angle, burst.color)} transparent depthWrite={false} opacity={.75} toneMapped={false} /></mesh>)}
     {directions.map((direction, index) => <mesh key={index} position={[direction.x * .18, direction.y * .18, direction.z * .18]} rotation={[direction.z, direction.x, direction.y]}>
       <tetrahedronGeometry args={[.08, 0]} /><meshBasicMaterial ref={register} color={burst.color} transparent depthWrite={false} opacity={1} toneMapped={false} />
     </mesh>)}

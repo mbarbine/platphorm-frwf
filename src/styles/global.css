@@ -154,3 +154,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--cyan); outl
 }
 @media (max-width: 520px) and (orientation: portrait) { .mobile-stick { width: 128px; }.mobile-modifiers { bottom: calc(max(.75rem, env(safe-area-inset-bottom)) + 136px); }.mobile-actions { width: 188px; height: 170px; }.mobile-action { width: 59px; }.context-hint { bottom: 12rem; max-width: 72vw; }.hud__fighters { grid-template-columns: 1fr 48px 1fr; }.hype > span { letter-spacing: .04em; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+[data-high-contrast="true"] { --ink: #fff; --muted: #d9d4df; --line: rgba(255,255,255,.48); }
+[data-high-contrast="true"] button:focus-visible, [data-high-contrast="true"] select:focus-visible, [data-high-contrast="true"] input:focus-visible { outline: 3px solid #fff44d; outline-offset: 3px; }
+[data-high-contrast="true"] .meter__label, [data-high-contrast="true"] .control-deck li, [data-high-contrast="true"] .context-hint { color: #fff; text-shadow: 0 1px 3px #000; }
+[data-low-flash="true"] .announcement, [data-low-flash="true"] .results-flare { filter: none; box-shadow: none; }

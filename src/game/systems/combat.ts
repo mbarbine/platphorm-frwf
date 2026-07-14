@@ -710,13 +710,34 @@ const updateChaos = (model: MatchModel, dt: number): void => {
 };
 
 const replayFighterFrame = (fighter: FighterRuntime): ReplayFighterFrame => ({
+  definitionId: fighter.definitionId,
   position: { ...fighter.position },
+  velocity: { ...fighter.velocity },
   facing: fighter.facing,
-  verticalOffset: fighter.body.verticalOffset,
-  leanForward: fighter.body.leanForward,
-  leanSide: fighter.body.leanSide,
   state: fighter.state,
+  stateElapsed: fighter.stateElapsed,
   moveId: fighter.moveId,
+  attackPhase: fighter.attackPhase,
+  phaseElapsed: fighter.phaseElapsed,
+  health: fighter.health,
+  stamina: fighter.stamina,
+  staminaCap: fighter.staminaCap,
+  momentum: fighter.momentum,
+  climbStage: fighter.climbStage,
+  recoveryOrientation: fighter.recoveryOrientation,
+  body: {
+    verticalOffset: fighter.body.verticalOffset,
+    leanForward: fighter.body.leanForward,
+    leanSide: fighter.body.leanSide,
+    twist: fighter.body.twist,
+    headSnap: fighter.body.headSnap,
+    pelvisDrop: fighter.body.pelvisDrop,
+    muscle: fighter.body.muscle,
+    gaitPhase: fighter.body.gaitPhase,
+    stride: fighter.body.stride,
+    leftFoot: { ...fighter.body.leftFoot, offset: { ...fighter.body.leftFoot.offset } },
+    rightFoot: { ...fighter.body.rightFoot, offset: { ...fighter.body.rightFoot.offset } },
+  },
 });
 
 const sampleReplay = (model: MatchModel, dt: number): void => {
