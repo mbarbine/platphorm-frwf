@@ -22,8 +22,8 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "paths": {
-      "@frwf/game-protocol": ["../packages/game-protocol/src/index.ts"],
-      "@frwf/game-core": ["../packages/game-core/src/index.ts"]
+      "@frwf/game-protocol": ["packages/game-protocol/src/index.ts"],
+      "@frwf/game-core": ["packages/game-core/src/index.ts"]
     }
   },
   "include": ["src"]

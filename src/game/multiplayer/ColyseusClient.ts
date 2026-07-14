@@ -1,5 +1,5 @@
 import { Client, Room } from 'colyseus.js';
-import type { CommandMessage, SelectFighterMessage, FighterId } from '@frwf/game-protocol';
+import type { CommandMessage, SelectFighterMessage } from '@frwf/game-protocol';
 import { PROTOCOL_VERSION } from '@frwf/game-protocol';
 
 // Client-side view of the server room state.
@@ -168,6 +168,11 @@ export class ColyseusClient {
   get currentStatus(): ConnectionStatus { return this.status; }
   get isConnected(): boolean { return this.status === 'connected'; }
 
+  setEventHandlers(handlers: Pick<ColyseusClientOptions, 'onStatusChange' | 'onStateChange'>): void {
+    if (handlers.onStatusChange) this.options.onStatusChange = handlers.onStatusChange;
+    if (handlers.onStateChange) this.options.onStateChange = handlers.onStateChange;
+  }
+
   // ── Private ────────────────────────────────────────────────────────────────
 
   private attachRoomListeners(): void {
@@ -194,8 +199,10 @@ export class ColyseusClient {
 
   private async attemptReconnect(): Promise<void> {
     if (!this.room) return;
+    const reconnectionToken = this.room.reconnectionToken;
     try {
-      await this.room.reconnect();
+      this.room = await this.sdk.reconnect<ClientRoomState>(reconnectionToken);
+      this.attachRoomListeners();
       this.setStatus('connected');
       console.log('[ColyseusClient] Reconnected');
     } catch {

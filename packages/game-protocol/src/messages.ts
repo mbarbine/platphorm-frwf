@@ -4,7 +4,7 @@
 // can detect duplicates, reorders, and stale commands.
 // ──────────────────────────────────────────────────────────────────────────────
 
-import type { FighterId, GameCommand, Ruleset, Difficulty } from './types.js';
+import type { FighterId, GameCommand } from './types.js';
 
 /** Every message from the client includes a protocol version for rejection. */
 interface BaseClientMessage {

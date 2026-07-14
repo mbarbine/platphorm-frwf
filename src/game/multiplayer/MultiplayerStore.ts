@@ -37,12 +37,14 @@ export interface MultiplayerState {
   voteRematch: () => void;
 }
 
-export const useMultiplayerStore = create<MultiplayerState>((set, get) => {
+export const useMultiplayerStore = create<MultiplayerState>((set) => {
   // Wire up ColyseusClient events to Zustand state
-  colyseusClient['options'].onStatusChange = (status) => set({ status });
-  colyseusClient['options'].onStateChange = (state: ClientRoomState) => {
+  colyseusClient.setEventHandlers({
+    onStatusChange: (status) => set({ status }),
+    onStateChange: (state: ClientRoomState) => {
     set({ roomPhase: state.phase ?? '' });
-  };
+    },
+  });
 
   return {
     status: 'disconnected',
