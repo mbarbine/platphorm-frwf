@@ -245,13 +245,13 @@ export class BodyWorksRuntime {
     if (!rig || !pelvis) return;
     rig.cornerAnchor = null; rig.supportContacts.clear();
     const position = pelvis.translation(); const dx = target.x - position.x; const dz = target.z - position.z; const distance = Math.max(.001, Math.hypot(dx, dz));
-    const direction = { x: dx / distance, z: dz / distance };
+    const direction = { x: dx / distance, z: dz / distance }; const launchSpeed = clamp(distance / .68, 4.2, 8.2);
     // Launch the complete articulated mass with one shared velocity impulse.
     // Driving only the pelvis left the other fifteen bodies at rest, turning a
     // top-rope dive into a short joint stretch instead of committed flight.
     for (const body of Object.values(rig.bodies)) {
       if (!body?.isValid()) continue;
-      body.applyImpulse({ x: direction.x * body.mass() * 8.2, y: body.mass() * 6, z: direction.z * body.mass() * 8.2 }, true);
+      body.applyImpulse({ x: direction.x * body.mass() * launchSpeed, y: body.mass() * 6, z: direction.z * body.mass() * launchSpeed }, true);
     }
     chest?.applyTorqueImpulse({ x: -chest.mass() * .014, y: 0, z: direction.x * chest.mass() * .006 }, true);
   }
@@ -483,7 +483,8 @@ export class BodyWorksRuntime {
     if (airborneMove?.category === 'aerial' && (fighter.attackPhase === 'anticipation' || fighter.attackPhase === 'active')) {
       const target = model[key === 'player' ? 'opponent' : 'player']; const center = this.rigPlanarCenter(rig);
       const dx = target.position.x - center.x; const dz = target.position.z - center.z; const distance = Math.max(.001, Math.hypot(dx, dz));
-      const flightSpeed = clamp(distance * 2.8, 3.2, 8.2); const desiredX = dx / distance * flightSpeed; const desiredZ = dz / distance * flightSpeed;
+      const timeToImpact = Math.max(.12, airborneMove.anticipationDuration - fighter.phaseElapsed + .08);
+      const flightSpeed = clamp(distance / timeToImpact, 3.2, 8.2); const desiredX = dx / distance * flightSpeed; const desiredZ = dz / distance * flightSpeed;
       const deltaX = clamp(desiredX - center.velocityX, -.3, .3); const deltaZ = clamp(desiredZ - center.velocityZ, -.3, .3);
       for (const body of Object.values(rig.bodies)) {
         if (!body?.isValid()) continue;
