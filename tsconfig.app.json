@@ -20,7 +20,11 @@
     "noUncheckedIndexedAccess": true,
     "noFallthroughCasesInSwitch": true,
     "noUnusedLocals": true,
-    "noUnusedParameters": true
+    "noUnusedParameters": true,
+    "paths": {
+      "@frwf/game-protocol": ["../packages/game-protocol/src/index.ts"],
+      "@frwf/game-core": ["../packages/game-core/src/index.ts"]
+    }
   },
   "include": ["src"]
 }
