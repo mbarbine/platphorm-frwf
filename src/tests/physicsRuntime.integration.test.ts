@@ -25,7 +25,7 @@ const createHeadlessRig = (world: World, fighterId: FighterId, x: number): Headl
   for (const segment of schema) {
     const body = world.createRigidBody(RigidBodyDesc.dynamic()
       .setTranslation(x + segment.localPosition[0], 1.92 + segment.localPosition[1], segment.localPosition[2])
-      .setLinearDamping(.42).setAngularDamping(1.8).setCanSleep(false).setCcdEnabled(segment.attackEligible || segment.id === 'head'));
+      .setLinearDamping(.55).setAngularDamping(2.2).setCanSleep(true).setCcdEnabled(segment.attackEligible || segment.id === 'head'));
     const collider = segment.id === 'head' ? ColliderDesc.ball(segment.radius)
       : segment.id.includes('Foot') || segment.id.includes('Hand')
         ? ColliderDesc.cuboid(segment.radius, segment.id.includes('Foot') ? segment.radius * .5 : segment.halfLength, segment.id.includes('Foot') ? segment.halfLength * 1.35 : segment.radius)
@@ -75,11 +75,13 @@ beforeAll(async () => { await init(); });
 
 describe('Rapier-backed Bodyworks integration', () => {
   it('holds a 16-body fighter upright through a ten-second fixed-step soak', () => {
-    const { world, runtime, model, rig } = makeHarness();
-    for (let frame = 0; frame < 600; frame += 1) stepHarness(world, runtime, model);
+    const { world, runtime, model, rig } = makeHarness(); stepHarness(world, runtime, model);
+    const initialPosition = { ...model.player.position };
+    for (let frame = 1; frame < 600; frame += 1) stepHarness(world, runtime, model);
     const snapshot = runtime.fighterSnapshot('player');
     expect(Object.values(rig.bodies).every((body) => [body.translation().x, body.translation().y, body.translation().z, body.linvel().x, body.linvel().y, body.linvel().z].every(Number.isFinite))).toBe(true);
     expect(snapshot.pelvisY).toBeGreaterThan(2.65); expect(snapshot.pelvisY).toBeLessThan(3.35); expect(snapshot.upright).toBeGreaterThan(.72);
+    expect(Math.hypot(model.player.position.x - initialPosition.x, model.player.position.z - initialPosition.z)).toBeLessThan(.08);
     expect(runtime.metrics.emergencyResetCount).toBe(0); expect(runtime.metrics.invalidRegisteredBodyCount).toBe(0); expect(world.bodies.len()).toBe(17); expect(world.impulseJoints.len()).toBe(15);
     runtime.reset(); expect(runtime.metrics.bodyCount).toBe(0); expect(runtime.metrics.jointCount).toBe(0); expect(runtime.replay.size).toBe(0); world.free();
   });

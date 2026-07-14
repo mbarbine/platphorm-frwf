@@ -8,7 +8,7 @@ const state: { move: Vec2; run: boolean; block: boolean; commands: GameCommand[]
   run: false,
   block: false,
   commands: [],
-  lastActiveAt: 0,
+  lastActiveAt: Number.NEGATIVE_INFINITY,
 };
 
 const listeners = new Set<ActivityListener>();
@@ -55,6 +55,7 @@ export const mobileInput = {
     state.run = false;
     state.block = false;
     state.commands.length = 0;
+    state.lastActiveAt = Number.NEGATIVE_INFINITY;
   },
   subscribe(listener: ActivityListener): () => void {
     listeners.add(listener);

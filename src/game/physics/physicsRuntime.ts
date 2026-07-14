@@ -78,6 +78,7 @@ interface FighterRigRegistration {
   restOffsets: Partial<Record<BodySegmentId, Vector3Value>>;
   restPelvisY: number;
   rootStabilized: boolean;
+  skeletonStabilized: boolean;
   supportContacts: Set<BodySegmentId>;
   jumpQueued: boolean;
   jumpCooldown: number;
@@ -158,7 +159,7 @@ export class BodyWorksRuntime {
       const position = body.translation();
       restOffsets[segment] = { x: position.x - pelvisPosition.x, y: position.y - pelvisPosition.y, z: position.z - pelvisPosition.z };
     }
-    this.rigs.set(fighter, { bodies, restOffsets, restPelvisY: pelvisPosition.y, rootStabilized: false, supportContacts: new Set<BodySegmentId>(), jumpQueued: false, jumpCooldown: 0, ropeContact: null, cornerAnchor: null, apronAnchor: null });
+    this.rigs.set(fighter, { bodies, restOffsets, restPelvisY: pelvisPosition.y, rootStabilized: false, skeletonStabilized: false, supportContacts: new Set<BodySegmentId>(), jumpQueued: false, jumpCooldown: 0, ropeContact: null, cornerAnchor: null, apronAnchor: null });
     this.recount(jointCount);
     const registeredGeneration = this.generation;
     return () => {
@@ -271,7 +272,7 @@ export class BodyWorksRuntime {
       body.setTranslation({ x: target.x + offset.x, y: rig.restPelvisY + offset.y, z: target.z + offset.z }, true);
       body.setLinvel({ x: 0, y: 0, z: 0 }, true); body.setAngvel({ x: 0, y: 0, z: 0 }, true); body.setRotation({ x: 0, y: 0, z: 0, w: 1 }, true);
     }
-    rig.rootStabilized = false; rig.supportContacts.clear(); rig.supportContacts.add('leftFoot'); rig.supportContacts.add('rightFoot'); rig.jumpQueued = false; rig.ropeContact = null; rig.cornerAnchor = null; rig.apronAnchor = null;
+    rig.rootStabilized = false; rig.skeletonStabilized = false; rig.supportContacts.clear(); rig.supportContacts.add('leftFoot'); rig.supportContacts.add('rightFoot'); rig.jumpQueued = false; rig.ropeContact = null; rig.cornerAnchor = null; rig.apronAnchor = null;
   }
 
   setFootContact(fighter: FighterKey, foot: BodySegmentId, touching: boolean): void {
@@ -364,6 +365,23 @@ export class BodyWorksRuntime {
         const angular = pelvis.angvel(); pelvis.setAngvel({ x: 0, y: angular.y * .25, z: 0 }, true);
       }
       rig.rootStabilized = rootStabilized;
+    }
+    // The shipping character mesh carries the authored walk/run/strike pose;
+    // this hidden articulated rig supplies collision and impact authority. Keep
+    // the collision skeleton upright while a wrestler owns their footing so
+    // limb motors cannot kick against the mat and launch the whole body. Full
+    // rotations return for throws, dives, knockdowns, and physical recovery.
+    const skeletonStabilized = !['grabbed', 'airborne', 'downed', 'defeated', 'recovering', 'climbing'].includes(fighter.state);
+    if (skeletonStabilized !== rig.skeletonStabilized) {
+      for (const body of Object.values(rig.bodies)) {
+        if (!body?.isValid()) continue;
+        body.setEnabledRotations(!skeletonStabilized, true, !skeletonStabilized, true);
+        if (skeletonStabilized) {
+          const angular = body.angvel();
+          body.setAngvel({ x: 0, y: angular.y * .2, z: 0 }, true);
+        }
+      }
+      rig.skeletonStabilized = skeletonStabilized;
     }
     const intent = this.intents[key];
     const velocity = pelvis.linvel();
@@ -525,7 +543,8 @@ export class BodyWorksRuntime {
     const source = rig?.bodies[profile?.source ?? 'rightHand']; const target = targetRig?.bodies[profile?.target ?? 'chest']; if (!profile || !source || !target) return;
     const sourcePosition = source.translation(); const targetPosition = target.translation(); const dx = targetPosition.x - sourcePosition.x; const dy = targetPosition.y - sourcePosition.y; const dz = targetPosition.z - sourcePosition.z;
     const segmentDistance = Math.max(.001, Math.hypot(dx, dy, dz)); const pelvisDistance = Math.hypot(targetFighter.position.x - fighter.position.x, targetFighter.position.z - fighter.position.z);
-    const move = getMove(fighter.moveId); const attackSpeed = Math.hypot(fighter.velocity.x, fighter.velocity.z); const velocityFacing = (move.id === 'stiff_arm' || move.id === 'rebound') && attackSpeed > 1.2;
+    const move = getMove(fighter.moveId); const attackSpeed = Math.hypot(fighter.velocity.x, fighter.velocity.z);
+    const velocityFacing = (move.category === 'aerial' || move.id === 'stiff_arm' || move.id === 'rebound' || move.id === 'spear') && attackSpeed > 1.2;
     const forwardX = velocityFacing ? fighter.velocity.x / attackSpeed : Math.sin(fighter.facing); const forwardZ = velocityFacing ? fighter.velocity.z / attackSpeed : Math.cos(fighter.facing); const targetX = targetFighter.position.x - fighter.position.x; const targetZ = targetFighter.position.z - fighter.position.z;
     const forwardDistance = forwardX * targetX + forwardZ * targetZ;
     const lateralDistance = Math.abs(forwardX * targetZ - forwardZ * targetX);
