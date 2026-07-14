@@ -145,8 +145,8 @@ export function buildControlReadout(player: FighterRuntime, opponent: FighterRun
   else if (canTransitionThroughRopes(player.position)) callout = `${actionKey} · ${ringside ? 'ENTER RING' : 'EXIT TO RINGSIDE'} THROUGH CENTER ROPE`;
   else if (!nearCorner && (Math.abs(player.position.x) > 4.1 || Math.abs(player.position.z) > 3.2)) callout = `NEAR ROPES · SPRINT TO REBOUND · ${actionKey} AT APRON TO EXIT RING`;
   else if (player.counterWindow > 0) callout = `${keys.counter} NOW · REVERSE THE ATTACK`;
-  else if (distance < 1.8) callout = `${keys.grapple} LOCK UP · HOLD DIRECTION TO CHOOSE THE THROW`;
-  else if (distance < 4.8 && movementHeld && !runHeld) callout = `LOCK-ON ACTIVE · ${keys.quick} / ${keys.heavy} STRIKE TOWARD YOUR RIVAL`;
+  else if (distance < 1.8) callout = `${keys.quick} RAPID COMBO · UP+${keys.quick}=CROSS · DOWN+${keys.quick}=KICK · ${keys.grapple} BODY SLAM`;
+  else if (distance < 4.8 && movementHeld && !runHeld) callout = `IN RANGE · RAPID ${keys.quick}=JAB→CROSS→KICK · HOLD WASD+${keys.quick}/${keys.heavy} FOR DIRECTIONAL STRIKES`;
 
   return { active, callout, labels, state };
 }

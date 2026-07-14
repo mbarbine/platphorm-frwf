@@ -325,7 +325,11 @@ const STRIKE_GRID: Readonly<Record<CombatDirection, Readonly<Record<StrikeButton
 export const selectDirectionalGrapple = (direction: Vec2, button: GrappleButton): string => GRAPPLE_GRID[combatDirection(direction)][button];
 export const selectDirectionalStrike = (direction: Vec2, button: StrikeButton, comboStep = 0): string => {
   const directionId = combatDirection(direction);
-  if (directionId === 'neutral' && button === 'quick') return comboStep % 2 === 0 ? 'jab' : 'combo';
+  if (directionId === 'neutral' && button === 'quick') {
+    // 3-step combo: jab → cross → low kick → repeat
+    const step = comboStep % 3;
+    return step === 0 ? 'jab' : step === 1 ? 'combo' : 'low_kick';
+  }
   return STRIKE_GRID[directionId][button];
 };
 
@@ -567,7 +571,24 @@ const updatePin = (model: MatchModel, dt: number, playerInput: FrameInput): void
   const pinnedKey = pinningKey === 'player' ? 'opponent' : 'player';
   const pinning = model[pinningKey]; const pinned = model[pinnedKey];
   pinning.stateElapsed += dt; pinned.stateElapsed += dt;
-  if (pinnedKey === 'player' && playerInput.commands.includes('dodge')) pinned.pinEscape += 14 + pinned.stamina * .035;
+  if (pinnedKey === 'player') {
+    // Any button contributes — U (dodge), J (quick), K (heavy) all help
+    if (playerInput.commands.includes('dodge')) pinned.pinEscape += 16 + pinned.stamina * .04;
+    if (playerInput.commands.includes('quick')) pinned.pinEscape += 10 + pinned.stamina * .022;
+    if (playerInput.commands.includes('heavy')) pinned.pinEscape += 7 + pinned.stamina * .016;
+    // PIN REVERSAL: press F (context) in the first second with 38+ stamina
+    if (playerInput.commands.includes('context') && pinned.stamina > 38 && pinning.stateElapsed < 1.05 && Math.floor(pinning.stateElapsed) === 0) {
+      pinned.stamina = clamp(pinned.stamina - 30, 0, pinned.staminaCap);
+      // Swap pinner / pinned in place
+      pinned.state = 'pinning'; pinned.stateElapsed = 0; pinned.pinCount = 0; pinned.pinEscape = 0;
+      pinning.state = 'pinned'; pinning.stateElapsed = 0; pinning.pinCount = 0; pinning.pinEscape = 0;
+      model.slowMotion = Math.max(model.slowMotion, .44); model.hitStop = Math.max(model.hitStop, .16);
+      model.hype = clamp(model.hype + 28, 0, 100);
+      model.announcement = 'PIN REVERSAL!'; model.announcementTimer = 2.0;
+      addImpact(model, model[pinnedKey].position, 'counter', 2.0, { outcome: 'spin' });
+      return;
+    }
+  }
   if (pinnedKey === 'opponent') {
     const difficultyFactor = model.difficulty === 'hard' ? 1.08 : .92;
     pinned.pinEscape += dt * (9 + pinned.health * .2 + pinned.stamina * .08) * difficultyFactor;
@@ -575,14 +596,18 @@ const updatePin = (model: MatchModel, dt: number, playerInput: FrameInput): void
   const count = Math.min(3, Math.floor(pinning.stateElapsed) + 1);
   if (count !== pinning.pinCount) {
     pinning.pinCount = count; pinned.pinCount = count;
-    model.announcement = count === 1 ? 'ONE' : count === 2 ? 'TWO' : 'THREE'; model.announcementTimer = .85;
+    model.announcement = count === 1 ? 'ONE' : count === 2 ? 'TWO' : 'THREE';
+    model.announcementTimer = count === 3 ? 1.4 : .85;
+    if (count === 2) model.slowMotion = Math.max(model.slowMotion, .16);
+    if (count === 3) { model.slowMotion = Math.max(model.slowMotion, .54); model.hitStop = Math.max(model.hitStop, .18); }
   }
   const threshold = 76 + (100 - pinned.health) * .36 + (pinned.finisherPrimed ? 14 : 0);
   if (pinned.pinEscape >= threshold && count < 3) {
-    pinning.state = 'idle'; pinned.state = 'downed'; pinned.downTimer = .8; pinning.pinCount = 0;
+    pinning.state = 'idle'; pinned.state = 'downed'; pinned.downTimer = .8; pinning.pinCount = 0; pinned.pinCount = 0; pinned.pinEscape = 0;
     const stats = pinningKey === 'player' ? model.playerStats : model.opponentStats; stats.nearFalls += 1;
+    model.slowMotion = Math.max(model.slowMotion, .36); model.hitStop = Math.max(model.hitStop, .14);
     model.hype = clamp(model.hype + 16, 0, 100); model.announcement = `${count}.9 — KICKOUT!`; model.announcementTimer = 1.6;
-    addImpact(model, pinned.position, 'nearfall', 1.5);
+    addImpact(model, pinned.position, 'nearfall', 1.9);
   } else if (count >= 3 && pinning.stateElapsed >= 2.85) {
     if (model.toyTestMode) {
       pinning.state = 'idle'; pinned.state = 'downed'; pinned.downTimer = .8; pinning.pinCount = 0; pinned.pinCount = 0; pinned.pinEscape = 0;

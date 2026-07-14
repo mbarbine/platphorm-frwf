@@ -98,7 +98,7 @@ describe('deterministic combat rules', () => {
 
   it('successful counter interrupts the incoming move', () => {
     const model = createMatch('atlas', 'vex', 'standard', 'normal'); model.player.position = { x: 0, z: 0 }; model.opponent.position = { x: 1, z: 0 };
-    startMove(model.opponent, model.player, getMove('heavy')); model.opponent.phaseElapsed = .25; model.opponent.attackPhase = 'anticipation';
+    startMove(model.opponent, model.player, getMove('heavy')); model.opponent.phaseElapsed = .16; model.opponent.attackPhase = 'anticipation';
     expect(requestCommand(model, 'player', 'dodge')).toBe(true); expect(model.opponent.moveId).toBeNull(); expect(model.opponent.state).toBe('staggered'); expect(model.playerStats.counters).toBe(1);
   });
 
@@ -216,7 +216,8 @@ describe('deterministic combat rules', () => {
 
   it('reports explicit anticipation, active, recovery phases', () => {
     const move = getMove('heavy');
-    expect(getAttackPhase(move, .1)).toBe('anticipation'); expect(getAttackPhase(move, .45)).toBe('active'); expect(getAttackPhase(move, .7)).toBe('recovery'); expect(getAttackPhase(move, 2)).toBeNull();
+    // heavy: anticipation .26, active .16 (active ends at .42), recovery .38 (ends at .80)
+    expect(getAttackPhase(move, .1)).toBe('anticipation'); expect(getAttackPhase(move, .34)).toBe('active'); expect(getAttackPhase(move, .56)).toBe('recovery'); expect(getAttackPhase(move, 2)).toBeNull();
   });
 
   it('simulation is deterministic from identical state and input', () => {

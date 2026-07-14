@@ -1718,6 +1718,8 @@ const targetPoseFor = (fighter: FighterRuntime): Pose => {
   if (fighter.state === 'defeated') return POSES.downed;
   if (fighter.state === 'recovering') return recoveryPose(fighter.recoveryOrientation, 'recovering', fighter.stateElapsed);
   if (fighter.state === 'victorious') return POSES.victory;
+  if (fighter.state === 'pinning') return POSES.pin;
+  if (fighter.state === 'pinned') return fighter.pinEscape > 52 ? POSES.kickout : POSES.downed;
   const neutralPose = fighter.state === 'locomotion' ? locomotionPoseFor(fighter) : POSES.combatIdle;
   return applyBodyLanguage(neutralPose, fighter);
 };
