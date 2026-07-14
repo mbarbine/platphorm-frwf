@@ -21,7 +21,7 @@ export const createFighterRuntime = (definitionId: FighterId, position: Vec2, be
   definitionId, position, velocity: { x: 0, z: 0 }, facing: 0, health: 100, stamina: staminaCap, staminaCap, beersDrunk: beers, momentum: 0,
   state: 'idle', moveId: null, attackPhase: null, phaseElapsed: 0, stateElapsed: 0, hitTargets: [], attackInstanceId: 0, downTimer: 0,
   counterWindow: 0, invulnerability: 0, pinCount: 0, pinEscape: 0, heldPropId: null, comboStep: 0, recentMoves: [],
-  lastActionAt: 0, ropeRebound: 0, finisherPrimed: false, climbStage: 0,
+  lastActionAt: 0, ropeRebound: 0, finisherPrimed: false, climbStage: 0, recoveryOrientation: 'back',
   body: createBodyDynamics(definition),
   });
 };
@@ -29,6 +29,7 @@ export const createFighterRuntime = (definitionId: FighterId, position: Vec2, be
 const initialProps = (enabled: boolean): PropRuntime[] => enabled ? [
   { id: 'chair-1', kind: 'chair', position: { x: -7.1, z: 2.8 }, durability: 3, stress: 0, failureStage: 'intact', heldBy: null, broken: false },
   { id: 'sign-1', kind: 'sign', position: { x: 7, z: -2.4 }, durability: 2, stress: 0, failureStage: 'intact', heldBy: null, broken: false },
+  { id: 'trash-1', kind: 'trash', position: { x: 8.35, z: 5.5 }, durability: 4, stress: 0, failureStage: 'intact', heldBy: null, broken: false },
   { id: 'table-1', kind: 'table', position: { x: VOLT_DOME.commentaryTable.x, z: VOLT_DOME.commentaryTable.z }, durability: 1, stress: 0, failureStage: 'intact', heldBy: null, broken: false },
 ] : [{ id: 'table-1', kind: 'table', position: { x: VOLT_DOME.commentaryTable.x, z: VOLT_DOME.commentaryTable.z }, durability: 1, stress: 0, failureStage: 'intact', heldBy: null, broken: false }];
 
@@ -185,6 +186,9 @@ export const applyMoveHit = (model: MatchModel, actorKey: 'player' | 'opponent',
     ? { ...calculatedImpact, force: calculatedImpact.force * 1.18 }
     : calculatedImpact;
   const collisionOutcome = applyLocalizedImpact(target, impact);
+  const targetForward = { x: Math.sin(target.facing), z: Math.cos(target.facing) }; const targetRight = { x: Math.cos(target.facing), z: -Math.sin(target.facing) };
+  const forwardImpact = impact.direction.x * targetForward.x + impact.direction.z * targetForward.z; const sideImpact = impact.direction.x * targetRight.x + impact.direction.z * targetRight.z;
+  target.recoveryOrientation = Math.abs(sideImpact) > Math.abs(forwardImpact) * .82 ? sideImpact > 0 ? 'right' : 'left' : forwardImpact > 0 ? 'front' : 'back';
   if (model.grapple && model.grapple.attacker === actorKey) releaseGrapple(model, 'staggered');
   const lowHealthBonus = target.health < 35 ? .28 : 0;
   const physicalFall = ['trip', 'fall', 'launch'].includes(collisionOutcome);
@@ -339,9 +343,12 @@ const launchAerial = (model: MatchModel, actor: FighterRuntime, target: FighterR
   if (!['defeated', 'victorious'].includes(target.state) && distance(actor.position, target.position) <= getMove(moveId).maximumRange) {
     const started = startMove(actor, target, getMove(moveId));
     if (started) {
-      actor.climbStage = 0; actor.body.verticalOffset = Math.max(actor.body.verticalOffset, .92); actor.body.verticalVelocity = 4.2;
-      const flight = normalize({ x: target.position.x - actor.position.x, z: target.position.z - actor.position.z });
-      actor.velocity = scale(flight, moveId === 'aerial_kick' ? 6.8 : moveId === 'aerial_elbow' ? 5.8 : 6.1);
+      actor.climbStage = 0;
+      if (!model.physicsAuthority) {
+        actor.body.verticalOffset = Math.max(actor.body.verticalOffset, .92); actor.body.verticalVelocity = 4.2;
+        const flight = normalize({ x: target.position.x - actor.position.x, z: target.position.z - actor.position.z });
+        actor.velocity = scale(flight, moveId === 'aerial_kick' ? 6.8 : moveId === 'aerial_elbow' ? 5.8 : 6.1);
+      }
       model.announcement = getMove(moveId).displayName.toUpperCase(); model.announcementTimer = 1;
     }
     return started;
@@ -366,6 +373,16 @@ export const requestCommand = (model: MatchModel, actorKey: 'player' | 'opponent
     actor.moveId = moveId;
     actor.phaseElapsed = Math.min(actor.phaseElapsed, selected.anticipationDuration * .55);
     if (model.grapple?.attacker === actorKey) retargetGrapple(model.grapple, moveId);
+    return true;
+  }
+  if (actor.state === 'grappling' && actor.attackPhase === 'anticipation' && command === 'context') {
+    if (!isActionLegal(model, command, actorKey)) return false;
+    const selected = getMove('corner_smash'); const current = actor.moveId ? getMove(actor.moveId) : selected;
+    const extraCost = Math.max(0, selected.staminaCost - current.staminaCost); if (actor.stamina < extraCost) return false;
+    actor.stamina = clamp(actor.stamina - extraCost, 0, actor.staminaCap); actor.moveId = selected.id;
+    actor.phaseElapsed = Math.min(actor.phaseElapsed, selected.anticipationDuration * .42);
+    if (model.grapple?.attacker === actorKey) retargetGrapple(model.grapple, selected.id);
+    model.announcement = 'CORNER CALL — RAIL SHOT!'; model.announcementTimer = 1.05;
     return true;
   }
   if (!isActionLegal(model, command, actorKey)) return false;
@@ -554,8 +571,10 @@ const updateFighter = (model: MatchModel, actorKey: 'player' | 'opponent', dt: n
       actor.state = 'idle'; actor.stateElapsed = 0;
     } else {
       actor.stamina = clamp(actor.stamina + dt * 3.2, 0, actor.staminaCap);
-      actor.position.x += actor.velocity.x * dt;
-      actor.position.z += actor.velocity.z * dt;
+      if (!model.physicsAuthority) {
+        actor.position.x += actor.velocity.x * dt;
+        actor.position.z += actor.velocity.z * dt;
+      }
       actor.velocity = scale(actor.velocity, Math.exp(-dt * 1.2));
       return;
     }
@@ -593,7 +612,7 @@ const updateFighter = (model: MatchModel, actorKey: 'player' | 'opponent', dt: n
     const waitingForPhysicalGrip = model.physicsAuthority && actor.attackPhase === 'anticipation' && (move.category === 'grapple' || move.category === 'finisher') && model.grapple?.attacker === actorKey && (model.grapple.phase === 'reach' || model.grapple.phase === 'acquire') && model.grapple.gripCount < 2;
     actor.phaseElapsed = waitingForPhysicalGrip ? Math.min(actor.phaseElapsed + dt, move.anticipationDuration * .46) : actor.phaseElapsed + dt;
     actor.attackPhase = getAttackPhase(move, actor.phaseElapsed);
-    if (move.category === 'aerial' && actor.phaseElapsed > move.anticipationDuration * .22) {
+    if (!model.physicsAuthority && move.category === 'aerial' && actor.phaseElapsed > move.anticipationDuration * .22) {
       const chase = normalize({ x: target.position.x - actor.position.x, z: target.position.z - actor.position.z });
       actor.velocity.x += chase.x * dt * 6.5;
       actor.velocity.z += chase.z * dt * 6.5;
@@ -680,7 +699,10 @@ const updateChaos = (model: MatchModel, dt: number): void => {
   model.chaosEvent = { type, remaining: type === 'PROP DROP' ? 5 : 14 };
   model.nextChaosAt = model.elapsed + 35 + roll * 20;
   model.announcement = `CHAOS EVENT — ${type}`; model.announcementTimer = 2.5;
-  if (type === 'PROP DROP') model.props.push({ id: `chair-${model.impactSequence + 9}`, kind: roll > .5 ? 'chair' : 'sign', position: { x: (roll - .5) * 8, z: -5.6 }, durability: 2, stress: 0, failureStage: 'intact', heldBy: null, broken: false });
+  if (type === 'PROP DROP') {
+    const kind: PropRuntime['kind'] = roll > .68 ? 'chair' : roll > .34 ? 'trash' : 'sign';
+    model.props.push({ id: `${kind}-${model.impactSequence + 9}`, kind, position: { x: (roll - .5) * 8, z: -5.6 }, durability: kind === 'trash' ? 4 : 2, stress: 0, failureStage: 'intact', heldBy: null, broken: false });
+  }
 };
 
 const replayFighterFrame = (fighter: FighterRuntime): ReplayFighterFrame => ({

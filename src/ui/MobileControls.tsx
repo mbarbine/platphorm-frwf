@@ -40,7 +40,8 @@ export function MobileControls({ onPause, paused }: MobileControlsProps) {
   const ringside = Math.abs(player.position.x) > 5.82 || Math.abs(player.position.z) > 4.32;
   const contextLabel = player.state === 'climbing'
     ? player.climbStage === 1 ? 'CLIMB II' : player.climbStage === 2 ? 'CLIMB TOP' : 'DIVE'
-    : player.momentum >= 100 && ['staggered', 'downed'].includes(opponent.state) && distance < 2.2 ? 'FINISH'
+    : player.state === 'grappling' && Math.hypot(opponent.position.x - Math.sign(opponent.position.x || player.position.x || 1) * 5.35, opponent.position.z - Math.sign(opponent.position.z || player.position.z || 1) * 3.85) <= 3.15 ? 'RAIL SHOT'
+      : player.momentum >= 100 && ['staggered', 'downed'].includes(opponent.state) && distance < 2.2 ? 'FINISH'
       : opponent.state === 'downed' && distance < 1.7 ? 'PIN' : nearCorner ? 'CLIMB I'
         : canTransitionThroughRopes(player.position) ? ringside ? 'ENTER RING' : 'EXIT RING' : 'ACTION';
   const quickMove = player.state === 'grappling' ? selectDirectionalGrapple(stick, 'quick')

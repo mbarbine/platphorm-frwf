@@ -109,13 +109,13 @@ interface GrappleEnvironmentTarget {
   attacker: FighterKey;
   defender: FighterKey;
   attackInstanceId: number;
-  surface: 'table';
+  surface: 'table' | 'turnbuckle';
   position: Vec2;
 }
 
 interface RegisteredProp {
   body: RapierRigidBody;
-  kind: 'chair' | 'sign';
+  kind: 'chair' | 'sign' | 'trash';
 }
 
 interface PhysicalPropGrip {
@@ -124,7 +124,7 @@ interface PhysicalPropGrip {
   joint: ImpulseJoint;
 }
 
-interface PendingLanding { attacker: FighterKey; defender: FighterKey; attackInstanceId: number; moveId: string; releasedAt: number; expiresAt: number; targetSurface: 'table' | null; targetPosition: Vec2 | null }
+interface PendingLanding { attacker: FighterKey; defender: FighterKey; attackInstanceId: number; moveId: string; releasedAt: number; expiresAt: number; targetSurface: 'table' | 'turnbuckle' | null; targetPosition: Vec2 | null }
 interface ReleasedPropAttack { owner: FighterKey; attackInstanceId: number; moveId: 'prop_throw'; expiresAt: number }
 
 const EMPTY_INTENT = (): IntentState => ({ move: { x: 0, z: 0 }, run: false, block: false });
@@ -163,6 +163,7 @@ export class BodyWorksRuntime {
   private grappleEnvironmentTarget: GrappleEnvironmentTarget | null = null;
   private replayAccumulator = 0;
   private stepStartedAt = -1;
+  private currentFixedDt = 1 / 60;
   private readonly stepSamples = new Float64Array(240);
   private stepSampleCursor = 0;
   private stepSampleCount = 0;
@@ -189,7 +190,7 @@ export class BodyWorksRuntime {
   /** Rapier's value export is injected by the lazy scene so menus do not load the WASM runtime. */
   setJointData(jointData: typeof JointData): void { this.jointData = jointData; }
 
-  registerProp(id: string, kind: 'chair' | 'sign', body: RapierRigidBody): () => void {
+  registerProp(id: string, kind: 'chair' | 'sign' | 'trash', body: RapierRigidBody): () => void {
     this.props.set(id, { body, kind });
     this.metrics.propBodyCount = this.props.size;
     const registeredGeneration = this.generation;
@@ -321,7 +322,7 @@ export class BodyWorksRuntime {
     const pending = contact.sourceFighter ? this.pendingLandings.get(contact.sourceFighter) : undefined;
     const torsoLanding = contact.sourceSegment === 'chest' || contact.sourceSegment === 'abdomen' || contact.sourceSegment === 'pelvis' || contact.sourceSegment === 'head';
     const validLandingSurface = contact.targetSurface === 'ring' || contact.targetSurface === 'floor' || contact.targetSurface === 'table'
-      || contact.targetSurface === 'steps' || contact.targetSurface === 'barricade' || contact.targetSurface === 'entrance-ramp';
+      || contact.targetSurface === 'steps' || contact.targetSurface === 'barricade' || contact.targetSurface === 'barricade-flex' || contact.targetSurface === 'turnbuckle' || contact.targetSurface === 'entrance-ramp';
     const committedLanding = contact.maximumForce > 24 || contact.totalForce > 38 || contact.relativeSpeed > 1.05;
     const expectedSurface = !pending?.targetSurface || contact.targetSurface === pending.targetSurface;
     if (pending && expectedSurface && contact.targetFighter === null && torsoLanding && validLandingSurface && committedLanding) {
@@ -354,6 +355,7 @@ export class BodyWorksRuntime {
 
   beforeFixedStep(dt: number, model: MatchModel, world?: World): void {
     this.stepStartedAt = performance.now();
+    this.currentFixedDt = dt;
     if (world) {
       this.world = world;
       if (import.meta.env.DEV && this.instrumentedWorld !== world) {
@@ -767,7 +769,7 @@ export class BodyWorksRuntime {
         body.addForce(force, true); hand.addForce({ x: -force.x * .12, y: -force.y * .12, z: -force.z * .12 }, true);
         continue;
       }
-      const propAnchor = registration.kind === 'chair' ? { x: 0, y: -.42, z: .2 } : { x: 0, y: -.25, z: 0 };
+      const propAnchor = registration.kind === 'chair' ? { x: 0, y: -.42, z: .2 } : registration.kind === 'trash' ? { x: 0, y: -.48, z: 0 } : { x: 0, y: -.25, z: 0 };
       const joint = world.createImpulseJoint(jointData.spherical({ x: 0, y: 0, z: 0 }, propAnchor), hand, body, true);
       joint.setContactsEnabled(false);
       this.propGrips.set(propId, { propId, owner: prop.heldBy, joint });
@@ -818,9 +820,13 @@ export class BodyWorksRuntime {
     if (!environmentTargetMatches) {
       const table = model.props.find((prop) => prop.kind === 'table' && !prop.broken);
       const tableDistance = table ? Math.hypot(table.position.x - defender.position.x, table.position.z - defender.position.z) : Number.POSITIVE_INFINITY;
-      this.grappleEnvironmentTarget = table && tableDistance <= 2.6 && (isRingside(attacker.position) || isRingside(defender.position))
-        ? { attacker: grapple.attacker, defender: grapple.defender, attackInstanceId: attacker.attackInstanceId, surface: 'table', position: { ...table.position } }
-        : null;
+      if (move.id === 'corner_smash') {
+        this.grappleEnvironmentTarget = { attacker: grapple.attacker, defender: grapple.defender, attackInstanceId: attacker.attackInstanceId, surface: 'turnbuckle', position: { x: Math.sign(defender.position.x || attacker.position.x || 1) * 5.35, z: Math.sign(defender.position.z || attacker.position.z || 1) * 3.85 } };
+      } else {
+        this.grappleEnvironmentTarget = table && tableDistance <= 2.6 && (isRingside(attacker.position) || isRingside(defender.position))
+          ? { attacker: grapple.attacker, defender: grapple.defender, attackInstanceId: attacker.attackInstanceId, surface: 'table', position: { ...table.position } }
+          : null;
+      }
     }
     // A directional follow-up changes the throw without releasing the physical
     // collar-and-elbow lock. Grips belong to the grapple session, not the
@@ -970,14 +976,13 @@ export class BodyWorksRuntime {
       const inputDirection = inputLength > .25
         ? { x: attackerIntent.move.x / inputLength, z: attackerIntent.move.z / inputLength }
         : { x: separationX / planarSeparation, z: separationZ / planarSeparation };
-      const table = environmentTarget ? model.props.find((prop) => prop.kind === 'table' && !prop.broken) : undefined;
-      const tableDelta = table && environmentTarget ? { x: environmentTarget.position.x - defenderPosition.x, z: environmentTarget.position.z - defenderPosition.z } : null;
-      const tableDistance = tableDelta ? Math.hypot(tableDelta.x, tableDelta.z) : Number.POSITIVE_INFINITY;
-      const tableTargeted = Boolean(tableDelta && environmentTarget);
-      const direction = tableTargeted && tableDelta && tableDistance > .08
-        ? { x: tableDelta.x / tableDistance, z: tableDelta.z / tableDistance }
+      const environmentDelta = environmentTarget ? { x: environmentTarget.position.x - defenderPosition.x, z: environmentTarget.position.z - defenderPosition.z } : null;
+      const environmentDistance = environmentDelta ? Math.hypot(environmentDelta.x, environmentDelta.z) : Number.POSITIVE_INFINITY;
+      const environmentTargeted = Boolean(environmentDelta && environmentTarget);
+      const direction = environmentTargeted && environmentDelta && environmentDistance > .08
+        ? { x: environmentDelta.x / environmentDistance, z: environmentDelta.z / environmentDistance }
         : inputDirection;
-      const horizontalReleaseSpeed = tableTargeted ? clamp(tableDistance / .48, .06, 7.5) : .9;
+      const horizontalReleaseSpeed = environmentTargeted ? clamp(environmentDistance / (environmentTarget?.surface === 'turnbuckle' ? .64 : .48), .06, environmentTarget?.surface === 'turnbuckle' ? 6.8 : 7.5) : .9;
       // The impact is driven into the mat, but kept inside Rapier's reliable
       // continuous-collision envelope. The earlier lift supplies most of the
       // fall energy; an excessive downward impulse only made heavy bodies
@@ -997,8 +1002,8 @@ export class BodyWorksRuntime {
       defender.state = 'airborne'; defender.stateElapsed = 0; defender.downTimer = 1.5 + (100 - defender.health) / 85;
       this.pendingLandings.set(grapple.defender, {
         attacker: grapple.attacker, defender: grapple.defender, attackInstanceId: attacker.attackInstanceId, moveId: move.id,
-        releasedAt: model.elapsed, expiresAt: model.elapsed + (tableTargeted ? 3.2 : 2.2),
-        targetSurface: tableTargeted && environmentTarget ? environmentTarget.surface : null, targetPosition: tableTargeted && environmentTarget ? { ...environmentTarget.position } : null,
+        releasedAt: model.elapsed, expiresAt: model.elapsed + (environmentTargeted ? 3.2 : 2.2),
+        targetSurface: environmentTargeted && environmentTarget ? environmentTarget.surface : null, targetPosition: environmentTargeted && environmentTarget ? { ...environmentTarget.position } : null,
       });
       this.grappleEnvironmentTarget = null;
       grapple.phase = 'impact'; grapple.gripCount = 0;
@@ -1053,7 +1058,7 @@ export class BodyWorksRuntime {
     this.resolvePhysicalLandings(model);
     this.syncFighter('player', model.player);
     this.syncFighter('opponent', model.opponent);
-    this.replayAccumulator += 1 / 60;
+    this.replayAccumulator += this.currentFixedDt;
     if (this.replayAccumulator >= 1 / 30) {
       this.replayAccumulator %= 1 / 30;
       this.captureReplayFrame(model.elapsed);
@@ -1191,6 +1196,17 @@ export class BodyWorksRuntime {
       speed: Math.hypot(center.velocityX, velocity.y, center.velocityZ),
       supportFeet: rig.supportContacts.size,
     };
+  }
+
+  stressTestGrip(attacker: FighterKey): boolean {
+    const defender: FighterKey = attacker === 'player' ? 'opponent' : 'player'; const attackerRig = this.rigs.get(attacker); const defenderRig = this.rigs.get(defender);
+    if (!attackerRig || !defenderRig || this.grips.filter((grip) => grip.attacker === attacker).length === 0) return false;
+    const attackerCenter = this.rigPlanarCenter(attackerRig); const defenderCenter = this.rigPlanarCenter(defenderRig);
+    const dx = defenderCenter.x - attackerCenter.x; const dz = defenderCenter.z - attackerCenter.z; const distance = Math.max(.001, Math.hypot(dx, dz));
+    for (const grip of this.grips) if (grip.attacker === attacker) grip.createdAt -= 1.2;
+    this.applyRigVelocityDelta(defenderRig, { x: dx / distance * 8.4, y: .8, z: dz / distance * 8.4 });
+    this.applyRigVelocityDelta(attackerRig, { x: -dx / distance * 3.2, y: 0, z: -dz / distance * 3.2 });
+    return true;
   }
 }
 

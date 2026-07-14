@@ -33,6 +33,7 @@ export function buildControlLabels(player: FighterRuntime, opponent: FighterRunt
   const labels: Record<ControlId, string> = { ...BASE_LABELS };
   const nearCorner = Math.abs(player.position.x) > 4.35 && Math.abs(player.position.z) > 2.95;
   const ringside = Math.abs(player.position.x) > 5.82 || Math.abs(player.position.z) > 4.32;
+  const clinchCornerDistance = Math.hypot(opponent.position.x - Math.sign(opponent.position.x || player.position.x || 1) * 5.35, opponent.position.z - Math.sign(opponent.position.z || player.position.z || 1) * 3.85);
 
   labels.quick = opponent.state === 'downed' ? moveLabel('ground') : moveLabel(selectDirectionalStrike(direction, 'quick', player.comboStep));
   labels.heavy = player.heldPropId ? moveLabel('prop')
@@ -43,6 +44,7 @@ export function buildControlLabels(player: FighterRuntime, opponent: FighterRunt
     labels.quick = moveLabel(selectDirectionalGrapple(direction, 'quick'));
     labels.heavy = moveLabel(selectDirectionalGrapple(direction, 'heavy'));
     labels.grapple = moveLabel(selectDirectionalGrapple(direction, 'grapple'));
+    labels.context = clinchCornerDistance <= 3.15 ? moveLabel('corner_smash') : 'DRAG CLINCH TO CORNER';
   } else if (player.state === 'climbing') {
     if (player.climbStage === 3) {
       labels.quick = moveLabel('aerial_elbow'); labels.heavy = moveLabel('aerial_kick'); labels.grapple = 'NO LOCK-UP';
@@ -104,6 +106,7 @@ export function buildControlReadout(player: FighterRuntime, opponent: FighterRun
   const keys = DEVICE_KEYS[device]; const actionKey = keys.context; const directionId = combatDirection(direction).toUpperCase();
   const nearCorner = Math.abs(player.position.x) > 4.35 && Math.abs(player.position.z) > 2.95;
   const ringside = Math.abs(player.position.x) > 5.82 || Math.abs(player.position.z) > 4.32;
+  const clinchCornerDistance = Math.hypot(opponent.position.x - Math.sign(opponent.position.x || player.position.x || 1) * 5.35, opponent.position.z - Math.sign(opponent.position.z || player.position.z || 1) * 3.85);
   let callout = `DIRECTION CHANGES ${keys.quick} / ${keys.heavy} MOVES · ${keys.grapple} LOCKS UP`;
   if (paused) callout = 'SIMULATION STOPPED · RESUME TO WRESTLE';
   else if (player.state === 'pinned') callout = `${keys.counter} RAPIDLY · KICK OUT BEFORE THREE`;
@@ -111,7 +114,9 @@ export function buildControlReadout(player: FighterRuntime, opponent: FighterRun
   else if (player.ropeRebound > 0) callout = `${keys.heavy} NOW · RAILWAY STIFF-ARM KNOCKDOWN`;
   else if (player.climbStage > 0 && player.climbStage < 3) callout = `${actionKey} AGAIN · CLIMB TO ${player.climbStage === 1 ? 'MIDDLE' : 'TOP'} ROPE · ${keys.counter} DOWN`;
   else if (player.climbStage === 3) callout = `${keys.quick} ELBOW · ${keys.heavy} MISSILE KICK · ${actionKey} DOMEFALL · ${keys.taunt} POSE`;
-  else if (player.state === 'grappling') callout = `${directionId} CLINCH · ${keys.quick} ${labels.quick} · ${keys.heavy} ${labels.heavy} · ${keys.grapple} ${labels.grapple}`;
+  else if (player.state === 'grappling') callout = clinchCornerDistance <= 3.15
+    ? `${actionKey} ${labels.context} · ${directionId} CLINCH · ${keys.quick} / ${keys.heavy} / ${keys.grapple} THROW`
+    : `${directionId} CLINCH · ${keys.quick} ${labels.quick} · ${keys.heavy} ${labels.heavy} · ${keys.grapple} ${labels.grapple}`;
   else if (player.momentum >= 100 && ['staggered', 'downed'].includes(opponent.state) && distance < 2.2) callout = `${actionKey} · SIGNATURE FINISHER READY`;
   else if (opponent.state === 'downed' && distance < 1.7) callout = `${actionKey} PIN · ${keys.quick} GROUND STRIKE`;
   else if (nearCorner) callout = `${actionKey} · CLIMB LOWER TURNBUCKLE`;

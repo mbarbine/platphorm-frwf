@@ -29,6 +29,10 @@ export const isActionLegal = (model: MatchModel, command: GameCommand, actorKey:
   if (command === 'block') return actor.stamina > 2 && ['idle', 'locomotion', 'blocking', 'staggered'].includes(actor.state);
   if (command === 'jump') return actor.stamina >= 8 && actor.body.verticalOffset <= .32 && ['idle', 'locomotion'].includes(actor.state);
   if (actor.state === 'grappling' && actor.attackPhase === 'anticipation' && ['quick', 'heavy', 'grapple'].includes(command)) return true;
+  if (actor.state === 'grappling' && actor.attackPhase === 'anticipation' && command === 'context') {
+    const cornerX = Math.sign(target.position.x || actor.position.x || 1) * 5.35; const cornerZ = Math.sign(target.position.z || actor.position.z || 1) * 3.85;
+    return Math.hypot(target.position.x - cornerX, target.position.z - cornerZ) <= 3.15;
+  }
   if (actor.state === 'climbing' && actor.climbStage === 3 && (command === 'quick' || command === 'heavy')) {
     const move = command === 'quick' ? MOVES.aerial_elbow : MOVES.aerial_kick;
     return Boolean(move && actor.stamina >= move.staminaCost && targetDistance <= move.maximumRange && !['defeated', 'victorious'].includes(target.state));
