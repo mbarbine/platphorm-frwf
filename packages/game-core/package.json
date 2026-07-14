@@ -1,0 +1,21 @@
+{
+  "name": "@frwf/game-core",
+  "version": "1.0.0",
+  "description": "RINGFALL deterministic game simulation — no React, Three.js, Rapier, or DOM",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@frwf/game-protocol": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "6.0.3",
+    "vitest": "4.1.10"
+  }
+}
