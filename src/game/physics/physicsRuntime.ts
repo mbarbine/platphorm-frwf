@@ -680,7 +680,8 @@ export class BodyWorksRuntime {
       const supportAcceleration = clamp((recoveryTargetY - pelvis.translation().y) * 30 - velocity.y * 10.5, -18, 38) * fighter.body.muscle * contactMultiplier * (.42 + recoveryBlend * .58);
       this.applyRigAcceleration(rig, { x: 0, y: supportAcceleration, z: 0 });
     }
-    const movementControl = ['idle', 'locomotion'].includes(fighter.state) ? 1 : fighter.state === 'recovering' ? .08 : 0;
+    const isCarrying = fighter.state === 'grappling' && (model.grapple?.phase === 'lift' || model.grapple?.phase === 'load') && model.grapple?.attacker === key;
+    const movementControl = ['idle', 'locomotion'].includes(fighter.state) ? 1 : fighter.state === 'recovering' ? .08 : isCarrying ? .22 : 0;
     let desiredSpeed = (intent.run ? locomotion.runSpeed : locomotion.walkSpeed) * (fighter.body.muscle < .3 ? .86 : 1) * movementControl;
     const inputLength = Math.min(1, Math.hypot(intent.move.x, intent.move.z)) * movementControl;
     const opponent = model[key === 'player' ? 'opponent' : 'player']; const targetX = opponent.position.x - fighter.position.x; const targetZ = opponent.position.z - fighter.position.z;
@@ -1635,7 +1636,7 @@ export class BodyWorksRuntime {
 
 const fighterPower = (fighter: FighterRuntime): number => fighter.definitionId === 'atlas' ? .96 : fighter.definitionId === 'chad' ? .88 : fighter.definitionId === 'brick' ? .82 : fighter.definitionId === 'nova' ? .7 : .64;
 const gripCapacity = (fighter: FighterRuntime): number => fighter.body.muscle * (fighter.definitionId === 'nova' ? .98 : fighter.definitionId === 'chad' ? .97 : fighter.definitionId === 'atlas' ? .91 : fighter.definitionId === 'brick' ? .84 : .7);
-const liftDriveForMove = (moveId: string): number => ['powerbomb', 'mountain_drop', 'skyhook', 'finisher'].includes(moveId) ? 1.2 : ['slam', 'suplex', 'spinebuster'].includes(moveId) ? 1 : .7;
+const liftDriveForMove = (moveId: string): number => ['powerbomb', 'mountain_drop', 'skyhook', 'finisher', 'piledriver'].includes(moveId) ? 1.2 : ['slam', 'suplex', 'spinebuster'].includes(moveId) ? 1 : .7;
 const gripPreferences = (moveId: string): readonly [BodySegmentId, BodySegmentId, number][] => {
   if (moveId === 'slam') return [['leftHand', 'chest', -.18], ['rightHand', 'chest', .18]];
   if (moveId === 'suplex' || moveId === 'skyhook') return [['leftHand', 'pelvis', -.14], ['rightHand', 'pelvis', .14]];

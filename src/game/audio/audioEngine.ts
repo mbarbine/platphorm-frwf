@@ -52,7 +52,7 @@ class AudioEngine {
       : moveId === 'heavy' ? 'hook' : moveId === 'uppercut' ? 'uppercut'
         : moveId === 'low_kick' ? 'lowKick' : ['front_kick', 'high_kick', 'roundhouse'].includes(moveId) ? 'highKick'
           : moveId === 'slam' || moveId === 'mountain_drop' ? 'slam' : moveId === 'suplex' || moveId === 'skyhook' ? 'suplex'
-            : moveId === 'powerbomb' ? 'powerbomb' : moveId === 'spinebuster' ? 'spinebuster'
+            : moveId === 'piledriver' ? 'powerbomb' : moveId === 'powerbomb' ? 'powerbomb' : moveId === 'spinebuster' ? 'spinebuster'
               : moveId === 'stiff_arm' || moveId === 'rebound' ? 'clothesline' : moveId === 'spear' ? 'spear'
                 : moveId.startsWith('aerial') || moveId === 'aerial' ? 'aerial' : moveId === 'finisher' ? 'finisher'
                   : moveId === 'prop' || moveId === 'prop_throw' ? 'prop' : moveId === 'kick_up' ? 'kickout'
@@ -91,7 +91,7 @@ class AudioEngine {
     const moveImpact: SoundName | null = event.moveId === 'jab' ? 'jab' : event.moveId === 'combo' || event.moveId === 'high_punch' ? 'cross'
       : event.moveId === 'heavy' ? 'hook' : event.moveId === 'uppercut' ? 'uppercut'
         : event.moveId === 'low_kick' ? 'lowKick' : ['front_kick', 'high_kick', 'roundhouse'].includes(event.moveId ?? '') ? 'highKick'
-          : event.moveId === 'suplex' || event.moveId === 'skyhook' ? 'suplex' : event.moveId === 'powerbomb' ? 'powerbomb'
+          : event.moveId === 'suplex' || event.moveId === 'skyhook' ? 'suplex' : event.moveId === 'piledriver' ? 'powerbomb' : event.moveId === 'powerbomb' ? 'powerbomb'
             : event.moveId === 'spinebuster' ? 'spinebuster' : event.moveId === 'stiff_arm' || event.moveId === 'rebound' ? 'clothesline'
               : event.moveId === 'spear' ? 'spear' : event.moveId?.startsWith('aerial') || event.moveId === 'aerial' ? 'aerial'
                 : event.moveId === 'slam' || event.moveId === 'mountain_drop' ? 'slam' : null;

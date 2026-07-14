@@ -252,8 +252,14 @@ export const applyMoveHit = (model: MatchModel, actorKey: 'player' | 'opponent',
     model.announcementTimer = 2.1;
   }
   if (move.category === 'grapple') {
-    if (move.damage >= 18) model.slowMotion = Math.max(model.slowMotion, .24);
-    if (move.damage >= 18) { model.announcement = move.displayName.toUpperCase(); model.announcementTimer = 1.2; }
+    if (move.id === 'piledriver') {
+      model.slowMotion = Math.max(model.slowMotion, .52);
+      model.announcement = 'VOLTAGE PILEDRIVER!'; model.announcementTimer = 2.1;
+      model.hitStop = Math.max(model.hitStop, .18);
+    } else if (move.damage >= 18) {
+      model.slowMotion = Math.max(model.slowMotion, .24);
+      model.announcement = move.displayName.toUpperCase(); model.announcementTimer = 1.2;
+    }
   }
   const majorImpact = move.category === 'finisher' || move.category === 'heavy' || move.category === 'grapple' || move.category === 'prop' || move.category === 'aerial';
   const exhaustionKnockout = model.elapsed >= BALANCE.knockout.earliestSeconds
@@ -293,7 +299,7 @@ export const combatDirection = (direction: Vec2): CombatDirection => {
 };
 
 const GRAPPLE_GRID: Readonly<Record<CombatDirection, Readonly<Record<GrappleButton, string>>>> = {
-  neutral: { quick: 'takedown', heavy: 'slam', grapple: 'slam' },
+  neutral: { quick: 'takedown', heavy: 'slam', grapple: 'piledriver' },
   up: { quick: 'arm_drag', heavy: 'skyhook', grapple: 'powerbomb' },
   down: { quick: 'takedown', heavy: 'spinebuster', grapple: 'mountain_drop' },
   left: { quick: 'clutch', heavy: 'spinebuster', grapple: 'whip' },
@@ -383,6 +389,24 @@ export const requestCommand = (model: MatchModel, actorKey: 'player' | 'opponent
   }
   if (actor.state === 'climbing' && actor.climbStage === 3 && command === 'jump') {
     return launchAerial(model, actor, target, 'aerial');
+  }
+  // Mid-lift throw: while opponent is held overhead, quick press hurls them in movement direction
+  if (actor.state === 'grappling' && model.grapple?.phase === 'lift' && model.grapple?.attacker === actorKey && command === 'quick') {
+    const throwDir = Math.hypot(direction.x, direction.z) > .12
+      ? normalize(direction)
+      : { x: Math.sin(actor.facing), z: Math.cos(actor.facing) };
+    releaseGrapple(model, 'idle');
+    target.state = 'airborne'; target.stateElapsed = 0; target.moveId = null; target.attackPhase = null; target.climbStage = 0; target.finisherPrimed = false;
+    target.velocity.x = throwDir.x * 8.5; target.velocity.z = throwDir.z * 8.5;
+    target.body.verticalVelocity = Math.max(target.body.verticalVelocity, 4.5);
+    target.body.verticalOffset = Math.max(target.body.verticalOffset, .7);
+    target.downTimer = Math.max(target.downTimer, 1.8 + (100 - target.health) / 80);
+    target.recoveryOrientation = 'back';
+    model.hype = clamp(model.hype + 18, 0, 100);
+    model.announcement = 'HURLED!'; model.announcementTimer = 1.1;
+    model.slowMotion = Math.max(model.slowMotion, .18);
+    addImpact(model, actor.position, 'heavy', 1.5, { force: 10, outcome: 'launch' });
+    return true;
   }
   if (actor.state === 'grappling' && actor.attackPhase === 'anticipation' && (command === 'quick' || command === 'heavy' || command === 'grapple')) {
     const moveId = selectDirectionalGrapple(direction, command);
@@ -785,7 +809,7 @@ export const advanceMatch = (model: MatchModel, dt: number, playerInput: FrameIn
   } else if (model.aiThinkTimer <= 0) {
     const decision = chooseAiDecision(model, fighterById(model.opponent.definitionId));
     model.seed = decision.nextSeed; model.aiIntent = decision.command; aiMove = decision.move; aiRun = decision.run;
-    model.aiThinkTimer = model.difficulty === 'hard' ? .22 : .38;
+      model.aiThinkTimer = model.difficulty === 'hard' ? .13 : .22;
     if (decision.command) {
       requestCommand(model, 'opponent', decision.command, decision.move, model.aiRunning);
       if (decision.command === 'block') model.aiBlockTimer = model.difficulty === 'hard' ? .72 : .48;

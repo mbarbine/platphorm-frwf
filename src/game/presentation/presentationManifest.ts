@@ -21,7 +21,7 @@ export const selectFighterDetail = (tier: ResolvedGraphicsTier, distance = 0): F
 export const movePresentationFamily = (move: MoveDefinition): string => {
   if (move.id === 'taunt') return 'fighter-signature-taunt';
   if (move.category === 'finisher') return 'fighter-signature-finisher';
-  if (['slam', 'suplex', 'powerbomb', 'spinebuster', 'mountain_drop', 'skyhook'].includes(move.id)) return `paired-lift-${move.id}`;
+  if (['slam', 'suplex', 'powerbomb', 'spinebuster', 'mountain_drop', 'skyhook', 'piledriver'].includes(move.id)) return `paired-lift-${move.id}`;
   if (move.category === 'grapple') return `paired-control-${move.id}`;
   if (move.category === 'aerial') return `aerial-${move.id}`;
   if (move.id === 'counter' || move.id === 'kick_up') return `utility-${move.id}`;

@@ -55,14 +55,19 @@ export function CameraRig() {
       }
       case 'grapple': {
         const forwardX = Math.sin(grappleActor.facing); const forwardZ = Math.cos(grappleActor.facing); const rightX = forwardZ; const rightZ = -forwardX;
-        const distance = grappleMove?.category === 'finisher' ? 9.8 : 10.35;
-        desired.set(middleX + rightX * distance * shotSide.current - forwardX * 1.45, grappleMove?.category === 'finisher' ? 6.05 : 5.8, middleZ + rightZ * distance * shotSide.current - forwardZ * 1.45);
+        const distance = grappleMove?.category === 'finisher' ? 8.4 : 7.8;
+        const height = grappleMove?.category === 'finisher' ? 5.2 : 4.5;
+        desired.set(middleX + rightX * distance * shotSide.current - forwardX * 2.8, height, middleZ + rightZ * distance * shotSide.current - forwardZ * 2.8);
         break;
       }
       case 'slam': {
         const forwardX = Math.sin(grappleActor.facing); const forwardZ = Math.cos(grappleActor.facing); const rightX = forwardZ; const rightZ = -forwardX;
-        const peakLift = grapplePhase === 'lift' ? Math.min(1.1, grappleLift * .48) : 0;
-        desired.set(middleX + rightX * 10.65 * shotSide.current - forwardX * 1.15, 5.35 + peakLift, middleZ + rightZ * 10.65 * shotSide.current - forwardZ * 1.15);
+        const isPiledriver = grappleActor.moveId === 'piledriver';
+        const peakLift = grapplePhase === 'lift' ? Math.min(isPiledriver ? 2.2 : 1.6, grappleLift * (isPiledriver ? 1.0 : .72)) : 0;
+        const distance = isPiledriver ? 7.0 : 9.2;
+        // Piledriver: camera near ground looking UP at the inversion — the most dramatic shot
+        const baseHeight = isPiledriver ? 2.2 : 3.8;
+        desired.set(middleX + rightX * distance * shotSide.current - forwardX * (isPiledriver ? .6 : 1.15), baseHeight + peakLift, middleZ + rightZ * distance * shotSide.current - forwardZ * (isPiledriver ? .6 : 1.15));
         break;
       }
       case 'strike': {
@@ -123,7 +128,7 @@ export function CameraRig() {
     if ('fov' in camera) {
       const perspective = camera as PerspectiveCamera;
       const baseFov = shot.current === 'replay' ? 39 : shot.current === 'grapple' ? grappleMove?.category === 'finisher' ? 40 : 43
-        : shot.current === 'slam' ? 42 : shot.current === 'strike' ? 43 : shot.current === 'corner' ? 46 : shot.current === 'aerial' ? 43 : shot.current === 'table' ? 41 : shot.current === 'wide' ? 50 : shot.current.startsWith('ringside') ? 46 : 44 + Math.min(9, separation * 1.15);
+        : shot.current === 'slam' ? (grappleActor?.moveId === 'piledriver' ? 32 : 40) : shot.current === 'strike' ? 43 : shot.current === 'corner' ? 46 : shot.current === 'aerial' ? 43 : shot.current === 'table' ? 41 : shot.current === 'wide' ? 50 : shot.current.startsWith('ringside') ? 46 : 44 + Math.min(9, separation * 1.15);
       const desiredFov = baseFov + impactImpulse.current * 1.15 + (model.slowMotion > 0 ? -2.5 : 0);
       perspective.fov += (desiredFov - perspective.fov) * (1 - Math.exp(-dt * 7.5)); perspective.updateProjectionMatrix();
     }

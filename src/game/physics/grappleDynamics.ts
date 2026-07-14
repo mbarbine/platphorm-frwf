@@ -6,6 +6,7 @@ import { clamp, length, normalize } from '../utils/math';
 type FighterKey = 'player' | 'opponent';
 
 const MOVE_POSITIONS: Readonly<Record<string, GrapplePosition>> = {
+  piledriver: 'frontFacelock',
   slam: 'underhook',
   suplex: 'rearWaistLock',
   takedown: 'armControl',
@@ -33,6 +34,7 @@ const HOLD_OFFSETS: Readonly<Record<GrapplePosition, { forward: number; side: nu
 };
 
 const LIFT_HEIGHTS: Readonly<Record<string, number>> = {
+  piledriver: 1.85,
   slam: .9,
   suplex: 1.08,
   takedown: .2,

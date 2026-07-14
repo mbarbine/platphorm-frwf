@@ -364,12 +364,12 @@ describe('deterministic combat rules', () => {
     expect(model.player.moveId).toBe('clutch'); expect(model.player.stamina).toBe(afterLock);
   });
 
-  it('makes neutral grapple a deliberate reliable body slam', () => {
+  it('makes neutral grapple an iconic voltage piledriver', () => {
     const model = createMatch('brick', 'vex', 'standard', 'normal'); model.player.position = { x: 0, z: 0 }; model.opponent.position = { x: 1, z: 0 };
-    expect(requestCommand(model, 'player', 'grapple')).toBe(true); expect(model.player.moveId).toBe('slam'); expect(model.grapple?.phase).toBe('reach');
+    expect(requestCommand(model, 'player', 'grapple')).toBe(true); expect(model.player.moveId).toBe('piledriver'); expect(model.grapple?.phase).toBe('reach');
   });
 
-  it('completes one hundred neutral body slams across the full weight and approach matrix without a stuck attacker', () => {
+  it('completes one hundred neutral piledrivers across the full weight and approach matrix without a stuck attacker', () => {
     const fighters = FIGHTERS.map((fighter) => fighter.id);
     let attempts = 0;
     for (const attacker of fighters) for (const defender of fighters) for (const side of [-1, 1] as const) for (const lane of [-.32, .32] as const) {
@@ -377,7 +377,7 @@ describe('deterministic combat rules', () => {
       model.player.position = { x: side * .2, z: -.2 + lane }; model.opponent.position = { x: side * .88, z: -.12 + lane };
       model.player.facing = side > 0 ? Math.PI / 2 : -Math.PI / 2; model.player.stamina = model.player.staminaCap;
       expect(requestCommand(model, 'player', 'grapple')).toBe(true);
-      expect(model.player.moveId).toBe('slam'); expect(model.grapple?.phase).toBe('reach');
+      expect(model.player.moveId).toBe('piledriver'); expect(model.grapple?.phase).toBe('reach');
       for (let frame = 0; frame < 240; frame += 1) advanceMatch(model, 1 / 60, none);
       expect(model.opponent.health).toBeLessThan(100); expect(model.player.moveId).toBeNull();
       expect(['idle', 'locomotion']).toContain(model.player.state); expect(model.grapple).toBeNull();

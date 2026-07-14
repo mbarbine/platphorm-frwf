@@ -175,7 +175,27 @@ const SPINE_VICTIM: readonly PoseKeyframe[] = [
   { at: .79, pose: matVictim }, { at: 1, pose: POSES.downed },
 ];
 
+const PILEDRIVER_ACTOR: readonly PoseKeyframe[] = [
+  { at: 0, pose: POSES.combatIdle },
+  { at: .1, pose: lockActor },
+  { at: .32, pose: pose({ ...lockActor, torso: [.48, 0, 0], leftLeg: [.68, 0, 0], rightLeg: [.68, 0, 0], leftShin: [-1.12, 0, 0], rightShin: [-1.12, 0, 0], rootY: -.32 }) },
+  { at: .52, pose: pose({ torso: [-.12, 0, 0], leftArm: [-1.92, 0, -.3], rightArm: [-1.92, 0, .3], leftForearm: [-.62, 0, 0], rightForearm: [-.62, 0, 0], rootY: .22 }) },
+  { at: .68, pose: pose({ torso: [-.08, 0, 0], leftArm: [-1.98, 0, -.28], rightArm: [-1.98, 0, .28], rootY: .28 }) },
+  { at: .78, pose: pose({ torso: [.92, 0, 0], leftLeg: [.65, 0, 0], rightLeg: [.65, 0, 0], leftShin: [-1.22, 0, 0], rightShin: [-1.22, 0, 0], rootY: -.48, rootTilt: .78 }) },
+  { at: 1, pose: POSES.recovery },
+];
+const PILEDRIVER_VICTIM: readonly PoseKeyframe[] = [
+  { at: 0, pose: POSES.stagger },
+  { at: .1, pose: lockVictim },
+  { at: .32, pose: pose({ ...lockVictim, rootY: .42, rootZ: -.14, rootTilt: -.38 }) },
+  { at: .52, pose: pose({ torso: [.22, 0, 0], leftArm: [.65, 0, -.62], rightArm: [.65, 0, .62], leftForearm: [-.24, 0, 0], rightForearm: [-.24, 0, 0], leftLeg: [-1.12, 0, 0], rightLeg: [-1.12, 0, 0], leftShin: [-.72, 0, 0], rightShin: [-.72, 0, 0], rootY: 1.58, rootZ: -.28, rootTilt: 2.68 }) },
+  { at: .68, pose: pose({ torso: [.18, 0, 0], leftArm: [.58, 0, -.6], rightArm: [.58, 0, .6], leftLeg: [-1.22, 0, 0], rightLeg: [-1.22, 0, 0], leftShin: [-.68, 0, 0], rightShin: [-.68, 0, 0], rootY: 1.88, rootTilt: 2.92 }) },
+  { at: .78, pose: pose({ torso: [-.28, 0, 0], leftArm: [.75, 0, -.52], rightArm: [.75, 0, .52], leftForearm: [-.3, 0, 0], rightForearm: [-.3, 0, 0], leftLeg: [-1.35, 0, 0], rightLeg: [-1.35, 0, 0], rootY: -.78, rootTilt: -1.82 }) },
+  { at: 1, pose: POSES.downed },
+];
+
 const GRAPPLE_STYLES: Readonly<Record<string, readonly [readonly PoseKeyframe[], readonly PoseKeyframe[]]>> = {
+  piledriver: [PILEDRIVER_ACTOR, PILEDRIVER_VICTIM],
   slam: [SLAM_ACTOR, SLAM_VICTIM], mountain_drop: [SLAM_ACTOR, SLAM_VICTIM],
   suplex: [SUPLEX_ACTOR, SUPLEX_VICTIM], skyhook: [SUPLEX_ACTOR, SUPLEX_VICTIM],
   powerbomb: [POWERBOMB_ACTOR, POWERBOMB_VICTIM],

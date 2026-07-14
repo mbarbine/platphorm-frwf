@@ -15,7 +15,7 @@ const Meter = ({ label, value, kind, max = 100 }: { label: string; value: number
 const GRAPPLE_GUIDE = [
   { id: 'up', direction: '↑', moves: ['arm_drag', 'skyhook', 'powerbomb'] },
   { id: 'left', direction: '←', moves: ['clutch', 'spinebuster', 'whip'] },
-  { id: 'neutral', direction: '●', moves: ['takedown', 'slam', 'slam'] },
+  { id: 'neutral', direction: '●', moves: ['takedown', 'slam', 'piledriver'] },
   { id: 'right', direction: '→', moves: ['side_toss', 'slam', 'suplex'] },
   { id: 'down', direction: '↓', moves: ['takedown', 'spinebuster', 'mountain_drop'] },
 ] as const;
