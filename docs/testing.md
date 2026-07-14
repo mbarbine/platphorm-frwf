@@ -15,6 +15,8 @@ pnpm test:e2e
 
 `pnpm verify` runs the same lint, type, unit, build, and browser sequence without reinstalling dependencies.
 
+Playwright serves the existing production bundle through Vite preview, so build before invoking a focused browser command directly. Readiness-sensitive scenarios wait for both registered physics bodies and completed fixed steps; this prevents first-frame shader compilation from being misreported as failed movement.
+
 ## Focused browser gates
 
 ```bash

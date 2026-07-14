@@ -85,7 +85,7 @@ test('Bodyworks lab exposes live Rapier diagnostics and drives real jump/walk in
     const liveHud = document.querySelector('.hud'); const deckNode = document.querySelector('[data-testid="control-deck"]'); if (!liveHud || !deckNode) return;
     const observe = (): void => {
       if (liveHud.getAttribute('data-player-move') === 'stiff_arm') document.documentElement.dataset.sawStiffArm = 'true';
-      if (liveHud.getAttribute('data-player-move') === 'stiff_arm' && /downed|airborne/.test(liveHud.getAttribute('data-opponent-state') ?? '')) document.documentElement.dataset.sawStiffArmKnockdown = 'true';
+      if (document.documentElement.dataset.sawStiffArm === 'true' && /downed|airborne/.test(liveHud.getAttribute('data-opponent-state') ?? '')) document.documentElement.dataset.sawStiffArmKnockdown = 'true';
       if (deckNode.getAttribute('data-control-state')?.includes('ROPES LOADED') || deckNode.textContent?.includes('STIFF-ARM!')) document.documentElement.dataset.sawRopeCallout = 'true';
     };
     new MutationObserver(observe).observe(document.body, { subtree: true, attributes: true, childList: true }); observe();
