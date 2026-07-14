@@ -1,5 +1,3 @@
-version: '3.8'
-
 # RINGFALL local development stack.
 # Provides game-server + Redis without requiring a cloud account.
 # Run: docker compose up --build
