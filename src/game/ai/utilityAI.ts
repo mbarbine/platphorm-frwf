@@ -110,7 +110,9 @@ export const chooseAiDecision = (model: MatchModel, definition: FighterDefinitio
   if (target.state === 'downed' && atCorner && separation > 2.4 && roll < (.12 + personality.athletic * .28) && isActionLegal(model, 'context', 'opponent')) return { command: 'context', move: { x: 0, z: 0 }, run: false, nextSeed };
   if (target.state === 'downed' && separation < 1.7 && isActionLegal(model, 'context', 'opponent')) return { command: 'context', move: { x: 0, z: 0 }, run: false, nextSeed };
   if (actor.momentum >= 100 && isActionLegal(model, 'context', 'opponent')) return { command: 'context', move: { x: 0, z: 0 }, run: false, nextSeed };
-  if (separation > 1.65) {
+  // Commit only after entering physical striking/grip range. The previous
+  // 1.65 m decision radius made the CPU shadowbox outside its own reach.
+  if (separation > 1.08) {
     if (separation > 3.1 && actor.health > 48 && roll < personality.showman * .13 && isActionLegal(model, 'taunt', 'opponent')) return { command: 'taunt', move: { x: 0, z: 0 }, run: false, nextSeed };
     return { command: null, move: toward, run: separation > 3.4, nextSeed };
   }

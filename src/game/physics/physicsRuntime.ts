@@ -75,6 +75,7 @@ export interface BodyWorksMetrics {
   invalidRegisteredBodyCount: number;
   worldRemoveCount: number;
   contactCount: number;
+  lastContactPair: string;
   emergencyResetCount: number;
   containmentCount: number;
   lastStepMs: number;
@@ -86,6 +87,10 @@ export interface BodyWorksMetrics {
   maximumJointSeparation: number;
   motorSaturationCount: number;
   currentMotorSaturations: number;
+  lastStrikeDistance: number;
+  minimumStrikeDistance: number;
+  minimumStrikePlanarDistance: number;
+  minimumStrikeVerticalDistance: number;
   numericalFaultCount: number;
   lastNumericalFault: string;
   supportScore: number;
@@ -218,12 +223,13 @@ export class BodyWorksRuntime {
   private replayAccumulator = 0;
   private stepStartedAt = -1;
   private currentFixedDt = 1 / 60;
+  private lastStrikeMetricKey = '';
   private readonly stepSamples = new Float64Array(240);
   private stepSampleCursor = 0;
   private stepSampleCount = 0;
   private stepSampleTotal = 0;
   readonly replay = new PhysicsReplayBuffer(300);
-  readonly metrics: BodyWorksMetrics = { fixedSteps: 0, bodyCount: 0, jointCount: 0, gripCount: 0, nearestGripDistance: 0, maximumGripError: 0, maximumGripLoad: 0, lastGripBreakReason: 'none', worldJointCount: 0, gripCreateCount: 0, gripInvalidCount: 0, propBodyCount: 0, propGripCount: 0, worldBodyCount: 0, invalidRegisteredBodyCount: 0, worldRemoveCount: 0, contactCount: 0, emergencyResetCount: 0, containmentCount: 0, lastStepMs: 0, averageStepMs: 0, p95StepMs: 0, maximumStepMs: 0, replayEstimatedBytes: 0, currentJointSeparation: 0, maximumJointSeparation: 0, motorSaturationCount: 0, currentMotorSaturations: 0, numericalFaultCount: 0, lastNumericalFault: 'none', supportScore: 0, taskCount: 0, taskTimeoutCount: 0, lastTaskPhase: 'none' };
+  readonly metrics: BodyWorksMetrics = { fixedSteps: 0, bodyCount: 0, jointCount: 0, gripCount: 0, nearestGripDistance: 0, maximumGripError: 0, maximumGripLoad: 0, lastGripBreakReason: 'none', worldJointCount: 0, gripCreateCount: 0, gripInvalidCount: 0, propBodyCount: 0, propGripCount: 0, worldBodyCount: 0, invalidRegisteredBodyCount: 0, worldRemoveCount: 0, contactCount: 0, lastContactPair: 'none', emergencyResetCount: 0, containmentCount: 0, lastStepMs: 0, averageStepMs: 0, p95StepMs: 0, maximumStepMs: 0, replayEstimatedBytes: 0, currentJointSeparation: 0, maximumJointSeparation: 0, motorSaturationCount: 0, currentMotorSaturations: 0, lastStrikeDistance: 0, minimumStrikeDistance: 0, minimumStrikePlanarDistance: 0, minimumStrikeVerticalDistance: 0, numericalFaultCount: 0, lastNumericalFault: 'none', supportScore: 0, taskCount: 0, taskTimeoutCount: 0, lastTaskPhase: 'none' };
 
   registerFighter(fighter: FighterKey, bodies: Partial<Record<BodySegmentId, RapierRigidBody>>, jointCount: number): () => void {
     const pelvisPosition = bodies.pelvis?.translation() ?? { x: 0, y: 3.02, z: 0 };
@@ -407,6 +413,7 @@ export class BodyWorksRuntime {
     this.contacts.push({ id: this.contactId, ...contact });
     if (this.contacts.length > MAX_CONTACTS) this.contacts.splice(0, this.contacts.length - MAX_CONTACTS);
     this.metrics.contactCount += 1;
+    this.metrics.lastContactPair = `${contact.sourceSegment ?? 'environment'}>${contact.targetSegment ?? contact.targetSurface ?? 'environment'}`;
   }
 
   consumeContacts(): readonly BodyWorksContact[] { const result = this.contacts.splice(0); return result; }
@@ -633,6 +640,12 @@ export class BodyWorksRuntime {
   private configureRotationalAuthority(rig: FighterRigRegistration, fighter: FighterRuntime, profile: MotorProfile): void {
     const dynamic = new Set<BodySegmentId>();
     if (profile.rootMode === 'physical') for (const segment of Object.keys(rig.bodies) as BodySegmentId[]) dynamic.add(segment);
+    // Arms remain a live, supported chain in standing locomotion so hands are
+    // physically held in a guard and can reach from that guard. Locking them
+    // in their spawn-down orientation made every contact-true punch miss.
+    if (['neutral', 'combat', 'walking', 'running', 'braking', 'jumpLoad', 'landing', 'victory'].includes(profile.id)) {
+      for (const segment of ['leftUpperArm', 'rightUpperArm', 'leftForearm', 'rightForearm', 'leftHand', 'rightHand'] as const) dynamic.add(segment);
+    }
     if (fighter.state === 'blocking') for (const segment of ['leftUpperArm', 'rightUpperArm', 'leftForearm', 'rightForearm', 'leftHand', 'rightHand'] as const) dynamic.add(segment);
     if (fighter.state === 'grappling' || profile.id === 'clinch' || profile.id === 'lift' || profile.id === 'throw') for (const segment of ['leftUpperArm', 'rightUpperArm', 'leftForearm', 'rightForearm', 'leftHand', 'rightHand', 'chest', 'abdomen'] as const) dynamic.add(segment);
     const strike = fighter.moveId ? strikeDriveProfile(fighter.moveId) : null;
@@ -675,10 +688,14 @@ export class BodyWorksRuntime {
     if (model.grapple || !['idle', 'locomotion', 'blocking'].includes(model.player.state) || !['idle', 'locomotion', 'blocking'].includes(model.opponent.state)) return;
     const player = this.rigs.get('player')?.bodies.pelvis; const opponent = this.rigs.get('opponent')?.bodies.pelvis; if (!player || !opponent) return;
     const a = player.translation(); const b = opponent.translation(); let dx = b.x - a.x; let dz = b.z - a.z; let separation = Math.hypot(dx, dz);
-    if (separation >= 1.08) return;
+    // Core colliders already prevent body overlap. This smaller comfort gap
+    // lets real hands reach real targets; the old 1.08 m force field made a
+    // clean jab geometrically impossible despite accepting the input.
+    const comfortGap = .7;
+    if (separation >= comfortGap) return;
     if (separation < .01) { dx = Math.sin(model.player.facing); dz = Math.cos(model.player.facing); separation = 1; }
     const nx = dx / separation; const nz = dz / separation; const relative = (opponent.linvel().x - player.linvel().x) * nx + (opponent.linvel().z - player.linvel().z) * nz;
-    const averageMass = (player.mass() + opponent.mass()) * .5; const force = clamp((1.08 - separation) * averageMass * 28 - relative * averageMass * 2.8, 0, 1_050);
+    const averageMass = (player.mass() + opponent.mass()) * .5; const force = clamp((comfortGap - separation) * averageMass * 28 - relative * averageMass * 2.8, 0, 1_050);
     player.addForce({ x: -nx * force, y: 0, z: -nz * force }, true); opponent.addForce({ x: nx * force, y: 0, z: nz * force }, true);
   }
 
@@ -698,7 +715,7 @@ export class BodyWorksRuntime {
   }
 
   private applyPhysicalStrike(key: FighterKey, rig: FighterRigRegistration, fighter: FighterRuntime, model: MatchModel): void {
-    if (!fighter.moveId || fighter.attackPhase !== 'active') return;
+    if (!fighter.moveId || (fighter.attackPhase !== 'anticipation' && fighter.attackPhase !== 'active')) return;
     const profile = strikeDriveProfile(fighter.moveId); if (!profile) return;
     const targetKey: FighterKey = key === 'player' ? 'opponent' : 'player'; const targetRig = this.rigs.get(targetKey);
     const source = rig.bodies[profile.source]; const authoredTarget = targetRig?.bodies[profile.target]; const pelvis = rig.bodies.pelvis;
@@ -714,15 +731,28 @@ export class BodyWorksRuntime {
       : authoredTarget;
     if (!source || !target || !pelvis) return;
     const sourcePosition = source.translation(); const targetPosition = target.translation();
+    const strikePlanarDistance = Math.hypot(targetPosition.x - sourcePosition.x, targetPosition.z - sourcePosition.z);
+    const strikeVerticalDistance = Math.abs(targetPosition.y - sourcePosition.y);
+    const strikeDistance = Math.hypot(strikePlanarDistance, strikeVerticalDistance);
+    const strikeMetricKey = `${key}:${fighter.attackInstanceId}:${fighter.moveId}`;
+    if (strikeMetricKey !== this.lastStrikeMetricKey) {
+      this.lastStrikeMetricKey = strikeMetricKey; this.metrics.minimumStrikeDistance = strikeDistance;
+      this.metrics.minimumStrikePlanarDistance = strikePlanarDistance; this.metrics.minimumStrikeVerticalDistance = strikeVerticalDistance;
+    }
+    this.metrics.lastStrikeDistance = strikeDistance;
+    if (strikeDistance < this.metrics.minimumStrikeDistance) {
+      this.metrics.minimumStrikeDistance = strikeDistance; this.metrics.minimumStrikePlanarDistance = strikePlanarDistance; this.metrics.minimumStrikeVerticalDistance = strikeVerticalDistance;
+    }
     const separation = Math.hypot(targetPosition.x - pelvis.translation().x, targetPosition.z - pelvis.translation().z);
     const move = getMove(fighter.moveId); if (separation > move.maximumRange + .65) return;
+    const phaseScale = fighter.attackPhase === 'active' ? 1 : .68;
     const force = computeStrikeForce(sourcePosition, targetPosition, source.linvel(), target.linvel(), source.mass(), profile);
-    source.addForce(force, true);
+    source.addForce({ x: force.x * phaseScale, y: force.y * phaseScale, z: force.z * phaseScale }, true);
     const planarDistance = Math.max(.001, Math.hypot(targetPosition.x - sourcePosition.x, targetPosition.z - sourcePosition.z));
     this.applyRigAcceleration(rig, {
-      x: (targetPosition.x - sourcePosition.x) / planarDistance * profile.pelvisAcceleration,
+      x: (targetPosition.x - sourcePosition.x) / planarDistance * profile.pelvisAcceleration * phaseScale,
       y: 0,
-      z: (targetPosition.z - sourcePosition.z) / planarDistance * profile.pelvisAcceleration,
+      z: (targetPosition.z - sourcePosition.z) / planarDistance * profile.pelvisAcceleration * phaseScale,
     });
     if (fighter.moveId === 'aerial') {
       const chest = rig.bodies.chest;
@@ -1110,7 +1140,14 @@ export class BodyWorksRuntime {
       // therefore scales with segment mass; applying a torso-sized impulse to
       // a hand or upper arm produces solver-speed vibration even when the
       // abstract profile value is bounded.
-      const massTorqueCap = body.mass() * (segment === 'pelvis' || segment === 'abdomen' || segment === 'chest' ? 3.2 : segment === 'head' ? 2 : 2.4);
+      const torquePerKg = segment.includes('UpperArm') ? 80
+        : segment.includes('Forearm') ? 40
+        : segment.includes('Hand') ? 20
+        : segment.includes('Thigh') ? 14
+        : segment.includes('Shin') || segment.includes('Foot') ? 10
+        : segment === 'head' ? 5
+        : 6.5;
+      const massTorqueCap = body.mass() * torquePerKg;
       const maximumTorque = Math.min(chain.maximumTorque * stiffnessScale, massTorqueCap);
       const torque = computeMotorTorque(body.rotation(), targets[segment], body.angvel(), { x: 0, y: 0, z: 0 }, {
         stiffness: chain.stiffness * stiffnessScale,
@@ -1136,6 +1173,7 @@ export class BodyWorksRuntime {
     this.stepStartedAt = -1;
     if (model.paused) return;
     for (const rig of this.rigs.values()) this.capRigVelocity(rig);
+    this.refreshPhysicalSupportContacts();
     this.inspectNumericalHealth();
     this.containRigsToArena(model);
     this.syncFighter('player', model.player);
@@ -1144,6 +1182,33 @@ export class BodyWorksRuntime {
     if (this.replayAccumulator >= 1 / 30) {
       this.replayAccumulator %= 1 / 30;
       this.captureReplayFrame(model.elapsed);
+    }
+  }
+
+  /**
+   * Rebuild foot support from Rapier's solved contact manifolds. React event
+   * callbacks can miss the initial overlap when a fighter and the mat mount in
+   * the same commit, and an exit from one overlapping surface can otherwise
+   * erase a second valid support. The narrow phase is the authority here.
+   */
+  private refreshPhysicalSupportContacts(): void {
+    const world = this.world; if (!world) return;
+    for (const rig of this.rigs.values()) {
+      const ownHandles = new Set(Object.values(rig.bodies).filter((body): body is RapierRigidBody => Boolean(body?.isValid())).map((body) => body.handle));
+      const supported = new Set<BodySegmentId>();
+      for (const footId of ['leftFoot', 'rightFoot'] as const) {
+        const foot = rig.bodies[footId]; if (!foot?.isValid() || foot.numColliders() === 0) continue;
+        const collider = foot.collider(0); let touching = false;
+        world.contactPairsWith(collider, (other) => {
+          if (touching) return;
+          const otherParent = other.parent(); if (otherParent && ownHandles.has(otherParent.handle)) return;
+          world.contactPair(collider, other, (manifold) => {
+            if (manifold.numSolverContacts() > 0 || manifold.numContacts() > 0) touching = true;
+          });
+        });
+        if (touching) supported.add(footId);
+      }
+      rig.supportContacts = supported;
     }
   }
 
@@ -1302,12 +1367,12 @@ export class BodyWorksRuntime {
     if (this.world) for (const grip of [...this.propGrips.values()]) this.releasePropGrip(this.world, grip, null);
     if (this.instrumentedWorld && this.originalRemoveImpulseJoint) this.instrumentedWorld.removeImpulseJoint = this.originalRemoveImpulseJoint;
     this.generation += 1; this.rigs.clear(); this.commands.length = 0; this.contacts.length = 0; this.replay.clear(); this.tasks.clear();
-    this.pendingLandings.clear(); this.grappleEnvironmentTarget = null; this.props.clear(); this.propGrips.clear(); this.releasedPropAttacks.clear(); this.replayAccumulator = 0; this.world = null; this.instrumentedWorld = null; this.originalRemoveImpulseJoint = null; this.stepStartedAt = -1;
+    this.pendingLandings.clear(); this.grappleEnvironmentTarget = null; this.props.clear(); this.propGrips.clear(); this.releasedPropAttacks.clear(); this.replayAccumulator = 0; this.world = null; this.instrumentedWorld = null; this.originalRemoveImpulseJoint = null; this.stepStartedAt = -1; this.lastStrikeMetricKey = '';
     this.stepSamples.fill(0); this.stepSampleCursor = 0; this.stepSampleCount = 0; this.stepSampleTotal = 0;
     this.intents.player = EMPTY_INTENT(); this.intents.opponent = EMPTY_INTENT();
     this.presentationPoints.player = {}; this.presentationPoints.opponent = {};
     this.labAdditionalMass.player = 0; this.labAdditionalMass.opponent = 0;
-    this.metrics.fixedSteps = 0; this.metrics.bodyCount = 0; this.metrics.jointCount = 0; this.metrics.gripCount = 0; this.metrics.nearestGripDistance = 0; this.metrics.maximumGripError = 0; this.metrics.maximumGripLoad = 0; this.metrics.lastGripBreakReason = 'none'; this.metrics.worldJointCount = 0; this.metrics.gripCreateCount = 0; this.metrics.gripInvalidCount = 0; this.metrics.propBodyCount = 0; this.metrics.propGripCount = 0; this.metrics.worldBodyCount = 0; this.metrics.invalidRegisteredBodyCount = 0; this.metrics.worldRemoveCount = 0; this.metrics.contactCount = 0; this.metrics.emergencyResetCount = 0; this.metrics.containmentCount = 0; this.metrics.lastStepMs = 0; this.metrics.averageStepMs = 0; this.metrics.p95StepMs = 0; this.metrics.maximumStepMs = 0; this.metrics.replayEstimatedBytes = 0; this.metrics.currentJointSeparation = 0; this.metrics.maximumJointSeparation = 0; this.metrics.motorSaturationCount = 0; this.metrics.currentMotorSaturations = 0; this.metrics.numericalFaultCount = 0; this.metrics.lastNumericalFault = 'none'; this.metrics.supportScore = 0; this.metrics.taskCount = 0; this.metrics.taskTimeoutCount = 0; this.metrics.lastTaskPhase = 'none';
+    this.metrics.fixedSteps = 0; this.metrics.bodyCount = 0; this.metrics.jointCount = 0; this.metrics.gripCount = 0; this.metrics.nearestGripDistance = 0; this.metrics.maximumGripError = 0; this.metrics.maximumGripLoad = 0; this.metrics.lastGripBreakReason = 'none'; this.metrics.worldJointCount = 0; this.metrics.gripCreateCount = 0; this.metrics.gripInvalidCount = 0; this.metrics.propBodyCount = 0; this.metrics.propGripCount = 0; this.metrics.worldBodyCount = 0; this.metrics.invalidRegisteredBodyCount = 0; this.metrics.worldRemoveCount = 0; this.metrics.contactCount = 0; this.metrics.lastContactPair = 'none'; this.metrics.emergencyResetCount = 0; this.metrics.containmentCount = 0; this.metrics.lastStepMs = 0; this.metrics.averageStepMs = 0; this.metrics.p95StepMs = 0; this.metrics.maximumStepMs = 0; this.metrics.replayEstimatedBytes = 0; this.metrics.currentJointSeparation = 0; this.metrics.maximumJointSeparation = 0; this.metrics.motorSaturationCount = 0; this.metrics.currentMotorSaturations = 0; this.metrics.lastStrikeDistance = 0; this.metrics.minimumStrikeDistance = 0; this.metrics.minimumStrikePlanarDistance = 0; this.metrics.minimumStrikeVerticalDistance = 0; this.metrics.numericalFaultCount = 0; this.metrics.lastNumericalFault = 'none'; this.metrics.supportScore = 0; this.metrics.taskCount = 0; this.metrics.taskTimeoutCount = 0; this.metrics.lastTaskPhase = 'none';
   }
 
   pendingCommandCount(): number { return this.commands.length; }

@@ -12,7 +12,7 @@ export interface StrikeDriveProfile {
   pelvisAcceleration: number;
 }
 
-const HAND_STRIKE: StrikeDriveProfile = { source: 'rightHand', target: 'head', speed: 12.5, response: 15, maximumAcceleration: 165, pelvisAcceleration: 1.8 };
+const HAND_STRIKE: StrikeDriveProfile = { source: 'rightHand', target: 'chest', speed: 18, response: 32, maximumAcceleration: 600, pelvisAcceleration: 5.4 };
 
 export const strikeDriveProfile = (moveId: string): StrikeDriveProfile | null => {
   if (moveId === 'jab') return HAND_STRIKE;

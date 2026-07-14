@@ -95,15 +95,15 @@ function RuntimeDiagnosticsSampler() {
   return null;
 }
 
-function Fighters({ detail }: { detail: FighterDetail }) {
+function Fighters({ detail, showPhysical }: { detail: FighterDetail; showPhysical: boolean }) {
   const player = useMatchStore((state) => state.model.player); const opponent = useMatchStore((state) => state.model.opponent);
   const runtimeId = useMatchStore((state) => state.model.runtimeId);
   const replayActive = useMatchStore((state) => state.replayActive);
   return <group key={runtimeId} visible={!replayActive}>
-    <PhysicalFighterRig runtime={player} side="player" showVisuals={false} />
-    <PhysicalFighterRig runtime={opponent} side="opponent" showVisuals={false} />
-    <FighterModel runtime={player} counterpart={opponent} side="player" detail={detail} />
-    <FighterModel runtime={opponent} counterpart={player} side="opponent" detail={detail} />
+    <PhysicalFighterRig runtime={player} side="player" showVisuals={showPhysical} />
+    <PhysicalFighterRig runtime={opponent} side="opponent" showVisuals={showPhysical} />
+    {!showPhysical && <><FighterModel runtime={player} counterpart={opponent} side="player" detail={detail} />
+    <FighterModel runtime={opponent} counterpart={player} side="opponent" detail={detail} /></>}
   </group>;
 }
 
@@ -149,7 +149,7 @@ export function GameScene(props: Props) {
       renderer.current = gl; gl.xr.enabled = true;
       if (navigator.xr) void navigator.xr.isSessionSupported('immersive-vr').then(setXrAvailable).catch(() => setXrAvailable(false));
     }}>
-      <Suspense fallback={null}><Physics gravity={[0, -18, 0]} timeStep={(lab ? labRate : 1) / 60} paused={paused || replayActive} debug={lab && labDebug} interpolate numSolverIterations={8} numInternalPgsIterations={2} maxCcdSubsteps={2}><Arena crowdCount={quality.crowdCount} /><Fighters detail={fighterDetail} />{lab && labDebug && <BodyWorksDebugOverlay />}<PlayerControlBeacon /><ImpactEffects /><Simulation {...props} /></Physics><ReplayDirector /><CameraRig /><RuntimeDiagnosticsSampler /><AdaptiveDpr pixelated />{quality.bakeShadows && <BakeShadows />}</Suspense>
+      <Suspense fallback={null}><Physics gravity={[0, -18, 0]} timeStep={(lab ? labRate : 1) / 60} paused={paused || replayActive} debug={lab && labDebug} interpolate numSolverIterations={8} numInternalPgsIterations={2} maxCcdSubsteps={2}><Arena crowdCount={quality.crowdCount} /><Fighters detail={fighterDetail} showPhysical={lab && labDebug} />{lab && labDebug && <BodyWorksDebugOverlay />}<PlayerControlBeacon /><ImpactEffects /><Simulation {...props} /></Physics><ReplayDirector /><CameraRig /><RuntimeDiagnosticsSampler /><AdaptiveDpr pixelated />{quality.bakeShadows && <BakeShadows />}</Suspense>
     </Canvas>
     {xrAvailable && <button type="button" className="xr-entry" data-testid="xr-entry" onClick={() => void (xrPresenting ? exitXR() : enterXR())}>{xrPresenting ? 'EXIT ARENA XR' : 'ENTER ARENA XR'}<small>QUEST · STEAM FRAME · OPENXR</small></button>}
     {xrError && <div className="xr-error" role="status">XR UNAVAILABLE · {xrError}</div>}
