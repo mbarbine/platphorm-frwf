@@ -18,7 +18,7 @@ const SCENARIOS: readonly LabScenario[] = [
   { id: 'brake', label: 'RUN + BRAKE', steps: [...hold('KeyW', 0, 1_150), ...hold('ShiftLeft', 0, 1_150)], duration: 2_600 },
   { id: 'turn', label: 'RAPID TURN', steps: [...hold('KeyA', 0, 500), ...hold('KeyD', 560, 650)], duration: 1_800 },
   { id: 'ropes', label: 'RUN INTO ROPES', steps: [...hold('KeyD', 0, 2_050), ...hold('ShiftLeft', 0, 2_050)], duration: 2_800 },
-  { id: 'ropeStrike', label: 'ROPE LOAD + STIFF-ARM', steps: [...hold('KeyD', 0, 1_400), ...hold('ShiftLeft', 0, 1_400)], duration: 2_400 },
+  { id: 'ropeStrike', label: 'ROPE LOAD + STIFF-ARM', steps: [...hold('KeyD', 0, 2_200), ...hold('ShiftLeft', 0, 2_200)], duration: 3_400 },
   { id: 'apronReturn', label: 'APRON RETURN', steps: tap('KeyF', 900, 180), duration: 3_400 },
   { id: 'jump', label: 'STANDING JUMP', steps: tap('KeyC', 220, 480), duration: 2_200 },
   { id: 'landing', label: 'JUMP + LANDING', steps: tap('KeyC', 220, 480), duration: 2_600 },
@@ -101,8 +101,10 @@ export function PhysicsLab() {
     if (scenario.id === 'ropeStrike') {
       reboundWatcher = window.setInterval(() => {
         const player = useMatchStore.getState().model.player; if (player.ropeRebound <= 0) return;
+        const opponent = useMatchStore.getState().model.opponent;
+        if (Math.hypot(player.position.x - opponent.position.x, player.position.z - opponent.position.z) > 1.45) return;
         if (reboundWatcher !== null) window.clearInterval(reboundWatcher); reboundWatcher = null;
-        dispatchKey('KeyD', false); dispatchKey('ShiftLeft', false); dispatchKey('KeyK', true); timers.current.push(window.setTimeout(() => dispatchKey('KeyK', false), 180));
+        dispatchKey('KeyK', true); timers.current.push(window.setTimeout(() => dispatchKey('KeyK', false), 180));
       }, 8); timers.current.push(reboundWatcher);
     }
     timers.current.push(window.setTimeout(() => {

@@ -14,7 +14,7 @@ import { POSES } from '../animation/poses';
 import type { Pose } from '../animation/poses';
 import type { QuaternionValue, Vector3Value } from './motorController';
 import { apronTransitionTarget, isRingside, RING_HARD_LIMIT, solveRopeResponse } from './ringDynamics';
-import { computeStrikeForce, strikeDriveProfile } from './strikeDynamics';
+import { computeStrikeForce, strikeDriveProfile, sweptPlanarPathHitsTarget } from './strikeDynamics';
 import { locomotionProfile } from './bodyDynamics';
 import { VOLT_DOME } from '../data/arena';
 
@@ -90,6 +90,7 @@ interface FighterRigRegistration {
   ropeContact: { axis: 'x' | 'z'; side: -1 | 1; peakCompression: number; entrySpeed: number } | null;
   cornerAnchor: (Vec2 & { stage: 1 | 2 | 3 }) | null;
   apronAnchor: { target: Vec2; inside: boolean; age: number } | null;
+  strikeSweep: { attackInstanceId: number; start: Vec2 } | null;
 }
 
 interface IntentState { move: Vec2; run: boolean; block: boolean }
@@ -179,7 +180,7 @@ export class BodyWorksRuntime {
       const position = body.translation();
       restOffsets[segment] = { x: position.x - pelvisPosition.x, y: position.y - pelvisPosition.y, z: position.z - pelvisPosition.z };
     }
-    this.rigs.set(fighter, { bodies, restOffsets, restPelvisY: pelvisPosition.y, rootStabilized: false, skeletonStabilized: false, supportContacts: new Set<BodySegmentId>(), jumpQueued: false, jumpCooldown: 0, ropeContact: null, cornerAnchor: null, apronAnchor: null });
+    this.rigs.set(fighter, { bodies, restOffsets, restPelvisY: pelvisPosition.y, rootStabilized: false, skeletonStabilized: false, supportContacts: new Set<BodySegmentId>(), jumpQueued: false, jumpCooldown: 0, ropeContact: null, cornerAnchor: null, apronAnchor: null, strikeSweep: null });
     this.applyLabAdditionalMass(fighter);
     this.recount(jointCount);
     const registeredGeneration = this.generation;
@@ -323,7 +324,7 @@ export class BodyWorksRuntime {
       body.setTranslation({ x: target.x + offset.x, y: rig.restPelvisY + offset.y, z: target.z + offset.z }, true);
       body.setLinvel({ x: 0, y: 0, z: 0 }, true); body.setAngvel({ x: 0, y: 0, z: 0 }, true); body.setRotation({ x: 0, y: 0, z: 0, w: 1 }, true);
     }
-    rig.rootStabilized = false; rig.skeletonStabilized = false; rig.supportContacts.clear(); rig.supportContacts.add('leftFoot'); rig.supportContacts.add('rightFoot'); rig.jumpQueued = false; rig.ropeContact = null; rig.cornerAnchor = null; rig.apronAnchor = null;
+    rig.rootStabilized = false; rig.skeletonStabilized = false; rig.supportContacts.clear(); rig.supportContacts.add('leftFoot'); rig.supportContacts.add('rightFoot'); rig.jumpQueued = false; rig.ropeContact = null; rig.cornerAnchor = null; rig.apronAnchor = null; rig.strikeSweep = null;
   }
 
   setFootContact(fighter: FighterKey, foot: BodySegmentId, touching: boolean): void {
@@ -508,6 +509,10 @@ export class BodyWorksRuntime {
       this.applyRigAcceleration(rig, { x: 0, y: supportAcceleration, z: 0 });
     }
     const movementControl = ['idle', 'locomotion'].includes(fighter.state) ? 1 : fighter.state === 'recovering' ? .08 : 0;
+    const activeMove = fighter.moveId ? getMove(fighter.moveId) : null;
+    const tracksRunningSweep = Boolean(activeMove && ['stiff_arm', 'rebound', 'spear'].includes(activeMove.id) && (fighter.attackPhase === 'anticipation' || fighter.attackPhase === 'active'));
+    if (tracksRunningSweep && rig.strikeSweep?.attackInstanceId !== fighter.attackInstanceId) rig.strikeSweep = { attackInstanceId: fighter.attackInstanceId, start: { ...fighter.position } };
+    else if (!tracksRunningSweep) rig.strikeSweep = null;
     let desiredSpeed = (intent.run ? locomotion.runSpeed : locomotion.walkSpeed) * (fighter.body.muscle < .3 ? .86 : 1) * movementControl;
     const inputLength = Math.min(1, Math.hypot(intent.move.x, intent.move.z)) * movementControl;
     const opponent = model[key === 'player' ? 'opponent' : 'player']; const targetX = opponent.position.x - fighter.position.x; const targetZ = opponent.position.z - fighter.position.z;
@@ -655,11 +660,11 @@ export class BodyWorksRuntime {
     const sourcePosition = source.translation(); const targetPosition = target.translation(); const dx = targetPosition.x - sourcePosition.x; const dy = targetPosition.y - sourcePosition.y; const dz = targetPosition.z - sourcePosition.z;
     const segmentDistance = Math.max(.001, Math.hypot(dx, dy, dz)); const pelvisDistance = Math.hypot(targetFighter.position.x - fighter.position.x, targetFighter.position.z - fighter.position.z);
     const move = getMove(fighter.moveId); const attackSpeed = Math.hypot(fighter.velocity.x, fighter.velocity.z);
-    const velocityFacing = (move.category === 'aerial' || move.id === 'stiff_arm' || move.id === 'rebound' || move.id === 'spear') && attackSpeed > 1.2;
+    const runningCollisionSweep = move.id === 'stiff_arm' || move.id === 'rebound' || move.id === 'spear';
+    const velocityFacing = (move.category === 'aerial' || runningCollisionSweep) && attackSpeed > 1.2;
     const forwardX = velocityFacing ? fighter.velocity.x / attackSpeed : Math.sin(fighter.facing); const forwardZ = velocityFacing ? fighter.velocity.z / attackSpeed : Math.cos(fighter.facing); const targetX = targetFighter.position.x - fighter.position.x; const targetZ = targetFighter.position.z - fighter.position.z;
     const forwardDistance = forwardX * targetX + forwardZ * targetZ;
     const lateralDistance = Math.abs(forwardX * targetZ - forwardZ * targetX);
-    const runningCollisionSweep = move.id === 'stiff_arm' || move.id === 'rebound' || move.id === 'spear';
     const volumeWidth = move.category === 'aerial' ? 1.85 : runningCollisionSweep ? 1.32 : move.category === 'heavy' || move.category === 'prop' ? .96 : .76;
     // A rebound can cover more than a metre during the anticipation and active
     // frames. Preserve that travelled segment as a swept volume so a stiff-arm
@@ -668,7 +673,10 @@ export class BodyWorksRuntime {
     // Gameplay contact is a stance-anchored swept volume. The physical hand
     // still supplies region, force direction and relative speed, but joint lag
     // cannot make a visually valid active-frame strike randomly pass through.
-    if (pelvisDistance > move.maximumRange + .22 || pelvisDistance < Math.max(0, move.minimumRange - .22) || forwardDistance < minimumForwardDistance || lateralDistance > volumeWidth) return;
+    const sweep = runningCollisionSweep && rig.strikeSweep?.attackInstanceId === fighter.attackInstanceId ? rig.strikeSweep : null;
+    const sweptPathHit = Boolean(sweep && sweptPlanarPathHitsTarget(sweep.start, fighter.position, targetFighter.position, volumeWidth));
+    const instantaneousHit = pelvisDistance <= move.maximumRange + .22 && pelvisDistance >= Math.max(0, move.minimumRange - .22) && forwardDistance >= minimumForwardDistance && lateralDistance <= volumeWidth;
+    if (!instantaneousHit && !sweptPathHit) return;
     const sourceVelocity = source.linvel(); const targetVelocity = target.linvel(); const actualRelativeSpeed = Math.hypot(sourceVelocity.x - targetVelocity.x, sourceVelocity.y - targetVelocity.y, sourceVelocity.z - targetVelocity.z);
     const authoredRelativeSpeed = Math.max(actualRelativeSpeed, profile.speed * .46); const maximumForce = Math.max(48, source.mass() * profile.maximumAcceleration * .2);
     this.recordContact({
