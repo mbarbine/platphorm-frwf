@@ -774,13 +774,6 @@ export class BodyWorksRuntime {
         const distance = Math.hypot(delta.x, delta.y, delta.z);
         nearestGripDistance = Math.min(nearestGripDistance, distance);
         if (distance > 2) continue;
-        const handVelocity = hand.linvel(); const targetVelocity = target.linvel(); const inverseDistance = 1 / Math.max(.001, distance);
-        const desiredSpeed = clamp(distance * 11, 2.5, 8.5);
-        const desiredVelocity = { x: targetVelocity.x + delta.x * inverseDistance * desiredSpeed, y: targetVelocity.y + delta.y * inverseDistance * desiredSpeed, z: targetVelocity.z + delta.z * inverseDistance * desiredSpeed };
-        const rawForce = { x: (desiredVelocity.x - handVelocity.x) * hand.mass() * 18, y: (desiredVelocity.y - handVelocity.y) * hand.mass() * 18, z: (desiredVelocity.z - handVelocity.z) * hand.mass() * 18 };
-        const rawMagnitude = Math.hypot(rawForce.x, rawForce.y, rawForce.z); const forceScale = rawMagnitude > 260 ? 260 / rawMagnitude : 1;
-        const force = { x: rawForce.x * forceScale, y: rawForce.y * forceScale, z: rawForce.z * forceScale };
-        hand.addForce(force, true); target.addForce({ x: -force.x * .12, y: -force.y * .12, z: -force.z * .12 }, true);
         const attackerPelvis = attackerRig.bodies.pelvis; const defenderPelvis = defenderRig.bodies.pelvis;
         if (attackerPelvis && defenderPelvis) {
           const attackerPosition = attackerPelvis.translation(); const defenderPosition = defenderPelvis.translation(); const planarDistance = Math.max(.001, Math.hypot(defenderPosition.x - attackerPosition.x, defenderPosition.z - attackerPosition.z));
@@ -792,7 +785,19 @@ export class BodyWorksRuntime {
         // slightly wider catch envelope so a visually valid two-hand lock does
         // not fail because the first constraint moved the hips mid-frame.
         const catchDistance = acquiredHands > 0 ? 1.42 : 1.22;
-        if (distance > catchDistance) continue;
+        if (distance > catchDistance) {
+          // Move the articulated tree as one mass. Pulling a single hand hard
+          // enough to close a gameplay-scale gap transfers the entire impulse
+          // through its shoulder joint and can separate the hidden collision
+          // skeleton even though every individual velocity is capped.
+          if (acquiredHands === 0 && attackerPelvis && defenderPelvis) {
+            const attackerCenter = this.rigPlanarCenter(attackerRig); const defenderCenter = this.rigPlanarCenter(defenderRig);
+            const centerX = defenderCenter.x - attackerCenter.x; const centerZ = defenderCenter.z - attackerCenter.z;
+            const centerDistance = Math.max(.001, Math.hypot(centerX, centerZ));
+            this.applyRigAcceleration(attackerRig, { x: centerX / centerDistance * 5.2, y: 0, z: centerZ / centerDistance * 5.2 });
+          }
+          continue;
+        }
         // Two hard cross-rig joints form a closed constraint loop through both
         // articulated skeletons. Rapier can resolve that loop with positional
         // corrections large enough to launch a wrestler even after velocity
@@ -812,11 +817,6 @@ export class BodyWorksRuntime {
       const load = Math.hypot(target.linvel().x - hand.linvel().x, target.linvel().y - hand.linvel().y, target.linvel().z - hand.linvel().z) * defender.body.mass / 100;
       sessionMaximumError = Math.max(sessionMaximumError, error); sessionMaximumLoad = Math.max(sessionMaximumLoad, load);
       this.metrics.maximumGripError = Math.max(this.metrics.maximumGripError, error); this.metrics.maximumGripLoad = Math.max(this.metrics.maximumGripLoad, load);
-      if (error > .18) {
-        const delta = { x: targetPosition.x - handPosition.x, y: targetPosition.y - handPosition.y, z: targetPosition.z - handPosition.z }; const inverseError = 1 / Math.max(.001, error);
-        const pull = clamp((error - .18) * 68, 0, 52); const force = { x: delta.x * inverseError * pull, y: delta.y * inverseError * pull, z: delta.z * inverseError * pull };
-        hand.addForce(force, true); target.addForce({ x: -force.x, y: -force.y, z: -force.z }, true);
-      }
       // A completed collar-and-elbow tie must survive the authored load phase.
       // The previous limits were below the normal inertial load of two
       // heavyweight rigs and caused hands to pop free before a slam could
@@ -825,6 +825,15 @@ export class BodyWorksRuntime {
       if (!['grappling', 'attacking'].includes(attacker.state)) this.removeGrip(world, grip, 'incompatible-state');
       else if (!acquisitionGrace && error > 1.85) this.removeGrip(world, grip, 'anchor-error');
       else if (!acquisitionGrace && load > grip.strength * 58) this.removeGrip(world, grip, 'load-break');
+    }
+    if (activeGrips.length > 0) {
+      const attackerCenter = this.rigPlanarCenter(attackerRig); const defenderCenter = this.rigPlanarCenter(defenderRig);
+      const dx = defenderCenter.x - attackerCenter.x; const dz = defenderCenter.z - attackerCenter.z;
+      const distance = Math.max(.001, Math.hypot(dx, dz)); const nx = dx / distance; const nz = dz / distance;
+      const relativeSpeed = (defenderCenter.velocityX - attackerCenter.velocityX) * nx + (defenderCenter.velocityZ - attackerCenter.velocityZ) * nz;
+      const acceleration = clamp((distance - .78) * 11 + relativeSpeed * 2.4, -3.5, 9.5);
+      this.applyRigAcceleration(attackerRig, { x: nx * acceleration * .62, y: 0, z: nz * acceleration * .62 });
+      this.applyRigAcceleration(defenderRig, { x: -nx * acceleration * .38, y: 0, z: -nz * acceleration * .38 });
     }
     grapple.gripCount = this.grips.filter((grip) => grip.attacker === grapple.attacker).length;
     const attackerIntent = this.intents[grapple.attacker]; const defenderIntent = this.intents[grapple.defender];
