@@ -23,6 +23,8 @@ const DEVICE_KEYS: Readonly<Record<ControlDevice, Readonly<Record<ControlId, str
   touch: { move: 'STICK', run: 'RUN', quick: 'QUICK', heavy: 'POWER', grapple: 'LOCK', block: 'GUARD', counter: '↯', jump: 'JUMP', interact: 'PROP', context: 'ACTION', taunt: 'TAUNT' },
 };
 
+export const controlPrompt = (device: ControlDevice, control: ControlId): string => DEVICE_KEYS[device][control];
+
 const BASE_LABELS: Readonly<Record<ControlId, string>> = {
   move: 'MOVE / AIM', run: 'RUN', quick: 'CIRCUIT JAB', heavy: 'FAULT HOOK', grapple: 'LOCK UP', block: 'GUARD', counter: 'COUNTER', jump: 'JUMP / HOP', interact: 'PROP', context: 'WRESTLING ACTION', taunt: 'TAUNT',
 };

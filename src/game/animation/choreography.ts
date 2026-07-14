@@ -182,6 +182,25 @@ const GRAPPLE_STYLES: Readonly<Record<string, readonly [readonly PoseKeyframe[],
   clutch: [CHOKE_ACTOR, CHOKE_VICTIM],
   takedown: [TOSS_ACTOR, TOSS_VICTIM], arm_drag: [TOSS_ACTOR, TOSS_VICTIM], side_toss: [TOSS_ACTOR, TOSS_VICTIM], whip: [WHIP_ACTOR, WHIP_VICTIM],
   spinebuster: [SPINE_ACTOR, SPINE_VICTIM],
+  corner_smash: [WHIP_ACTOR, WHIP_VICTIM],
+};
+
+const stagedGrappleVariant = (source: Pose, moveId: string, role: Role, progress: number, actorId: FighterId): Pose => {
+  let result = source;
+  const peak = Math.max(0, 1 - Math.abs(progress - .66) / .18);
+  if (moveId === 'takedown') result = { ...result, rootY: result.rootY - peak * (role === 'actor' ? .14 : .28), rootTilt: result.rootTilt + peak * (role === 'actor' ? .18 : -.2) };
+  else if (moveId === 'arm_drag') result = { ...result, rootX: result.rootX + peak * (role === 'actor' ? -.18 : .48), rootYaw: result.rootYaw + peak * (role === 'actor' ? .44 : -.7), rootRoll: result.rootRoll + peak * -.22 };
+  else if (moveId === 'side_toss') result = { ...result, rootX: result.rootX + peak * (role === 'actor' ? .16 : .72), rootYaw: result.rootYaw + peak * (role === 'actor' ? -.5 : .82), rootRoll: result.rootRoll + peak * (role === 'actor' ? .16 : -.48) };
+  else if (moveId === 'skyhook') result = { ...result, rootY: result.rootY + peak * (role === 'victim' ? .28 : .08), rootRoll: result.rootRoll + peak * (role === 'actor' ? -.18 : .24) };
+  else if (moveId === 'mountain_drop') result = { ...result, rootY: result.rootY + peak * (role === 'victim' ? .34 : .1), rootTilt: result.rootTilt + peak * (role === 'actor' ? -.12 : -.18) };
+  else if (moveId === 'corner_smash') result = { ...result, rootZ: result.rootZ + peak * (role === 'actor' ? .35 : 1.05), rootTilt: result.rootTilt + peak * (role === 'victim' ? -.42 : .16) };
+
+  if (moveId !== 'slam') return result;
+  if (actorId === 'atlas') return { ...result, rootY: result.rootY + peak * (role === 'victim' ? .3 : .06), rootTilt: result.rootTilt + peak * (role === 'actor' ? -.08 : -.16) };
+  if (actorId === 'vex') return { ...result, rootYaw: result.rootYaw + peak * (role === 'actor' ? .34 : -.42), rootRoll: result.rootRoll + peak * (role === 'actor' ? -.12 : .22) };
+  if (actorId === 'nova') return { ...result, rootYaw: result.rootYaw + peak * (role === 'actor' ? -.18 : .24), rootZ: result.rootZ + peak * (role === 'actor' ? -.08 : -.16) };
+  if (actorId === 'chad') return { ...result, rootY: result.rootY + peak * (role === 'victim' ? .22 : .1), rootTilt: result.rootTilt + peak * (role === 'actor' ? .14 : -.12), rootRoll: result.rootRoll + peak * .13 };
+  return { ...result, rootZ: result.rootZ + peak * (role === 'actor' ? .1 : -.08), rootTilt: result.rootTilt + peak * (role === 'actor' ? .08 : -.05) };
 };
 
 const finisherStyle = (fighterId: FighterId): readonly [readonly PoseKeyframe[], readonly PoseKeyframe[]] => {
@@ -195,7 +214,8 @@ const finisherStyle = (fighterId: FighterId): readonly [readonly PoseKeyframe[],
 export const getPairedPose = (move: MoveDefinition, role: Role, phase: AttackPhase, elapsed: number, actorId: FighterId): Pose | null => {
   const pair = move.category === 'finisher' ? finisherStyle(actorId) : GRAPPLE_STYLES[move.id];
   if (!pair) return null;
-  return sample(role === 'actor' ? pair[0] : pair[1], cinematicProgress(move, phase, elapsed));
+  const progress = cinematicProgress(move, phase, elapsed);
+  return stagedGrappleVariant(sample(role === 'actor' ? pair[0] : pair[1], progress), move.id, role, progress, actorId);
 };
 
 const strikeFrames = (moveId: string): readonly PoseKeyframe[] => {

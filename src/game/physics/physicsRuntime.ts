@@ -77,6 +77,8 @@ export interface BodyWorksMetrics {
 }
 
 export interface FighterPhysicsSnapshot { pelvisY: number; headY: number; footY: number; upright: number; speed: number; supportFeet: number }
+export interface SegmentTransformSnapshot { position: Vector3Value; rotation: QuaternionValue }
+export interface PresentationAlignmentSnapshot { sampleCount: number; averageError: number; maximumError: number; maximumSegment: BodySegmentId | null }
 
 interface FighterRigRegistration {
   bodies: Partial<Record<BodySegmentId, RapierRigidBody>>;
@@ -161,6 +163,7 @@ export class BodyWorksRuntime {
   private readonly propGrips = new Map<string, PhysicalPropGrip>();
   private readonly releasedPropAttacks = new Map<string, ReleasedPropAttack>();
   private readonly pendingLandings = new Map<FighterKey, PendingLanding>();
+  private readonly presentationPoints: Record<FighterKey, Partial<Record<BodySegmentId, Vector3Value>>> = { player: {}, opponent: {} };
   private readonly labAdditionalMass: Record<FighterKey, number> = { player: 0, opponent: 0 };
   private grappleEnvironmentTarget: GrappleEnvironmentTarget | null = null;
   private replayAccumulator = 0;
@@ -1206,11 +1209,47 @@ export class BodyWorksRuntime {
     this.pendingLandings.clear(); this.grappleEnvironmentTarget = null; this.props.clear(); this.propGrips.clear(); this.releasedPropAttacks.clear(); this.replayAccumulator = 0; this.world = null; this.instrumentedWorld = null; this.originalRemoveImpulseJoint = null; this.stepStartedAt = -1;
     this.stepSamples.fill(0); this.stepSampleCursor = 0; this.stepSampleCount = 0; this.stepSampleTotal = 0;
     this.intents.player = EMPTY_INTENT(); this.intents.opponent = EMPTY_INTENT();
+    this.presentationPoints.player = {}; this.presentationPoints.opponent = {};
     this.labAdditionalMass.player = 0; this.labAdditionalMass.opponent = 0;
     this.metrics.fixedSteps = 0; this.metrics.bodyCount = 0; this.metrics.jointCount = 0; this.metrics.gripCount = 0; this.metrics.nearestGripDistance = 0; this.metrics.maximumGripError = 0; this.metrics.maximumGripLoad = 0; this.metrics.lastGripBreakReason = 'none'; this.metrics.worldJointCount = 0; this.metrics.gripCreateCount = 0; this.metrics.gripInvalidCount = 0; this.metrics.propBodyCount = 0; this.metrics.propGripCount = 0; this.metrics.worldBodyCount = 0; this.metrics.invalidRegisteredBodyCount = 0; this.metrics.worldRemoveCount = 0; this.metrics.contactCount = 0; this.metrics.emergencyResetCount = 0; this.metrics.containmentCount = 0; this.metrics.lastStepMs = 0; this.metrics.averageStepMs = 0; this.metrics.p95StepMs = 0; this.metrics.maximumStepMs = 0; this.metrics.replayEstimatedBytes = 0;
   }
 
   pendingCommandCount(): number { return this.commands.length; }
+
+  /** Presentation rigs report a bounded set of anatomical landmarks for Physics Lab alignment diagnostics. */
+  setPresentationPoint(key: FighterKey, segment: BodySegmentId, position: Vector3Value): void {
+    if (![position.x, position.y, position.z].every(Number.isFinite)) return;
+    this.presentationPoints[key][segment] = { x: position.x, y: position.y, z: position.z };
+  }
+
+  presentationPoint(key: FighterKey, segment: BodySegmentId): Vector3Value | null {
+    return this.presentationPoints[key][segment] ?? null;
+  }
+
+  segmentSnapshot(key: FighterKey, segment: BodySegmentId): SegmentTransformSnapshot | null {
+    const body = this.rigs.get(key)?.bodies[segment];
+    if (!body?.isValid()) return null;
+    const position = body.translation(); const rotation = body.rotation();
+    return {
+      position: { x: position.x, y: position.y, z: position.z },
+      rotation: { x: rotation.x, y: rotation.y, z: rotation.z, w: rotation.w },
+    };
+  }
+
+  presentationAlignmentSnapshot(key?: FighterKey): PresentationAlignmentSnapshot {
+    const keys: readonly FighterKey[] = key ? [key] : ['player', 'opponent'];
+    let total = 0; let count = 0; let maximumError = 0; let maximumSegment: BodySegmentId | null = null;
+    for (const fighter of keys) {
+      for (const [segment, presentation] of Object.entries(this.presentationPoints[fighter]) as [BodySegmentId, Vector3Value][]) {
+        const physical = this.segmentSnapshot(fighter, segment)?.position;
+        if (!physical) continue;
+        const error = Math.hypot(presentation.x - physical.x, presentation.y - physical.y, presentation.z - physical.z);
+        total += error; count += 1;
+        if (error > maximumError) { maximumError = error; maximumSegment = segment; }
+      }
+    }
+    return { sampleCount: count, averageError: count > 0 ? total / count : 0, maximumError, maximumSegment };
+  }
 
   fighterSnapshot(key: FighterKey): FighterPhysicsSnapshot {
     const rig = this.rigs.get(key); const pelvis = rig?.bodies.pelvis; const head = rig?.bodies.head; const leftFoot = rig?.bodies.leftFoot; const rightFoot = rig?.bodies.rightFoot;

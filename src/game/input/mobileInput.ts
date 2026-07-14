@@ -1,13 +1,14 @@
 import type { FrameInput } from '../systems/combat';
 import type { GameCommand, Vec2 } from '../types/game';
+import { BoundedCommandBuffer } from './commandBuffer';
 
 type ActivityListener = () => void;
 
-const state: { move: Vec2; run: boolean; block: boolean; commands: GameCommand[]; lastActiveAt: number } = {
+const state: { move: Vec2; run: boolean; block: boolean; commands: BoundedCommandBuffer; lastActiveAt: number } = {
   move: { x: 0, z: 0 },
   run: false,
   block: false,
-  commands: [],
+  commands: new BoundedCommandBuffer(12, 240),
   lastActiveAt: Number.NEGATIVE_INFINITY,
 };
 
@@ -33,11 +34,10 @@ export const mobileInput = {
   },
   queue(command: GameCommand): void {
     state.commands.push(command);
-    if (state.commands.length > 12) state.commands.splice(0, state.commands.length - 12);
     announceActivity();
   },
   read(): FrameInput & { active: boolean } {
-    const commands = state.commands.splice(0);
+    const commands = state.commands.drain();
     return {
       move: { ...state.move },
       run: state.run,
@@ -54,7 +54,7 @@ export const mobileInput = {
     state.move.z = 0;
     state.run = false;
     state.block = false;
-    state.commands.length = 0;
+    state.commands.clear();
     state.lastActiveAt = Number.NEGATIVE_INFINITY;
   },
   subscribe(listener: ActivityListener): () => void {

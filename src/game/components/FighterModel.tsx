@@ -1,54 +1,487 @@
 import { useFrame } from '@react-three/fiber';
-import { useMemo, useRef } from 'react';
+import { useRef } from 'react';
+import type { MutableRefObject } from 'react';
+import { Vector3 } from 'three';
 import type { Group, Mesh, MeshBasicMaterial } from 'three';
+import { getPairedPose, getStrikePose, getStrikeReactionPose } from '../animation/choreography';
+import { locomotionPresentation } from '../animation/locomotionPresentation';
+import { POSES } from '../animation/poses';
+import { recoveryPose } from '../animation/recoveryMotion';
 import { fighterById } from '../data/fighters';
 import { getMove } from '../data/moves';
-import { getPairedPose, getStrikePose, getStrikeReactionPose } from '../animation/choreography';
-import { POSES } from '../animation/poses';
-import type { AnimationKey, FighterId, FighterRuntime } from '../types/game';
-import { recoveryPose } from '../animation/recoveryMotion';
+import { fighterVisual } from '../presentation/fighterVisuals';
+import type { FighterVisualProfile } from '../presentation/fighterVisuals';
+import { bodyWorksRuntime } from '../physics/physicsRuntime';
+import type { AnimationKey, FighterDefinition, FighterId, FighterRuntime } from '../types/game';
 
-interface Props { runtime?: FighterRuntime; counterpart?: FighterRuntime; fighterId?: FighterId; preview?: boolean; side?: 'player' | 'opponent' }
+interface Props {
+  runtime?: FighterRuntime;
+  counterpart?: FighterRuntime;
+  fighterId?: FighterId;
+  preview?: boolean;
+  side?: 'player' | 'opponent';
+}
 
-const limbMaterial = (color: string, emissive: string) => <meshStandardMaterial color={color} roughness={.48} metalness={.22} emissive={emissive} emissiveIntensity={.12} />;
+type GroupRef = MutableRefObject<Group | null>;
+
+interface PartProps {
+  fighter: FighterDefinition;
+  profile: FighterVisualProfile;
+}
+
+const SkinMaterial = ({ fighter, profile }: PartProps) => (
+  <meshStandardMaterial color={fighter.palette.skin} roughness={profile.skinRoughness} metalness={.02} />
+);
+
+const GearMaterial = ({ fighter, profile, accent = false, dark = false }: PartProps & { accent?: boolean; dark?: boolean }) => (
+  <meshStandardMaterial
+    color={dark ? fighter.palette.secondary : accent ? fighter.palette.emissive : fighter.palette.primary}
+    roughness={dark ? .58 : .34}
+    metalness={dark ? .18 : profile.gearMetalness}
+    emissive={accent ? fighter.palette.emissive : '#000000'}
+    emissiveIntensity={accent ? .18 : 0}
+  />
+);
+
+const ClothMaterial = ({ fighter, profile, secondary = false }: PartProps & { secondary?: boolean }) => (
+  <meshStandardMaterial
+    color={secondary ? fighter.palette.secondary : fighter.palette.primary}
+    roughness={.82}
+    metalness={Math.min(.08, profile.gearMetalness * .15)}
+  />
+);
+
+function JointCover({ fighter, profile, scale = 1 }: PartProps & { scale?: number }) {
+  return (
+    <mesh scale={[.21 * scale, .17 * scale, .2 * scale]}>
+      <sphereGeometry args={[1, 12, 8]} />
+      <SkinMaterial fighter={fighter} profile={profile} />
+    </mesh>
+  );
+}
+
+function Hand({ fighter, profile, side }: PartProps & { side: -1 | 1 }) {
+  const taped = profile.attire === 'brawler' || profile.attire === 'roughneck';
+  return (
+    <group position={[0, -.58, .035]}>
+      <mesh scale={[.19 * profile.armScale, .16, .2]}>
+        <sphereGeometry args={[1, 12, 8]} />
+        {taped ? <ClothMaterial fighter={fighter} profile={profile} secondary /> : <SkinMaterial fighter={fighter} profile={profile} />}
+      </mesh>
+      {[-.09, -.03, .03, .09].map((x) => (
+        <mesh key={x} position={[x, -.095, .07]} rotation={[.16, 0, side * .025]}>
+          <capsuleGeometry args={[.034, .12, 4, 7]} />
+          {taped ? <ClothMaterial fighter={fighter} profile={profile} secondary /> : <SkinMaterial fighter={fighter} profile={profile} />}
+        </mesh>
+      ))}
+      <mesh position={[side * .16, -.01, .1]} rotation={[0, 0, side * .52]}>
+        <capsuleGeometry args={[.045, .13, 4, 7]} />
+        <SkinMaterial fighter={fighter} profile={profile} />
+      </mesh>
+      <mesh position={[0, .14, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[.16 * profile.armScale, .045, 7, 16]} />
+        <GearMaterial fighter={fighter} profile={profile} accent={profile.attire === 'striker'} dark={profile.attire !== 'striker'} />
+      </mesh>
+    </group>
+  );
+}
+
+function Arm({ fighter, profile, side, armRef, forearmRef }: PartProps & { side: -1 | 1; armRef: GroupRef; forearmRef: GroupRef }) {
+  const shoulderX = side * .65 * fighter.proportions.width * profile.shoulderScale;
+  return (
+    <group ref={armRef} position={[shoulderX, 1.83 * fighter.proportions.height, 0]}>
+      <mesh scale={[.31 * fighter.proportions.width * profile.shoulderScale, .27, .3]}>
+        <sphereGeometry args={[1, 14, 9]} />
+        <SkinMaterial fighter={fighter} profile={profile} />
+      </mesh>
+      {profile.attire === 'conqueror' && (
+        <mesh position={[side * .08, .04, -.01]} rotation={[0, 0, side * -.2]} scale={[.4, .13, .36]}>
+          <sphereGeometry args={[1, 12, 7, 0, Math.PI * 2, 0, Math.PI * .58]} />
+          <GearMaterial fighter={fighter} profile={profile} accent />
+        </mesh>
+      )}
+      <mesh position={[0, -.33, 0]} scale={[profile.armScale, 1, profile.armScale]}>
+        <capsuleGeometry args={[.17 * fighter.proportions.width, .48, 7, 12]} />
+        <SkinMaterial fighter={fighter} profile={profile} />
+      </mesh>
+      <group position={[0, -.62, 0]}>
+        <JointCover fighter={fighter} profile={profile} scale={profile.armScale} />
+        {(profile.attire === 'technician' || profile.attire === 'brawler') && (
+          <mesh rotation={[Math.PI / 2, 0, 0]} scale={[1, 1, .8]}>
+            <torusGeometry args={[.18 * profile.armScale, .055, 7, 16]} />
+            <GearMaterial fighter={fighter} profile={profile} dark />
+          </mesh>
+        )}
+      </group>
+      <group ref={forearmRef} position={[0, -.64, 0]}>
+        <mesh position={[0, -.25, 0]} scale={[profile.armScale, 1, profile.armScale]}>
+          <capsuleGeometry args={[.145 * fighter.proportions.width, .36, 7, 12]} />
+          <SkinMaterial fighter={fighter} profile={profile} />
+        </mesh>
+        <mesh position={[0, -.47, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[.145 * profile.armScale, .04, 7, 14]} />
+          <GearMaterial fighter={fighter} profile={profile} dark />
+        </mesh>
+        <Hand fighter={fighter} profile={profile} side={side} />
+      </group>
+    </group>
+  );
+}
+
+function Boot({ fighter, profile }: PartProps) {
+  return (
+    <group position={[0, -.66, .13]} scale={[profile.bootScale, 1, profile.bootScale]}>
+      <mesh position={[0, .06, -.07]} scale={[.25, .25, .23]}>
+        <sphereGeometry args={[1, 12, 8]} />
+        <GearMaterial fighter={fighter} profile={profile} dark />
+      </mesh>
+      <mesh position={[0, -.06, .13]} scale={[.25, .17, .42]}>
+        <sphereGeometry args={[1, 14, 8]} />
+        <GearMaterial fighter={fighter} profile={profile} dark />
+      </mesh>
+      <mesh position={[0, -.175, .15]} scale={[.27, .045, .45]}>
+        <sphereGeometry args={[1, 12, 7]} />
+        <meshStandardMaterial color={profile.soleColor} roughness={.7} metalness={.18} />
+      </mesh>
+      {profile.attire === 'striker' && (
+        <mesh position={[0, .05, .18]} rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[.18, .035, 6, 14]} />
+          <GearMaterial fighter={fighter} profile={profile} accent />
+        </mesh>
+      )}
+    </group>
+  );
+}
+
+function Leg({ fighter, profile, side, legRef, shinRef }: PartProps & { side: -1 | 1; legRef: GroupRef; shinRef: GroupRef }) {
+  const x = side * .27 * fighter.proportions.width * profile.stanceWidth;
+  const trunks = profile.attire === 'technician' || profile.attire === 'striker';
+  return (
+    <group ref={legRef} position={[x, .86 * fighter.proportions.height, 0]}>
+      <mesh position={[0, -.12, 0]} scale={[.29 * profile.thighScale, .3, .28 * profile.thighScale]}>
+        <sphereGeometry args={[1, 13, 8]} />
+        {trunks ? <ClothMaterial fighter={fighter} profile={profile} /> : <SkinMaterial fighter={fighter} profile={profile} />}
+      </mesh>
+      <mesh position={[0, -.39, 0]} scale={[profile.thighScale, 1, profile.thighScale]}>
+        <capsuleGeometry args={[.2 * fighter.proportions.width, .43, 7, 12]} />
+        <SkinMaterial fighter={fighter} profile={profile} />
+      </mesh>
+      <group position={[0, -.68, 0]}>
+        <JointCover fighter={fighter} profile={profile} scale={profile.thighScale} />
+        <mesh position={[0, .015, .155]} scale={[.17 * profile.thighScale, .12, .08]}>
+          <sphereGeometry args={[1, 11, 7]} />
+          <GearMaterial fighter={fighter} profile={profile} dark />
+        </mesh>
+      </group>
+      <group ref={shinRef} position={[0, -.69, 0]}>
+        <mesh position={[0, -.29, 0]} scale={[profile.calfScale, 1, profile.calfScale]}>
+          <capsuleGeometry args={[.165 * fighter.proportions.width, .4, 7, 12]} />
+          {profile.attire === 'conqueror' || profile.attire === 'roughneck'
+            ? <ClothMaterial fighter={fighter} profile={profile} secondary />
+            : <SkinMaterial fighter={fighter} profile={profile} />}
+        </mesh>
+        <mesh position={[0, -.48, .13]} scale={[.15 * profile.calfScale, .22, .065]}>
+          <sphereGeometry args={[1, 12, 8]} />
+          <GearMaterial fighter={fighter} profile={profile} accent={profile.attire === 'technician'} dark={profile.attire !== 'technician'} />
+        </mesh>
+        <Boot fighter={fighter} profile={profile} />
+      </group>
+    </group>
+  );
+}
+
+function Headwear({ fighter, profile }: PartProps) {
+  if (profile.hair === 'crownFade') {
+    return (
+      <group position={[0, .3, -.025]}>
+        <mesh scale={[.31, .12, .29]}>
+          <sphereGeometry args={[1, 14, 8, 0, Math.PI * 2, 0, Math.PI * .55]} />
+          <meshStandardMaterial color={profile.hairColor} roughness={.9} />
+        </mesh>
+        {[-.2, 0, .2].map((x) => (
+          <mesh key={x} position={[x, .16 + (x === 0 ? .06 : 0), 0]} rotation={[0, 0, x * .8]}>
+            <coneGeometry args={[.075, .25, 7]} />
+            <GearMaterial fighter={fighter} profile={profile} accent />
+          </mesh>
+        ))}
+      </group>
+    );
+  }
+  if (profile.hair === 'voltHawk') {
+    return (
+      <group position={[0, .34, -.02]}>
+        {[-.18, -.06, .06, .18].map((z, index) => (
+          <mesh key={z} position={[0, index % 2 === 0 ? .08 : .12, z]} rotation={[z * .5, 0, 0]}>
+            <coneGeometry args={[.075, .3, 7]} />
+            <meshStandardMaterial color={profile.hairColor} emissive={fighter.palette.emissive} emissiveIntensity={.22} roughness={.55} />
+          </mesh>
+        ))}
+      </group>
+    );
+  }
+  if (profile.hair === 'fangMask') {
+    return (
+      <group position={[0, .02, .315]}>
+        <mesh scale={[.34, .28, .055]}>
+          <sphereGeometry args={[1, 14, 9]} />
+          <GearMaterial fighter={fighter} profile={profile} dark />
+        </mesh>
+        <mesh position={[-.16, -.18, .045]} rotation={[0, 0, -.18]}>
+          <coneGeometry args={[.045, .18, 6]} />
+          <GearMaterial fighter={fighter} profile={profile} accent />
+        </mesh>
+        <mesh position={[.16, -.18, .045]} rotation={[0, 0, .18]}>
+          <coneGeometry args={[.045, .18, 6]} />
+          <GearMaterial fighter={fighter} profile={profile} accent />
+        </mesh>
+      </group>
+    );
+  }
+  if (profile.hair === 'bandana') {
+    return (
+      <group position={[0, .24, 0]}>
+        <mesh rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[.31, .06, 8, 22]} />
+          <ClothMaterial fighter={fighter} profile={profile} />
+        </mesh>
+        <mesh position={[-.31, -.04, -.16]} rotation={[0, 0, -.65]}>
+          <capsuleGeometry args={[.045, .28, 5, 8]} />
+          <ClothMaterial fighter={fighter} profile={profile} />
+        </mesh>
+      </group>
+    );
+  }
+  return (
+    <group>
+      <mesh position={[0, .29, -.02]} scale={[.35, .14, .33]}>
+        <sphereGeometry args={[1, 14, 8, 0, Math.PI * 2, 0, Math.PI * .62]} />
+        <meshStandardMaterial color={profile.hairColor} roughness={.94} />
+      </mesh>
+      <mesh position={[0, .03, -.29]} scale={[.32, .4, .12]}>
+        <sphereGeometry args={[1, 13, 9]} />
+        <meshStandardMaterial color={profile.hairColor} roughness={.94} />
+      </mesh>
+      <mesh position={[0, -.2, .28]} scale={[.25, .17, .055]}>
+        <sphereGeometry args={[1, 12, 7]} />
+        <meshStandardMaterial color={profile.hairColor} roughness={.94} />
+      </mesh>
+    </group>
+  );
+}
+
+function Face({ fighter, profile, browLeft, browRight, mouth }: PartProps & { browLeft: GroupRef; browRight: GroupRef; mouth: GroupRef }) {
+  return (
+    <group position={[0, .02, .31]}>
+      {[-1, 1].map((side) => (
+        <group key={side} position={[side * .125, .075, .012]}>
+          <mesh scale={[.075, .045, .035]}>
+            <sphereGeometry args={[1, 12, 8]} />
+            <meshStandardMaterial color="#f4f0e9" roughness={.35} emissive={fighter.palette.emissive} emissiveIntensity={.08} />
+          </mesh>
+          <mesh position={[0, 0, .032]} scale={[.03, .033, .025]}>
+            <sphereGeometry args={[1, 10, 7]} />
+            <meshStandardMaterial color={profile.eyeColor} roughness={.3} emissive={profile.eyeColor} emissiveIntensity={.18} />
+          </mesh>
+          <mesh position={[0, 0, .052]} scale={[.014, .017, .014]}>
+            <sphereGeometry args={[1, 8, 6]} />
+            <meshBasicMaterial color="#050407" />
+          </mesh>
+        </group>
+      ))}
+      <group ref={browLeft} position={[-.125, .16, .045]}>
+        <mesh scale={[.105, .018, .022]}><sphereGeometry args={[1, 10, 6]} /><meshStandardMaterial color={profile.browColor} roughness={.86} /></mesh>
+      </group>
+      <group ref={browRight} position={[.125, .16, .045]}>
+        <mesh scale={[.105, .018, .022]}><sphereGeometry args={[1, 10, 6]} /><meshStandardMaterial color={profile.browColor} roughness={.86} /></mesh>
+      </group>
+      <mesh position={[0, -.005, .065]} rotation={[Math.PI / 2, 0, 0]} scale={[.065, .12, .065]}>
+        <coneGeometry args={[1, 1, 8]} />
+        <SkinMaterial fighter={fighter} profile={profile} />
+      </mesh>
+      <group ref={mouth} position={[0, -.14, .068]}>
+        <mesh scale={[.105, .018, .022]}>
+          <sphereGeometry args={[1, 12, 6]} />
+          <meshStandardMaterial color={fighter.id === 'chad' ? '#3b2018' : '#5a1831'} roughness={.7} />
+        </mesh>
+      </group>
+    </group>
+  );
+}
+
+function Head({ fighter, profile, headRef, browLeft, browRight, mouth }: PartProps & { headRef: GroupRef; browLeft: GroupRef; browRight: GroupRef; mouth: GroupRef }) {
+  return (
+    <group ref={headRef} position={[0, 2.25 * fighter.proportions.height, 0]}>
+      <mesh position={[0, -.31, 0]} scale={[.15 * fighter.proportions.width, .22, .15 * fighter.proportions.width]}>
+        <capsuleGeometry args={[1, 1, 7, 11]} />
+        <SkinMaterial fighter={fighter} profile={profile} />
+      </mesh>
+      <mesh scale={[.34 * profile.headScale[0], .39 * profile.headScale[1], .33 * profile.headScale[2]]}>
+        <sphereGeometry args={[1, 16, 11]} />
+        <SkinMaterial fighter={fighter} profile={profile} />
+      </mesh>
+      <mesh position={[0, -.22, .035]} scale={[.27 * profile.headScale[0], .18, .26 * profile.headScale[2]]}>
+        <sphereGeometry args={[1, 14, 9]} />
+        <SkinMaterial fighter={fighter} profile={profile} />
+      </mesh>
+      <Face fighter={fighter} profile={profile} browLeft={browLeft} browRight={browRight} mouth={mouth} />
+      <Headwear fighter={fighter} profile={profile} />
+    </group>
+  );
+}
+
+function TorsoGear({ fighter, profile }: PartProps) {
+  if (profile.attire === 'conqueror') {
+    return (
+      <group>
+        <mesh position={[0, .14, .29]} scale={[.39, .24, .055]}><sphereGeometry args={[1, 13, 8]} /><GearMaterial fighter={fighter} profile={profile} dark /></mesh>
+        <mesh position={[0, -.31, .31]} scale={[.35, .08, .045]}><sphereGeometry args={[1, 12, 7]} /><GearMaterial fighter={fighter} profile={profile} accent /></mesh>
+        {[-.18, .18].map((x) => <mesh key={x} position={[x, .13, .34]} rotation={[0, 0, x * -1.5]}><capsuleGeometry args={[.035, .46, 5, 8]} /><GearMaterial fighter={fighter} profile={profile} accent /></mesh>)}
+      </group>
+    );
+  }
+  if (profile.attire === 'striker') {
+    return (
+      <group position={[0, .05, .3]}>
+        <mesh rotation={[0, 0, -.55]}><capsuleGeometry args={[.045, .62, 5, 9]} /><GearMaterial fighter={fighter} profile={profile} accent /></mesh>
+        <mesh position={[.13, -.05, .02]} rotation={[0, 0, -.55]}><capsuleGeometry args={[.025, .34, 5, 8]} /><GearMaterial fighter={fighter} profile={profile} accent /></mesh>
+      </group>
+    );
+  }
+  if (profile.attire === 'technician') {
+    return (
+      <group position={[0, .06, .31]}>
+        <mesh scale={[.33, .25, .045]}><sphereGeometry args={[1, 13, 8]} /><ClothMaterial fighter={fighter} profile={profile} secondary /></mesh>
+        <mesh scale={[.22, .17, .06]}><torusGeometry args={[1, .18, 7, 18]} /><GearMaterial fighter={fighter} profile={profile} accent /></mesh>
+      </group>
+    );
+  }
+  if (profile.attire === 'brawler') {
+    return (
+      <group>
+        <mesh position={[-.18, .03, .31]} rotation={[0, 0, -.12]}><capsuleGeometry args={[.05, .66, 5, 9]} /><ClothMaterial fighter={fighter} profile={profile} /></mesh>
+        <mesh position={[.18, .03, .31]} rotation={[0, 0, .12]}><capsuleGeometry args={[.05, .66, 5, 9]} /><ClothMaterial fighter={fighter} profile={profile} /></mesh>
+      </group>
+    );
+  }
+  return (
+    <group>
+      <mesh position={[-.2, .03, .315]} rotation={[0, 0, -.08]}><capsuleGeometry args={[.035, .7, 5, 9]} /><meshStandardMaterial color="#d7b17a" metalness={.34} roughness={.56} /></mesh>
+      <mesh position={[.2, .03, .315]} rotation={[0, 0, .08]}><capsuleGeometry args={[.035, .7, 5, 9]} /><meshStandardMaterial color="#d7b17a" metalness={.34} roughness={.56} /></mesh>
+      <mesh position={[0, -.06, .33]} rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[.23, .022, 6, 22]} /><meshStandardMaterial color="#754c2d" roughness={.8} /></mesh>
+    </group>
+  );
+}
+
+function Body({ fighter, profile, torsoRef }: PartProps & { torsoRef: GroupRef }) {
+  const width = fighter.proportions.width;
+  const height = fighter.proportions.height;
+  return (
+    <>
+      <group ref={torsoRef} position={[0, 1.52 * height, 0]}>
+        <mesh position={[0, .25, 0]} scale={[.53 * width * profile.chestScale, .43, .29 * width]}>
+          <sphereGeometry args={[1, 16, 10]} />
+          <SkinMaterial fighter={fighter} profile={profile} />
+        </mesh>
+        <mesh position={[0, -.1, 0]} scale={[.4 * width * profile.waistScale, .36, .25 * width]}>
+          <sphereGeometry args={[1, 15, 9]} />
+          <SkinMaterial fighter={fighter} profile={profile} />
+        </mesh>
+        <TorsoGear fighter={fighter} profile={profile} />
+      </group>
+      <group position={[0, 1.02 * height, 0]}>
+        <mesh scale={[.43 * width * profile.waistScale, .23, .3 * width]}>
+          <sphereGeometry args={[1, 15, 9]} />
+          <ClothMaterial fighter={fighter} profile={profile} secondary />
+        </mesh>
+        <mesh position={[0, .18, .02]} rotation={[Math.PI / 2, 0, 0]} scale={[1, 1, .8]}>
+          <torusGeometry args={[.37 * width * profile.waistScale, .055, 8, 24]} />
+          <GearMaterial fighter={fighter} profile={profile} accent={profile.attire === 'conqueror' || profile.attire === 'technician'} dark={profile.attire !== 'conqueror' && profile.attire !== 'technician'} />
+        </mesh>
+        {profile.attire === 'conqueror' && (
+          <mesh position={[0, .18, .31 * width]} scale={[.13, .09, .045]}>
+            <octahedronGeometry args={[1, 0]} />
+            <GearMaterial fighter={fighter} profile={profile} accent />
+          </mesh>
+        )}
+      </group>
+    </>
+  );
+}
+
+function animationFor(runtime: FighterRuntime | undefined, preview: boolean): AnimationKey {
+  if (preview) return 'taunt';
+  if (!runtime) return 'combatIdle';
+  if (runtime.moveId) {
+    const move = getMove(runtime.moveId);
+    return move.category === 'grapple' && runtime.attackPhase === 'anticipation' && runtime.phaseElapsed < move.anticipationDuration * .45
+      ? 'grappleEntry'
+      : move.animationKey;
+  }
+  if (runtime.state === 'locomotion') return Math.hypot(runtime.velocity.x, runtime.velocity.z) > 3.8 ? 'run' : 'walk';
+  if (runtime.state === 'blocking') return 'block';
+  if (runtime.state === 'jumping') return 'aerial';
+  if (runtime.state === 'climbing') return 'climb';
+  if (runtime.state === 'grabbed' || runtime.state === 'staggered') return 'stagger';
+  if (runtime.state === 'airborne') return 'knockdown';
+  if (runtime.state === 'downed') return 'downed';
+  if (runtime.state === 'recovering') return 'recovery';
+  if (runtime.state === 'pinning') return 'pin';
+  if (runtime.state === 'pinned') return 'kickout';
+  if (runtime.state === 'victorious') return 'victory';
+  if (runtime.state === 'defeated') return 'defeat';
+  return 'combatIdle';
+}
 
 export function FighterModel({ runtime, counterpart, fighterId, preview = false, side = 'player' }: Props) {
   const id = runtime?.definitionId ?? fighterId ?? 'atlas';
   const fighter = fighterById(id);
-  const root = useRef<Group>(null); const torso = useRef<Group>(null); const head = useRef<Group>(null); const leftArm = useRef<Group>(null); const rightArm = useRef<Group>(null);
-  const leftForearm = useRef<Group>(null); const rightForearm = useRef<Group>(null); const leftLeg = useRef<Group>(null); const rightLeg = useRef<Group>(null);
-  const leftShin = useRef<Group>(null); const rightShin = useRef<Group>(null); const flash = useRef<Mesh>(null); const previousHealth = useRef(runtime?.health ?? 100);
-  const phaseOffset = side === 'player' ? 0 : Math.PI;
-  const width = fighter.proportions.width; const height = fighter.proportions.height;
-  const geometry = useMemo(() => ({ torso: [.72 * width, .78 * height, .38 * width] as const }), [height, width]);
-
+  const profile = fighterVisual(id);
+  const root = useRef<Group>(null);
+  const shell = useRef<Group>(null);
+  const torso = useRef<Group>(null);
+  const head = useRef<Group>(null);
+  const leftArm = useRef<Group>(null);
+  const rightArm = useRef<Group>(null);
+  const leftForearm = useRef<Group>(null);
+  const rightForearm = useRef<Group>(null);
+  const leftLeg = useRef<Group>(null);
+  const rightLeg = useRef<Group>(null);
+  const leftShin = useRef<Group>(null);
+  const rightShin = useRef<Group>(null);
+  const browLeft = useRef<Group>(null);
+  const browRight = useRef<Group>(null);
+  const mouth = useRef<Group>(null);
+  const flash = useRef<Mesh>(null);
+  const previousHealth = useRef(runtime?.health ?? 100);
   const elapsed = useRef(0);
+  const presentationInitialized = useRef(false);
+  const alignmentPoints = useRef({
+    pelvis: new Vector3(), chest: new Vector3(), head: new Vector3(), leftHand: new Vector3(), rightHand: new Vector3(), leftFoot: new Vector3(), rightFoot: new Vector3(),
+  });
+  const phaseOffset = side === 'player' ? 0 : Math.PI;
+  const width = fighter.proportions.width;
+  const height = fighter.proportions.height;
+
   useFrame((_, delta) => {
     elapsed.current += delta;
-    if (!root.current || !torso.current || !head.current || !leftArm.current || !rightArm.current || !leftForearm.current || !rightForearm.current || !leftLeg.current || !rightLeg.current || !leftShin.current || !rightShin.current) return;
+    if (!shell.current || !root.current || !torso.current || !head.current || !leftArm.current || !rightArm.current || !leftForearm.current || !rightForearm.current || !leftLeg.current || !rightLeg.current || !leftShin.current || !rightShin.current) return;
     const t = elapsed.current;
-    let key: AnimationKey = 'combatIdle';
-    if (preview) key = 'taunt';
-    else if (runtime) {
-      if (runtime.moveId) {
-        const move = getMove(runtime.moveId);
-        key = move.category === 'grapple' && runtime.attackPhase === 'anticipation' && runtime.phaseElapsed < move.anticipationDuration * .45 ? 'grappleEntry' : move.animationKey;
-      }
-      else if (runtime.state === 'locomotion') key = Math.hypot(runtime.velocity.x, runtime.velocity.z) > 3.8 ? 'run' : 'walk';
-      else if (runtime.state === 'blocking') key = 'block';
-      else if (runtime.state === 'jumping') key = 'aerial';
-      else if (runtime.state === 'climbing') key = 'climb';
-      else if (runtime.state === 'grabbed') key = 'stagger';
-      else if (runtime.state === 'airborne') key = 'knockdown';
-      else if (runtime.state === 'downed') key = 'downed';
-      else if (runtime.state === 'recovering') key = 'recovery';
-      else if (runtime.state === 'staggered') key = 'stagger';
-      else if (runtime.state === 'pinning') key = 'pin';
-      else if (runtime.state === 'pinned') key = 'kickout';
-      else if (runtime.state === 'victorious') key = 'victory';
-      else if (runtime.state === 'defeated') key = 'defeat';
-    }
+    const movement = runtime ? locomotionPresentation(runtime) : null;
+    let key = animationFor(runtime, preview);
+    if (movement?.state === 'braking') key = 'walk';
     let animatedPose = POSES[key];
+    if (movement && ['walk', 'run'].includes(key)) {
+      const runningPose = movement.state === 'run';
+      const guardLift = (profile.guardHeight - 1) * .7;
+      animatedPose = {
+        ...POSES.combatIdle,
+        torso: [runningPose ? .18 : movement.state === 'backward' ? -.035 : .055, movement.lateral * -.055, movement.lateral * -.045],
+        leftArm: [runningPose ? -.28 : -.54 - guardLift, 0, -.32], rightArm: [runningPose ? -.28 : -.58 - guardLift, 0, .32],
+        leftForearm: [runningPose ? -.7 : -.94, 0, -.12], rightForearm: [runningPose ? -.7 : -1.02, 0, .12],
+        rootTilt: runningPose ? .14 : movement.state === 'braking' ? -.075 : movement.state === 'backward' ? -.035 : .035,
+        rootRoll: movement.lateral * -.055,
+      };
+    }
     if (runtime && (runtime.state === 'downed' || runtime.state === 'recovering')) animatedPose = recoveryPose(runtime.recoveryOrientation, runtime.state, runtime.stateElapsed);
     if (runtime?.moveId) {
       const move = getMove(runtime.moveId);
@@ -61,109 +494,140 @@ export function FighterModel({ runtime, counterpart, fighterId, preview = false,
       pairedVictim = pairedPose !== null;
       animatedPose = pairedPose ?? getStrikeReactionPose(holdingMove, counterpart.attackPhase, counterpart.phaseElapsed) ?? animatedPose;
     }
-    const smooth = 1 - Math.exp(-delta * (runtime?.attackPhase === 'active' ? 19 : 13));
-    const bob = ['combatIdle', 'idle', 'taunt'].includes(key) ? Math.sin(t * 2.4 + phaseOffset) * .035 : Math.abs(Math.sin(t * 7)) * .035;
-    root.current.position.x += (animatedPose.rootX - root.current.position.x) * smooth;
+
+    const fatigue = runtime ? Math.max(0, 1 - runtime.stamina / Math.max(1, runtime.staminaCap)) : 0;
+    const tempo = profile.motionTempo * (key === 'run' ? 1.18 : 1);
+    const movementSpeed = runtime ? Math.hypot(runtime.velocity.x, runtime.velocity.z) : 0;
+    const speedScale = key === 'run' ? Math.min(1.35, .85 + movementSpeed * .07) : 1;
+    const smooth = 1 - Math.exp(-delta * (runtime?.attackPhase === 'active' ? 22 : 14 * profile.motionTempo));
+    const idle = ['combatIdle', 'idle', 'taunt'].includes(key);
+    const groundedBob = idle
+      ? Math.sin(t * 2.25 * tempo + phaseOffset) * .022 * profile.stepWeight
+      : Math.abs(Math.sin(t * 6.8 * tempo * speedScale + phaseOffset)) * .035 * profile.stepWeight;
+    const breath = Math.sin(t * 2.05 * tempo + phaseOffset) * (.012 + fatigue * .02);
+    const personalityRoll = idle ? Math.sin(t * 1.4 * tempo + phaseOffset) * .018 * (id === 'vex' ? 1.5 : 1) : 0;
     const muscle = runtime?.body.muscle ?? 1;
     const pelvisDrop = runtime?.body.pelvisDrop ?? 0;
     const authoredRootY = pairedVictim ? animatedPose.rootY * .28 : animatedPose.rootY;
-    root.current.position.y += ((authoredRootY + bob - pelvisDrop) - root.current.position.y) * smooth;
+
+    root.current.position.x += (animatedPose.rootX - root.current.position.x) * smooth;
+    root.current.position.y += ((authoredRootY + groundedBob - pelvisDrop) - root.current.position.y) * smooth;
     root.current.position.z += (animatedPose.rootZ - root.current.position.z) * smooth;
-    root.current.rotation.x += (animatedPose.rootTilt + (runtime?.body.leanForward ?? 0) - root.current.rotation.x) * smooth;
+    const locomotionLean = movement && ['idle', 'forward', 'backward', 'strafe-left', 'strafe-right', 'diagonal', 'run', 'braking'].includes(movement.state);
+    const physicalForwardLean = runtime?.body.leanForward ?? 0; const physicalSideLean = runtime?.body.leanSide ?? 0;
+    const visibleForwardLean = locomotionLean ? Math.max(-.18, Math.min(.24, physicalForwardLean)) : physicalForwardLean;
+    const visibleSideLean = locomotionLean ? Math.max(-.14, Math.min(.14, physicalSideLean)) : physicalSideLean;
+    root.current.rotation.x += (animatedPose.rootTilt + visibleForwardLean + fatigue * profile.fatigueDroop * .09 - root.current.rotation.x) * smooth;
     root.current.rotation.y += (animatedPose.rootYaw - root.current.rotation.y) * smooth;
-    root.current.rotation.z += (animatedPose.rootRoll + (runtime?.body.leanSide ?? 0) - root.current.rotation.z) * smooth;
-    const apply = (group: Group, rotation: [number, number, number]): void => {
-      group.rotation.x += (rotation[0] - group.rotation.x) * smooth; group.rotation.y += (rotation[1] - group.rotation.y) * smooth; group.rotation.z += (rotation[2] - group.rotation.z) * smooth;
+    root.current.rotation.z += (animatedPose.rootRoll + visibleSideLean + personalityRoll - root.current.rotation.z) * smooth;
+
+    const apply = (group: Group, rotation: readonly [number, number, number], droop = 0): void => {
+      group.rotation.x += (rotation[0] + droop - group.rotation.x) * smooth;
+      group.rotation.y += (rotation[1] - group.rotation.y) * smooth;
+      group.rotation.z += (rotation[2] - group.rotation.z) * smooth;
     };
-    apply(torso.current, [animatedPose.torso[0], animatedPose.torso[1] + (runtime?.body.twist ?? 0) * .34, animatedPose.torso[2]]);
-    apply(head.current, [(runtime?.body.headSnap ?? 0) * .55, -(runtime?.body.twist ?? 0) * .18, (runtime?.body.headSnap ?? 0) * .24]);
-    apply(leftArm.current, animatedPose.leftArm); apply(rightArm.current, animatedPose.rightArm);
+    apply(torso.current, [animatedPose.torso[0] + breath + fatigue * .06, animatedPose.torso[1] + (runtime?.body.twist ?? 0) * .34, animatedPose.torso[2]]);
+    apply(head.current, [(runtime?.body.headSnap ?? 0) * .55 + fatigue * .06, -(runtime?.body.twist ?? 0) * .18, (runtime?.body.headSnap ?? 0) * .24]);
+    const armDroop = idle ? fatigue * profile.fatigueDroop * .34 : 0;
+    const gaitCycle = runtime?.body.gaitPhase ?? t * 3;
+    const armSwing = movement && movement.state === 'run' ? Math.sin(gaitCycle) * movement.gaitStrength * .68
+      : movement && movement.forward > .35 ? Math.sin(gaitCycle) * movement.gaitStrength * .18 : 0;
+    apply(leftArm.current, [animatedPose.leftArm[0] + armSwing, animatedPose.leftArm[1], animatedPose.leftArm[2]], armDroop);
+    apply(rightArm.current, [animatedPose.rightArm[0] - armSwing, animatedPose.rightArm[1], animatedPose.rightArm[2]], armDroop);
     apply(leftForearm.current, [animatedPose.leftForearm[0] + (1 - muscle) * .34, animatedPose.leftForearm[1], animatedPose.leftForearm[2]]);
     apply(rightForearm.current, [animatedPose.rightForearm[0] + (1 - muscle) * .34, animatedPose.rightForearm[1], animatedPose.rightForearm[2]]);
+
     const stride = runtime?.body.stride ?? 0;
-    const leftSwing = runtime ? Math.sin(runtime.body.leftFoot.phase) * stride * .48 : 0;
-    const rightSwing = runtime ? Math.sin(runtime.body.rightFoot.phase) * stride * .48 : 0;
-    apply(leftLeg.current, [animatedPose.leftLeg[0] - leftSwing + (1 - muscle) * .08, animatedPose.leftLeg[1], animatedPose.leftLeg[2]]);
-    apply(rightLeg.current, [animatedPose.rightLeg[0] - rightSwing + (1 - muscle) * .08, animatedPose.rightLeg[1], animatedPose.rightLeg[2]]);
+    const gaitBoost = key === 'run' ? 1.15 : key === 'walk' ? .82 : 1;
+    const forwardFactor = movement ? Math.abs(movement.forward) < .16 ? 0 : Math.sign(movement.forward) * Math.max(.35, Math.abs(movement.forward)) : 1;
+    const lateralFactor = movement?.lateral ?? 0;
+    const leftCycle = runtime ? Math.sin(runtime.body.leftFoot.phase) : 0; const rightCycle = runtime ? Math.sin(runtime.body.rightFoot.phase) : 0;
+    const leftSwing = leftCycle * stride * .48 * gaitBoost * forwardFactor;
+    const rightSwing = rightCycle * stride * .48 * gaitBoost * forwardFactor;
+    const leftStrafe = leftCycle * stride * .28 * lateralFactor; const rightStrafe = rightCycle * stride * .28 * lateralFactor;
+    apply(leftLeg.current, [animatedPose.leftLeg[0] - leftSwing + (1 - muscle) * .08, animatedPose.leftLeg[1], animatedPose.leftLeg[2] + leftStrafe]);
+    apply(rightLeg.current, [animatedPose.rightLeg[0] - rightSwing + (1 - muscle) * .08, animatedPose.rightLeg[1], animatedPose.rightLeg[2] + rightStrafe]);
     apply(leftShin.current, [animatedPose.leftShin[0] + Math.max(0, leftSwing) * .7 + (1 - muscle) * .22, animatedPose.leftShin[1], animatedPose.leftShin[2]]);
     apply(rightShin.current, [animatedPose.rightShin[0] + Math.max(0, rightSwing) * .7 + (1 - muscle) * .22, animatedPose.rightShin[1], animatedPose.rightShin[2]]);
+
     if (runtime) {
-      leftLeg.current.position.y = .83 * height + runtime.body.leftFoot.lift;
-      rightLeg.current.position.y = .83 * height + runtime.body.rightFoot.lift;
-      leftLeg.current.position.z = runtime.body.leftFoot.offset.z * .12;
-      rightLeg.current.position.z = runtime.body.rightFoot.offset.z * .12;
+      leftLeg.current.position.y = .86 * height + runtime.body.leftFoot.lift;
+      rightLeg.current.position.y = .86 * height + runtime.body.rightFoot.lift;
+      const forwardX = Math.sin(runtime.facing); const forwardZ = Math.cos(runtime.facing); const rightX = Math.cos(runtime.facing); const rightZ = -Math.sin(runtime.facing);
+      const leftLocalX = runtime.body.leftFoot.offset.x * rightX + runtime.body.leftFoot.offset.z * rightZ;
+      const leftLocalZ = runtime.body.leftFoot.offset.x * forwardX + runtime.body.leftFoot.offset.z * forwardZ;
+      const rightLocalX = runtime.body.rightFoot.offset.x * rightX + runtime.body.rightFoot.offset.z * rightZ;
+      const rightLocalZ = runtime.body.rightFoot.offset.x * forwardX + runtime.body.rightFoot.offset.z * forwardZ;
+      leftLeg.current.position.x = -.27 * width * profile.stanceWidth + leftLocalX * .28; leftLeg.current.position.z = leftLocalZ * .2;
+      rightLeg.current.position.x = .27 * width * profile.stanceWidth + rightLocalX * .28; rightLeg.current.position.z = rightLocalZ * .2;
+      const targetY = 3.51 - .86 * height + runtime.body.verticalOffset;
+      const planarError = Math.hypot(runtime.position.x - shell.current.position.x, runtime.position.z - shell.current.position.z);
+      if (!presentationInitialized.current || planarError > 2.2) {
+        shell.current.position.set(runtime.position.x, targetY, runtime.position.z); shell.current.rotation.y = runtime.facing; presentationInitialized.current = true;
+      } else {
+        const correctionRate = runtime.attackPhase === 'active' || planarError > .7 ? 34 : movement?.state === 'run' ? 28 : 22;
+        const correction = 1 - Math.exp(-delta * correctionRate);
+        shell.current.position.x += (runtime.position.x - shell.current.position.x) * correction;
+        shell.current.position.y += (targetY - shell.current.position.y) * (1 - Math.exp(-delta * 30));
+        shell.current.position.z += (runtime.position.z - shell.current.position.z) * correction;
+        const facingError = Math.atan2(Math.sin(runtime.facing - shell.current.rotation.y), Math.cos(runtime.facing - shell.current.rotation.y));
+        shell.current.rotation.y += facingError * (1 - Math.exp(-delta * 24));
+      }
+      root.current.updateWorldMatrix(true, true);
+      root.current.localToWorld(alignmentPoints.current.pelvis.set(0, 1.02 * height, 0));
+      torso.current.getWorldPosition(alignmentPoints.current.chest);
+      head.current.getWorldPosition(alignmentPoints.current.head);
+      leftForearm.current.localToWorld(alignmentPoints.current.leftHand.set(0, -.58, .035));
+      rightForearm.current.localToWorld(alignmentPoints.current.rightHand.set(0, -.58, .035));
+      leftShin.current.localToWorld(alignmentPoints.current.leftFoot.set(0, -.66, .13));
+      rightShin.current.localToWorld(alignmentPoints.current.rightFoot.set(0, -.66, .13));
+      for (const [segment, point] of Object.entries(alignmentPoints.current)) {
+        bodyWorksRuntime.setPresentationPoint(side, segment as keyof typeof alignmentPoints.current, point);
+      }
+    } else {
+      root.current.rotation.y = Math.sin(t * .45 * tempo) * .16;
     }
-    if (runtime) {
-      root.current.parent?.position.set(runtime.position.x, 3.51 - .83 * height + runtime.body.verticalOffset, runtime.position.z);
-      if (root.current.parent) root.current.parent.rotation.y = runtime.facing;
-    } else root.current.rotation.y = Math.sin(t * .45) * .16;
+
+    const pain = runtime ? ['grabbed', 'staggered', 'airborne', 'downed', 'pinned', 'defeated'].includes(runtime.state) : false;
+    const exertion = runtime ? runtime.moveId !== null || runtime.state === 'climbing' || runtime.state === 'recovering' : preview;
+    const confidence = preview || runtime?.state === 'victorious' || (runtime?.momentum ?? 0) > 82;
+    if (browLeft.current && browRight.current && mouth.current) {
+      const browAngle = pain ? .34 : exertion ? -.2 : confidence ? -.12 : -.03;
+      browLeft.current.rotation.z += (browAngle - browLeft.current.rotation.z) * smooth;
+      browRight.current.rotation.z += (-browAngle - browRight.current.rotation.z) * smooth;
+      browLeft.current.position.y += ((pain ? .13 : .16) - browLeft.current.position.y) * smooth;
+      browRight.current.position.y += ((pain ? .13 : .16) - browRight.current.position.y) * smooth;
+      mouth.current.scale.x += ((confidence ? 1.25 : pain ? .72 : 1) - mouth.current.scale.x) * smooth;
+      mouth.current.scale.y += ((pain || exertion ? 2.6 : 1) - mouth.current.scale.y) * smooth;
+      mouth.current.rotation.z += ((confidence ? -.08 : pain ? .12 : 0) - mouth.current.rotation.z) * smooth;
+    }
+
     if (runtime && runtime.health < previousHealth.current && flash.current) {
-      flash.current.visible = true; (flash.current.material as MeshBasicMaterial).opacity = .42;
+      flash.current.visible = true;
+      (flash.current.material as MeshBasicMaterial).opacity = .34;
     }
     if (runtime) previousHealth.current = runtime.health;
     if (flash.current) {
-      const material = flash.current.material as MeshBasicMaterial; material.opacity = Math.max(0, material.opacity - delta * 4.8);
+      const material = flash.current.material as MeshBasicMaterial;
+      material.opacity = Math.max(0, material.opacity - delta * 5.8);
       if (material.opacity <= .01) flash.current.visible = false;
     }
   });
 
-  const Headwear = () => {
-    if (fighter.proportions.headwear === 'mohawk') return <mesh position={[0, 2.58 * height, 0]}><boxGeometry args={[.16, .38, .55]} />{limbMaterial(fighter.palette.emissive, fighter.palette.emissive)}</mesh>;
-    if (fighter.proportions.headwear === 'crown') return <group position={[0, 2.55 * height, 0]}>{[-.23, 0, .23].map((x) => <mesh key={x} position={[x, .12, 0]} rotation={[0, 0, x]}><coneGeometry args={[.14, .38, 4]} />{limbMaterial(fighter.palette.emissive, fighter.palette.emissive)}</mesh>)}</group>;
-    if (fighter.proportions.headwear === 'mask') return <mesh position={[0, 2.38 * height, .23]}><boxGeometry args={[.48, .28, .08]} />{limbMaterial(fighter.palette.emissive, fighter.palette.emissive)}</mesh>;
-    if (fighter.proportions.headwear === 'mullet') return <group>
-      <mesh position={[0, 2.56 * height, .02]}><sphereGeometry args={[.39, 10, 7, 0, Math.PI * 2, 0, Math.PI * .56]} />{limbMaterial('#382720', '#6d4128')}</mesh>
-      <mesh position={[0, 2.31 * height, -.28]}><boxGeometry args={[.55, .68, .18]} />{limbMaterial('#382720', '#6d4128')}</mesh>
-      <mesh position={[0, 2.14 * height, .29]}><dodecahedronGeometry args={[.3, 0]} />{limbMaterial('#39251e', '#6d4128')}</mesh>
-    </group>;
-    return <mesh position={[0, 2.48 * height, 0]} rotation={[0, 0, -.08]}><torusGeometry args={[.34, .08, 6, 16]} />{limbMaterial(fighter.palette.primary, fighter.palette.emissive)}</mesh>;
-  };
-
-  const Arm = ({ side: armSide }: { side: -1 | 1 }) => <group ref={armSide < 0 ? leftArm : rightArm} position={[armSide * .74 * width, 1.85 * height, 0]}>
-    <mesh position={[0, -.02, 0]}><sphereGeometry args={[.28 * width, 8, 6]} />{limbMaterial(fighter.palette.secondary, fighter.palette.emissive)}</mesh>
-    <mesh position={[0, -.34, 0]}><capsuleGeometry args={[.2 * width, .54, 5, 8]} />{limbMaterial(fighter.palette.skin, fighter.palette.emissive)}</mesh>
-    <mesh position={[0, -.62, -.01]}><torusGeometry args={[.2 * width, .075, 5, 10]} />{limbMaterial('#171523', fighter.palette.emissive)}</mesh>
-    <group ref={armSide < 0 ? leftForearm : rightForearm} position={[0, -.66, 0]}>
-      <mesh position={[0, -.25, 0]}><capsuleGeometry args={[.17 * width, .38, 5, 8]} />{limbMaterial(fighter.palette.primary, fighter.palette.emissive)}</mesh>
-      <mesh position={[0, -.57, .04]}><boxGeometry args={[.31 * width, .28, .32]} />{limbMaterial(fighter.palette.secondary, fighter.palette.emissive)}</mesh>
-      <mesh position={[0, -.61, .2]}><boxGeometry args={[.18 * width, .13, .22]} />{limbMaterial(fighter.palette.skin, fighter.palette.emissive)}</mesh>
-    </group>
-  </group>;
-  const Leg = ({ side: legSide }: { side: -1 | 1 }) => <group ref={legSide < 0 ? leftLeg : rightLeg} position={[legSide * .3 * width, .83 * height, 0]}>
-    <mesh position={[0, -.38, 0]}><capsuleGeometry args={[.23 * width, .56, 5, 8]} />{limbMaterial(fighter.palette.skin, fighter.palette.emissive)}</mesh>
-    <mesh position={[0, -.69, -.16]}><boxGeometry args={[.43 * width, .28, .18]} />{limbMaterial('#171523', fighter.palette.emissive)}</mesh>
-    <group ref={legSide < 0 ? leftShin : rightShin} position={[0, -.7, 0]}>
-      <mesh position={[0, -.3, 0]}><capsuleGeometry args={[.2 * width, .48, 5, 8]} />{limbMaterial(fighter.palette.secondary, fighter.palette.emissive)}</mesh>
-      <mesh position={[0, -.67, .12]}><boxGeometry args={[.4 * width, .36, .62]} />{limbMaterial('#11131d', fighter.palette.emissive)}</mesh>
-      <mesh position={[0, -.87, .18]}><boxGeometry args={[.44 * width, .08, .7]} />{limbMaterial(fighter.palette.emissive, fighter.palette.emissive)}</mesh>
-    </group>
-  </group>;
-
-  return <group><group ref={root} scale={preview ? 1.05 : 1}>
-    <group ref={torso}>
-      <mesh position={[0, 2.02 * height, 0]}><cylinderGeometry args={[.18 * width, .23 * width, .28, 8]} />{limbMaterial(fighter.palette.skin, fighter.palette.emissive)}</mesh>
-      <mesh position={[0, 1.62 * height, 0]}><boxGeometry args={geometry.torso} />{limbMaterial(fighter.palette.primary, fighter.palette.emissive)}</mesh>
-      <mesh position={[0, 1.72 * height, .4 * width]}><octahedronGeometry args={[.24 * width, 0]} />{limbMaterial(fighter.palette.secondary, fighter.palette.emissive)}</mesh>
-      <mesh position={[0, 1.42 * height, .41 * width]}><boxGeometry args={[.62 * width, .16, .06]} />{limbMaterial(fighter.palette.emissive, fighter.palette.emissive)}</mesh>
-      {id === 'chad' && <group position={[0, 1.66 * height, .405 * width]}>
-        {[-.2, 0, .2].map((x) => <mesh key={x} position={[x, 0, 0]}><boxGeometry args={[.055, .7, .035]} />{limbMaterial('#d8c0a0', '#5e301f')}</mesh>)}
-        <mesh position={[0, -.02, -.01]}><boxGeometry args={[.7 * width, .055, .035]} />{limbMaterial('#d8c0a0', '#5e301f')}</mesh>
-      </group>}
-      <group ref={head}>
-      <mesh position={[0, 2.31 * height, 0]}><dodecahedronGeometry args={[.38, 0]} />{limbMaterial(fighter.palette.skin, fighter.palette.emissive)}</mesh>
-      <group position={[0, 2.36 * height, .34]}>
-        <mesh position={[-.13, .04, 0]}><sphereGeometry args={[.052, 7, 5]} /><meshStandardMaterial color="#f7fbff" emissive={fighter.palette.emissive} emissiveIntensity={.35} /></mesh>
-        <mesh position={[.13, .04, 0]}><sphereGeometry args={[.052, 7, 5]} /><meshStandardMaterial color="#f7fbff" emissive={fighter.palette.emissive} emissiveIntensity={.35} /></mesh>
-        <mesh position={[-.13, .04, .045]}><sphereGeometry args={[.022, 6, 4]} /><meshBasicMaterial color="#09070d" /></mesh>
-        <mesh position={[.13, .04, .045]}><sphereGeometry args={[.022, 6, 4]} /><meshBasicMaterial color="#09070d" /></mesh>
-        <mesh position={[0, -.035, .015]} rotation={[Math.PI / 2, 0, 0]}><coneGeometry args={[.045, .13, 5]} />{limbMaterial(fighter.palette.skin, fighter.palette.emissive)}</mesh>
-        <mesh position={[0, -.15, .025]}><boxGeometry args={[.17, .025, .035]} /><meshBasicMaterial color={id === 'chad' ? '#302019' : '#52162e'} /></mesh>
+  return (
+    <group ref={shell}>
+      <group ref={root} scale={preview ? 1.05 : 1}>
+        <Body fighter={fighter} profile={profile} torsoRef={torso} />
+        <Head fighter={fighter} profile={profile} headRef={head} browLeft={browLeft} browRight={browRight} mouth={mouth} />
+        <Arm fighter={fighter} profile={profile} side={-1} armRef={leftArm} forearmRef={leftForearm} />
+        <Arm fighter={fighter} profile={profile} side={1} armRef={rightArm} forearmRef={rightForearm} />
+        <Leg fighter={fighter} profile={profile} side={-1} legRef={leftLeg} shinRef={leftShin} />
+        <Leg fighter={fighter} profile={profile} side={1} legRef={rightLeg} shinRef={rightShin} />
+        <mesh ref={flash} position={[0, 1.25, 0]} scale={[1.25 * width, 1.55 * height, .8]} visible={false}>
+          <boxGeometry />
+          <meshBasicMaterial transparent depthWrite={false} opacity={0} color="white" />
+        </mesh>
       </group>
-      <Headwear />
-      </group>
-      <mesh position={[0, 1.02 * height, 0]}><boxGeometry args={[.65 * width, .3, .42 * width]} />{limbMaterial(fighter.palette.secondary, fighter.palette.emissive)}</mesh>
     </group>
-    <Arm side={-1} /><Arm side={1} /><Leg side={-1} /><Leg side={1} />
-    <mesh ref={flash} position={[0, 1.25, 0]} scale={[1.25 * width, 1.55 * height, .8]} visible={false}><boxGeometry /><meshBasicMaterial transparent depthWrite={false} opacity={0} color="white" /></mesh>
-  </group></group>;
+  );
 }

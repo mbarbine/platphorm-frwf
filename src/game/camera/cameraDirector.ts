@@ -1,6 +1,6 @@
-import type { FighterState } from '../types/game';
+import type { AttackPhase, FighterState } from '../types/game';
 
-export type CameraShot = 'broadcast' | 'wide' | 'ringside-x' | 'ringside-z' | 'table' | 'aerial' | 'grapple' | 'replay';
+export type CameraShot = 'broadcast' | 'wide' | 'ringside-x' | 'ringside-z' | 'table' | 'strike' | 'grapple' | 'slam' | 'corner' | 'aerial' | 'replay';
 
 export interface CameraDirectorContext {
   replayActive: boolean;
@@ -11,7 +11,10 @@ export interface CameraDirectorContext {
   opponentState: FighterState;
   playerMoveCategory: string | null;
   opponentMoveCategory: string | null;
+  playerAttackPhase: AttackPhase;
+  opponentAttackPhase: AttackPhase;
   securedGrapple: boolean;
+  grapplePhase: string | null;
   tablePosition: { x: number; z: number } | null;
   lastImpactKind: string | null;
 }
@@ -20,8 +23,13 @@ const aerialState = (state: FighterState): boolean => state === 'climbing' || st
 
 export function selectCameraShot(context: CameraDirectorContext): CameraShot {
   if (context.replayActive) return 'replay';
+  if (context.securedGrapple && ['load', 'lift', 'release', 'impact'].includes(context.grapplePhase ?? '')) return 'slam';
   if (context.securedGrapple) return 'grapple';
+  if (context.playerState === 'climbing' || context.opponentState === 'climbing') return 'corner';
   if (aerialState(context.playerState) || aerialState(context.opponentState) || context.playerMoveCategory === 'aerial' || context.opponentMoveCategory === 'aerial') return 'aerial';
+  const activeStrike = (context.playerAttackPhase === 'active' && ['quick', 'heavy', 'prop'].includes(context.playerMoveCategory ?? ''))
+    || (context.opponentAttackPhase === 'active' && ['quick', 'heavy', 'prop'].includes(context.opponentMoveCategory ?? ''));
+  if (activeStrike && context.separation < 3.2) return 'strike';
   if (context.tablePosition) {
     const tableDistance = Math.hypot(context.middleX - context.tablePosition.x, context.middleZ - context.tablePosition.z);
     if (tableDistance < 3.35 || context.lastImpactKind === 'table') return 'table';
@@ -33,5 +41,5 @@ export function selectCameraShot(context: CameraDirectorContext): CameraShot {
 }
 
 export function cameraShotIsUrgent(shot: CameraShot): boolean {
-  return shot === 'replay' || shot === 'grapple' || shot === 'aerial' || shot === 'table';
+  return shot === 'replay' || shot === 'slam' || shot === 'aerial' || shot === 'table';
 }

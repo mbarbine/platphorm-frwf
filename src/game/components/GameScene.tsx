@@ -69,10 +69,8 @@ function Simulation({ onPause, onDevice, onFinished }: Props) {
       const previous = lastActionAudio.current; lastActionAudio.current = actionAudio;
       const move = model.player.moveId ? getMove(model.player.moveId) : null;
       if (move?.id === 'taunt' && !model.toyTestMode) audioEngine.play('cheer', audioSettings);
-      else if (move?.category === 'aerial' || move?.category === 'finisher') audioEngine.playAt('finisher', audioSettings, model.player.position);
-      else if (['front_kick', 'low_kick', 'high_kick', 'roundhouse'].includes(move?.id ?? '')) audioEngine.playAt('kick', audioSettings, model.player.position);
-      else if (move?.category === 'grapple') audioEngine.playAt('grapple', audioSettings, model.player.position);
-      else if (move?.id === 'kick_up' || model.player.state === 'jumping') audioEngine.playAt('jump', audioSettings, model.player.position);
+      else if (move) audioEngine.move(move.id, audioSettings, model.player.position);
+      else if (model.player.state === 'jumping') audioEngine.playAt('jump', audioSettings, model.player.position);
       else if (model.player.state === 'climbing' && !previous.startsWith('climbing')) audioEngine.playAt('rope', audioSettings, model.player.position);
     }
     footstepTimer.current = Math.max(0, footstepTimer.current - dt);
@@ -87,14 +85,13 @@ function Simulation({ onPause, onDevice, onFinished }: Props) {
 
 function Fighters() {
   const player = useMatchStore((state) => state.model.player); const opponent = useMatchStore((state) => state.model.opponent);
-  const physicsLab = useMatchStore((state) => state.model.labMode);
   const runtimeId = useMatchStore((state) => state.model.runtimeId);
   const replayActive = useMatchStore((state) => state.replayActive);
-  const labDebug = usePhysicsLabStore((state) => state.debug);
   return <group key={runtimeId} visible={!replayActive}>
-    <PhysicalFighterRig runtime={player} side="player" showVisuals={physicsLab && labDebug} />
-    <PhysicalFighterRig runtime={opponent} side="opponent" showVisuals={physicsLab && labDebug} />
-    {(!physicsLab || !labDebug) && <><FighterModel runtime={player} counterpart={opponent} side="player" /><FighterModel runtime={opponent} counterpart={player} side="opponent" /></>}
+    <PhysicalFighterRig runtime={player} side="player" showVisuals={false} />
+    <PhysicalFighterRig runtime={opponent} side="opponent" showVisuals={false} />
+    <FighterModel runtime={player} counterpart={opponent} side="player" />
+    <FighterModel runtime={opponent} counterpart={player} side="opponent" />
   </group>;
 }
 

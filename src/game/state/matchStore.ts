@@ -34,7 +34,7 @@ export const useMatchStore = create<MatchStore>((set) => ({
     return { model: createMatch(player, opponent, rules, difficulty, 1337, playerBeers, opponentBeers), revision: state.revision + 1, replayActive: false };
   }),
   advance: (dt, input) => set((state) => {
-    const model = state.model; const previousImpact = model.impactSequence; const wasResolved = model.resolved;
+    const model = state.model; const previousImpact = model.impactSequence; const wasResolved = model.resolved; let commandAccepted = false;
     bodyWorksRuntime.captureInput('player', input, model.elapsed);
     bodyWorksRuntime.resolveCommands('player', model.elapsed, (buffered) => {
       const wasClimbing = model.player.state === 'climbing';
@@ -42,6 +42,7 @@ export const useMatchStore = create<MatchStore>((set) => ({
       const wasNearApron = ((Math.abs(model.player.position.x) > 4.62 && Math.abs(model.player.position.x) < 6.9 && Math.abs(model.player.position.z) < 3.55)
         || (Math.abs(model.player.position.z) > 3.05 && Math.abs(model.player.position.z) < 5.6 && Math.abs(model.player.position.x) < 5.15));
       const accepted = requestCommand(model, 'player', buffered.command, buffered.direction, buffered.running);
+      commandAccepted ||= accepted;
       if (accepted && buffered.command === 'jump') bodyWorksRuntime.requestJump('player');
       if (accepted && buffered.command === 'dodge' && wasDowned && model.player.moveId === 'kick_up') bodyWorksRuntime.requestJump('player');
       if (accepted && buffered.command === 'dodge' && wasClimbing && model.player.state === 'climbing') bodyWorksRuntime.requestCornerClimb('player', model.player.position, model.player.climbStage || 1);
@@ -53,7 +54,7 @@ export const useMatchStore = create<MatchStore>((set) => ({
     });
     advanceMatch(model, dt, { ...input, commands: [] });
     publishAccumulator += dt;
-    const urgent = previousImpact !== model.impactSequence || wasResolved !== model.resolved;
+    const urgent = commandAccepted || previousImpact !== model.impactSequence || wasResolved !== model.resolved;
     if (publishAccumulator >= .1 || urgent) {
       publishAccumulator %= .1;
       return { model: { ...model }, revision: state.revision + 1 };

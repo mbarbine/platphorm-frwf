@@ -3,7 +3,7 @@ import type { ContactForcePayload, RapierRigidBody } from '@react-three/rapier';
 import { useFrame } from '@react-three/fiber';
 import { useEffect, useMemo, useRef } from 'react';
 import { Color, Object3D } from 'three';
-import type { InstancedMesh, MeshStandardMaterial } from 'three';
+import type { Group, InstancedMesh, MeshStandardMaterial } from 'three';
 import { useMatchStore } from '../state/matchStore';
 import { useSettings } from '../state/settings';
 import { arenaCollisionGroups, propCollisionGroups } from '../physics/collisionGroups';
@@ -14,22 +14,26 @@ import type { PropRuntime } from '../types/game';
 import { VOLT_DOME } from '../data/arena';
 
 function Crowd({ count }: { count: number }) {
-  const ref = useRef<InstancedMesh>(null); const dummy = useMemo(() => new Object3D(), []); const elapsed = useRef(0);
+  const bodies = useRef<InstancedMesh>(null); const heads = useRef<InstancedMesh>(null); const dummy = useMemo(() => new Object3D(), []); const elapsed = useRef(0);
   useFrame((_, dt) => {
     elapsed.current += dt;
-    if (!ref.current) return;
+    if (!bodies.current || !heads.current) return;
     const hype = useMatchStore.getState().model.hype;
     for (let index = 0; index < count; index += 1) {
-      const row = Math.floor(index / 36); const col = index % 36; const angle = (col / 36) * Math.PI * 2;
-      const radius = 13.25 + row * 1.32; const bounce = Math.sin(elapsed.current * (2 + hype / 30) + index * .71) * (.04 + hype / 700);
-      dummy.position.set(Math.cos(angle) * radius, 1.3 + row * .55 + bounce, Math.sin(angle) * radius);
-      dummy.rotation.y = -angle + Math.PI / 2; dummy.scale.set(.42, .7 + (index % 3) * .12, .32); dummy.updateMatrix(); ref.current.setMatrixAt(index, dummy.matrix);
+      const row = Math.floor(index / 42); const col = index % 42; const angle = (col / 42) * Math.PI * 2 + row * .055;
+      const radius = 13.9 + row * 1.28; const wave = Math.sin(elapsed.current * (2 + hype / 30) + index * .71); const bounce = wave * (.035 + hype / 680);
+      const baseY = 1.15 + row * .62;
+      dummy.position.set(Math.cos(angle) * radius, baseY + bounce, Math.sin(angle) * radius);
+      dummy.rotation.set(wave * .025, -angle + Math.PI / 2, wave * .035); dummy.scale.set(.38 + (index % 4) * .025, .62 + (index % 3) * .1, .29); dummy.updateMatrix(); bodies.current.setMatrixAt(index, dummy.matrix);
+      dummy.position.set(Math.cos(angle) * radius, baseY + .82 + (index % 3) * .1 + bounce, Math.sin(angle) * radius);
+      dummy.rotation.set(0, -angle + Math.PI / 2, wave * .03); dummy.scale.set(.22, .22, .21); dummy.updateMatrix(); heads.current.setMatrixAt(index, dummy.matrix);
     }
-    ref.current.instanceMatrix.needsUpdate = true;
+    bodies.current.instanceMatrix.needsUpdate = true; heads.current.instanceMatrix.needsUpdate = true;
   });
-  return <instancedMesh ref={ref} args={[undefined, undefined, count]} castShadow={false} receiveShadow={false}>
-    <boxGeometry args={[.7, 1.6, .5]} /><meshStandardMaterial color="#342d5a" emissive="#6b42c9" emissiveIntensity={.13} roughness={.75} />
-  </instancedMesh>;
+  return <group>
+    <instancedMesh ref={bodies} args={[undefined, undefined, count]} castShadow={false} receiveShadow={false}><capsuleGeometry args={[.52, .72, 4, 7]} /><meshStandardMaterial color="#342d5a" emissive="#6b42c9" emissiveIntensity={.16} roughness={.76} /></instancedMesh>
+    <instancedMesh ref={heads} args={[undefined, undefined, count]} castShadow={false} receiveShadow={false}><sphereGeometry args={[1, 7, 5]} /><meshStandardMaterial color="#805f65" emissive="#47264f" emissiveIntensity={.08} roughness={.82} /></instancedMesh>
+  </group>;
 }
 
 function ArenaRibbon() {
@@ -116,12 +120,29 @@ function ReactiveMat() {
 }
 
 function Post({ x, z }: { x: number; z: number }) {
+  const visual = useRef<Group>(null); const jewel = useRef<MeshStandardMaterial>(null); const impulse = useRef(0); const lastImpactId = useRef(0);
+  useFrame((_, dt) => {
+    const group = visual.current; if (!group) return;
+    const impact = useMatchStore.getState().model.lastImpact;
+    if (impact && impact.id !== lastImpactId.current) {
+      lastImpactId.current = impact.id;
+      const distance = Math.hypot(impact.position.x - x, impact.position.z - z);
+      const major = impact.kind === 'grapple' || impact.kind === 'finisher' || impact.kind === 'table' || impact.kind === 'ko';
+      if (distance < (major ? 8 : 4.5)) impulse.current = Math.max(impulse.current, Math.max(0, (major ? 1.1 : .5) - distance * .07) * impact.intensity);
+    }
+    impulse.current = Math.max(0, impulse.current - dt * 3.4);
+    const wobble = Math.sin(performance.now() * .026 + x * z) * impulse.current;
+    group.rotation.x = wobble * .018 * Math.sign(z); group.rotation.z = wobble * .018 * Math.sign(x);
+    if (jewel.current) jewel.current.emissiveIntensity = 1.8 + impulse.current * 2.8;
+  });
   return <RigidBody type="fixed" position={[x, 2.2, z]} colliders={false} collisionGroups={arenaCollisionGroups} solverGroups={arenaCollisionGroups} userData={{ surface: true, kind: 'turnbuckle' }}>
     <CuboidCollider args={[.24, 1.82, .24]} friction={.5} restitution={.08} />
     <CuboidCollider args={[.5, .13, .5]} position={[x > 0 ? -.28 : .28, 1.56, z > 0 ? -.24 : .24]} friction={1.2} restitution={.02} />
-    <mesh castShadow><boxGeometry args={[.34, 3.5, .34]} /><meshStandardMaterial color="#161321" metalness={.85} roughness={.2} /></mesh>
-    {[.3, .85, 1.4].map((y) => <mesh key={y} position={[x > 0 ? -.22 : .22, y, z > 0 ? -.18 : .18]} castShadow><boxGeometry args={[.58, .31, .34]} /><meshStandardMaterial color="#a34dff" emissive="#6d22df" emissiveIntensity={.9} metalness={.25} roughness={.35} /></mesh>)}
-    <mesh position={[0, 1.83, 0]}><octahedronGeometry args={[.25, 0]} /><meshStandardMaterial color="#f2f5ff" emissive={x * z > 0 ? '#ff3c91' : '#42e8ff'} emissiveIntensity={1.8} metalness={.65} roughness={.2} /></mesh>
+    <group ref={visual}>
+      <mesh castShadow><cylinderGeometry args={[.19, .23, 3.5, 10]} /><meshStandardMaterial color="#161321" metalness={.85} roughness={.2} /></mesh>
+      {[.3, .85, 1.4].map((y) => <group key={y} position={[x > 0 ? -.22 : .22, y, z > 0 ? -.18 : .18]}><mesh castShadow scale={[.58, .31, .34]}><sphereGeometry args={[1, 12, 7]} /><meshStandardMaterial color="#a34dff" emissive="#6d22df" emissiveIntensity={.9} metalness={.25} roughness={.35} /></mesh><mesh position={[0, 0, .31]}><boxGeometry args={[.31, .1, .04]} /><meshStandardMaterial color="#f5eaff" emissive="#d067ff" emissiveIntensity={1.2} /></mesh></group>)}
+      <mesh position={[0, 1.83, 0]}><octahedronGeometry args={[.25, 0]} /><meshStandardMaterial ref={jewel} color="#f2f5ff" emissive={x * z > 0 ? '#ff3c91' : '#42e8ff'} emissiveIntensity={1.8} metalness={.65} roughness={.2} /></mesh>
+    </group>
   </RigidBody>;
 }
 
@@ -284,6 +305,46 @@ function BroadcastSet() {
   </>;
 }
 
+function VoltDomeArchitecture() {
+  const supports = Array.from({ length: 16 }, (_, index) => index / 16 * Math.PI * 2);
+  return <group>
+    {[4.1, 6.8, 9.5].map((y, index) => <group key={y} position={[0, y, 0]}>
+      <mesh rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[18.1 + index * .9, .16 + index * .035, 8, 96]} /><meshStandardMaterial color="#2f354a" emissive={index === 1 ? '#4c1f8e' : '#11274a'} emissiveIntensity={.44} metalness={.86} roughness={.25} /></mesh>
+      <mesh rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[16.7 + index * .95, .055, 6, 96]} /><meshStandardMaterial color={index % 2 ? '#ff4a9e' : '#56edff'} emissive={index % 2 ? '#ff247f' : '#20cce9'} emissiveIntensity={1.55} metalness={.58} roughness={.24} /></mesh>
+    </group>)}
+    {supports.map((angle, index) => <group key={angle} rotation={[0, angle, 0]}>
+      <mesh position={[0, 5.8, -20.25]} rotation={[0, 0, index % 2 ? .08 : -.08]}><boxGeometry args={[.22, 9.8, .34]} /><meshStandardMaterial color="#363d52" metalness={.88} roughness={.24} /></mesh>
+      <mesh position={[0, 5.6, -19.98]}><boxGeometry args={[.07, 5.5, .045]} /><meshStandardMaterial color={index % 3 ? '#6531c8' : '#ff3d91'} emissive={index % 3 ? '#6531c8' : '#ff3d91'} emissiveIntensity={1.2} /></mesh>
+      <mesh position={[0, 2.2 + (index % 2) * .45, -17.6]} rotation={[0, 0, Math.PI / 2]}><boxGeometry args={[.16, 3.7, .22]} /><meshStandardMaterial color="#24293a" metalness={.75} roughness={.3} /></mesh>
+    </group>)}
+    <mesh position={[0, 14.6, 0]} rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[9.8, .28, 10, 80]} /><meshStandardMaterial color="#647088" emissive="#291a69" emissiveIntensity={.55} metalness={.92} roughness={.18} /></mesh>
+    <mesh position={[0, 15.3, 0]} rotation={[Math.PI / 2, 0, 0]}><ringGeometry args={[10, 24, 72]} /><meshBasicMaterial color="#0b0917" transparent opacity={.72} /></mesh>
+  </group>;
+}
+
+function Jumbotron() {
+  const rig = useRef<Group>(null); const front = useRef<MeshStandardMaterial>(null); const back = useRef<MeshStandardMaterial>(null); const lastImpact = useRef(0); const pulse = useRef(0);
+  useFrame(({ clock }, dt) => {
+    const model = useMatchStore.getState().model; const impact = model.lastImpact;
+    if (impact && impact.id !== lastImpact.current) { lastImpact.current = impact.id; pulse.current = Math.max(pulse.current, impact.intensity); }
+    pulse.current = Math.max(0, pulse.current - dt * 2.8);
+    if (rig.current) rig.current.rotation.y = Math.sin(clock.elapsedTime * .12) * .035;
+    const energy = .7 + model.hype / 48 + pulse.current * .8 + (model.chaosEvent ? .6 : 0);
+    if (front.current) front.current.emissiveIntensity = energy;
+    if (back.current) back.current.emissiveIntensity = energy * .9;
+  });
+  return <group ref={rig} position={[0, 10.9, 0]}>
+    <mesh><cylinderGeometry args={[3.85, 3.85, 1.8, 8]} /><meshStandardMaterial color="#111320" metalness={.72} roughness={.25} emissive="#20135c" emissiveIntensity={.4} /></mesh>
+    <mesh position={[0, 0, 3.62]}><boxGeometry args={[5.8, 1.18, .12]} /><meshStandardMaterial ref={front} color="#58efff" emissive="#20cfe9" emissiveIntensity={1.2} metalness={.25} roughness={.28} /></mesh>
+    <mesh position={[0, 0, -3.62]}><boxGeometry args={[5.8, 1.18, .12]} /><meshStandardMaterial ref={back} color="#ff4c9d" emissive="#ff247f" emissiveIntensity={1.2} metalness={.25} roughness={.28} /></mesh>
+    <mesh position={[3.62, 0, 0]} rotation={[0, Math.PI / 2, 0]}><boxGeometry args={[5.8, 1.18, .12]} /><meshStandardMaterial color="#dfff45" emissive="#a7db22" emissiveIntensity={1.4} metalness={.25} roughness={.28} /></mesh>
+    <mesh position={[-3.62, 0, 0]} rotation={[0, Math.PI / 2, 0]}><boxGeometry args={[5.8, 1.18, .12]} /><meshStandardMaterial color="#8c55ff" emissive="#672bd4" emissiveIntensity={1.4} metalness={.25} roughness={.28} /></mesh>
+    {[-2.25, -.75, .75, 2.25].map((x) => <mesh key={x} position={[x, 0, 3.7]}><boxGeometry args={[.08, .76, .035]} /><meshBasicMaterial color="#091019" /></mesh>)}
+    <mesh position={[0, -1.15, 0]} rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[3.7, .1, 7, 48]} /><meshStandardMaterial color="#f4f7ff" emissive="#7d5cff" emissiveIntensity={1.5} metalness={.8} roughness={.18} /></mesh>
+    {[0, Math.PI / 2, Math.PI, Math.PI * 1.5].map((angle) => <group key={angle} rotation={[0, angle, 0]}><spotLight position={[0, -1.1, -3]} intensity={2.1} color={angle % Math.PI === 0 ? '#4be7ff' : '#ff3a95'} angle={.28} penumbra={.8} /></group>)}
+  </group>;
+}
+
 export function Arena({ crowdCount = 156 }: { crowdCount?: number }) {
   const spotlight = useMatchStore((state) => state.model.chaosEvent?.type === 'SPOTLIGHT SHOWDOWN');
   const toyTest = useMatchStore((state) => state.model.toyTestMode);
@@ -314,7 +375,7 @@ export function Arena({ crowdCount = 156 }: { crowdCount?: number }) {
     <Ropes /><Post x={-5.75} z={-4.25} /><Post x={5.75} z={-4.25} /><Post x={-5.75} z={4.25} /><Post x={5.75} z={4.25} />
     <SteelSteps />
     <RigidBody type="fixed" colliders="hull" position={[0, .2, 0]} collisionGroups={arenaCollisionGroups} solverGroups={arenaCollisionGroups} userData={{ surface: true, kind: 'floor' }}><mesh receiveShadow><cylinderGeometry args={[VOLT_DOME.floor.radius, VOLT_DOME.floor.radius, .4, 64]} /><meshStandardMaterial color="#100d1c" roughness={.8} /></mesh></RigidBody>
-    <EntranceLane /><Barricades /><ArenaRibbon />{!toyTest && crowdCount > 0 && <Crowd count={crowdCount} />}<Props />
+    <EntranceLane /><Barricades /><ArenaRibbon />{!toyTest && crowdCount > 0 && <Crowd count={crowdCount} />}<Props /><VoltDomeArchitecture /><Jumbotron />
     <group position={[0, 13, 0]}>
       {[0, Math.PI / 2, Math.PI, Math.PI * 1.5].map((angle) => <group key={angle} rotation={[0, angle, 0]}>
         <mesh position={[0, -.65, -7.75]} rotation={[.15, 0, 0]}><cylinderGeometry args={[.18, .36, .65, 10]} /><meshStandardMaterial color="#8eeeff" emissive="#41dcff" emissiveIntensity={2.4} /></mesh>

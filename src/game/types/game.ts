@@ -178,6 +178,7 @@ export interface ImpactEvent {
   force?: number;
   torque?: number;
   outcome?: CollisionOutcome;
+  moveId?: string;
 }
 
 export interface GrappleRuntime {

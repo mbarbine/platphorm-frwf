@@ -5,6 +5,7 @@ const base = {
   replayActive: false, middleX: 0, middleZ: 0, separation: 2,
   playerState: 'idle' as const, opponentState: 'idle' as const,
   playerMoveCategory: null, opponentMoveCategory: null, securedGrapple: false,
+  playerAttackPhase: null, opponentAttackPhase: null, grapplePhase: null,
   tablePosition: { x: 0, z: -7.2 }, lastImpactKind: null,
 };
 
@@ -17,9 +18,16 @@ describe('camera director', () => {
     expect(selectCameraShot({ ...base, tablePosition: null, middleZ: 6 })).toBe('ringside-z');
   });
 
-  it('gives replay, secured grapples, and aerial states deterministic priority', () => {
+  it('gives replay, staged grapples, corner setups, and aerial states deterministic priority', () => {
     expect(selectCameraShot({ ...base, replayActive: true, securedGrapple: true })).toBe('replay');
     expect(selectCameraShot({ ...base, securedGrapple: true, playerState: 'airborne' })).toBe('grapple');
-    expect(selectCameraShot({ ...base, playerState: 'climbing' })).toBe('aerial');
+    expect(selectCameraShot({ ...base, securedGrapple: true, grapplePhase: 'lift' })).toBe('slam');
+    expect(selectCameraShot({ ...base, playerState: 'climbing' })).toBe('corner');
+    expect(selectCameraShot({ ...base, playerState: 'airborne' })).toBe('aerial');
+  });
+
+  it('uses a concise contact shot only during a close active strike', () => {
+    expect(selectCameraShot({ ...base, playerMoveCategory: 'heavy', playerAttackPhase: 'active' })).toBe('strike');
+    expect(selectCameraShot({ ...base, separation: 4, playerMoveCategory: 'heavy', playerAttackPhase: 'active' })).toBe('broadcast');
   });
 });

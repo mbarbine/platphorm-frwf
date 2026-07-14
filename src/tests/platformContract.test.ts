@@ -10,6 +10,7 @@ const routes = [
   'public/sitemap.xml', 'public/sitemap-index.xml', 'public/rss.xml', 'public/feed.xml',
   'public/manifest.webmanifest', 'public/.well-known/mcp.json', 'public/.well-known/agents.json',
   'public/.well-known/ai-plugin.json', 'public/.well-known/security.txt', 'public/.well-known/trust.json',
+  'public/release.json', 'public/api/release',
 ] as const;
 
 describe('PlatPhorm static game contract', () => {
@@ -25,6 +26,7 @@ describe('PlatPhorm static game contract', () => {
     expect(index.data.capabilities).toEqual(expect.arrayContaining(['physical_grapple_and_slam', 'rope_rebound_and_ring_traversal', 'turnbuckle_aerials', 'webxr_arena_mode', 'spatial_audio']));
     const health = JSON.parse(read('public/api/health')) as { data: Record<string, unknown> };
     expect(health.data).toMatchObject({ status: 'operational', routeComplianceScore: 100, traceEnabled: false, vercelMetadataCaptured: false });
+    expect(health.data.releaseIdentity).toMatchObject({ fighterCount: 5, moveCount: 34, criticalAssetCount: 1 });
     expect(health.data.observabilityComplianceScore).toBeNull();
   });
 
