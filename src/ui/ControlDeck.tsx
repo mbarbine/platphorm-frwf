@@ -18,7 +18,7 @@ export interface ControlReadout {
 }
 
 const DEVICE_KEYS: Readonly<Record<ControlDevice, Readonly<Record<ControlId, string>>>> = {
-  keyboard: { move: 'WASD', run: 'SHIFT', quick: 'H / J', heavy: 'K', grapple: 'L', block: 'I', counter: 'SPACE', jump: 'C', interact: 'E', context: 'F / P', taunt: 'Q' },
+  keyboard: { move: 'WASD', run: 'SHIFT', quick: 'J', heavy: 'K', grapple: 'L', block: 'I', counter: 'U', jump: 'SPACE', interact: 'E', context: 'F', taunt: 'Q' },
   gamepad: { move: 'L STICK', run: 'RT', quick: 'X / □', heavy: 'Y / △', grapple: 'B / ○', block: 'LT', counter: 'A / ×', jump: 'L3', interact: 'LB', context: 'R3', taunt: 'RB' },
   touch: { move: 'STICK', run: 'RUN', quick: 'QUICK', heavy: 'KICK', grapple: 'BODY SLAM', block: 'GUARD', counter: '↯', jump: 'JUMP', interact: 'PROP', context: 'SPECIAL / PIN', taunt: 'TAUNT' },
 };
@@ -26,7 +26,7 @@ const DEVICE_KEYS: Readonly<Record<ControlDevice, Readonly<Record<ControlId, str
 export const controlPrompt = (device: ControlDevice, control: ControlId): string => DEVICE_KEYS[device][control];
 
 const BASE_LABELS: Readonly<Record<ControlId, string>> = {
-  move: 'MOVE / AIM', run: 'RUN', quick: 'PUNCH / HEADBUTT', heavy: 'KICK', grapple: 'BODY SLAM', block: 'GUARD', counter: 'KICK-UP', jump: 'JUMP / HOP', interact: 'PROP', context: 'SPECIAL / PIN', taunt: 'TAUNT',
+  move: 'MOVE', run: 'SPRINT', quick: 'PUNCH', heavy: 'KICK', grapple: 'BODY SLAM', block: 'GUARD (HOLD)', counter: 'DODGE / COUNTER', jump: 'JUMP', interact: 'PROP', context: 'SPECIAL / PIN', taunt: 'TAUNT',
 };
 
 const moveLabel = (moveId: string): string => getMove(moveId).displayName.toUpperCase();
@@ -94,7 +94,7 @@ export function buildControlReadout(player: FighterRuntime, opponent: FighterRun
   if (player.heldPropId) active.add('interact');
   if (player.ropeRebound > 0) { active.add('run'); active.add('heavy'); }
 
-  let state = paused ? 'MATCH PAUSED' : 'READY TO WRESTLE';
+  let state = paused ? 'MATCH PAUSED' : distance > 5.5 ? 'APPROACH YOUR OPPONENT' : 'READY TO FIGHT';
   if (!paused && player.moveId) {
     const move = getMove(player.moveId);
     state = `${move.displayName.toUpperCase()} · ${(player.attackPhase ?? player.state).toUpperCase()}`;
@@ -116,7 +116,9 @@ export function buildControlReadout(player: FighterRuntime, opponent: FighterRun
   const nearCorner = Math.abs(player.position.x) > 4.35 && Math.abs(player.position.z) > 2.95;
   const ringside = Math.abs(player.position.x) > 5.82 || Math.abs(player.position.z) > 4.32;
   const clinchCornerDistance = Math.hypot(opponent.position.x - Math.sign(opponent.position.x || player.position.x || 1) * 5.35, opponent.position.z - Math.sign(opponent.position.z || player.position.z || 1) * 3.85);
-  let callout = `DIRECTION CHANGES ${keys.quick} / ${keys.heavy} MOVES · ${keys.grapple} LOCKS UP`;
+  let callout = distance > 5.5
+    ? `${keys.move} MOVE · ${keys.run} SPRINT · CLOSE IN THEN ${keys.quick} PUNCH OR ${keys.grapple} BODY SLAM`
+    : `${keys.quick} PUNCH · ${keys.heavy} KICK · ${keys.grapple} BODY SLAM · ${keys.jump} JUMP · ${keys.block} GUARD`;
   if (paused) callout = 'SIMULATION STOPPED · RESUME TO WRESTLE';
   else if (player.state === 'pinned') callout = `${keys.counter} RAPIDLY · KICK OUT BEFORE THREE`;
   else if (player.state === 'downed' || player.moveId === 'kick_up') callout = `${keys.counter} · LIVEWIRE KICK-UP`;
@@ -133,7 +135,8 @@ export function buildControlReadout(player: FighterRuntime, opponent: FighterRun
   else if (player.momentum >= 100 && ['staggered', 'downed'].includes(opponent.state) && distance < 2.2) callout = `${actionKey} · SIGNATURE FINISHER READY`;
   else if (opponent.state === 'downed' && distance < 1.7) callout = `${actionKey} PIN · ${keys.quick} GROUND STRIKE`;
   else if (nearCorner) callout = `${actionKey} · CLIMB LOWER TURNBUCKLE`;
-  else if (canTransitionThroughRopes(player.position)) callout = `${actionKey} · ${ringside ? 'ENTER' : 'EXIT'} THROUGH CENTER ROPE`;
+  else if (canTransitionThroughRopes(player.position)) callout = `${actionKey} · ${ringside ? 'ENTER RING' : 'EXIT TO RINGSIDE'} THROUGH CENTER ROPE`;
+  else if (!nearCorner && (Math.abs(player.position.x) > 4.1 || Math.abs(player.position.z) > 3.2)) callout = `NEAR ROPES · SPRINT TO REBOUND · ${actionKey} AT APRON TO EXIT RING`;
   else if (player.counterWindow > 0) callout = `${keys.counter} NOW · REVERSE THE ATTACK`;
   else if (distance < 1.8) callout = `${keys.grapple} LOCK UP · HOLD DIRECTION TO CHOOSE THE THROW`;
   else if (distance < 4.8 && movementHeld && !runHeld) callout = `LOCK-ON ACTIVE · ${keys.quick} / ${keys.heavy} STRIKE TOWARD YOUR RIVAL`;
