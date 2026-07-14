@@ -15,10 +15,7 @@
  * ── EXTRACTION STATUS ──────────────────────────────────────────────────────
  * ✅ types/         — fully mirrored to game-protocol
  * ✅ utils/math     — pure, no dependencies
- * ✅ data/moves     — pure data
- * ✅ data/fighters  — pure data
  * ✅ data/balance   — pure data
- * ✅ data/arena     — pure data
  * 🔄 combat/        — extraction in progress (see src/combat/)
  * 🔄 ai/            — extraction in progress
  * 🔄 physics/grapple — extraction in progress
@@ -39,8 +36,6 @@ export type {
 export * from './utils/math.js';
 
 // Data
-export { MOVES, getMove } from './data/moves.js';
-export { FIGHTERS, fighterById } from './data/fighters.js';
 export { BALANCE } from './data/balance.js';
 
 // Simulation API — the primary integration surface for both client and server
