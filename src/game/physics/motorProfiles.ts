@@ -19,9 +19,9 @@ const chain = (stiffness: number, damping: number, maximumTorque: number, streng
 const profile = (id: MotorProfileId, rootMode: MotorProfile['rootMode'], multiplier: number, overrides: Partial<Record<MotorChain, Partial<MotorChainTuning>>> = {}): MotorProfile => {
   const base: Record<MotorChain, MotorChainTuning> = {
     core: chain(255, 44, 275), head: chain(120, 20, 88),
-    leftArm: chain(132, 24, 126), rightArm: chain(132, 24, 126),
+    leftArm: chain(132, 32, 285), rightArm: chain(132, 32, 285),
     leftLeg: chain(170, 31, 168), rightLeg: chain(170, 31, 168),
-    hands: chain(68, 12, 44), feet: chain(92, 18, 74),
+    hands: chain(68, 16, 96), feet: chain(92, 18, 74),
   };
   for (const name of Object.keys(base) as MotorChain[]) {
     const current = base[name]; const override = overrides[name];

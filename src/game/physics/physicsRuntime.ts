@@ -185,6 +185,18 @@ const bodyAnchorWorld = (body: RapierRigidBody, localX: number): { x: number; y:
   };
 };
 
+const GRIP_ANCHOR_RADIUS: Readonly<Partial<Record<BodySegmentId, number>>> = {
+  pelvis: .22, abdomen: .21, chest: .27, head: .18,
+  leftUpperArm: .105, rightUpperArm: .105, leftForearm: .09, rightForearm: .09,
+};
+
+/** The catch point lives on the contacted collider surface, not its centre. */
+const bodySurfaceAnchorWorld = (body: RapierRigidBody, localX: number, hand: Vector3Value, segment: BodySegmentId): Vector3Value => {
+  const anchor = bodyAnchorWorld(body, localX); const dx = hand.x - anchor.x; const dy = hand.y - anchor.y; const dz = hand.z - anchor.z;
+  const distance = Math.max(.001, Math.hypot(dx, dy, dz)); const radius = GRIP_ANCHOR_RADIUS[segment] ?? .09;
+  return { x: anchor.x + dx / distance * radius, y: anchor.y + dy / distance * radius, z: anchor.z + dz / distance * radius };
+};
+
 const rotatedLocalPoint = (body: RapierRigidBody, local: Vector3Value): Vector3Value => {
   const position = body.translation(); const rotation = body.rotation();
   const ix = rotation.w * local.x + rotation.y * local.z - rotation.z * local.y;
@@ -379,6 +391,10 @@ export class BodyWorksRuntime {
     for (const [segment, body] of Object.entries(rig.bodies) as [BodySegmentId, RapierRigidBody][]) {
       if (!body?.isValid()) continue;
       const offset = rig.restOffsets[segment] ?? { x: 0, y: 0, z: 0 };
+      // Placement invalidates the cached rotation-authority signature. Start
+      // from an actually free body tree so the next controller pass can lock
+      // planted chains or preserve a requested physical fall correctly.
+      body.setEnabledRotations(true, true, true, true);
       body.setTranslation({ x: target.x + offset.x, y: rig.restPelvisY + offset.y, z: target.z + offset.z }, true);
       body.setLinvel({ x: 0, y: 0, z: 0 }, true); body.setAngvel({ x: 0, y: 0, z: 0 }, true); body.setRotation({ x: 0, y: 0, z: 0, w: 1 }, true);
     }
@@ -419,6 +435,7 @@ export class BodyWorksRuntime {
   consumeContacts(): readonly BodyWorksContact[] { const result = this.contacts.splice(0); return result; }
 
   isAwaitingLanding(fighter: FighterKey): boolean { return this.pendingLandings.has(fighter); }
+  pendingLandingCount(): number { return this.pendingLandings.size; }
 
   propAttackSource(propId: string, now: number): ReleasedPropAttack | null {
     const source = this.releasedPropAttacks.get(propId);
@@ -916,26 +933,31 @@ export class BodyWorksRuntime {
     if (owned.length < 2) {
       grapple.phase = owned.length === 0 ? 'reach' : 'acquire';
       let nearestGripDistance = Number.POSITIVE_INFINITY;
+      const attackerCenter = this.rigPlanarCenter(attackerRig); const defenderCenter = this.rigPlanarCenter(defenderRig);
+      const centerX = defenderCenter.x - attackerCenter.x; const centerZ = defenderCenter.z - attackerCenter.z;
+      const centerDistance = Math.max(.001, Math.hypot(centerX, centerZ)); const centerNormalX = centerX / centerDistance; const centerNormalZ = centerZ / centerDistance;
+      const closingSpeed = (defenderCenter.velocityX - attackerCenter.velocityX) * centerNormalX + (defenderCenter.velocityZ - attackerCenter.velocityZ) * centerNormalZ;
+      const approachAcceleration = clamp((centerDistance - .82) * 7.5 + closingSpeed * 1.8, -2.2, 4.6);
+      this.applyRigAcceleration(attackerRig, { x: centerNormalX * approachAcceleration * .58, y: 0, z: centerNormalZ * approachAcceleration * .58 });
+      this.applyRigAcceleration(defenderRig, { x: -centerNormalX * approachAcceleration * .42, y: 0, z: -centerNormalZ * approachAcceleration * .42 });
       const preferences: readonly [BodySegmentId, BodySegmentId, number][] = gripPreferences(move.id);
       for (const [handId, targetId, targetAnchorX] of preferences) {
         if (this.grips.some((grip) => grip.attacker === grapple.attacker && grip.hand === handId)) continue;
         const hand = attackerRig.bodies[handId]; const target = defenderRig.bodies[targetId]; if (!hand || !target) continue;
-        const handPosition = hand.translation(); const targetPosition = bodyAnchorWorld(target, targetAnchorX);
+        const handPosition = hand.translation(); const targetPosition = bodySurfaceAnchorWorld(target, targetAnchorX, handPosition, targetId);
         const delta = { x: targetPosition.x - handPosition.x, y: targetPosition.y - handPosition.y, z: targetPosition.z - handPosition.z };
         const distance = Math.hypot(delta.x, delta.y, delta.z);
         nearestGripDistance = Math.min(nearestGripDistance, distance);
         if (distance > 2) continue;
-        const attackerPelvis = attackerRig.bodies.pelvis; const defenderPelvis = defenderRig.bodies.pelvis;
-        if (attackerPelvis && defenderPelvis) {
-          const attackerPosition = attackerPelvis.translation(); const defenderPosition = defenderPelvis.translation(); const planarDistance = Math.max(.001, Math.hypot(defenderPosition.x - attackerPosition.x, defenderPosition.z - attackerPosition.z));
-          this.applyRigAcceleration(attackerRig, { x: (defenderPosition.x - attackerPosition.x) / planarDistance * 3.6, y: 0, z: (defenderPosition.z - attackerPosition.z) / planarDistance * 3.6 });
-        }
         const acquiredHands = this.grips.filter((grip) => grip.attacker === grapple.attacker).length;
         // The first hand establishes the collar tie and can rotate two large
         // articulated bodies a few centimetres apart. Give the second hand a
         // slightly wider catch envelope so a visually valid two-hand lock does
         // not fail because the first constraint moved the hips mid-frame.
-        const catchDistance = acquiredHands > 0 ? .5 : .4;
+        // Surface-to-hand tolerance: the first hand establishes a collar tie;
+        // the second closes the elbow side once the bodies are physically
+        // coupled. These are measured from collider surfaces, not body centres.
+        const catchDistance = acquiredHands > 0 ? 1.1 : 1.04;
         if (distance > catchDistance) {
           // Reach is a compliant hand-to-anchor spring. It may guide the hand,
           // but cannot create a grip until the visible bodies are genuinely
@@ -947,15 +969,9 @@ export class BodyWorksRuntime {
             z: clamp(delta.z * 145 - (handVelocity.z - targetVelocity.z) * 18, -210, 210),
           };
           const forceMagnitude = Math.hypot(reachForce.x, reachForce.y, reachForce.z);
-          const forceScale = forceMagnitude > 235 ? 235 / forceMagnitude : 1;
+          const forceScale = forceMagnitude > 190 ? 190 / forceMagnitude : 1;
           hand.addForce({ x: reachForce.x * forceScale, y: reachForce.y * forceScale, z: reachForce.z * forceScale }, true);
-          target.addForce({ x: -reachForce.x * forceScale * .18, y: -reachForce.y * forceScale * .18, z: -reachForce.z * forceScale * .18 }, true);
-          if (acquiredHands === 0 && attackerPelvis && defenderPelvis) {
-            const attackerCenter = this.rigPlanarCenter(attackerRig); const defenderCenter = this.rigPlanarCenter(defenderRig);
-            const centerX = defenderCenter.x - attackerCenter.x; const centerZ = defenderCenter.z - attackerCenter.z;
-            const centerDistance = Math.max(.001, Math.hypot(centerX, centerZ));
-            this.applyRigAcceleration(attackerRig, { x: centerX / centerDistance * 3.4, y: 0, z: centerZ / centerDistance * 3.4 });
-          }
+          target.addForce({ x: -reachForce.x * forceScale, y: -reachForce.y * forceScale, z: -reachForce.z * forceScale }, true);
           continue;
         }
         // Two hard cross-rig joints form a closed constraint loop through both
@@ -975,7 +991,7 @@ export class BodyWorksRuntime {
     for (const grip of activeGrips) {
       const hand = attackerRig.bodies[grip.hand]; const target = defenderRig.bodies[grip.target];
       if (!hand || !target) { this.removeGrip(world, grip, 'missing-body'); continue; }
-      const handPosition = hand.translation(); const targetPosition = bodyAnchorWorld(target, grip.targetAnchorX); const error = Math.hypot(handPosition.x - targetPosition.x, handPosition.y - targetPosition.y, handPosition.z - targetPosition.z);
+      const handPosition = hand.translation(); const targetPosition = bodySurfaceAnchorWorld(target, grip.targetAnchorX, handPosition, grip.target); const error = Math.hypot(handPosition.x - targetPosition.x, handPosition.y - targetPosition.y, handPosition.z - targetPosition.z);
       const handVelocity = hand.linvel(); const targetVelocity = target.linvel();
       const relativeVelocity = { x: targetVelocity.x - handVelocity.x, y: targetVelocity.y - handVelocity.y, z: targetVelocity.z - handVelocity.z };
       const load = Math.hypot(relativeVelocity.x, relativeVelocity.y, relativeVelocity.z) * defender.body.mass / 100;
@@ -987,7 +1003,7 @@ export class BodyWorksRuntime {
       // reach its active frame.
       const acquisitionGrace = model.elapsed - grip.createdAt < 1.05;
       if (!['grappling', 'attacking'].includes(attacker.state)) this.removeGrip(world, grip, 'incompatible-state');
-      else if (!acquisitionGrace && error > .82) this.removeGrip(world, grip, 'anchor-error');
+      else if (!acquisitionGrace && error > 1.2) this.removeGrip(world, grip, 'anchor-error');
       else if (!acquisitionGrace && load > grip.strength * 58) this.removeGrip(world, grip, 'load-break');
       else {
         const dx = targetPosition.x - handPosition.x; const dy = targetPosition.y - handPosition.y; const dz = targetPosition.z - handPosition.z;
@@ -1060,10 +1076,10 @@ export class BodyWorksRuntime {
     else if (attacker.attackPhase === 'anticipation') {
       grapple.phase = 'lift';
       const liftDrive = liftDriveForMove(move.id) * liftFeasibility;
-      this.applyRigAcceleration(defenderRig, { x: 0, y: 8 + liftDrive * 6, z: 0 });
-      defenderChest.addForce({ x: Math.sin(attacker.facing) * defenderChest.mass() * liftDrive * 2.1, y: defenderChest.mass() * liftDrive * 4, z: Math.cos(attacker.facing) * defenderChest.mass() * liftDrive * 2.1 }, true);
+      this.applyRigAcceleration(defenderRig, { x: 0, y: 36 + liftDrive * 20, z: 0 });
+      defenderChest.addForce({ x: Math.sin(attacker.facing) * defenderChest.mass() * liftDrive * 2.1, y: defenderChest.mass() * liftDrive * 12, z: Math.cos(attacker.facing) * defenderChest.mass() * liftDrive * 2.1 }, true);
       defenderPelvis.applyTorqueImpulse({ x: move.id === 'suplex' || move.id === 'skyhook' ? -.032 * liftDrive : .018 * liftDrive, y: 0, z: (grapple.position === 'overhook' ? .028 : -.018) * liftDrive }, true);
-      this.applyRigAcceleration(attackerRig, { x: 0, y: -5.5, z: 0 });
+      this.applyRigAcceleration(attackerRig, { x: 0, y: -12, z: 0 });
     }
     if (grapple.phase === 'clinch' || grapple.phase === 'load') {
       const braceX = separationX / planarSeparation; const braceZ = separationZ / planarSeparation; const shuffle = Math.sin(grapple.age * 18) * (grapple.phase === 'load' ? 1 : .55);
@@ -1079,9 +1095,12 @@ export class BodyWorksRuntime {
       // Fall back to the live clinch axis for a neutral throw; animated facing
       // can auto-turn during a load and is not physical authority here.
       const inputLength = Math.hypot(attackerIntent.move.x, attackerIntent.move.z);
+      const liveSeparation = Math.hypot(separationX, separationZ);
       const inputDirection = inputLength > .25
         ? { x: attackerIntent.move.x / inputLength, z: attackerIntent.move.z / inputLength }
-        : { x: separationX / planarSeparation, z: separationZ / planarSeparation };
+        : liveSeparation > .15
+          ? { x: separationX / planarSeparation, z: separationZ / planarSeparation }
+          : { x: Math.sin(attacker.facing), z: Math.cos(attacker.facing) };
       const environmentDelta = environmentTarget ? { x: environmentTarget.position.x - defenderPosition.x, z: environmentTarget.position.z - defenderPosition.z } : null;
       const environmentDistance = environmentDelta ? Math.hypot(environmentDelta.x, environmentDelta.z) : Number.POSITIVE_INFINITY;
       const environmentTargeted = Boolean(environmentDelta && environmentTarget);
@@ -1096,11 +1115,19 @@ export class BodyWorksRuntime {
       // Drive every segment through the release with the same velocity change.
       // Applying the whole wrestler mass to the pelvis alone stretched the
       // ragdoll and could launch a slammed opponent clean over nearby props.
-      for (const body of Object.values(defenderRig.bodies)) {
+      for (const [segment, body] of Object.entries(defenderRig.bodies) as [BodySegmentId, RapierRigidBody][]) {
         if (!body?.isValid()) continue;
-        const mass = body.mass();
-        body.applyImpulse({ x: direction.x * mass * horizontalReleaseSpeed, y: -mass * 1.8, z: direction.z * mass * horizontalReleaseSpeed }, true);
+        const mass = body.mass(); const velocity = body.linvel();
+        const coreDrop = segment === 'pelvis' || segment === 'abdomen' || segment === 'chest' || segment === 'head';
+        const targetDownSpeed = coreDrop ? -8.4 : -4.8;
+        body.applyImpulse({ x: direction.x * mass * horizontalReleaseSpeed, y: (targetDownSpeed - velocity.y) * mass, z: direction.z * mass * horizontalReleaseSpeed }, true);
       }
+      const fallTorque = { x: direction.z, z: -direction.x };
+      defenderPelvis.applyTorqueImpulse({ x: fallTorque.x * defenderPelvis.mass() * 1.9, y: 0, z: fallTorque.z * defenderPelvis.mass() * 1.9 }, true);
+      defenderChest.applyTorqueImpulse({ x: fallTorque.x * defenderChest.mass() * 1.25, y: 0, z: fallTorque.z * defenderChest.mass() * 1.25 }, true);
+      const pelvisSpin = defenderPelvis.angvel(); const chestSpin = defenderChest.angvel();
+      defenderPelvis.setAngvel({ x: pelvisSpin.x + fallTorque.x * 7.2, y: pelvisSpin.y * .25, z: pelvisSpin.z + fallTorque.z * 7.2 }, true);
+      defenderChest.setAngvel({ x: chestSpin.x + fallTorque.x * 5.4, y: chestSpin.y * .25, z: chestSpin.z + fallTorque.z * 5.4 }, true);
       const attackerVelocity = attackerPelvis.linvel();
       attackerPelvis.setLinvel({ x: attackerVelocity.x * .28, y: Math.max(0, attackerVelocity.y * .2), z: attackerVelocity.z * .28 }, true);
       attackerPelvis.setAngvel({ x: 0, y: attackerPelvis.angvel().y * .25, z: 0 }, true);
@@ -1140,9 +1167,9 @@ export class BodyWorksRuntime {
       // therefore scales with segment mass; applying a torso-sized impulse to
       // a hand or upper arm produces solver-speed vibration even when the
       // abstract profile value is bounded.
-      const torquePerKg = segment.includes('UpperArm') ? 80
-        : segment.includes('Forearm') ? 40
-        : segment.includes('Hand') ? 20
+      const torquePerKg = segment.includes('UpperArm') ? 140
+        : segment.includes('Forearm') ? 90
+        : segment.includes('Hand') ? 60
         : segment.includes('Thigh') ? 14
         : segment.includes('Shin') || segment.includes('Foot') ? 10
         : segment === 'head' ? 5
