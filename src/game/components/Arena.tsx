@@ -314,7 +314,7 @@ export function Arena({ crowdCount = 156 }: { crowdCount?: number }) {
     <Ropes /><Post x={-5.75} z={-4.25} /><Post x={5.75} z={-4.25} /><Post x={-5.75} z={4.25} /><Post x={5.75} z={4.25} />
     <SteelSteps />
     <RigidBody type="fixed" colliders="hull" position={[0, .2, 0]} collisionGroups={arenaCollisionGroups} solverGroups={arenaCollisionGroups} userData={{ surface: true, kind: 'floor' }}><mesh receiveShadow><cylinderGeometry args={[VOLT_DOME.floor.radius, VOLT_DOME.floor.radius, .4, 64]} /><meshStandardMaterial color="#100d1c" roughness={.8} /></mesh></RigidBody>
-    <EntranceLane /><Barricades /><ArenaRibbon />{!toyTest && <Crowd count={crowdCount} />}<Props />
+    <EntranceLane /><Barricades /><ArenaRibbon />{!toyTest && crowdCount > 0 && <Crowd count={crowdCount} />}<Props />
     <group position={[0, 13, 0]}>
       {[0, Math.PI / 2, Math.PI, Math.PI * 1.5].map((angle) => <group key={angle} rotation={[0, angle, 0]}>
         <mesh position={[0, -.65, -7.75]} rotation={[.15, 0, 0]}><cylinderGeometry args={[.18, .36, .65, 10]} /><meshStandardMaterial color="#8eeeff" emissive="#41dcff" emissiveIntensity={2.4} /></mesh>

@@ -644,8 +644,12 @@ export class BodyWorksRuntime {
     const forwardX = velocityFacing ? fighter.velocity.x / attackSpeed : Math.sin(fighter.facing); const forwardZ = velocityFacing ? fighter.velocity.z / attackSpeed : Math.cos(fighter.facing); const targetX = targetFighter.position.x - fighter.position.x; const targetZ = targetFighter.position.z - fighter.position.z;
     const forwardDistance = forwardX * targetX + forwardZ * targetZ;
     const lateralDistance = Math.abs(forwardX * targetZ - forwardZ * targetX);
-    const volumeWidth = move.category === 'aerial' ? 1.85 : move.id === 'stiff_arm' || move.id === 'rebound' || move.id === 'spear' ? 1.15 : move.category === 'heavy' || move.category === 'prop' ? .96 : .76;
-    const minimumForwardDistance = move.category === 'aerial' ? -1.15 : -.08;
+    const runningCollisionSweep = move.id === 'stiff_arm' || move.id === 'rebound' || move.id === 'spear';
+    const volumeWidth = move.category === 'aerial' ? 1.85 : runningCollisionSweep ? 1.32 : move.category === 'heavy' || move.category === 'prop' ? .96 : .76;
+    // A rebound can cover more than a metre during the anticipation and active
+    // frames. Preserve that travelled segment as a swept volume so a stiff-arm
+    // does not visually pass through a rival at high speed or low render FPS.
+    const minimumForwardDistance = move.category === 'aerial' ? -1.15 : runningCollisionSweep ? -.72 : -.08;
     // Gameplay contact is a stance-anchored swept volume. The physical hand
     // still supplies region, force direction and relative speed, but joint lag
     // cannot make a visually valid active-frame strike randomly pass through.

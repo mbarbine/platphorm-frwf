@@ -35,7 +35,7 @@ export const resolveRuntimeQuality = (input: RuntimeQualityInput): RuntimeQualit
   if (tier === 'performance') return {
     tier,
     dpr: input.physicsLab ? .5 : [.6, 1],
-    crowdCount: input.physicsLab ? 36 : mobile ? 60 : 96,
+    crowdCount: input.physicsLab ? 0 : mobile ? 60 : 96,
     antialias: false,
     shadows: false,
     bakeShadows: false,
@@ -70,4 +70,3 @@ export const browserRuntimeQuality = (preference: GraphicsQuality, reducedMotion
     physicsLab,
   });
 };
-

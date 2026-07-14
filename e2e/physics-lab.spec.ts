@@ -31,8 +31,8 @@ test('Bodyworks lab exposes live Rapier diagnostics and drives real jump/walk in
   const observedJumpY = Number(await hud.getAttribute('data-player-pelvis-y'));
   await page.locator('html').evaluate((node, startingY) => { node.dataset.maxJumpPelvisY = String(startingY); }, Math.max(resetJumpY, observedJumpY));
   await expect(page.locator('html')).toHaveAttribute('data-saw-active-jump-control', 'true');
+  await expect.poll(async () => Number(await page.locator('html').getAttribute('data-max-jump-pelvis-y')), { timeout: 3_000, intervals: [50, 100] }).toBeGreaterThan(resetJumpY + .2);
   await expect(lab.getByRole('button', { name: 'WALK + STOP' })).toBeEnabled({ timeout: 3_000 });
-  expect(Number(await page.locator('html').getAttribute('data-max-jump-pelvis-y'))).toBeGreaterThan(resetJumpY + .2);
   const initialX = Number(await hud.getAttribute('data-player-x')); const initialZ = Number(await hud.getAttribute('data-player-z'));
   await page.evaluate(() => {
     const observe = (): void => {

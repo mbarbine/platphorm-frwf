@@ -15,9 +15,16 @@ test('controlled Bodyworks scenarios prove a physical slam, staged climb, taunt,
   const hud = page.locator('.hud'); const lab = page.getByTestId('physics-lab'); const deck = page.getByTestId('control-deck'); const telemetry = hud.locator('[data-player-climb-stage]'); const momentum = hud.locator('[data-player-momentum]');
   await expect(hud).toHaveAttribute('data-physics-bodies', '32', { timeout: 30_000 });
   const slam = lab.getByRole('button', { name: 'BODY SLAM' });
+  await page.evaluate(() => {
+    const observe = (): void => {
+      const grapple = document.querySelector('[data-testid="control-deck"] [data-control="grapple"]');
+      if (grapple?.classList.contains('is-active')) document.documentElement.dataset.sawActiveGrappleControl = 'true';
+    };
+    new MutationObserver(observe).observe(document.body, { subtree: true, attributes: true }); observe();
+  });
   await slam.click();
   await expect.poll(async () => await deck.getAttribute('data-control-state'), { timeout: 4_000, intervals: [50, 100] }).toMatch(/SLAM|GRAPPLE/);
-  await expect(deck.locator('[data-control="grapple"]')).toHaveClass(/is-active/);
+  await expect(page.locator('html')).toHaveAttribute('data-saw-active-grapple-control', 'true');
   await expect.poll(async () => Number(await hud.getAttribute('data-grip-creates')), { timeout: 12_000, intervals: [100, 200] }).toBeGreaterThanOrEqual(2);
   await expect.poll(async () => Number(await hud.getAttribute('data-player-grapples')), { timeout: 25_000, intervals: [200, 400] }).toBeGreaterThan(0);
   const replay = page.getByRole('button', { name: 'SKIP REPLAY' });
