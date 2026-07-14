@@ -30,7 +30,9 @@ export const SERVER_CONFIG = {
   MATCH_TIMEOUT_SECONDS: 600,
 
   /** Expose Colyseus monitor endpoint (dev only). */
-  MONITOR_ENABLED: process.env.MONITOR_ENABLED === 'true' || process.env.NODE_ENV !== 'production',
+  MONITOR_ENABLED: process.env.MONITOR_ENABLED == null
+    ? process.env.NODE_ENV !== 'production'
+    : process.env.MONITOR_ENABLED === 'true',
 
   PROTOCOL_VERSION: '1.0.0',
 } as const;
