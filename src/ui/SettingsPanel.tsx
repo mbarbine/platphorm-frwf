@@ -13,6 +13,7 @@ export function SettingsPanel({ onBack }: { onBack: () => void }) {
       {range('Crowd volume', settings.crowdVolume, 'crowdVolume')}
       {range('Screen shake', settings.shake, 'shake')}
       {range('UI scale', settings.uiScale, 'uiScale', .85, 1.25, .05)}
+      <label className="setting-row setting-row--select"><span>Graphics quality<b>{settings.graphicsQuality.toUpperCase()}</b></span><select aria-label="Graphics quality" value={settings.graphicsQuality} onChange={(event) => settings.update({ graphicsQuality: event.target.value as typeof settings.graphicsQuality })}><option value="auto">Auto · device tuned</option><option value="performance">Performance · steadier frames</option><option value="quality">Quality · richer arena</option></select></label>
       <label className="toggle-row"><span><b>Reduced motion</b><small>Smoother camera, restrained effects</small></span><input type="checkbox" checked={settings.reducedMotion} onChange={(event) => settings.update({ reducedMotion: event.target.checked })} /></label>
     </div>
     <div className="control-card"><b>CONTROL REFERENCE</b><span>WASD/D-pad move · Shift/RT run · C/L3 jump · J/X quick · K/Y heavy · L/B lock up · direction + J/K/L selects grapple move · I/LT guard · Space/A dodge/counter · E/LB prop · F/R3 pin/finisher · Q/RB taunt · Esc pause</span></div>

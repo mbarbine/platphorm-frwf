@@ -70,7 +70,10 @@ export interface BodyWorksMetrics {
   emergencyResetCount: number;
   containmentCount: number;
   lastStepMs: number;
+  averageStepMs: number;
+  p95StepMs: number;
   maximumStepMs: number;
+  replayEstimatedBytes: number;
 }
 
 export interface FighterPhysicsSnapshot { pelvisY: number; headY: number; footY: number; upright: number; speed: number; supportFeet: number }
@@ -159,8 +162,13 @@ export class BodyWorksRuntime {
   private readonly pendingLandings = new Map<FighterKey, PendingLanding>();
   private grappleEnvironmentTarget: GrappleEnvironmentTarget | null = null;
   private replayAccumulator = 0;
+  private stepStartedAt = -1;
+  private readonly stepSamples = new Float64Array(240);
+  private stepSampleCursor = 0;
+  private stepSampleCount = 0;
+  private stepSampleTotal = 0;
   readonly replay = new PhysicsReplayBuffer(300);
-  readonly metrics: BodyWorksMetrics = { fixedSteps: 0, bodyCount: 0, jointCount: 0, gripCount: 0, nearestGripDistance: 0, maximumGripError: 0, maximumGripLoad: 0, lastGripBreakReason: 'none', worldJointCount: 0, gripCreateCount: 0, gripInvalidCount: 0, propBodyCount: 0, propGripCount: 0, worldBodyCount: 0, invalidRegisteredBodyCount: 0, worldRemoveCount: 0, contactCount: 0, emergencyResetCount: 0, containmentCount: 0, lastStepMs: 0, maximumStepMs: 0 };
+  readonly metrics: BodyWorksMetrics = { fixedSteps: 0, bodyCount: 0, jointCount: 0, gripCount: 0, nearestGripDistance: 0, maximumGripError: 0, maximumGripLoad: 0, lastGripBreakReason: 'none', worldJointCount: 0, gripCreateCount: 0, gripInvalidCount: 0, propBodyCount: 0, propGripCount: 0, worldBodyCount: 0, invalidRegisteredBodyCount: 0, worldRemoveCount: 0, contactCount: 0, emergencyResetCount: 0, containmentCount: 0, lastStepMs: 0, averageStepMs: 0, p95StepMs: 0, maximumStepMs: 0, replayEstimatedBytes: 0 };
 
   registerFighter(fighter: FighterKey, bodies: Partial<Record<BodySegmentId, RapierRigidBody>>, jointCount: number): () => void {
     const pelvisPosition = bodies.pelvis?.translation() ?? { x: 0, y: 3.02, z: 0 };
@@ -345,7 +353,7 @@ export class BodyWorksRuntime {
   }
 
   beforeFixedStep(dt: number, model: MatchModel, world?: World): void {
-    const startedAt = performance.now();
+    this.stepStartedAt = performance.now();
     if (world) {
       this.world = world;
       if (import.meta.env.DEV && this.instrumentedWorld !== world) {
@@ -359,7 +367,7 @@ export class BodyWorksRuntime {
       for (const rig of this.rigs.values()) for (const body of Object.values(rig.bodies)) if (body && !body.isValid()) invalidRegisteredBodies += 1;
       this.metrics.invalidRegisteredBodyCount = invalidRegisteredBodies;
     }
-    if (model.paused || model.resolved) return;
+    if (model.paused || model.resolved) { this.stepStartedAt = -1; return; }
     if (['idle', 'locomotion'].includes(model.opponent.state)) {
       const intent = this.intents.opponent;
       intent.move.x = model.aiMovement.x; intent.move.z = model.aiMovement.z; intent.run = model.aiRunning;
@@ -377,8 +385,22 @@ export class BodyWorksRuntime {
     for (const [fighter, landing] of this.pendingLandings) if (landing.expiresAt < model.elapsed) this.pendingLandings.delete(fighter);
     for (const [propId, attack] of this.releasedPropAttacks) if (attack.expiresAt < model.elapsed) this.releasedPropAttacks.delete(propId);
     this.metrics.fixedSteps += 1;
-    const elapsed = performance.now() - startedAt;
-    this.metrics.lastStepMs = elapsed; this.metrics.maximumStepMs = Math.max(this.metrics.maximumStepMs, elapsed);
+  }
+
+  private recordStepDuration(duration: number): void {
+    if (!Number.isFinite(duration) || duration < 0) return;
+    if (this.stepSampleCount === this.stepSamples.length) this.stepSampleTotal -= this.stepSamples[this.stepSampleCursor] ?? 0;
+    else this.stepSampleCount += 1;
+    this.stepSamples[this.stepSampleCursor] = duration;
+    this.stepSampleTotal += duration;
+    this.stepSampleCursor = (this.stepSampleCursor + 1) % this.stepSamples.length;
+    this.metrics.lastStepMs = duration;
+    this.metrics.averageStepMs = this.stepSampleTotal / Math.max(1, this.stepSampleCount);
+    this.metrics.maximumStepMs = Math.max(this.metrics.maximumStepMs, duration);
+    if (this.metrics.fixedSteps % 30 === 0 || this.stepSampleCount < 30) {
+      const sorted = Array.from(this.stepSamples.slice(0, this.stepSampleCount)).sort((a, b) => a - b);
+      this.metrics.p95StepMs = sorted[Math.max(0, Math.ceil(sorted.length * .95) - 1)] ?? 0;
+    }
   }
 
   private applyFighterController(key: FighterKey, fighter: FighterRuntime, dt: number, model: MatchModel): void {
@@ -1024,6 +1046,8 @@ export class BodyWorksRuntime {
   }
 
   afterFixedStep(model: MatchModel): void {
+    if (this.stepStartedAt >= 0) this.recordStepDuration(performance.now() - this.stepStartedAt);
+    this.stepStartedAt = -1;
     if (model.paused) return;
     this.containRigsToArena(model);
     this.resolvePhysicalLandings(model);
@@ -1126,6 +1150,8 @@ export class BodyWorksRuntime {
       props[id] = { position: { x: position.x, y: position.y, z: position.z }, rotation: { x: rotation.x, y: rotation.y, z: rotation.z, w: rotation.w } };
     }
     this.replay.push({ time, fighters, props });
+    const transformCount = Object.values(fighters).reduce((total, fighter) => total + Object.keys(fighter).length, 0) + Object.keys(props).length;
+    this.metrics.replayEstimatedBytes = this.replay.size * (40 + transformCount * 72);
   }
 
   private syncFighter(key: FighterKey, fighter: FighterRuntime): void {
@@ -1145,9 +1171,10 @@ export class BodyWorksRuntime {
     if (this.world) for (const grip of [...this.propGrips.values()]) this.releasePropGrip(this.world, grip, null);
     if (this.instrumentedWorld && this.originalRemoveImpulseJoint) this.instrumentedWorld.removeImpulseJoint = this.originalRemoveImpulseJoint;
     this.generation += 1; this.rigs.clear(); this.commands.length = 0; this.contacts.length = 0; this.replay.clear();
-    this.pendingLandings.clear(); this.grappleEnvironmentTarget = null; this.props.clear(); this.propGrips.clear(); this.releasedPropAttacks.clear(); this.replayAccumulator = 0; this.world = null; this.instrumentedWorld = null; this.originalRemoveImpulseJoint = null;
+    this.pendingLandings.clear(); this.grappleEnvironmentTarget = null; this.props.clear(); this.propGrips.clear(); this.releasedPropAttacks.clear(); this.replayAccumulator = 0; this.world = null; this.instrumentedWorld = null; this.originalRemoveImpulseJoint = null; this.stepStartedAt = -1;
+    this.stepSamples.fill(0); this.stepSampleCursor = 0; this.stepSampleCount = 0; this.stepSampleTotal = 0;
     this.intents.player = EMPTY_INTENT(); this.intents.opponent = EMPTY_INTENT();
-    this.metrics.fixedSteps = 0; this.metrics.bodyCount = 0; this.metrics.jointCount = 0; this.metrics.gripCount = 0; this.metrics.nearestGripDistance = 0; this.metrics.maximumGripError = 0; this.metrics.maximumGripLoad = 0; this.metrics.lastGripBreakReason = 'none'; this.metrics.worldJointCount = 0; this.metrics.gripCreateCount = 0; this.metrics.gripInvalidCount = 0; this.metrics.propBodyCount = 0; this.metrics.propGripCount = 0; this.metrics.worldBodyCount = 0; this.metrics.invalidRegisteredBodyCount = 0; this.metrics.worldRemoveCount = 0; this.metrics.contactCount = 0; this.metrics.emergencyResetCount = 0; this.metrics.containmentCount = 0; this.metrics.lastStepMs = 0; this.metrics.maximumStepMs = 0;
+    this.metrics.fixedSteps = 0; this.metrics.bodyCount = 0; this.metrics.jointCount = 0; this.metrics.gripCount = 0; this.metrics.nearestGripDistance = 0; this.metrics.maximumGripError = 0; this.metrics.maximumGripLoad = 0; this.metrics.lastGripBreakReason = 'none'; this.metrics.worldJointCount = 0; this.metrics.gripCreateCount = 0; this.metrics.gripInvalidCount = 0; this.metrics.propBodyCount = 0; this.metrics.propGripCount = 0; this.metrics.worldBodyCount = 0; this.metrics.invalidRegisteredBodyCount = 0; this.metrics.worldRemoveCount = 0; this.metrics.contactCount = 0; this.metrics.emergencyResetCount = 0; this.metrics.containmentCount = 0; this.metrics.lastStepMs = 0; this.metrics.averageStepMs = 0; this.metrics.p95StepMs = 0; this.metrics.maximumStepMs = 0; this.metrics.replayEstimatedBytes = 0;
   }
 
   pendingCommandCount(): number { return this.commands.length; }

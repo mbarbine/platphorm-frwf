@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { GraphicsQuality } from '../runtime/quality';
 
 export interface Settings {
   masterVolume: number;
@@ -7,9 +8,10 @@ export interface Settings {
   shake: number;
   reducedMotion: boolean;
   uiScale: number;
+  graphicsQuality: GraphicsQuality;
 }
 
-const DEFAULTS: Settings = { masterVolume: .72, effectsVolume: .86, crowdVolume: .66, shake: .65, reducedMotion: false, uiScale: 1 };
+const DEFAULTS: Settings = { masterVolume: .72, effectsVolume: .86, crowdVolume: .66, shake: .65, reducedMotion: false, uiScale: 1, graphicsQuality: 'auto' };
 const STORAGE_KEY = 'ringfall-settings-v1';
 
 const load = (): Settings => {
@@ -25,6 +27,7 @@ const load = (): Settings => {
       shake: typeof candidate.shake === 'number' ? Math.min(1, Math.max(0, candidate.shake)) : DEFAULTS.shake,
       reducedMotion: typeof candidate.reducedMotion === 'boolean' ? candidate.reducedMotion : window.matchMedia('(prefers-reduced-motion: reduce)').matches,
       uiScale: typeof candidate.uiScale === 'number' ? Math.min(1.25, Math.max(.85, candidate.uiScale)) : DEFAULTS.uiScale,
+      graphicsQuality: candidate.graphicsQuality === 'performance' || candidate.graphicsQuality === 'quality' ? candidate.graphicsQuality : 'auto',
     };
   } catch { return DEFAULTS; }
 };
@@ -39,7 +42,7 @@ const persist = (settings: Settings): void => localStorage.setItem(STORAGE_KEY, 
 export const useSettings = create<SettingsStore>((set) => ({
   ...load(),
   update: (patch) => set((current) => {
-    const next: Settings = { masterVolume: current.masterVolume, effectsVolume: current.effectsVolume, crowdVolume: current.crowdVolume, shake: current.shake, reducedMotion: current.reducedMotion, uiScale: current.uiScale, ...patch };
+    const next: Settings = { masterVolume: current.masterVolume, effectsVolume: current.effectsVolume, crowdVolume: current.crowdVolume, shake: current.shake, reducedMotion: current.reducedMotion, uiScale: current.uiScale, graphicsQuality: current.graphicsQuality, ...patch };
     persist(next); return next;
   }),
   reset: () => { persist(DEFAULTS); set(DEFAULTS); },
