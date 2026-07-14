@@ -25,11 +25,15 @@ export const availableMotorStrength = (strength: number, fatigue: number, damage
 
 export const computeMotorTorque = (current: QuaternionValue, target: QuaternionValue, angularVelocity: Vector3Value, targetAngularVelocity: Vector3Value, parameters: MotorParameters): Vector3Value => {
   const error = shortestQuaternionError(current, target);
+  const velocityError = { x: targetAngularVelocity.x - angularVelocity.x, y: targetAngularVelocity.y - angularVelocity.y, z: targetAngularVelocity.z - angularVelocity.z };
+  // A small physical dead band lets settled bodies sleep instead of receiving
+  // alternating sub-degree corrections that render as constant vibration.
+  if (magnitude(error) < .006 && magnitude(velocityError) < .035) return { x: 0, y: 0, z: 0 };
   const strength = availableMotorStrength(parameters.strength, parameters.fatigue);
   const torque = {
-    x: (error.x * parameters.stiffness + (targetAngularVelocity.x - angularVelocity.x) * parameters.damping) * strength,
-    y: (error.y * parameters.stiffness + (targetAngularVelocity.y - angularVelocity.y) * parameters.damping) * strength,
-    z: (error.z * parameters.stiffness + (targetAngularVelocity.z - angularVelocity.z) * parameters.damping) * strength,
+    x: (error.x * parameters.stiffness + velocityError.x * parameters.damping) * strength,
+    y: (error.y * parameters.stiffness + velocityError.y * parameters.damping) * strength,
+    z: (error.z * parameters.stiffness + velocityError.z * parameters.damping) * strength,
   };
   const length = magnitude(torque);
   if (length <= parameters.maxTorque || length < 1e-8) return torque;

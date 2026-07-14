@@ -1,6 +1,7 @@
 import { Canvas, useFrame } from '@react-three/fiber';
 import { AdaptiveDpr, BakeShadows } from '@react-three/drei';
 import { Physics, useAfterPhysicsStep, useBeforePhysicsStep } from '@react-three/rapier';
+import { JointData } from '@dimforge/rapier3d-compat';
 import { Component, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import type { ErrorInfo, ReactNode } from 'react';
 import { Vector3 } from 'three';
@@ -25,6 +26,8 @@ import type { CameraInputBasis } from '../input/cameraRelative';
 import { getMove } from '../data/moves';
 
 interface Props { onPause: () => void; onDevice: (device: ControlDevice) => void; onFinished: () => void }
+
+bodyWorksRuntime.setJointData(JointData);
 
 function Simulation({ onPause, onDevice, onFinished }: Props) {
   const pause = useCallback(onPause, [onPause]); const input = useGameInput(pause); const lastImpactId = useRef(0); const lastActionAudio = useRef(''); const finishNotified = useRef(false); const finishTimer = useRef<number | null>(null); const { camera, gl } = useThree();

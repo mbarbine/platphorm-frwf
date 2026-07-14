@@ -60,6 +60,7 @@ const makeHarness = (): { world: World; runtime: BodyWorksRuntime; model: MatchM
   const mat = world.createRigidBody(RigidBodyDesc.fixed().setTranslation(0, 1.52, 0));
   world.createCollider(ColliderDesc.cuboid(6, .325, 4.5).setFriction(1.1).setCollisionGroups(arenaCollisionGroups), mat);
   const runtime = new BodyWorksRuntime(); const model = createMatch('atlas', 'nova', 'standard', 'normal', 913); model.physicsAuthority = true; model.aiThinkTimer = 999;
+  runtime.setJointData(JointData);
   const rig = createHeadlessRig(world, 'atlas', -1.6); runtime.registerFighter('player', rig.bodies, rig.joints);
   runtime.setFootContact('player', 'leftFoot', true); runtime.setFootContact('player', 'rightFoot', true);
   return { world, runtime, model, rig };

@@ -13,6 +13,7 @@ const SCENARIOS: readonly LabScenario[] = [
   { id: 'turn', label: 'RAPID TURN', steps: [...hold('KeyA', 0, 500), ...hold('KeyD', 560, 650)], duration: 1_800 },
   { id: 'ropes', label: 'RUN INTO ROPES', steps: [...hold('KeyD', 0, 2_050), ...hold('ShiftLeft', 0, 2_050)], duration: 2_800 },
   { id: 'ropeStrike', label: 'ROPE LOAD + STIFF-ARM', steps: [...hold('KeyD', 0, 920), ...hold('ShiftLeft', 0, 920), ...tap('KeyK', 340, 200)], duration: 2_400 },
+  { id: 'apronReturn', label: 'APRON RETURN', steps: tap('KeyF', 300, 140), duration: 2_600 },
   { id: 'jump', label: 'STANDING JUMP', steps: tap('KeyC', 220, 480), duration: 2_200 },
   { id: 'kickup', label: 'KICK-UP RECOVERY', steps: tap('Space', 620, 180), duration: 2_100 },
   { id: 'jab', label: 'JAB TO HEAD', steps: tap('KeyJ'), duration: 1_200 },
@@ -28,6 +29,8 @@ const SCENARIOS: readonly LabScenario[] = [
   { id: 'spear', label: 'BREAKER SPEAR', steps: [...hold('KeyW', 0, 850), ...hold('ShiftLeft', 0, 850), ...tap('KeyL', 620)], duration: 2_100 },
   { id: 'climb', label: 'CLIMB + TAUNT', steps: [...tap('KeyF', 80), ...tap('KeyF', 580), ...tap('KeyF', 1_080), ...tap('KeyQ', 1_580)], duration: 3_400 },
   { id: 'dive', label: 'TOP-ROPE DIVE', steps: [...tap('KeyF', 80), ...tap('KeyF', 580), ...tap('KeyF', 1_080), ...tap('KeyF', 1_580)], duration: 3_800 },
+  { id: 'tableCollapse', label: 'TABLE COLLAPSE', steps: [...tap('KeyL', 600), ...tap('KeyK', 900)], duration: 4_200 },
+  { id: 'soakRound', label: 'LAB KNOCKOUT', steps: tap('KeyK', 450, 180), duration: 3_000 },
 ] as const;
 
 const dispatchKey = (code: string, down: boolean): void => {
@@ -47,12 +50,14 @@ export function PhysicsLab() {
   }, []);
   const run = (scenario: LabScenario): void => {
     for (const timer of timers.current) window.clearTimeout(timer); timers.current = []; setActive(scenario.id);
-    const closeRange = ['jab', 'hook', 'guard', 'kick', 'lock', 'slam', 'suplex', 'powerbomb', 'clothesline', 'spear'].includes(scenario.id);
+    const closeRange = ['jab', 'hook', 'guard', 'kick', 'lock', 'slam', 'suplex', 'powerbomb', 'clothesline', 'spear', 'soakRound'].includes(scenario.id);
     const corner = scenario.id === 'climb' || scenario.id === 'dive';
     if (corner) useMatchStore.getState().prepareLabScenario({ x: -4.52, z: -3.08 }, { x: -.6, z: -.2 });
+    else if (scenario.id === 'apronReturn') useMatchStore.getState().prepareLabScenario({ x: 6.18, z: 0 }, { x: 0, z: 2.4 });
+    else if (scenario.id === 'tableCollapse') useMatchStore.getState().prepareLabScenario({ x: 0, z: -6.12 }, { x: 0, z: -7.05 });
     else if (scenario.id === 'kickup') useMatchStore.getState().prepareLabScenario({ x: 0, z: -.7 }, { x: 0, z: 3.4 }, 'downed');
     else if (scenario.id === 'ropeStrike') useMatchStore.getState().prepareLabScenario({ x: 4.48, z: .2 }, { x: 3.65, z: -.12 });
-    else if (closeRange) useMatchStore.getState().prepareLabScenario({ x: 0, z: -.68 }, { x: 0, z: .68 });
+    else if (closeRange) useMatchStore.getState().prepareLabScenario({ x: 0, z: -.68 }, { x: 0, z: .68 }, 'idle', scenario.id === 'soakRound' ? 1 : 100);
     else if (scenario.id === 'miss') useMatchStore.getState().prepareLabScenario({ x: 0, z: -2.6 }, { x: 0, z: 2.6 });
     document.documentElement.dataset.labResetPelvisY = bodyWorksRuntime.fighterSnapshot('player').pelvisY.toFixed(3);
     for (const step of scenario.steps) timers.current.push(window.setTimeout(() => dispatchKey(step.code, step.down), step.at));
@@ -67,7 +72,7 @@ export function PhysicsLab() {
     ['TASK', `${model.player.state} · ${model.player.moveId ?? 'none'}`], ['PHASE', `${model.player.attackPhase ?? 'none'} · ${model.grapple?.phase ?? 'free'}`], ['WINDOW', model.player.counterWindow > 0 ? 'COUNTER OPEN' : 'closed'],
     ['CONTACTS', metrics.contactCount], ['FORCE / LOAD', `${model.lastImpact?.force?.toFixed(1) ?? '0'} / ${metrics.maximumGripLoad.toFixed(1)}`], ['RESETS', metrics.emergencyResetCount], ['REPLAY', bodyWorksRuntime.replay.size],
   ] as const, [fps, metrics.bodyCount, metrics.contactCount, metrics.emergencyResetCount, metrics.gripCount, metrics.gripCreateCount, metrics.jointCount, metrics.lastStepMs, metrics.maximumGripLoad, metrics.maximumStepMs, metrics.worldBodyCount, metrics.worldJointCount, model, opponent.pelvisY, player.pelvisY, player.speed, player.supportFeet, player.upright, revision]);
-  return <aside className="physics-lab" data-testid="physics-lab">
+  return <aside className="physics-lab" data-testid="physics-lab" data-lab-fps={fps} data-lab-step-ms={metrics.lastStepMs.toFixed(3)} data-lab-max-step-ms={metrics.maximumStepMs.toFixed(3)}>
     <header><span>RINGFALL BODYWORKS</span><b>PHYSICS LAB</b><small>REAL INPUT · REAL RAPIER · FIXED 60 HZ</small></header>
     <div className="physics-lab__diagnostics">{diagnostics.map(([label, value]) => <div key={label}><span>{label}</span><b>{value}</b></div>)}</div>
     <div className="physics-lab__scenarios">{SCENARIOS.map((scenario) => <button key={scenario.id} disabled={active !== null} className={active === scenario.id ? 'active' : ''} onClick={() => run(scenario)}>{active === scenario.id ? 'RUNNING · ' : ''}{scenario.label}</button>)}</div>
