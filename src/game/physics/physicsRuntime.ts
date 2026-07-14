@@ -245,10 +245,15 @@ export class BodyWorksRuntime {
     if (!rig || !pelvis) return;
     rig.cornerAnchor = null; rig.supportContacts.clear();
     const position = pelvis.translation(); const dx = target.x - position.x; const dz = target.z - position.z; const distance = Math.max(.001, Math.hypot(dx, dz));
-    const direction = { x: dx / distance, z: dz / distance }; const mass = pelvis.mass();
-    pelvis.applyImpulse({ x: direction.x * mass * 6.7, y: mass * 5.15, z: direction.z * mass * 6.7 }, true);
-    chest?.applyImpulse({ x: direction.x * mass * 1.25, y: mass * 1.2, z: direction.z * mass * 1.25 }, true);
-    pelvis.applyTorqueImpulse({ x: -mass * .014, y: 0, z: direction.x * mass * .006 }, true);
+    const direction = { x: dx / distance, z: dz / distance };
+    // Launch the complete articulated mass with one shared velocity impulse.
+    // Driving only the pelvis left the other fifteen bodies at rest, turning a
+    // top-rope dive into a short joint stretch instead of committed flight.
+    for (const body of Object.values(rig.bodies)) {
+      if (!body?.isValid()) continue;
+      body.applyImpulse({ x: direction.x * body.mass() * 8.2, y: body.mass() * 6, z: direction.z * body.mass() * 8.2 }, true);
+    }
+    chest?.applyTorqueImpulse({ x: -chest.mass() * .014, y: 0, z: direction.x * chest.mass() * .006 }, true);
   }
 
   requestApronTransition(fighter: FighterKey, from: Vec2): void {
@@ -449,7 +454,7 @@ export class BodyWorksRuntime {
       const maximumChange = acceleration * dt * (inputLength > .08 ? 1.52 : 1.72);
       const deltaX = clamp(desiredX - center.velocityX, -maximumChange, maximumChange);
       const deltaZ = clamp(desiredZ - center.velocityZ, -maximumChange, maximumChange);
-      const settled = inputLength <= .08 && Math.hypot(center.velocityX, center.velocityZ) < .025;
+      const settled = inputLength <= .08 && Math.hypot(center.velocityX, center.velocityZ) < .006;
       if (!settled) for (const body of Object.values(rig.bodies)) {
         if (!body?.isValid()) continue;
         body.applyImpulse({ x: body.mass() * deltaX, y: 0, z: body.mass() * deltaZ }, true);
@@ -474,10 +479,38 @@ export class BodyWorksRuntime {
       }
       rig.jumpQueued = false;
     }
+    const airborneMove = fighter.moveId ? getMove(fighter.moveId) : null;
+    if (airborneMove?.category === 'aerial' && (fighter.attackPhase === 'anticipation' || fighter.attackPhase === 'active')) {
+      const target = model[key === 'player' ? 'opponent' : 'player']; const center = this.rigPlanarCenter(rig);
+      const dx = target.position.x - center.x; const dz = target.position.z - center.z; const distance = Math.max(.001, Math.hypot(dx, dz));
+      const flightSpeed = clamp(distance * 2.8, 3.2, 8.2); const desiredX = dx / distance * flightSpeed; const desiredZ = dz / distance * flightSpeed;
+      const deltaX = clamp(desiredX - center.velocityX, -.3, .3); const deltaZ = clamp(desiredZ - center.velocityZ, -.3, .3);
+      for (const body of Object.values(rig.bodies)) {
+        if (!body?.isValid()) continue;
+        body.applyImpulse({ x: body.mass() * deltaX, y: 0, z: body.mass() * deltaZ }, true);
+      }
+    }
+    if (rig.skeletonStabilized) this.applyCorePostureDrive(rig);
     this.applyFootPlantDrive(rig, fighter, { x: desiredX, z: desiredZ }, inputLength);
     this.applyRopeController(rig, fighter, model);
     this.applyPhysicalStrike(key, rig, fighter, model);
     this.applyPoseDrive(rig, fighter);
+  }
+
+  private applyCorePostureDrive(rig: FighterRigRegistration): void {
+    const pelvis = rig.bodies.pelvis; if (!pelvis) return;
+    const pelvisPosition = pelvis.translation(); const pelvisVelocity = pelvis.linvel();
+    for (const id of ['abdomen', 'chest', 'head'] as const) {
+      const body = rig.bodies[id]; const offset = rig.restOffsets[id]; if (!body || !offset) continue;
+      const position = body.translation(); const velocity = body.linvel();
+      const acceleration = {
+        x: clamp((pelvisPosition.x + offset.x - position.x) * 55 - (velocity.x - pelvisVelocity.x) * 11, -20, 20),
+        y: clamp((pelvisPosition.y + offset.y - position.y) * 55 - (velocity.y - pelvisVelocity.y) * 11, -20, 20),
+        z: clamp((pelvisPosition.z + offset.z - position.z) * 55 - (velocity.z - pelvisVelocity.z) * 11, -20, 20),
+      };
+      const force = { x: acceleration.x * body.mass(), y: acceleration.y * body.mass(), z: acceleration.z * body.mass() };
+      body.addForce(force, true); pelvis.addForce({ x: -force.x, y: -force.y, z: -force.z }, true);
+    }
   }
 
   private applyCloseRangeSeparation(model: MatchModel): void {
@@ -548,11 +581,12 @@ export class BodyWorksRuntime {
     const forwardX = velocityFacing ? fighter.velocity.x / attackSpeed : Math.sin(fighter.facing); const forwardZ = velocityFacing ? fighter.velocity.z / attackSpeed : Math.cos(fighter.facing); const targetX = targetFighter.position.x - fighter.position.x; const targetZ = targetFighter.position.z - fighter.position.z;
     const forwardDistance = forwardX * targetX + forwardZ * targetZ;
     const lateralDistance = Math.abs(forwardX * targetZ - forwardZ * targetX);
-    const volumeWidth = move.category === 'aerial' ? 1.35 : move.id === 'stiff_arm' || move.id === 'rebound' || move.id === 'spear' ? 1.15 : move.category === 'heavy' || move.category === 'prop' ? .96 : .76;
+    const volumeWidth = move.category === 'aerial' ? 1.85 : move.id === 'stiff_arm' || move.id === 'rebound' || move.id === 'spear' ? 1.15 : move.category === 'heavy' || move.category === 'prop' ? .96 : .76;
+    const minimumForwardDistance = move.category === 'aerial' ? -1.15 : -.08;
     // Gameplay contact is a stance-anchored swept volume. The physical hand
     // still supplies region, force direction and relative speed, but joint lag
     // cannot make a visually valid active-frame strike randomly pass through.
-    if (pelvisDistance > move.maximumRange + .22 || pelvisDistance < Math.max(0, move.minimumRange - .22) || forwardDistance < -.08 || lateralDistance > volumeWidth) return;
+    if (pelvisDistance > move.maximumRange + .22 || pelvisDistance < Math.max(0, move.minimumRange - .22) || forwardDistance < minimumForwardDistance || lateralDistance > volumeWidth) return;
     const sourceVelocity = source.linvel(); const targetVelocity = target.linvel(); const actualRelativeSpeed = Math.hypot(sourceVelocity.x - targetVelocity.x, sourceVelocity.y - targetVelocity.y, sourceVelocity.z - targetVelocity.z);
     const authoredRelativeSpeed = Math.max(actualRelativeSpeed, profile.speed * .46); const maximumForce = Math.max(48, source.mass() * profile.maximumAcceleration * .2);
     this.recordContact({

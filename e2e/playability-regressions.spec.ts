@@ -55,11 +55,20 @@ test('deterministic playability scenarios cover stability, rope stiff-arm, corne
       const liveHud = document.querySelector('.hud');
       if (/aerial/.test(liveHud?.getAttribute('data-player-move') ?? '')) document.documentElement.dataset.sawDeterministicDive = 'true';
       if (Number(liveHud?.getAttribute('data-opponent-health')) < startingHealth) document.documentElement.dataset.sawDeterministicDiveImpact = 'true';
+      const playerX = Number(liveHud?.getAttribute('data-player-x')); const playerZ = Number(liveHud?.getAttribute('data-player-z'));
+      const opponentX = Number(liveHud?.getAttribute('data-opponent-x')); const opponentZ = Number(liveHud?.getAttribute('data-opponent-z'));
+      const distance = Math.hypot(playerX - opponentX, playerZ - opponentZ); const previous = Number(document.documentElement.dataset.diveMinimumDistance ?? Number.POSITIVE_INFINITY);
+      if (Number.isFinite(distance) && distance < previous) {
+        document.documentElement.dataset.diveMinimumDistance = distance.toFixed(3);
+        document.documentElement.dataset.diveMinimumPhase = liveHud?.getAttribute('data-player-phase') ?? '';
+        document.documentElement.dataset.diveMinimumMove = liveHud?.getAttribute('data-player-move') ?? '';
+      }
     };
     new MutationObserver(observe).observe(document.body, { subtree: true, attributes: true, childList: true }); observe();
   }, healthBeforeDive);
   await lab.getByRole('button', { name: 'TOP-ROPE DIVE' }).click();
   await expect(html).toHaveAttribute('data-saw-deterministic-dive', 'true', { timeout: 8_000 });
+  await expect.poll(async () => Number(await html.getAttribute('data-dive-minimum-distance')), { timeout: 10_000, intervals: [100, 200] }).toBeLessThan(2.4);
   await expect(html).toHaveAttribute('data-saw-deterministic-dive-impact', 'true', { timeout: 10_000 });
 
   const apron = lab.getByRole('button', { name: 'APRON RETURN' }); await expect(apron).toBeEnabled({ timeout: 6_000 }); await apron.click();
