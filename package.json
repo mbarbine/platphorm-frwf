@@ -2,6 +2,7 @@
   "name": "platphorm-frwf",
   "private": true,
   "version": "1.0.0",
+  "packageManager": "pnpm@9.15.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,9 +10,12 @@
     "typecheck": "tsc -b --pretty false",
     "test": "vitest run",
     "test:e2e": "playwright test",
+    "test:playability": "playwright test e2e/playability-regressions.spec.ts",
+    "test:soak": "playwright test e2e/rematch-soak.spec.ts",
     "test:watch": "vitest",
     "lint": "eslint . --max-warnings 0",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm test:e2e"
   },
   "dependencies": {
     "@dimforge/rapier3d-compat": "0.19.2",

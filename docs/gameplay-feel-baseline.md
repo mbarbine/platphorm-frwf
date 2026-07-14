@@ -102,3 +102,13 @@ RINGFALL: CHAOS CIRCUIT is a browser arcade-wrestling game. Its primary value is
 - Expand the production-preview journey to movement in all directions, clean stop, miss, taunt, climb, aerial, finisher, result, and rematch.
 - Complete the manual five-Standard/five-Chaos playability matrix, including gamepad when available.
 - Create and verify an immutable preview before production promotion.
+
+## Upgrade implementation status
+
+The follow-up Bodyworks pass implements the baseline's primary control and stability remediations. Locomotion now drives one mass-weighted center of mass instead of pushing the pelvis with the wrestler's full mass. Planted fighters use bounded core posture drive and temporary collision-skeleton rotation limits; full articulation returns for grabs, throws, aerials, knockdowns, recovery, and climbing. Touch activity no longer starts in a false-active state.
+
+Corner dives and grapple releases distribute a shared velocity change across every articulated segment. Aerial collision uses a swept volume aligned to flight velocity. Grapple landings are accepted only at a measured ring, floor, or table surface; downward velocity alone is no longer mistaken for a landing. A nearby commentary desk supplies bounded environmental targeting so a committed desk spot lands on the desk without bypassing contact scoring.
+
+The new camera director selects stable broadcast, wide, ringside, desk, aerial, grapple, and replay shots. Its look target is separately damped, its prediction is bounded, and shot changes use a hold window. The arena now has a larger playable floor, expanded physical barricades, physical steel steps, an entrance lane, reactive perimeter lighting, and a larger crowd/stage silhouette.
+
+Deterministic Playwright scenarios and the bounded rematch/heap soak are implemented. Their final production-build gate and the production deployment are intentionally reported separately from implementation status; see `docs/testing.md` for the exact commands and acceptance criteria.

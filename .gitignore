@@ -8,3 +8,5 @@ playwright-report
 coverage
 .env*
 npm-debug.log*
+pnpm-debug.log*
+*.log
