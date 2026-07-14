@@ -1,5 +1,5 @@
 # RINGFALL: CHAOS CIRCUIT
-Original local-first 3D arcade wrestling game set in The Volt Dome.
+Original local-first 3D arcade wrestling game with articulated physics, an expanded interactive Volt Dome, and a stable multi-mode camera director.
 Public game: /
 Health: /api/health
 API docs: /api/docs

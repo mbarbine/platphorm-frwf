@@ -54,7 +54,10 @@ export function PhysicsLab() {
     const corner = scenario.id === 'climb' || scenario.id === 'dive';
     if (corner) useMatchStore.getState().prepareLabScenario({ x: -4.52, z: -3.08 }, { x: -1.6, z: -.8 });
     else if (scenario.id === 'apronReturn') useMatchStore.getState().prepareLabScenario({ x: 6.18, z: 0 }, { x: 0, z: 2.4 });
-    else if (scenario.id === 'tableCollapse') useMatchStore.getState().prepareLabScenario({ x: 0, z: -6.12 }, { x: 0, z: -7.05 });
+    // Start clear of the table collider, then make the slam travel across its
+    // near edge. Spawning a ragdoll inside solid furniture creates an invalid
+    // solver overlap and does not represent a playable ringside setup.
+    else if (scenario.id === 'tableCollapse') useMatchStore.getState().prepareLabScenario({ x: 0, z: -5.15 }, { x: 0, z: -6.15 });
     else if (scenario.id === 'kickup') useMatchStore.getState().prepareLabScenario({ x: 0, z: -.7 }, { x: 0, z: 3.4 }, 'downed');
     else if (scenario.id === 'ropeStrike') useMatchStore.getState().prepareLabScenario({ x: 4.48, z: .2 }, { x: 3.65, z: -.12 });
     else if (closeRange) useMatchStore.getState().prepareLabScenario({ x: 0, z: -.68 }, { x: 0, z: .68 }, 'idle', scenario.id === 'soakRound' ? 1 : 100);
