@@ -53,7 +53,7 @@ const ClothMaterial = ({ fighter, profile, secondary = false }: PartProps & { se
 
 function JointCover({ fighter, profile, scale = 1 }: PartProps & { scale?: number }) {
   return (
-    <mesh scale={[.21 * scale, .17 * scale, .2 * scale]}>
+    <mesh scale={[.17 * scale, .145 * scale, .165 * scale]}>
       <sphereGeometry args={[1, 12, 8]} />
       <SkinMaterial fighter={fighter} profile={profile} />
     </mesh>
@@ -90,7 +90,7 @@ function Arm({ fighter, profile, side, armRef, forearmRef }: PartProps & { side:
   const shoulderX = side * .65 * fighter.proportions.width * profile.shoulderScale;
   return (
     <group ref={armRef} position={[shoulderX, 1.83 * fighter.proportions.height, 0]}>
-      <mesh scale={[.31 * fighter.proportions.width * profile.shoulderScale, .27, .3]}>
+      <mesh position={[0, -.05, 0]} scale={[.25 * fighter.proportions.width * profile.shoulderScale, .245, .265]}>
         <sphereGeometry args={[1, 14, 9]} />
         <SkinMaterial fighter={fighter} profile={profile} />
       </mesh>
@@ -100,8 +100,8 @@ function Arm({ fighter, profile, side, armRef, forearmRef }: PartProps & { side:
           <GearMaterial fighter={fighter} profile={profile} accent />
         </mesh>
       )}
-      <mesh position={[0, -.33, 0]} scale={[profile.armScale, 1, profile.armScale]}>
-        <capsuleGeometry args={[.17 * fighter.proportions.width, .48, 7, 12]} />
+      <mesh position={[0, -.355, 0]} scale={[profile.armScale, 1, profile.armScale]}>
+        <capsuleGeometry args={[.165 * fighter.proportions.width, .58, 8, 14]} />
         <SkinMaterial fighter={fighter} profile={profile} />
       </mesh>
       <group position={[0, -.62, 0]}>
@@ -114,8 +114,8 @@ function Arm({ fighter, profile, side, armRef, forearmRef }: PartProps & { side:
         )}
       </group>
       <group ref={forearmRef} position={[0, -.64, 0]}>
-        <mesh position={[0, -.25, 0]} scale={[profile.armScale, 1, profile.armScale]}>
-          <capsuleGeometry args={[.145 * fighter.proportions.width, .36, 7, 12]} />
+        <mesh position={[0, -.28, 0]} scale={[profile.armScale, 1, profile.armScale]}>
+          <capsuleGeometry args={[.14 * fighter.proportions.width, .46, 8, 14]} />
           <SkinMaterial fighter={fighter} profile={profile} />
         </mesh>
         <mesh position={[0, -.47, 0]} rotation={[Math.PI / 2, 0, 0]}>
@@ -158,12 +158,12 @@ function Leg({ fighter, profile, side, legRef, shinRef }: PartProps & { side: -1
   const trunks = profile.attire === 'technician' || profile.attire === 'striker';
   return (
     <group ref={legRef} position={[x, .86 * fighter.proportions.height, 0]}>
-      <mesh position={[0, -.12, 0]} scale={[.29 * profile.thighScale, .3, .28 * profile.thighScale]}>
+      <mesh position={[0, -.13, 0]} scale={[.24 * profile.thighScale, .24, .245 * profile.thighScale]}>
         <sphereGeometry args={[1, 13, 8]} />
         {trunks ? <ClothMaterial fighter={fighter} profile={profile} /> : <SkinMaterial fighter={fighter} profile={profile} />}
       </mesh>
-      <mesh position={[0, -.39, 0]} scale={[profile.thighScale, 1, profile.thighScale]}>
-        <capsuleGeometry args={[.2 * fighter.proportions.width, .43, 7, 12]} />
+      <mesh position={[0, -.405, 0]} scale={[profile.thighScale, 1, profile.thighScale]}>
+        <capsuleGeometry args={[.185 * fighter.proportions.width, .56, 8, 14]} />
         <SkinMaterial fighter={fighter} profile={profile} />
       </mesh>
       <group position={[0, -.68, 0]}>
@@ -174,8 +174,8 @@ function Leg({ fighter, profile, side, legRef, shinRef }: PartProps & { side: -1
         </mesh>
       </group>
       <group ref={shinRef} position={[0, -.69, 0]}>
-        <mesh position={[0, -.29, 0]} scale={[profile.calfScale, 1, profile.calfScale]}>
-          <capsuleGeometry args={[.165 * fighter.proportions.width, .4, 7, 12]} />
+        <mesh position={[0, -.315, 0]} scale={[profile.calfScale, 1, profile.calfScale]}>
+          <capsuleGeometry args={[.155 * fighter.proportions.width, .5, 8, 14]} />
           {profile.attire === 'conqueror' || profile.attire === 'roughneck'
             ? <ClothMaterial fighter={fighter} profile={profile} secondary />
             : <SkinMaterial fighter={fighter} profile={profile} />}
@@ -323,6 +323,7 @@ function Head({ fighter, profile, headRef, browLeft, browRight, mouth }: PartPro
         <sphereGeometry args={[1, 14, 9]} />
         <SkinMaterial fighter={fighter} profile={profile} />
       </mesh>
+      {[-1, 1].map((earSide) => <mesh key={earSide} position={[earSide * .335 * profile.headScale[0], .015, 0]} scale={[.055, .09, .045]}><sphereGeometry args={[1, 10, 7]} /><SkinMaterial fighter={fighter} profile={profile} /></mesh>)}
       <Face fighter={fighter} profile={profile} browLeft={browLeft} browRight={browRight} mouth={mouth} />
       <Headwear fighter={fighter} profile={profile} />
     </group>
@@ -378,6 +379,10 @@ function Body({ fighter, profile, torsoRef }: PartProps & { torsoRef: GroupRef }
   return (
     <>
       <group ref={torsoRef} position={[0, 1.52 * height, 0]}>
+        <mesh position={[0, .43, -.015]} rotation={[0, 0, Math.PI / 2]} scale={[1, width * profile.shoulderScale, 1]}>
+          <capsuleGeometry args={[.145, .78, 7, 14]} />
+          <SkinMaterial fighter={fighter} profile={profile} />
+        </mesh>
         <mesh position={[0, .25, 0]} scale={[.53 * width * profile.chestScale, .43, .29 * width]}>
           <sphereGeometry args={[1, 16, 10]} />
           <SkinMaterial fighter={fighter} profile={profile} />
@@ -560,7 +565,11 @@ export function FighterModel({ runtime, counterpart, fighterId, preview = false,
       const rightLocalZ = runtime.body.rightFoot.offset.x * forwardX + runtime.body.rightFoot.offset.z * forwardZ;
       leftLeg.current.position.x = -.27 * width * profile.stanceWidth + leftLocalX * .28; leftLeg.current.position.z = leftLocalZ * .2;
       rightLeg.current.position.x = .27 * width * profile.stanceWidth + rightLocalX * .28; rightLeg.current.position.z = rightLocalZ * .2;
-      const targetY = 3.51 - .86 * height + runtime.body.verticalOffset;
+      // The authored hierarchy is intentionally richer than the compact hidden
+      // collision skeleton. Scale and floor it from the boot sole so its pelvis,
+      // head, hands, and feet stay within a few centimetres of physical authority
+      // instead of rendering a giant visual body around a smaller Rapier rig.
+      const targetY = 3.0775 - .645 * height + runtime.body.verticalOffset;
       const planarError = Math.hypot(runtime.position.x - shell.current.position.x, runtime.position.z - shell.current.position.z);
       if (!presentationInitialized.current || planarError > 2.2) {
         shell.current.position.set(runtime.position.x, targetY, runtime.position.z); shell.current.rotation.y = runtime.facing; presentationInitialized.current = true;
@@ -616,7 +625,7 @@ export function FighterModel({ runtime, counterpart, fighterId, preview = false,
 
   return (
     <group ref={shell}>
-      <group ref={root} scale={preview ? 1.05 : 1}>
+      <group ref={root} scale={preview ? 1.05 : .75}>
         <Body fighter={fighter} profile={profile} torsoRef={torso} />
         <Head fighter={fighter} profile={profile} headRef={head} browLeft={browLeft} browRight={browRight} mouth={mouth} />
         <Arm fighter={fighter} profile={profile} side={-1} armRef={leftArm} forearmRef={leftForearm} />

@@ -141,7 +141,7 @@ export interface FighterRuntime {
 
 export interface PropRuntime {
   id: string;
-  kind: 'chair' | 'sign' | 'trash' | 'table';
+  kind: 'chair' | 'sign' | 'trash' | 'bell' | 'table';
   position: Vec2;
   durability: number;
   stress: number;

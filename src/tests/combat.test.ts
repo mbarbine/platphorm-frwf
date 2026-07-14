@@ -349,12 +349,12 @@ describe('deterministic combat rules', () => {
     expect(requestCommand(model, 'player', 'grapple')).toBe(true); expect(model.player.moveId).toBe('slam'); expect(model.grapple?.phase).toBe('reach');
   });
 
-  it('completes fifty neutral body slams across the full weight and approach matrix without a stuck attacker', () => {
+  it('completes one hundred neutral body slams across the full weight and approach matrix without a stuck attacker', () => {
     const fighters = FIGHTERS.map((fighter) => fighter.id);
     let attempts = 0;
-    for (const attacker of fighters) for (const defender of fighters) for (const side of [-1, 1] as const) {
+    for (const attacker of fighters) for (const defender of fighters) for (const side of [-1, 1] as const) for (const lane of [-.32, .32] as const) {
       const model = createMatch(attacker, defender, 'standard', 'hard', 900 + attempts); model.labMode = true;
-      model.player.position = { x: side * .4, z: -.35 }; model.opponent.position = { x: side * .4 + side * 1.12, z: .15 };
+      model.player.position = { x: side * .4, z: -.35 + lane }; model.opponent.position = { x: side * .4 + side * 1.12, z: .15 + lane };
       model.player.facing = side > 0 ? Math.PI / 2 : -Math.PI / 2; model.player.stamina = model.player.staminaCap;
       expect(requestCommand(model, 'player', 'grapple')).toBe(true);
       expect(model.player.moveId).toBe('slam'); expect(model.grapple?.phase).toBe('reach');
@@ -363,7 +363,7 @@ describe('deterministic combat rules', () => {
       expect(['idle', 'locomotion']).toContain(model.player.state); expect(model.grapple).toBeNull();
       attempts += 1;
     }
-    expect(attempts).toBe(50);
+    expect(attempts).toBe(100);
   });
 
   it('climbs a turnbuckle before launching a playable aerial attack', () => {

@@ -6,6 +6,7 @@ import { usePhysicsLabStore } from '../state/physicsLabStore';
 import type { LabPlaybackRate } from '../state/physicsLabStore';
 import type { FighterId, RecoveryOrientation } from '../types/game';
 import { RELEASE_IDENTITY } from '../release/releaseIdentity';
+import { renderDiagnostics } from '../runtime/renderDiagnostics';
 
 interface KeyStep { at: number; code: string; down: boolean }
 interface LabScenario { id: string; label: string; steps: readonly KeyStep[]; duration: number; stressGripAt?: number }
@@ -53,8 +54,6 @@ const SCENARIOS: readonly LabScenario[] = [
 ] as const;
 
 const dispatchKey = (code: string, down: boolean): void => { window.dispatchEvent(new KeyboardEvent(down ? 'keydown' : 'keyup', { code, key: code, bubbles: true })); };
-export function physicsLabEnabled(): boolean { return new URLSearchParams(window.location.search).get('physicsLab') === '1'; }
-
 export function PhysicsLab() {
   const model = useMatchStore((state) => state.model); const revision = useMatchStore((state) => state.revision);
   const rate = usePhysicsLabStore((state) => state.rate); const debug = usePhysicsLabStore((state) => state.debug);
@@ -127,7 +126,7 @@ export function PhysicsLab() {
     ['PLAYER COM', `${model.player.position.x.toFixed(2)}, ${player.pelvisY.toFixed(2)}, ${model.player.position.z.toFixed(2)}`], ['PLAYER SUPPORT', `${player.supportFeet} FEET · UP ${player.upright.toFixed(2)}`], ['PLAYER SPEED', player.speed.toFixed(2)],
     ['OPPONENT COM', `${model.opponent.position.x.toFixed(2)}, ${opponent.pelvisY.toFixed(2)}, ${model.opponent.position.z.toFixed(2)}`], ['BALANCE', `${model.player.body.balance.toFixed(0)} / ${model.opponent.body.balance.toFixed(0)}`],
     ['TASK', `${model.player.state} · ${model.player.moveId ?? 'none'}`], ['PHASE', `${model.player.attackPhase ?? 'none'} · ${model.grapple?.phase ?? 'free'}`], ['WINDOW', model.player.counterWindow > 0 ? 'COUNTER OPEN' : 'closed'],
-    ['CONTACTS', metrics.contactCount], ['FORCE / LOAD', `${model.lastImpact?.force?.toFixed(1) ?? '0'} / ${metrics.maximumGripLoad.toFixed(1)}`], ['ALIGN AVG / MAX', `${alignment.averageError.toFixed(2)} / ${alignment.maximumError.toFixed(2)} M · ${alignment.maximumSegment ?? 'none'}`], ['RESETS / BOUNDS', `${metrics.emergencyResetCount} / ${metrics.containmentCount}`], ['REPLAY', `${bodyWorksRuntime.replay.size} · ${(metrics.replayEstimatedBytes / 1024).toFixed(0)} KB`],
+    ['CONTACTS', metrics.contactCount], ['FORCE / LOAD', `${model.lastImpact?.force?.toFixed(1) ?? '0'} / ${metrics.maximumGripLoad.toFixed(1)}`], ['ALIGN AVG / MAX', `${alignment.averageError.toFixed(2)} / ${alignment.maximumError.toFixed(2)} M · ${alignment.maximumSegment ?? 'none'}`], ['DRAWS / TRIS', `${renderDiagnostics.drawCalls} / ${Math.round(renderDiagnostics.triangles / 1_000)}K`], ['GEO / TEX / SHADER', `${renderDiagnostics.geometries} / ${renderDiagnostics.textures} / ${renderDiagnostics.shaderPrograms}`], ['FRAME P95 / P99', `${renderDiagnostics.frameP95Ms.toFixed(1)} / ${renderDiagnostics.frameP99Ms.toFixed(1)} ms`], ['RESETS / BOUNDS', `${metrics.emergencyResetCount} / ${metrics.containmentCount}`], ['REPLAY', `${bodyWorksRuntime.replay.size} · ${(metrics.replayEstimatedBytes / 1024).toFixed(0)} KB`],
   ] as const, [alignment.averageError, alignment.maximumError, alignment.maximumSegment, fps, metrics.averageStepMs, metrics.bodyCount, metrics.contactCount, metrics.containmentCount, metrics.emergencyResetCount, metrics.gripCount, metrics.gripCreateCount, metrics.jointCount, metrics.maximumGripLoad, metrics.maximumStepMs, metrics.p95StepMs, metrics.replayEstimatedBytes, metrics.worldBodyCount, metrics.worldJointCount, model, opponent.pelvisY, player.pelvisY, player.speed, player.supportFeet, player.upright, revision]);
   return <aside className="physics-lab" data-testid="physics-lab" data-lab-scenario={active ?? 'idle'} data-lab-fps={fps} data-lab-step-ms={metrics.lastStepMs.toFixed(3)} data-lab-avg-step-ms={metrics.averageStepMs.toFixed(3)} data-lab-p95-step-ms={metrics.p95StepMs.toFixed(3)} data-lab-max-step-ms={metrics.maximumStepMs.toFixed(3)} data-lab-replay-kb={(metrics.replayEstimatedBytes / 1024).toFixed(1)} data-lab-rate={rate} data-lab-debug={debug ? 'true' : 'false'}>
     <header><span>RINGFALL BODYWORKS</span><b>PHYSICS LAB</b><small>REAL INPUT · REAL RAPIER · FIXED 60 HZ AUTHORITY</small><small data-testid="release-diagnostic">v{RELEASE_IDENTITY.applicationVersion} · {RELEASE_IDENTITY.shortGitSha} · F{RELEASE_IDENTITY.fighterCount} M{RELEASE_IDENTITY.moveCount} · {RELEASE_IDENTITY.deploymentEnvironment}</small></header>
