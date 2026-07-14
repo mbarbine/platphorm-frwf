@@ -376,7 +376,8 @@ export class BodyWorksRuntime {
     // the collision skeleton upright while a wrestler owns their footing so
     // limb motors cannot kick against the mat and launch the whole body. Full
     // rotations return for throws, dives, knockdowns, and physical recovery.
-    const skeletonStabilized = !['grabbed', 'airborne', 'downed', 'defeated', 'recovering', 'climbing'].includes(fighter.state);
+    const fullBodyFlight = fighter.moveId ? getMove(fighter.moveId).category === 'aerial' : false;
+    const skeletonStabilized = !fullBodyFlight && !['grabbed', 'airborne', 'downed', 'defeated', 'recovering', 'climbing'].includes(fighter.state);
     if (skeletonStabilized !== rig.skeletonStabilized) {
       for (const body of Object.values(rig.bodies)) {
         if (!body?.isValid()) continue;
