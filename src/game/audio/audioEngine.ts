@@ -72,13 +72,17 @@ class AudioEngine {
     const oscillator = this.context.createOscillator(); const gain = this.context.createGain();
     const now = this.context.currentTime;
     const frequency: Record<SoundName, number> = { menu: 260, confirm: 520, bell: 890, step: 92, jump: 210, land: 68, impact: 110, jab: 176, cross: 142, hook: 96, uppercut: 118, heavy: 72, lowKick: 74, highKick: 104, kick: 86, block: 245, grapple: 132, grip: 155, exertion: 82, slam: 58, suplex: 52, powerbomb: 42, spinebuster: 48, clothesline: 88, spear: 61, rope: 180, prop: 130, chair: 224, trash: 142, table: 46, aerial: 164, kickout: 190, cheer: 390, boo: 105, nearfall: 460, finisher: 62, victory: 660 };
-    const duration = crowdSound ? .48 : name === 'bell' ? .7 : name === 'finisher' ? .9 : name === 'powerbomb' || name === 'table' ? .32 : name === 'step' || name === 'jab' ? .09 : .16;
+    const duration = crowdSound ? .48 : name === 'bell' ? .7 : name === 'finisher' ? 1.1 : name === 'powerbomb' || name === 'table' ? .42 : name === 'slam' || name === 'suplex' ? .28 : name === 'step' || name === 'jab' ? .09 : .16;
     oscillator.type = name === 'bell' || name === 'victory' ? 'sine' : name === 'cheer' || name === 'chair' ? 'sawtooth' : name === 'grip' || name === 'exertion' ? 'square' : 'triangle';
     oscillator.frequency.setValueAtTime(frequency[name], now);
     const rises = name === 'cheer' || name === 'uppercut' || name === 'aerial' || name === 'jump';
     const falloff = name === 'block' || name === 'chair' ? .82 : name === 'powerbomb' || name === 'slam' || name === 'table' ? .42 : .55;
     oscillator.frequency.exponentialRampToValueAtTime(Math.max(35, frequency[name] * (rises ? 1.35 : falloff)), now + duration);
-    const peak = name === 'step' ? .065 : crowdSound ? .08 : .18;
+    const peak = name === 'step' ? .065 : crowdSound ? .08
+      : ['powerbomb', 'table', 'finisher'].includes(name) ? .28
+      : ['slam', 'suplex', 'spinebuster', 'spear'].includes(name) ? .23
+      : ['hook', 'clothesline', 'highKick', 'uppercut'].includes(name) ? .21
+      : .18;
     gain.gain.setValueAtTime(.0001, now); gain.gain.exponentialRampToValueAtTime(peak, now + .015); gain.gain.exponentialRampToValueAtTime(.0001, now + duration);
     oscillator.connect(gain); const releaseSpatial = this.connectSpatial(gain, output, position);
     this.activeVoices.push(oscillator);
@@ -116,7 +120,7 @@ class AudioEngine {
     const transientBus = this.context.createGain(); const releaseTransientBus = this.connectSpatial(transientBus, this.effects, position);
     const noise = this.context.createBufferSource(); const noiseFilter = this.context.createBiquadFilter(); const noiseGain = this.context.createGain();
     noise.buffer = this.noiseBuffer; noiseFilter.type = 'bandpass'; noiseFilter.frequency.value = 170 + intensity * 85; noiseFilter.Q.value = .7;
-    noiseGain.gain.setValueAtTime(Math.min(.24, .08 + intensity * .055), now); noiseGain.gain.exponentialRampToValueAtTime(.0001, now + .13);
+    noiseGain.gain.setValueAtTime(Math.min(.38, .08 + intensity * .088), now); noiseGain.gain.exponentialRampToValueAtTime(.0001, now + .17);
     noise.connect(noiseFilter); noiseFilter.connect(noiseGain); noiseGain.connect(transientBus); noise.start(now); noise.stop(now + .15);
     const sub = this.context.createOscillator(); const subGain = this.context.createGain();
     sub.type = 'sine'; sub.frequency.setValueAtTime(78 + intensity * 8, now); sub.frequency.exponentialRampToValueAtTime(34, now + .2);

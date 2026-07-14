@@ -16,9 +16,9 @@ export function ImpactEffects() {
     const color = impact.kind === 'counter' || impact.kind === 'blocked' ? '#58f5ff' : impact.kind === 'finisher' || impact.kind === 'ko' ? '#fff13b' : impact.kind === 'weapon' ? '#ff4a88' : impact.kind === 'grapple' || impact.kind === 'table' ? '#dcff46' : '#ff8b3d';
     const kind = ['grapple', 'finisher', 'table', 'nearfall', 'ko'].includes(impact.kind) ? 'mat' : 'body';
     const tier = impact.kind === 'finisher' || impact.kind === 'ko' ? 'finisher' : impact.kind === 'grapple' || impact.kind === 'table' ? 'major' : impact.kind === 'heavy' || impact.kind === 'weapon' || impact.kind === 'counter' ? 'heavy' : 'light';
-    const baseCount = tier === 'light' ? 6 : tier === 'heavy' ? 12 : tier === 'major' ? 18 : 24;
-    const count = Math.min(28, Math.round(baseCount + impact.intensity * 4));
-    setBursts((current) => current.some((burst) => burst.id === impact.id) ? current : [...current.slice(-4), { id: impact.id, x: impact.position.x, z: impact.position.z, color, kind, tier, intensity: impact.intensity, lowFlash, count: lowFlash ? Math.max(4, Math.ceil(count * .58)) : count }]);
+    const baseCount = tier === 'light' ? 6 : tier === 'heavy' ? 14 : tier === 'major' ? 24 : 32;
+    const count = Math.min(38, Math.round(baseCount + impact.intensity * 5.5));
+    setBursts((current) => current.some((burst) => burst.id === impact.id) ? current : [...current.slice(-5), { id: impact.id, x: impact.position.x, z: impact.position.z, color, kind, tier, intensity: impact.intensity, lowFlash, count: lowFlash ? Math.max(4, Math.ceil(count * .58)) : count }]);
   }, [impactId, lowFlash]);
   const player = useMatchStore((state) => state.model.player); const opponent = useMatchStore((state) => state.model.opponent);
   return <>{bursts.map((burst) => <BurstView key={burst.id} burst={burst} />)}
@@ -57,9 +57,9 @@ function BurstView({ burst }: { burst: Burst }) {
   })), [burst.count]);
   useFrame((_, dt) => {
     age.current += dt;
-    const expansion = burst.tier === 'light' ? 7.2 : burst.tier === 'heavy' ? 5.2 : 3.8;
+    const expansion = burst.tier === 'light' ? 7.2 : burst.tier === 'heavy' ? 5.8 : burst.tier === 'major' ? 4.4 : 3.6;
     if (root.current) root.current.scale.setScalar(1 + age.current * expansion);
-    const fade = burst.tier === 'light' ? 5.4 : burst.tier === 'heavy' ? 3.6 : 2.6;
+    const fade = burst.tier === 'light' ? 5.4 : burst.tier === 'heavy' ? 3.8 : burst.tier === 'major' ? 2.6 : 2.0;
     for (const material of materials.current) material.opacity = Math.max(0, 1 - age.current * fade);
   });
   const register = (material: MeshBasicMaterial | null): void => { if (material && !materials.current.includes(material)) materials.current.push(material); };

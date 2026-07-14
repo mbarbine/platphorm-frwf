@@ -266,7 +266,8 @@ export const applyMoveHit = (model: MatchModel, actorKey: 'player' | 'opponent',
   if (!model.toyTestMode && (move.category === 'quick' || move.category === 'heavy') && actor.comboStep >= 2) {
     if (actor.comboStep === 2) { model.announcement = 'ONE-TWO!'; model.announcementTimer = .5; }
     else if (actor.comboStep === 3) { model.announcement = 'TRIPLE!'; model.announcementTimer = .58; }
-    else if (actor.comboStep >= 4) { model.announcement = `${Math.min(actor.comboStep, 9)}× COMBO!`; model.announcementTimer = .68; model.hype = clamp(model.hype + 4, 0, 100); }
+    else if (actor.comboStep === 4) { model.announcement = '4× COMBO!'; model.announcementTimer = .68; model.hype = clamp(model.hype + 4, 0, 100); }
+    else if (actor.comboStep >= 5) { model.announcement = 'UNSTOPPABLE!'; model.announcementTimer = .88; model.hype = clamp(model.hype + 9, 0, 100); }
   }
   const majorImpact = move.category === 'finisher' || move.category === 'heavy' || move.category === 'grapple' || move.category === 'prop' || move.category === 'aerial';
   const exhaustionKnockout = model.elapsed >= BALANCE.knockout.earliestSeconds

@@ -94,7 +94,12 @@ export const chooseAiDecision = (model: MatchModel, definition: FighterDefinitio
   const incomingMajor = target.attackPhase === 'anticipation' && target.moveId !== 'jab' && separation < 2.2;
   if (incomingMajor && roll < counterChance && isActionLegal(model, 'dodge', 'opponent')) return { command: 'dodge', move: { x: 0, z: 0 }, run: false, nextSeed };
   if (target.attackPhase === 'anticipation' && separation < 2.05 && roll < (hard ? .88 : .67) && isActionLegal(model, 'block', 'opponent')) return { command: 'block', move: { x: 0, z: 0 }, run: false, nextSeed };
-  if (actor.heldPropId && separation <= 2.2 && isActionLegal(model, 'heavy', 'opponent')) return { command: 'heavy', move: { x: 0, z: 0 }, run: false, nextSeed };
+  if (actor.heldPropId) {
+    if (separation <= 2.2 && isActionLegal(model, 'heavy', 'opponent')) return { command: 'heavy', move: { x: 0, z: 0 }, run: false, nextSeed };
+    // Throw prop at distance for chaos-mode projectile attacks
+    if (separation > 2.4 && separation < 9 && isActionLegal(model, 'interact', 'opponent') && roll < .44) return { command: 'interact', move: { x: 0, z: 0 }, run: false, nextSeed };
+    return { command: null, move: toward, run: separation > 3.2, nextSeed };
+  }
   if (actor.ropeRebound > 0 && separation <= 2.4 && isActionLegal(model, 'heavy', 'opponent')) return { command: 'heavy', move: toward, run: true, nextSeed };
   const physicallyCompromised = actor.stamina < 24 || actor.body.balance < 34 || actor.body.muscle < .36;
   if (physicallyCompromised) {
@@ -105,7 +110,7 @@ export const chooseAiDecision = (model: MatchModel, definition: FighterDefinitio
   const propTarget = model.ruleset === 'chaos' && !actor.heldPropId
     ? model.props.filter((prop) => !prop.broken && !prop.heldBy && prop.kind !== 'table').sort((a, b) => distance(actor.position, a.position) - distance(actor.position, b.position))[0]
     : undefined;
-  const pursuesProp = propTarget && model.elapsed > 6 && (actor.health < 98 || model.elapsed > 10 || personality.dirty > .62);
+  const pursuesProp = propTarget && model.elapsed > 4 && (actor.health < 98 || model.elapsed > 7 || personality.dirty > .55);
   if (propTarget && pursuesProp) {
     const propDistance = distance(actor.position, propTarget.position); const propDelta = { x: propTarget.position.x - actor.position.x, z: propTarget.position.z - actor.position.z }; const propMagnitude = Math.max(.001, Math.hypot(propDelta.x, propDelta.z));
     const towardProp = { x: propDelta.x / propMagnitude, z: propDelta.z / propMagnitude };
@@ -120,19 +125,21 @@ export const chooseAiDecision = (model: MatchModel, definition: FighterDefinitio
 
   // Rope rebound setup: run away from opponent to build a clothesline charge (athletic fighters)
   if (actor.ropeRebound <= 0 && !nearRopes && !physicallyCompromised && separation > 2.0 && model.elapsed > 5) {
-    if (roll < personality.athletic * .18) return { command: null, move: { x: -toward.x, z: -toward.z }, run: true, nextSeed };
+    if (roll < personality.athletic * .22) return { command: null, move: { x: -toward.x, z: -toward.z }, run: true, nextSeed };
   }
 
   // Proactive turnbuckle climb: when corner is reachable and opponent is vulnerable
   if (atCorner && !['climbing', 'grappling', 'attacking'].includes(actor.state) && isActionLegal(model, 'context', 'opponent')) {
     const opponentVulnerable = target.state === 'downed' || (target.state === 'staggered' && separation < 5.5);
-    const climbChance = (.14 + personality.athletic * .32) * (opponentVulnerable ? 2.4 : 1);
+    const climbChance = (.18 + personality.athletic * .38) * (opponentVulnerable ? 2.4 : 1);
     if (roll < climbChance && model.elapsed > 8) return { command: 'context', move: { x: 0, z: 0 }, run: false, nextSeed };
   }
 
   // Aggressive downed opponent pursuit: sprint and finish
   if (target.state === 'downed') {
     if (actor.momentum >= 100 && isActionLegal(model, 'context', 'opponent')) return { command: 'context', move: toward, run: false, nextSeed };
+    // Showman taunt over downed opponent — personality-driven drama
+    if (actor.health > 65 && separation > 2.5 && roll < personality.showman * .32 && isActionLegal(model, 'taunt', 'opponent')) return { command: 'taunt', move: { x: 0, z: 0 }, run: false, nextSeed };
     if (separation > 1.9) return { command: null, move: toward, run: true, nextSeed };
     if (separation <= 1.7 && isActionLegal(model, 'context', 'opponent')) return { command: 'context', move: { x: 0, z: 0 }, run: false, nextSeed };
     if (isActionLegal(model, 'quick', 'opponent')) return { command: 'quick', move: { x: 0, z: 1 }, run: false, nextSeed }; // low kick / ground stomp
@@ -151,7 +158,7 @@ export const chooseAiDecision = (model: MatchModel, definition: FighterDefinitio
   }
   // Commit only after entering physical striking/grip range.
   if (separation > 1.32) {
-    if (separation > 3.1 && actor.health > 48 && roll < personality.showman * .13 && isActionLegal(model, 'taunt', 'opponent')) return { command: 'taunt', move: { x: 0, z: 0 }, run: false, nextSeed };
+    if (separation > 3.1 && actor.health > 48 && roll < personality.showman * .15 && isActionLegal(model, 'taunt', 'opponent')) return { command: 'taunt', move: { x: 0, z: 0 }, run: false, nextSeed };
     // Tactical corner positioning for aerial setup
     if (!atCorner && separation > 3.8 && roll < personality.athletic * .1) {
       const cornerX = actor.position.x >= 0 ? 4.9 : -4.9; const cornerZ = actor.position.z >= 0 ? 3.6 : -3.6;

@@ -116,6 +116,12 @@ export function CameraRig() {
       impactId.current = impact.id;
       const hierarchy = impact.kind === 'finisher' || impact.kind === 'ko' ? 1.5 : impact.kind === 'grapple' || impact.kind === 'table' ? 1.22 : impact.kind === 'heavy' || impact.kind === 'weapon' ? 1.02 : impact.kind === 'light' || impact.kind === 'blocked' ? .5 : .85;
       impactImpulse.current = impact.intensity * hierarchy;
+      // Force cut to strike camera on major heavy or counter impacts
+      const isMajorStrike = (impact.kind === 'heavy' || impact.kind === 'counter' || impact.kind === 'weapon') && impact.intensity >= 1.3;
+      if (isMajorStrike && !['slam', 'aerial', 'grapple', 'replay'].includes(shot.current) && cameraCuts === 'full') {
+        shot.current = 'strike'; shotChangedAt.current = elapsed.current;
+        document.documentElement.dataset.cameraShot = 'strike';
+      }
     }
     impactImpulse.current = Math.max(0, impactImpulse.current - dt * 4.8);
     const shakeAmount = !reduced ? shake * impactImpulse.current * .042 : 0;

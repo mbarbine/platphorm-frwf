@@ -21,8 +21,8 @@ export const locomotionProfile = (definition: FighterDefinition): LocomotionProf
   const acceleration = 17.5 + agility * 8.5 - massPenalty * 3;
   const turnRate = 5 + agility * 3.2 - massPenalty * 1.05;
   return {
-    walkSpeed: 3.45 + agility * .8,
-    runSpeed: 5.35 + agility * 1.15,
+    walkSpeed: 3.95 + agility * .92,
+    runSpeed: 6.2 + agility * 1.38,
     acceleration,
     runAcceleration: acceleration * .78,
     braking: 19.5 + agility * 5.2 - massPenalty * 1.6,
