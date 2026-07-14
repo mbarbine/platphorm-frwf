@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react';
 import { execFileSync } from 'node:child_process';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { RELEASE_MANIFEST, releaseManifestCounts } from './src/game/release/releaseManifest';
 
 const packageJson = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as { version: string };
@@ -23,7 +24,10 @@ export default defineConfig(({ mode }) => {
     arenaManifestVersion: RELEASE_MANIFEST.arenaVersion,
     assetManifestVersion: RELEASE_MANIFEST.assetVersion,
     presentationRigVersion: RELEASE_MANIFEST.presentationRigVersion,
-    deploymentEnvironment: process.env.VERCEL_ENV ?? mode,
+    // Vite's production build mode is not evidence of a production deploy.
+    // Keep local/CI release diagnostics explicit so preview output can never
+    // be mistaken for the live Vercel environment.
+    deploymentEnvironment: process.env.VERCEL_ENV ?? (process.env.CI ? 'ci' : mode === 'production' ? 'local-production-build' : mode),
     fighterCount: releaseManifestCounts.fighters,
     moveCount: releaseManifestCounts.moves,
     criticalAssetCount: releaseManifestCounts.criticalAssets,
@@ -48,6 +52,11 @@ export default defineConfig(({ mode }) => {
   };
   return {
   plugins: [react(), releaseAssetsPlugin],
+  // Three's package root is a single pre-bundled module. Pointing the exact
+  // root import at its source graph lets Rolldown keep renderer, animation,
+  // geometry, and material code in independently cached lazy chunks while
+  // preserving normal `three/addons/*` exports.
+  resolve: { alias: [{ find: /^three$/, replacement: fileURLToPath(new URL('./node_modules/three/src/Three.js', import.meta.url)) }] },
   define: { __RINGFALL_RELEASE__: JSON.stringify(releaseIdentity) },
   server: { allowedHosts: ['host.docker.internal'], watch: { ignored: ['**/.vercel/**'] } },
   build: {
@@ -59,6 +68,15 @@ export default defineConfig(({ mode }) => {
         { name: 'react-rapier', test: /node_modules[\\/]@react-three[\\/]rapier/, priority: 40 },
         { name: 'react-three-drei', test: /node_modules[\\/]@react-three[\\/]drei/, priority: 35 },
         { name: 'react-three-fiber', test: /node_modules[\\/]@react-three[\\/]fiber/, priority: 30 },
+        // Keep the public barrel modules out of the implementation chunks.
+        // Three.Core re-exports geometry/material/animation symbols; placing
+        // that barrel beside its primitives creates cross-chunk TDZ cycles.
+        { name: 'three-facade', test: /node_modules[\\/]three[\\/]src[\\/]Three(?:\.Core)?\.js$/, priority: 29 },
+        // Three's renderer/material/geometry/object layers are a strongly
+        // connected module graph and must initialize together. Animation has
+        // a one-way dependency on that runtime and can be cached separately;
+        // its two core loaders travel with it to keep the graph acyclic.
+        { name: 'three-animation', test: /node_modules[\\/]three[\\/]src[\\/](?:animation[\\/]|loaders[\\/](?:AnimationLoader|ObjectLoader)\.js$)/, priority: 26 },
         { name: 'three-core', test: /node_modules[\\/]three[\\/]/, priority: 20 },
         { name: 'react-runtime', test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/, priority: 10 },
       ],

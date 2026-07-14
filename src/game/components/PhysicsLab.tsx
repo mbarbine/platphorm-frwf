@@ -25,7 +25,7 @@ const SCENARIOS: readonly LabScenario[] = [
   { id: 'brake', label: 'RUN + BRAKE', steps: [...hold('KeyW', 0, 1_150), ...hold('ShiftLeft', 0, 1_150)], duration: 2_600 },
   { id: 'turn', label: 'RAPID TURN', steps: [...hold('KeyA', 0, 500), ...hold('KeyD', 560, 650)], duration: 1_800 },
   { id: 'ropes', label: 'RUN INTO ROPES', steps: [...hold('KeyD', 0, 2_050), ...hold('ShiftLeft', 0, 2_050)], duration: 2_800 },
-  { id: 'ropeStrike', label: 'ROPE LOAD + STIFF-ARM', steps: [...hold('KeyS', 0, 2_200), ...hold('KeyA', 0, 2_200), ...hold('ShiftLeft', 0, 2_200)], duration: 3_600 },
+  { id: 'ropeStrike', label: 'ROPE LOAD + STIFF-ARM', steps: [...hold('KeyD', 0, 2_200), ...hold('ShiftLeft', 0, 2_200)], duration: 3_600 },
   { id: 'apronReturn', label: 'APRON RETURN', steps: tap('KeyF', 900, 180), duration: 3_400 },
   { id: 'jump', label: 'STANDING JUMP', steps: tap('KeyC', 220, 480), duration: 2_200 },
   { id: 'landing', label: 'JUMP + LANDING', steps: tap('KeyC', 220, 480), duration: 2_600 },
@@ -86,10 +86,11 @@ export function PhysicsLab() {
     if (scenario.id === 'climb' || scenario.id === 'dive') useMatchStore.getState().prepareLabScenario({ x: -4.52, z: -3.08 }, { x: -1.6, z: -.8 });
     else if (scenario.id === 'cornerSmash') useMatchStore.getState().prepareLabScenario({ x: 3.72, z: 2.45 }, { x: 4.45, z: 3.02 });
     else if (scenario.id === 'apronReturn') useMatchStore.getState().prepareLabScenario({ x: 6.52, z: 0 }, { x: 0, z: 2.4 });
-    else if (scenario.id === 'tableCollapse') useMatchStore.getState().prepareLabScenario({ x: 0, z: -5.15 }, { x: 0, z: -6.15 });
+    else if (scenario.id === 'tableCollapse') useMatchStore.getState().prepareLabScenario({ x: 0, z: -5.25 }, { x: 0, z: -6.05 });
+    else if (scenario.id === 'blockedJab') useMatchStore.getState().prepareLabScenario({ x: 0, z: -.27 }, { x: 0, z: .27 });
     else if (recoveryOrientation) useMatchStore.getState().prepareLabScenario({ x: 0, z: -.7 }, { x: 0, z: 3.4 }, 'downed', 100, recoveryOrientation, .38);
     else if (scenario.id === 'kickup') useMatchStore.getState().prepareLabScenario({ x: 0, z: -.7 }, { x: 0, z: 3.4 }, 'downed');
-    else if (scenario.id === 'ropeStrike') useMatchStore.getState().prepareLabScenario({ x: 4.92, z: .08 }, { x: 3.82, z: -.04 });
+    else if (scenario.id === 'ropeStrike') useMatchStore.getState().prepareLabScenario({ x: 4.92, z: .08 }, { x: 0, z: 0 });
     else if (closeRange) useMatchStore.getState().prepareLabScenario({ x: 0, z: -.4 }, { x: 0, z: .4 }, 'idle', scenario.id === 'soakRound' ? 1 : 100, 'back', 5, scenario.id === 'failedLift' ? 34 : undefined);
     else if (scenario.id === 'miss' || scenario.id === 'jabWhiff') useMatchStore.getState().prepareLabScenario({ x: 0, z: -2.6 }, { x: 0, z: 2.6 });
     else useMatchStore.getState().prepareLabScenario({ x: -1.4, z: 0 }, { x: 2.2, z: 0 });
