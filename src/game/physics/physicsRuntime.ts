@@ -833,9 +833,17 @@ export class BodyWorksRuntime {
       // Fall back to the live clinch axis for a neutral throw; animated facing
       // can auto-turn during a load and is not physical authority here.
       const inputLength = Math.hypot(attackerIntent.move.x, attackerIntent.move.z);
-      const direction = inputLength > .25
+      const inputDirection = inputLength > .25
         ? { x: attackerIntent.move.x / inputLength, z: attackerIntent.move.z / inputLength }
         : { x: separationX / planarSeparation, z: separationZ / planarSeparation };
+      const table = model.props.find((prop) => prop.kind === 'table' && !prop.broken);
+      const tableDelta = table ? { x: table.position.x - defenderPosition.x, z: table.position.z - defenderPosition.z } : null;
+      const tableDistance = tableDelta ? Math.hypot(tableDelta.x, tableDelta.z) : Number.POSITIVE_INFINITY;
+      const tableTargeted = Boolean(tableDelta && tableDistance <= 2.05);
+      const direction = tableTargeted && tableDelta && tableDistance > .08
+        ? { x: tableDelta.x / tableDistance, z: tableDelta.z / tableDistance }
+        : inputDirection;
+      const horizontalReleaseSpeed = tableTargeted ? clamp(tableDistance * .72, .06, .72) : .9;
       // The impact is driven into the mat, but kept inside Rapier's reliable
       // continuous-collision envelope. The earlier lift supplies most of the
       // fall energy; an excessive downward impulse only made heavy bodies
@@ -846,7 +854,7 @@ export class BodyWorksRuntime {
       for (const body of Object.values(defenderRig.bodies)) {
         if (!body?.isValid()) continue;
         const mass = body.mass();
-        body.applyImpulse({ x: direction.x * mass * .9, y: -mass * 1.8, z: direction.z * mass * .9 }, true);
+        body.applyImpulse({ x: direction.x * mass * horizontalReleaseSpeed, y: -mass * 1.8, z: direction.z * mass * horizontalReleaseSpeed }, true);
       }
       defenderChest.applyTorqueImpulse({ x: move.id.includes('suplex') || move.id === 'skyhook' ? -.16 : -.08, y: 0, z: grapple.position === 'overhook' ? .12 : -.08 }, true);
       const attackerVelocity = attackerPelvis.linvel();

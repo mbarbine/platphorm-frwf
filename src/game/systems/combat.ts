@@ -7,6 +7,7 @@ import { createGrappleRuntime, releaseGrapple, retargetGrapple, stepGrappleDynam
 import { clamp, distance, normalize, scale, seededRandom } from '../utils/math';
 import type { Difficulty, FighterId, FighterRuntime, GameCommand, HighlightMoment, ImpactEvent, MatchHighlights, MatchModel, MatchResult, MatchStats, MoveDefinition, PropRuntime, ReplayFighterFrame, Ruleset, Vec2 } from '../types/game';
 import type { BodyWorksContact } from '../physics/physicsRuntime';
+import { VOLT_DOME } from '../data/arena';
 
 export interface FrameInput { move: Vec2; run: boolean; block: boolean; commands: readonly GameCommand[] }
 const EMPTY_STATS = (): MatchStats => ({ damageDealt: 0, counters: 0, grapples: 0, finishers: 0, nearFalls: 0, propImpacts: 0 });
@@ -28,8 +29,8 @@ export const createFighterRuntime = (definitionId: FighterId, position: Vec2, be
 const initialProps = (enabled: boolean): PropRuntime[] => enabled ? [
   { id: 'chair-1', kind: 'chair', position: { x: -7.1, z: 2.8 }, durability: 3, stress: 0, failureStage: 'intact', heldBy: null, broken: false },
   { id: 'sign-1', kind: 'sign', position: { x: 7, z: -2.4 }, durability: 2, stress: 0, failureStage: 'intact', heldBy: null, broken: false },
-  { id: 'table-1', kind: 'table', position: { x: 0, z: -7.2 }, durability: 1, stress: 0, failureStage: 'intact', heldBy: null, broken: false },
-] : [{ id: 'table-1', kind: 'table', position: { x: 0, z: -7.2 }, durability: 1, stress: 0, failureStage: 'intact', heldBy: null, broken: false }];
+  { id: 'table-1', kind: 'table', position: { x: VOLT_DOME.commentaryTable.x, z: VOLT_DOME.commentaryTable.z }, durability: 1, stress: 0, failureStage: 'intact', heldBy: null, broken: false },
+] : [{ id: 'table-1', kind: 'table', position: { x: VOLT_DOME.commentaryTable.x, z: VOLT_DOME.commentaryTable.z }, durability: 1, stress: 0, failureStage: 'intact', heldBy: null, broken: false }];
 
 export const createMatch = (playerId: FighterId, opponentId: FighterId, ruleset: Ruleset, difficulty: Difficulty, seed = 1337, playerBeers = 0, opponentBeers = 0): MatchModel => ({
   toyTestMode: false, labMode: false, ruleset, difficulty, elapsed: 0, paused: false, physicsAuthority: false, resolved: false,
@@ -656,8 +657,8 @@ const updateFighter = (model: MatchModel, actorKey: 'player' | 'opponent', dt: n
     if (actor.ropeRebound <= 0) addImpact(model, actor.position, 'rope', .55, { force: impactSpeed * actor.body.mass / 100, outcome: 'absorbed' });
     actor.ropeRebound = 1.1;
   }
-  actor.position.x = clamp(actor.position.x, -9.2, 9.2);
-  actor.position.z = clamp(actor.position.z, -8.2, 8.2);
+  actor.position.x = clamp(actor.position.x, -VOLT_DOME.playable.halfWidth, VOLT_DOME.playable.halfWidth);
+  actor.position.z = clamp(actor.position.z, -VOLT_DOME.playable.halfDepth, VOLT_DOME.playable.halfDepth);
   if (actor.state === 'idle' && inputLength <= .08) {
     const desiredFacing = Math.atan2(target.position.x - actor.position.x, target.position.z - actor.position.z);
     const turn = Math.atan2(Math.sin(desiredFacing - actor.facing), Math.cos(desiredFacing - actor.facing));

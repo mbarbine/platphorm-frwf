@@ -29,7 +29,7 @@ const SCENARIOS: readonly LabScenario[] = [
   { id: 'spear', label: 'BREAKER SPEAR', steps: [...hold('KeyW', 0, 850), ...hold('ShiftLeft', 0, 850), ...tap('KeyL', 620)], duration: 2_100 },
   { id: 'climb', label: 'CLIMB + TAUNT', steps: [...tap('KeyF', 80), ...tap('KeyF', 580), ...tap('KeyF', 1_080), ...tap('KeyQ', 1_580)], duration: 3_400 },
   { id: 'dive', label: 'TOP-ROPE DIVE', steps: [...tap('KeyF', 80), ...tap('KeyF', 580), ...tap('KeyF', 1_080), ...tap('KeyF', 1_580)], duration: 3_800 },
-  { id: 'tableCollapse', label: 'TABLE COLLAPSE', steps: [...tap('KeyL', 600), ...tap('KeyK', 900), ...hold('KeyW', 1_050, 1_400)], duration: 4_200 },
+  { id: 'tableCollapse', label: 'TABLE COLLAPSE', steps: [...tap('KeyL', 600), ...tap('KeyK', 900)], duration: 4_200 },
   { id: 'soakRound', label: 'LAB KNOCKOUT', steps: tap('KeyK', 450, 180), duration: 3_000 },
 ] as const;
 
