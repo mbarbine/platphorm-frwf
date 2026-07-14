@@ -47,7 +47,8 @@ test('six bounded instant rematches keep the Rapier world and JS heap stable', a
   const finalFps = Number(await lab.getAttribute('data-lab-fps'));
   expect(finalFps).toBeGreaterThanOrEqual(Math.max(1, Math.floor(baselineFps * .45)));
   expect(Number(await lab.getAttribute('data-lab-avg-step-ms'))).toBeLessThan(4);
-  expect(Number(await lab.getAttribute('data-lab-p95-step-ms'))).toBeLessThan(8);
+  expect(Number(await lab.getAttribute('data-lab-p95-step-ms'))).toBeLessThan(7);
+  expect(Number(await lab.getAttribute('data-lab-replay-kb'))).toBeLessThan(1_024);
   const heapGrowth = Math.max(...heaps) - baselineHeap;
   if (baselineHeap > 0) expect(heapGrowth).toBeLessThan(Math.max(32 * 1024 * 1024, baselineHeap * .65));
   if (heaps.length > 3 && heaps[1] && heaps.at(-1)) expect((heaps.at(-1) ?? 0) - heaps[1]).toBeLessThan(24 * 1024 * 1024);

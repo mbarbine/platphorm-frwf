@@ -30,6 +30,8 @@
 - Grapple acquisition tolerates normal articulated hand travel, then tightens its error/load bounds after a grace interval.
 - Lift feasibility uses mass, power, muscle/fatigue, and defender mass. Physics Lab's fatigued-lift and grip-stress cases expose failure behavior.
 - Environmental guidance is local and bounded. It only selects an already-near table or turnbuckle and never teleports either wrestler.
+- Physics Lab mass override adds the selected kilograms across the registered Rapier segments and updates gameplay leverage mass; it is not a cosmetic stat edit.
+
+The lab's explicit cases cover standing, walk/run/brake, turning, jump/landing, hit/whiff/guard, grapple acquisition/failure/throws, rope/apron/corner/table interactions, all recovery orientations, knockout, and a complete runtime reset. Debug mode combines Rapier colliders with centers of mass, projected support footprints, attack reach, grip linkage, impact markers, and the textual force/timing/object diagnostics.
 
 Tuning values live beside their owning system: general match balance in `src/game/data/balance.ts`, arena dimensions in `src/game/data/arena.ts`, controller/rope/grip limits in `src/game/physics/physicsRuntime.ts`, and move phase/damage data in `src/game/data/moves.ts`.
-

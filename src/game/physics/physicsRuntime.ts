@@ -160,6 +160,7 @@ export class BodyWorksRuntime {
   private readonly propGrips = new Map<string, PhysicalPropGrip>();
   private readonly releasedPropAttacks = new Map<string, ReleasedPropAttack>();
   private readonly pendingLandings = new Map<FighterKey, PendingLanding>();
+  private readonly labAdditionalMass: Record<FighterKey, number> = { player: 0, opponent: 0 };
   private grappleEnvironmentTarget: GrappleEnvironmentTarget | null = null;
   private replayAccumulator = 0;
   private stepStartedAt = -1;
@@ -179,6 +180,7 @@ export class BodyWorksRuntime {
       restOffsets[segment] = { x: position.x - pelvisPosition.x, y: position.y - pelvisPosition.y, z: position.z - pelvisPosition.z };
     }
     this.rigs.set(fighter, { bodies, restOffsets, restPelvisY: pelvisPosition.y, rootStabilized: false, skeletonStabilized: false, supportContacts: new Set<BodySegmentId>(), jumpQueued: false, jumpCooldown: 0, ropeContact: null, cornerAnchor: null, apronAnchor: null });
+    this.applyLabAdditionalMass(fighter);
     this.recount(jointCount);
     const registeredGeneration = this.generation;
     return () => {
@@ -189,6 +191,17 @@ export class BodyWorksRuntime {
 
   /** Rapier's value export is injected by the lazy scene so menus do not load the WASM runtime. */
   setJointData(jointData: typeof JointData): void { this.jointData = jointData; }
+
+  setLabAdditionalMass(fighter: FighterKey, kilograms: number): void {
+    this.labAdditionalMass[fighter] = clamp(kilograms, 0, 120);
+    this.applyLabAdditionalMass(fighter);
+  }
+
+  private applyLabAdditionalMass(fighter: FighterKey): void {
+    const bodies = Object.values(this.rigs.get(fighter)?.bodies ?? {}).filter((body): body is RapierRigidBody => Boolean(body?.isValid()));
+    const perBody = this.labAdditionalMass[fighter] / Math.max(1, bodies.length);
+    for (const body of bodies) body.setAdditionalMass(perBody, true);
+  }
 
   registerProp(id: string, kind: 'chair' | 'sign' | 'trash', body: RapierRigidBody): () => void {
     this.props.set(id, { body, kind });
@@ -533,9 +546,11 @@ export class BodyWorksRuntime {
       const grounded = rig.supportContacts.size > 0 || pelvis.translation().y <= targetPelvisY + .16;
       if (grounded && rig.jumpCooldown <= 0 && (['idle', 'locomotion', 'jumping'].includes(fighter.state) || fighter.moveId === 'kick_up')) {
         const launchSpeed = fighter.moveId === 'kick_up' ? 4.6 : 8.2;
+        rig.supportContacts.clear();
         for (const body of Object.values(rig.bodies)) {
           if (!body?.isValid()) continue;
-          body.applyImpulse({ x: 0, y: body.mass() * launchSpeed, z: 0 }, true);
+          const velocity = body.linvel();
+          body.setLinvel({ x: velocity.x, y: Math.max(velocity.y, launchSpeed), z: velocity.z }, true);
         }
         rig.jumpCooldown = .65;
       }
@@ -1183,6 +1198,7 @@ export class BodyWorksRuntime {
     this.pendingLandings.clear(); this.grappleEnvironmentTarget = null; this.props.clear(); this.propGrips.clear(); this.releasedPropAttacks.clear(); this.replayAccumulator = 0; this.world = null; this.instrumentedWorld = null; this.originalRemoveImpulseJoint = null; this.stepStartedAt = -1;
     this.stepSamples.fill(0); this.stepSampleCursor = 0; this.stepSampleCount = 0; this.stepSampleTotal = 0;
     this.intents.player = EMPTY_INTENT(); this.intents.opponent = EMPTY_INTENT();
+    this.labAdditionalMass.player = 0; this.labAdditionalMass.opponent = 0;
     this.metrics.fixedSteps = 0; this.metrics.bodyCount = 0; this.metrics.jointCount = 0; this.metrics.gripCount = 0; this.metrics.nearestGripDistance = 0; this.metrics.maximumGripError = 0; this.metrics.maximumGripLoad = 0; this.metrics.lastGripBreakReason = 'none'; this.metrics.worldJointCount = 0; this.metrics.gripCreateCount = 0; this.metrics.gripInvalidCount = 0; this.metrics.propBodyCount = 0; this.metrics.propGripCount = 0; this.metrics.worldBodyCount = 0; this.metrics.invalidRegisteredBodyCount = 0; this.metrics.worldRemoveCount = 0; this.metrics.contactCount = 0; this.metrics.emergencyResetCount = 0; this.metrics.containmentCount = 0; this.metrics.lastStepMs = 0; this.metrics.averageStepMs = 0; this.metrics.p95StepMs = 0; this.metrics.maximumStepMs = 0; this.metrics.replayEstimatedBytes = 0;
   }
 

@@ -180,4 +180,4 @@ The game intentionally does not install Vercel Analytics, Speed Insights, databa
 
 RINGFALL remains a game first. Public discovery files report real static capabilities and honest `unsupported`/`degraded` states for backend health, MCP execution, trace propagation, protected mutations, Vercel request metadata, and authentication. There are no fake runs, fake counts, fake APIs, or simulated downstream integrations.
 
-The detailed Bodyworks baseline, architecture, capability matrix, tuning, performance, test, release, device, platform, and fun-audit documents live in [`docs/bodyworks/`](docs/bodyworks/).
+The detailed Bodyworks baseline, architecture, attached-contract audit, capability matrix, tuning, performance, test, release, device, platform, and fun-audit documents live in [`docs/bodyworks/`](docs/bodyworks/).

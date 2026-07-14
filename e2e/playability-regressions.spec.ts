@@ -103,3 +103,23 @@ test('physical body slam collapses the commentary table', async ({ page }) => {
   await expect(hud.locator('[data-table-stage]')).toHaveAttribute('data-table-stage', 'failed', { timeout: 20_000 });
   await expect(hud).toHaveAttribute('data-physics-emergency-resets', '0'); expect(errors).toEqual([]);
 });
+
+test('turnbuckle rail shot converts a physical clinch into a corner landing', async ({ page }) => {
+  test.setTimeout(90_000);
+  const errors = captureErrors(page); await enterLabMatch(page);
+  const hud = page.locator('.hud'); const lab = page.getByTestId('physics-lab'); const html = page.locator('html');
+  const startingHealth = Number(await hud.getAttribute('data-opponent-health'));
+  await page.evaluate(() => {
+    const observe = (): void => {
+      const liveHud = document.querySelector('.hud');
+      if (liveHud?.getAttribute('data-player-move') === 'corner_smash') document.documentElement.dataset.sawCornerRailShot = 'true';
+      if (/downed|airborne/.test(liveHud?.getAttribute('data-opponent-state') ?? '')) document.documentElement.dataset.sawCornerKnockdown = 'true';
+    };
+    new MutationObserver(observe).observe(document.body, { subtree: true, attributes: true }); observe();
+  });
+  await lab.getByRole('button', { name: 'TURNBUCKLE RAIL SHOT' }).click();
+  await expect(html).toHaveAttribute('data-saw-corner-rail-shot', 'true', { timeout: 8_000 });
+  await expect.poll(async () => Number(await hud.getAttribute('data-opponent-health')), { timeout: 20_000, intervals: [100, 250] }).toBeLessThan(startingHealth);
+  await expect(html).toHaveAttribute('data-saw-corner-knockdown', 'true');
+  await expect(hud).toHaveAttribute('data-physics-emergency-resets', '0'); expect(errors).toEqual([]);
+});

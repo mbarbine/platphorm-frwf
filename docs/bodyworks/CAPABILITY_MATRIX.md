@@ -18,7 +18,7 @@ Status vocabulary: **complete** is implemented and covered by a release gate; **
 | Barricade response | Fixed collision only | Add damped movable panels inside safety walls | Browser contact/containment gate |
 | Back/front/side recovery | Partial authored recovery | Add deterministic orientation state and lab scenarios | Unit + Physics Lab browser scenarios |
 | Failed lift / grip-break visibility | Partial runtime metrics | Add dedicated lab scenarios and diagnostics | Physics Lab scenarios |
-| Physics Lab time/debug tooling | Partial | Add pause, step, 0.25/0.5/1x, reset, repeat, seed, pairing, stamina and debug | Lab browser test |
+| Physics Lab time/debug tooling | Partial | Add pause, step, 0.25/0.5/1x, reset, repeat, seed, pairing, stamina, real added-mass override and physical debug markers | Lab browser test |
 | Event camera/replay/highlights | Complete | Preserve | Camera + replay tests |
 | Adaptive quality | Adaptive DPR only | Add auto/performance/quality profiles | Unit + browser settings |
 | Runtime physics percentiles | Max only | Add bounded rolling avg/p95 + replay byte estimate | Unit + lab diagnostics |
@@ -27,7 +27,7 @@ Status vocabulary: **complete** is implemented and covered by a release gate; **
 | Gamepad | Implemented | Add deterministic browser emulation; physical device gate remains | Browser emulation + device matrix |
 | WebXR | Implemented when supported | Add adapter coverage; physical headset gate remains | Unit + device matrix |
 | 50-match AI soak | Missing | Add deterministic bounded batch and stats artifact | Vitest soak |
-| Multi-rematch heap/body soak | Complete at 3 rematches | Expand bounded browser soak and percentile assertions | Playwright soak |
+| Multi-rematch heap/body soak | Complete at 3 rematches | Expand to six rematches with relative renderer stability, heap, replay and physics-percentile assertions | Playwright soak |
 | Platform routes/discovery/trust | Complete baseline | Revalidate only if public behavior changes | Platform contract tests |
 | Rollback control | Partial documentation | Document one-release rollback flag and removal rule | Release document review |
 
@@ -38,4 +38,3 @@ Status vocabulary: **complete** is implemented and covered by a release gate; **
 3. Grapple truth: grips acquire within reach, remain bounded, can fail, and release into a physical landing.
 4. Environment truth: ropes, apron, corners, props, table, and barricades respond through physics-backed systems.
 5. Release truth: lint, typecheck, unit/integration, deterministic browser scenarios, 50-match simulation soak, bounded rematch soak, build, preview, and live smoke must all pass before promotion.
-
