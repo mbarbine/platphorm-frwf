@@ -754,7 +754,11 @@ const expectedContactSegment = (move: MoveDefinition, segment: string): boolean 
 const applyPhysicalTableStress = (model: MatchModel, contact: BodyWorksContact, move: MoveDefinition): void => {
   if (!contact.isLanding || contact.targetSurface !== 'table') return;
   const table = model.props.find((prop) => prop.kind === 'table' && !prop.broken); if (!table) return;
-  const addedStress = contact.maximumForce * .38 + contact.relativeSpeed * 7 + (move.category === 'finisher' ? 20 : 0);
+  // A committed human landing is the table-collapse trigger. The physical
+  // force still grades lighter bumps, while a completed slam/finisher supplies
+  // the structural impulse needed to break a wrestling commentary table.
+  const structuralImpulse = move.category === 'finisher' ? 72 : move.category === 'grapple' ? 58 : move.category === 'aerial' ? 38 : 0;
+  const addedStress = contact.maximumForce * .38 + contact.relativeSpeed * 7 + structuralImpulse;
   table.stress = Math.round((table.stress + addedStress) * 10) / 10;
   const nextStage = table.stress >= 82 ? 'failed' : table.stress >= 50 ? 'cracked' : table.stress >= 24 ? 'stressed' : 'intact';
   if (nextStage === table.failureStage) return;
