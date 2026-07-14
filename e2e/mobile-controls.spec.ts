@@ -63,4 +63,6 @@ test('mobile player can enter a match, move, guard, and attack', async ({ page }
   await expect.poll(async () => await hud.getAttribute('data-player-state'), { timeout: 20_000, intervals: [100, 200] }).toMatch(/idle|locomotion/);
   await guard.hover(); await page.mouse.down();
   await expect(guard).toHaveAttribute('aria-pressed', 'true'); await page.mouse.up(); await expect(guard).toHaveAttribute('aria-pressed', 'false');
+  await page.setViewportSize({ width: 844, height: 390 });
+  await expect(controls).toBeVisible(); await expect(page.getByRole('group', { name: 'Movement joystick' })).toBeVisible();
 });

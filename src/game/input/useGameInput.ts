@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { FrameInput } from '../systems/combat';
 import type { ControlDevice, GameCommand } from '../types/game';
+import { BoundedCommandBuffer } from './commandBuffer';
 import { mobileInput } from './mobileInput';
 
 const COMMAND_KEYS: Readonly<Record<string, GameCommand>> = { KeyJ: 'quick', KeyK: 'heavy', KeyL: 'grapple', Space: 'dodge', KeyC: 'jump', KeyE: 'interact', KeyF: 'context', KeyQ: 'taunt' };
@@ -29,7 +30,8 @@ export const readGamepadDirection = (gamepad: Gamepad): { x: number; z: number }
 
 export const useGameInput = (onPause: () => void): InputController => {
   const keys = useRef(new Set<string>());
-  const queued = useRef<GameCommand[]>([]);
+  const queued = useRef<BoundedCommandBuffer | null>(null);
+  if (!queued.current) queued.current = new BoundedCommandBuffer(12, 220);
   const previousButtons = useRef<boolean[]>([]);
   const previousXRButtons = useRef(new Map<string, boolean>());
   const [device, setDevice] = useState<ControlDevice>('keyboard');
@@ -39,12 +41,12 @@ export const useGameInput = (onPause: () => void): InputController => {
       if (event.repeat && COMMAND_KEYS[event.code]) return;
       keys.current.add(event.code); setDevice('keyboard');
       const command = COMMAND_KEYS[event.code];
-      if (command) queued.current.push(command);
+      if (command) queued.current?.push(command);
       if (command || MOVEMENT_KEYS.has(event.code)) event.preventDefault();
       if (event.code === 'Escape') onPause();
     };
     const up = (event: KeyboardEvent): void => { keys.current.delete(event.code); };
-    const clear = (): void => { keys.current.clear(); mobileInput.reset(); };
+    const clear = (): void => { keys.current.clear(); queued.current?.clear(); mobileInput.reset(); };
     const visibility = (): void => { if (document.hidden) clear(); };
     const connected = (): void => setDevice('gamepad');
     const touchActivity = (): void => setDevice('touch');
@@ -55,7 +57,7 @@ export const useGameInput = (onPause: () => void): InputController => {
   }, [onPause]);
 
   const read = (xrSources: readonly XRInputSource[] = []): FrameInput => {
-    const commands = [...queued.current]; queued.current.length = 0;
+    const commands = queued.current?.drain() ?? [];
     let x = (keys.current.has('KeyD') || keys.current.has('ArrowRight') ? 1 : 0) - (keys.current.has('KeyA') || keys.current.has('ArrowLeft') ? 1 : 0);
     let z = (keys.current.has('KeyS') || keys.current.has('ArrowDown') ? 1 : 0) - (keys.current.has('KeyW') || keys.current.has('ArrowUp') ? 1 : 0);
     let run = keys.current.has('ShiftLeft') || keys.current.has('ShiftRight');

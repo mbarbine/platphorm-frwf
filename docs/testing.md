@@ -21,6 +21,7 @@ Playwright serves the existing production bundle through Vite preview, so build 
 
 ```bash
 pnpm test:playability
+pnpm test:ai-soak
 pnpm test:soak
 ```
 
@@ -32,7 +33,9 @@ The deterministic playability file starts a fresh production-preview page for ea
 - an apron start returns through the ropes to the ring;
 - a real two-hand grapple and measured body landing collapse the commentary desk.
 
-The soak runs exactly three instant rematches. Each round reaches a deterministic lab knockout, enters results, rematches, and verifies the expected 32 fighter bodies, 30 anatomical joints, no leaked grips/props, no emergency resets or arena-containment corrections, bounded fixed-step time, and bounded heap growth where Chromium exposes `performance.memory`. It is deliberately finite.
+The AI soak runs exactly 50 seeded bot matches across every fighter, both difficulties, and both rulesets. It requires 50 results with bounded 75-frame rules replay, bounded Chaos props, and an average headless simulation step below the physics budget.
+
+The browser soak runs exactly six instant rematches. Each round reaches a deterministic lab knockout, enters results, rematches, and verifies the expected 32 fighter bodies, 30 anatomical joints, no leaked grips/props, no emergency resets or arena-containment corrections, bounded rolling step time, and bounded heap growth where Chromium exposes `performance.memory`. It is deliberately finite.
 
 ## Build evidence
 

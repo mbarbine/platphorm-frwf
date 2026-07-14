@@ -91,6 +91,7 @@ interface ImpactMetadata {
   torque?: number;
   outcome?: ImpactEvent['outcome'];
   highlight?: Omit<HighlightMoment, 'impactId' | 'time'>;
+  moveId?: string;
 }
 
 const addImpact = (model: MatchModel, position: Vec2, kind: ImpactEvent['kind'], intensity: number, metadata: ImpactMetadata = {}): void => {
@@ -104,6 +105,7 @@ const addImpact = (model: MatchModel, position: Vec2, kind: ImpactEvent['kind'],
     force: metadata.force,
     torque: metadata.torque,
     outcome: metadata.outcome,
+    moveId: metadata.moveId,
   };
   if (metadata.highlight) {
     model.highlights = [...model.highlights.slice(-23), {
@@ -154,9 +156,9 @@ export const applyMoveHit = (model: MatchModel, actorKey: 'player' | 'opponent',
       target.state = 'staggered'; target.stateElapsed = -BALANCE.block.guardBreakStagger;
       model.announcement = 'GUARD BREAK!'; model.announcementTimer = 1.1;
       model.hype = clamp(model.hype + 5, 0, 100);
-      addImpact(model, target.position, 'heavy', 1.15, { region: calculatedImpact.region, force: guardedImpact.force, torque: guardedImpact.torque, outcome: 'stagger' });
+      addImpact(model, target.position, 'heavy', 1.15, { region: calculatedImpact.region, force: guardedImpact.force, torque: guardedImpact.torque, outcome: 'stagger', moveId: move.id });
     } else {
-      addImpact(model, target.position, 'blocked', .72, { region: calculatedImpact.region, force: guardedImpact.force, torque: guardedImpact.torque, outcome: 'absorbed' });
+      addImpact(model, target.position, 'blocked', .72, { region: calculatedImpact.region, force: guardedImpact.force, torque: guardedImpact.torque, outcome: 'absorbed', moveId: move.id });
     }
     return true;
   }
@@ -227,6 +229,7 @@ export const applyMoveHit = (model: MatchModel, actorKey: 'player' | 'opponent',
     torque: impact.torque,
     outcome: collisionOutcome,
     highlight: move.category === 'quick' && impact.force < 7 ? undefined : { label: move.category === 'finisher' ? actorDefinition.signature : move.displayName, score: highlightScore, kind: highlightKind },
+    moveId: move.id,
   });
   if (move.category === 'finisher') {
     model.slowMotion = .82;

@@ -1,6 +1,7 @@
 import type { BodySegmentId } from './bodySchema';
 
 export interface PhysicsVector3 { x: number; y: number; z: number }
+export interface PhysicsVector2 { x: number; z: number }
 
 export interface StrikeDriveProfile {
   source: BodySegmentId;
@@ -37,6 +38,16 @@ const clampMagnitude = (vector: PhysicsVector3, maximum: number): PhysicsVector3
   if (magnitude <= maximum || magnitude < 1e-7) return vector;
   const scale = maximum / magnitude;
   return { x: vector.x * scale, y: vector.y * scale, z: vector.z * scale };
+};
+
+/** Continuous planar reach for attacks that can cross a target in one phase. */
+export const sweptPlanarPathHitsTarget = (start: PhysicsVector2, end: PhysicsVector2, target: PhysicsVector2, width: number): boolean => {
+  const pathX = end.x - start.x; const pathZ = end.z - start.z; const pathLengthSquared = pathX * pathX + pathZ * pathZ;
+  if (pathLengthSquared <= .0025) return false;
+  const projection = ((target.x - start.x) * pathX + (target.z - start.z) * pathZ) / pathLengthSquared;
+  if (projection < 0 || projection > 1) return false;
+  const closestX = start.x + pathX * projection; const closestZ = start.z + pathZ * projection;
+  return Math.hypot(target.x - closestX, target.z - closestZ) <= width;
 };
 
 /**

@@ -32,10 +32,11 @@ export function CameraRig() {
     const requestedShot = selectCameraShot({
       replayActive, middleX, middleZ, separation, playerState: model.player.state, opponentState: model.opponent.state,
       playerMoveCategory: playerMove?.category ?? null, opponentMoveCategory: opponentMove?.category ?? null, securedGrapple,
+      playerAttackPhase: model.player.attackPhase, opponentAttackPhase: model.opponent.attackPhase, grapplePhase: model.grapple?.phase ?? null,
       tablePosition: table?.position ?? null, lastImpactKind: model.lastImpact?.kind ?? null,
     });
     if (requestedShot !== shot.current && (cameraShotIsUrgent(requestedShot) || elapsed.current - shotChangedAt.current >= .72)) {
-      shot.current = requestedShot; shotChangedAt.current = elapsed.current; shotSide.current = camera.position.x >= middleX ? 1 : -1;
+      shot.current = requestedShot; shotChangedAt.current = elapsed.current;
       document.documentElement.dataset.cameraShot = requestedShot;
     }
 
@@ -50,8 +51,27 @@ export function CameraRig() {
       }
       case 'grapple': {
         const forwardX = Math.sin(grappleActor.facing); const forwardZ = Math.cos(grappleActor.facing); const rightX = forwardZ; const rightZ = -forwardX;
-        const liftBeat = grapplePhase === 'load' || grapplePhase === 'lift'; const distance = grappleMove?.category === 'finisher' ? 8.1 : liftBeat ? 7.9 : 8.7;
-        desired.set(middleX + rightX * distance * shotSide.current - forwardX * 2.15, grappleMove?.category === 'finisher' ? 5.9 : liftBeat ? 5.55 + Math.min(.8, grappleLift * .3) : 6.25, middleZ + rightZ * distance * shotSide.current - forwardZ * 2.15);
+        const distance = grappleMove?.category === 'finisher' ? 9.8 : 10.35;
+        desired.set(middleX + rightX * distance * shotSide.current - forwardX * 1.45, grappleMove?.category === 'finisher' ? 6.05 : 5.8, middleZ + rightZ * distance * shotSide.current - forwardZ * 1.45);
+        break;
+      }
+      case 'slam': {
+        const forwardX = Math.sin(grappleActor.facing); const forwardZ = Math.cos(grappleActor.facing); const rightX = forwardZ; const rightZ = -forwardX;
+        const peakLift = grapplePhase === 'lift' ? Math.min(1.1, grappleLift * .48) : 0;
+        desired.set(middleX + rightX * 10.65 * shotSide.current - forwardX * 1.15, 5.35 + peakLift, middleZ + rightZ * 10.65 * shotSide.current - forwardZ * 1.15);
+        break;
+      }
+      case 'strike': {
+        const attacker = model.player.attackPhase === 'active' ? model.player : model.opponent;
+        const forwardX = Math.sin(attacker.facing); const forwardZ = Math.cos(attacker.facing); const rightX = forwardZ; const rightZ = -forwardX;
+        desired.set(middleX + rightX * 9.7 * shotSide.current - forwardX * 3.2, 5.35, middleZ + rightZ * 9.7 * shotSide.current - forwardZ * 3.2);
+        break;
+      }
+      case 'corner': {
+        const climber = model.player.state === 'climbing' ? model.player : model.opponent;
+        const cornerX = Math.sign(climber.position.x || 1) * 5.45; const cornerZ = Math.sign(climber.position.z || 1) * 3.95;
+        const inwardX = -Math.sign(cornerX); const inwardZ = -Math.sign(cornerZ);
+        desired.set(cornerX - inwardZ * 8.8 * shotSide.current + inwardX * 4.2, 6.55 + climber.climbStage * .48, cornerZ + inwardX * 8.8 * shotSide.current + inwardZ * 4.2);
         break;
       }
       case 'aerial': {
@@ -92,14 +112,14 @@ export function CameraRig() {
     const shakeAmount = !reduced ? shake * impactImpulse.current * .042 : 0;
     desired.x += Math.sin(elapsed.current * 53) * shakeAmount; desired.y += Math.cos(elapsed.current * 41) * shakeAmount * .7; desired.z += Math.sin(elapsed.current * 47) * shakeAmount * .45;
 
-    const positionDamping = reduced ? 2.8 : shot.current === 'replay' ? 3.1 : shot.current === 'wide' ? 3.4 : shot.current === 'aerial' ? 4.4 : shot.current === 'grapple' || shot.current === 'table' ? 5.4 : 4.6;
+    const positionDamping = reduced ? 2.8 : shot.current === 'replay' ? 3.1 : shot.current === 'wide' ? 3.4 : shot.current === 'aerial' || shot.current === 'corner' ? 4.2 : shot.current === 'grapple' || shot.current === 'slam' || shot.current === 'table' ? 4.8 : 4.6;
     camera.position.lerp(desired, 1 - Math.exp(-dt * positionDamping));
-    desiredTarget.set(middleX, (shot.current === 'grapple' ? 2.55 : shot.current === 'aerial' ? 2.7 : 2.2) + maximumAir * .34 + grappleLift * .14, middleZ);
+    desiredTarget.set(middleX, (shot.current === 'grapple' ? 2.7 : shot.current === 'slam' ? 2.45 : shot.current === 'corner' ? 3.05 : shot.current === 'aerial' ? 2.7 : 2.2) + maximumAir * .34 + grappleLift * (shot.current === 'slam' ? .3 : .14), middleZ);
     smoothedTarget.lerp(desiredTarget, 1 - Math.exp(-dt * (reduced ? 4 : 7.2))); camera.lookAt(smoothedTarget);
     if ('fov' in camera) {
       const perspective = camera as PerspectiveCamera;
-      const baseFov = shot.current === 'replay' ? 39 : shot.current === 'grapple' ? grappleMove?.category === 'finisher' ? 37 : 40
-        : shot.current === 'aerial' ? 43 : shot.current === 'table' ? 41 : shot.current === 'wide' ? 50 : shot.current.startsWith('ringside') ? 46 : 44 + Math.min(9, separation * 1.15);
+      const baseFov = shot.current === 'replay' ? 39 : shot.current === 'grapple' ? grappleMove?.category === 'finisher' ? 40 : 43
+        : shot.current === 'slam' ? 42 : shot.current === 'strike' ? 43 : shot.current === 'corner' ? 46 : shot.current === 'aerial' ? 43 : shot.current === 'table' ? 41 : shot.current === 'wide' ? 50 : shot.current.startsWith('ringside') ? 46 : 44 + Math.min(9, separation * 1.15);
       const desiredFov = baseFov + impactImpulse.current * 1.15 + (model.slowMotion > 0 ? -2.5 : 0);
       perspective.fov += (desiredFov - perspective.fov) * (1 - Math.exp(-dt * 7.5)); perspective.updateProjectionMatrix();
     }

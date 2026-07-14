@@ -145,12 +145,18 @@ describe('deterministic combat rules', () => {
   });
 
   it('authors every grapple as a paired actor and victim sequence', () => {
-    const grappleIds = ['slam', 'suplex', 'takedown', 'whip', 'arm_drag', 'skyhook', 'powerbomb', 'clutch', 'spinebuster', 'side_toss', 'mountain_drop'];
+    const grappleIds = ['slam', 'suplex', 'takedown', 'whip', 'arm_drag', 'skyhook', 'powerbomb', 'clutch', 'spinebuster', 'side_toss', 'mountain_drop', 'corner_smash'];
     for (const id of grappleIds) {
       const move = getMove(id);
       expect(getPairedPose(move, 'actor', 'anticipation', move.anticipationDuration * .8, 'atlas')).not.toBeNull();
       expect(getPairedPose(move, 'victim', 'active', move.anticipationDuration + move.activeDuration * .5, 'atlas')).not.toBeNull();
     }
+  });
+
+  it('gives all five wrestlers a distinct body-slam peak silhouette', () => {
+    const slam = getMove('slam'); const elapsed = slam.anticipationDuration + slam.activeDuration * .25;
+    const peaks = FIGHTERS.map((fighter) => getPairedPose(slam, 'victim', 'active', elapsed, fighter.id));
+    expect(new Set(peaks.map((entry) => `${entry?.rootY.toFixed(3)}:${entry?.rootYaw.toFixed(3)}:${entry?.rootRoll.toFixed(3)}:${entry?.rootTilt.toFixed(3)}`)).size).toBe(5);
   });
 
   it('gives powerbombs, chokes, and suplexes visibly different victim staging', () => {

@@ -26,6 +26,7 @@ import type { CameraInputBasis } from '../input/cameraRelative';
 import { getMove } from '../data/moves';
 import { browserRuntimeQuality } from '../runtime/quality';
 import { usePhysicsLabStore } from '../state/physicsLabStore';
+import { BodyWorksDebugOverlay } from './BodyWorksDebugOverlay';
 
 interface Props { onPause: () => void; onDevice: (device: ControlDevice) => void; onFinished: () => void }
 
@@ -68,10 +69,8 @@ function Simulation({ onPause, onDevice, onFinished }: Props) {
       const previous = lastActionAudio.current; lastActionAudio.current = actionAudio;
       const move = model.player.moveId ? getMove(model.player.moveId) : null;
       if (move?.id === 'taunt' && !model.toyTestMode) audioEngine.play('cheer', audioSettings);
-      else if (move?.category === 'aerial' || move?.category === 'finisher') audioEngine.playAt('finisher', audioSettings, model.player.position);
-      else if (['front_kick', 'low_kick', 'high_kick', 'roundhouse'].includes(move?.id ?? '')) audioEngine.playAt('kick', audioSettings, model.player.position);
-      else if (move?.category === 'grapple') audioEngine.playAt('grapple', audioSettings, model.player.position);
-      else if (move?.id === 'kick_up' || model.player.state === 'jumping') audioEngine.playAt('jump', audioSettings, model.player.position);
+      else if (move) audioEngine.move(move.id, audioSettings, model.player.position);
+      else if (model.player.state === 'jumping') audioEngine.playAt('jump', audioSettings, model.player.position);
       else if (model.player.state === 'climbing' && !previous.startsWith('climbing')) audioEngine.playAt('rope', audioSettings, model.player.position);
     }
     footstepTimer.current = Math.max(0, footstepTimer.current - dt);
@@ -86,14 +85,13 @@ function Simulation({ onPause, onDevice, onFinished }: Props) {
 
 function Fighters() {
   const player = useMatchStore((state) => state.model.player); const opponent = useMatchStore((state) => state.model.opponent);
-  const physicsLab = useMatchStore((state) => state.model.labMode);
   const runtimeId = useMatchStore((state) => state.model.runtimeId);
   const replayActive = useMatchStore((state) => state.replayActive);
-  const labDebug = usePhysicsLabStore((state) => state.debug);
   return <group key={runtimeId} visible={!replayActive}>
-    <PhysicalFighterRig runtime={player} side="player" showVisuals={physicsLab && labDebug} />
-    <PhysicalFighterRig runtime={opponent} side="opponent" showVisuals={physicsLab && labDebug} />
-    {(!physicsLab || !labDebug) && <><FighterModel runtime={player} counterpart={opponent} side="player" /><FighterModel runtime={opponent} counterpart={player} side="opponent" /></>}
+    <PhysicalFighterRig runtime={player} side="player" showVisuals={false} />
+    <PhysicalFighterRig runtime={opponent} side="opponent" showVisuals={false} />
+    <FighterModel runtime={player} counterpart={opponent} side="player" />
+    <FighterModel runtime={opponent} counterpart={player} side="opponent" />
   </group>;
 }
 
@@ -138,7 +136,7 @@ export function GameScene(props: Props) {
       renderer.current = gl; gl.xr.enabled = true;
       if (navigator.xr) void navigator.xr.isSessionSupported('immersive-vr').then(setXrAvailable).catch(() => setXrAvailable(false));
     }}>
-      <Suspense fallback={null}><Physics gravity={[0, -18, 0]} timeStep={(lab ? labRate : 1) / 60} paused={paused || replayActive} debug={lab && labDebug} interpolate numSolverIterations={8} numInternalPgsIterations={2} maxCcdSubsteps={2}><Arena crowdCount={quality.crowdCount} /><Fighters /><PlayerControlBeacon /><ImpactEffects /><Simulation {...props} /></Physics><ReplayDirector /><CameraRig /><AdaptiveDpr pixelated />{quality.bakeShadows && <BakeShadows />}</Suspense>
+      <Suspense fallback={null}><Physics gravity={[0, -18, 0]} timeStep={(lab ? labRate : 1) / 60} paused={paused || replayActive} debug={lab && labDebug} interpolate numSolverIterations={8} numInternalPgsIterations={2} maxCcdSubsteps={2}><Arena crowdCount={quality.crowdCount} /><Fighters />{lab && labDebug && <BodyWorksDebugOverlay />}<PlayerControlBeacon /><ImpactEffects /><Simulation {...props} /></Physics><ReplayDirector /><CameraRig /><AdaptiveDpr pixelated />{quality.bakeShadows && <BakeShadows />}</Suspense>
     </Canvas>
     {xrAvailable && <button type="button" className="xr-entry" data-testid="xr-entry" onClick={() => void (xrPresenting ? exitXR() : enterXR())}>{xrPresenting ? 'EXIT ARENA XR' : 'ENTER ARENA XR'}<small>QUEST · STEAM FRAME · OPENXR</small></button>}
     {xrError && <div className="xr-error" role="status">XR UNAVAILABLE · {xrError}</div>}

@@ -4,7 +4,7 @@ import type { FrameInput } from '../systems/combat';
 import { bodyWorksRuntime } from '../physics/physicsRuntime';
 import { getMove } from '../data/moves';
 import type { BodyWorksContact } from '../physics/physicsRuntime';
-import type { Difficulty, FighterId, FighterState, MatchModel, RecoveryOrientation, Ruleset, Vec2 } from '../types/game';
+import type { Difficulty, FighterId, FighterState, GameCommand, MatchModel, RecoveryOrientation, Ruleset, Vec2 } from '../types/game';
 
 interface MatchStore {
   model: MatchModel;
@@ -15,7 +15,8 @@ interface MatchStore {
   pause: (paused: boolean) => void;
   setLabMode: (active: boolean) => void;
   setToyTestMode: (active: boolean) => void;
-  configureLab: (player: FighterId, opponent: FighterId, seed: number, playerStaminaPercent: number, opponentStaminaPercent: number) => void;
+  configureLab: (player: FighterId, opponent: FighterId, seed: number, playerStaminaPercent: number, opponentStaminaPercent: number, playerAdditionalMass?: number, opponentAdditionalMass?: number) => void;
+  requestLabCommand: (fighter: 'player' | 'opponent', command: GameCommand, direction?: Vec2, running?: boolean) => void;
   prepareLabScenario: (playerPosition: Vec2, opponentPosition: Vec2, playerState?: Extract<FighterState, 'idle' | 'downed'>, opponentHealth?: number, recoveryOrientation?: RecoveryOrientation, downTimer?: number, playerStaminaPercent?: number) => void;
   setPhysicsAuthority: (active: boolean) => void;
   resolvePhysicsContacts: (contacts: readonly BodyWorksContact[]) => void;
@@ -33,7 +34,7 @@ export const useMatchStore = create<MatchStore>((set) => ({
     return { model: createMatch(player, opponent, rules, difficulty, 1337, playerBeers, opponentBeers), revision: state.revision + 1, replayActive: false };
   }),
   advance: (dt, input) => set((state) => {
-    const model = state.model; const previousImpact = model.impactSequence; const wasResolved = model.resolved;
+    const model = state.model; const previousImpact = model.impactSequence; const wasResolved = model.resolved; let commandAccepted = false;
     bodyWorksRuntime.captureInput('player', input, model.elapsed);
     bodyWorksRuntime.resolveCommands('player', model.elapsed, (buffered) => {
       const wasClimbing = model.player.state === 'climbing';
@@ -41,6 +42,7 @@ export const useMatchStore = create<MatchStore>((set) => ({
       const wasNearApron = ((Math.abs(model.player.position.x) > 4.62 && Math.abs(model.player.position.x) < 6.9 && Math.abs(model.player.position.z) < 3.55)
         || (Math.abs(model.player.position.z) > 3.05 && Math.abs(model.player.position.z) < 5.6 && Math.abs(model.player.position.x) < 5.15));
       const accepted = requestCommand(model, 'player', buffered.command, buffered.direction, buffered.running);
+      commandAccepted ||= accepted;
       if (accepted && buffered.command === 'jump') bodyWorksRuntime.requestJump('player');
       if (accepted && buffered.command === 'dodge' && wasDowned && model.player.moveId === 'kick_up') bodyWorksRuntime.requestJump('player');
       if (accepted && buffered.command === 'dodge' && wasClimbing && model.player.state === 'climbing') bodyWorksRuntime.requestCornerClimb('player', model.player.position, model.player.climbStage || 1);
@@ -52,7 +54,7 @@ export const useMatchStore = create<MatchStore>((set) => ({
     });
     advanceMatch(model, dt, { ...input, commands: [] });
     publishAccumulator += dt;
-    const urgent = previousImpact !== model.impactSequence || wasResolved !== model.resolved;
+    const urgent = commandAccepted || previousImpact !== model.impactSequence || wasResolved !== model.resolved;
     if (publishAccumulator >= .1 || urgent) {
       publishAccumulator %= .1;
       return { model: { ...model }, revision: state.revision + 1 };
@@ -62,13 +64,20 @@ export const useMatchStore = create<MatchStore>((set) => ({
   pause: (paused) => set((state) => ({ model: { ...state.model, paused }, revision: state.revision + 1 })),
   setLabMode: (active) => set((state) => ({ model: { ...state.model, labMode: active, aiIntent: null, aiMovement: { x: 0, z: 0 }, aiRunning: false, aiBlockTimer: 0 }, revision: state.revision + 1 })),
   setToyTestMode: (active) => set((state) => ({ model: { ...state.model, toyTestMode: active }, revision: state.revision + 1 })),
-  configureLab: (playerId, opponentId, seed, playerStaminaPercent, opponentStaminaPercent) => set((state) => {
+  configureLab: (playerId, opponentId, seed, playerStaminaPercent, opponentStaminaPercent, playerAdditionalMass = 0, opponentAdditionalMass = 0) => set((state) => {
     bodyWorksRuntime.reset(); publishAccumulator = 0;
     const model = createMatch(playerId, opponentId, 'standard', 'normal', Math.max(1, Math.floor(seed)));
+    model.runtimeId = state.model.runtimeId + 1;
     model.labMode = true; model.physicsAuthority = true; model.announcement = 'LAB PAIR LOADED — INPUT LIVE'; model.announcementTimer = .8;
     model.player.stamina = model.player.staminaCap * Math.max(0, Math.min(100, playerStaminaPercent)) / 100;
     model.opponent.stamina = model.opponent.staminaCap * Math.max(0, Math.min(100, opponentStaminaPercent)) / 100;
+    model.player.body.mass += Math.max(0, Math.min(120, playerAdditionalMass)); model.opponent.body.mass += Math.max(0, Math.min(120, opponentAdditionalMass));
+    bodyWorksRuntime.setLabAdditionalMass('player', playerAdditionalMass); bodyWorksRuntime.setLabAdditionalMass('opponent', opponentAdditionalMass);
     return { model, revision: state.revision + 1, replayActive: false };
+  }),
+  requestLabCommand: (fighter, command, direction = { x: 0, z: 0 }, running = false) => set((state) => {
+    if (!state.model.labMode || !requestCommand(state.model, fighter, command, direction, running)) return state;
+    return { model: { ...state.model }, revision: state.revision + 1 };
   }),
   prepareLabScenario: (playerPosition, opponentPosition, playerState = 'idle', opponentHealth = 100, recoveryOrientation = 'back', downTimer = 5, playerStaminaPercent) => set((state) => {
     if (!state.model.labMode) return state;

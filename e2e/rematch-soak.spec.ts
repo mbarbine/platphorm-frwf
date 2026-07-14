@@ -15,8 +15,8 @@ const usedHeap = async (page: Page): Promise<number> => page.evaluate(() => {
   return memory?.usedJSHeapSize ?? 0;
 });
 
-test('three bounded instant rematches keep the Rapier world and JS heap stable', async ({ page }) => {
-  test.setTimeout(180_000);
+test('six bounded instant rematches keep the Rapier world and JS heap stable', async ({ page }) => {
+  test.setTimeout(240_000);
   const errors: string[] = [];
   page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()); });
   page.on('pageerror', (error) => errors.push(error.message));
@@ -24,9 +24,11 @@ test('three bounded instant rematches keep the Rapier world and JS heap stable',
 
   const hud = page.locator('.hud'); const lab = page.getByTestId('physics-lab');
   await expect(hud).toHaveAttribute('data-physics-bodies', '32', { timeout: 30_000 });
+  await expect.poll(async () => Number(await lab.getAttribute('data-lab-fps')), { timeout: 10_000, intervals: [300, 500] }).toBeGreaterThan(0);
+  const baselineFps = Number(await lab.getAttribute('data-lab-fps'));
   await page.requestGC(); const baselineHeap = await usedHeap(page); const heaps = [baselineHeap];
 
-  for (let round = 0; round < 3; round += 1) {
+  for (let round = 0; round < 6; round += 1) {
     await expect(hud).toHaveAttribute('data-physics-bodies', '32', { timeout: 20_000 });
     await expect(hud).toHaveAttribute('data-physics-joints', '30');
     await expect(hud).toHaveAttribute('data-physics-emergency-resets', '0');
@@ -41,8 +43,15 @@ test('three bounded instant rematches keep the Rapier world and JS heap stable',
   }
 
   await page.waitForTimeout(1_200);
-  await expect.poll(async () => Number(await lab.getAttribute('data-lab-fps')), { timeout: 8_000, intervals: [300, 500] }).toBeGreaterThan(20);
+  await expect.poll(async () => Number(await lab.getAttribute('data-lab-fps')), { timeout: 8_000, intervals: [300, 500] }).toBeGreaterThan(0);
+  const finalFps = Number(await lab.getAttribute('data-lab-fps'));
+  expect(finalFps).toBeGreaterThanOrEqual(Math.max(1, Math.floor(baselineFps * .45)));
+  expect(Number(await lab.getAttribute('data-lab-avg-step-ms'))).toBeLessThan(4);
+  expect(Number(await lab.getAttribute('data-lab-p95-step-ms'))).toBeLessThan(7);
+  expect(Number(await lab.getAttribute('data-lab-replay-kb'))).toBeLessThan(1_024);
   const heapGrowth = Math.max(...heaps) - baselineHeap;
   if (baselineHeap > 0) expect(heapGrowth).toBeLessThan(Math.max(32 * 1024 * 1024, baselineHeap * .65));
+  if (heaps.length > 3 && heaps[1] && heaps.at(-1)) expect((heaps.at(-1) ?? 0) - heaps[1]).toBeLessThan(24 * 1024 * 1024);
+  console.info('[rematch-soak]', JSON.stringify({ rounds: 6, baselineFps, finalFps, averageStepMs: Number(await lab.getAttribute('data-lab-avg-step-ms')), p95StepMs: Number(await lab.getAttribute('data-lab-p95-step-ms')), replayKb: Number(await lab.getAttribute('data-lab-replay-kb')), baselineHeap, maximumHeap: Math.max(...heaps), heapGrowth, heaps }));
   expect(errors).toEqual([]);
 });

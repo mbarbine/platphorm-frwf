@@ -4,7 +4,7 @@
 
 RINGFALL is a static, local-first Vite application. It has no application server, database, login, telemetry client, runtime fetch, or mutating API. Zustand owns the in-memory match model. The deterministic combat model, Rapier world, rendered wrestler hierarchy, procedural audio, and HUD advance in the browser.
 
-The initial React shell does not import the arena synchronously. `GameScene` is lazy, and the production build creates independent chunks for React, Three core, React Three Fiber, Drei, React Rapier, and Rapier WASM. Rapier's `JointData` factory is injected only after the lazy game scene loads, keeping the WASM dependency out of the menu shell.
+The initial React shell does not import the arena synchronously. `GameScene` is lazy and begins preloading only after the player enters the menu or signals intent on Play. The production build creates independent chunks for React, Three core, React Three Fiber, Drei, React Rapier, and Rapier WASM. Rapier's `JointData` factory is injected only after the lazy game scene loads, keeping the WASM dependency out of the initial shell.
 
 ## Simulation ownership
 
@@ -24,10 +24,10 @@ Throw and dive velocity changes are distributed by each segment's own mass. This
 
 ## Arena and camera
 
-`data/arena.ts` is the common geometry contract for the expanded Volt Dome floor, playable limits, barricades, desk, entrance lane, and steps. `Arena.tsx` separates physical surfaces from decorative broadcast architecture. Ropes, ring, floor, desk, steps, props, posts, and barricades participate in collision. Crowd, LEDs, truss, stage, and lighting do not add solver load.
+`data/arena.ts` is the common geometry contract for the expanded Volt Dome floor, playable limits, barricades, desk, entrance lane, and steps. `Arena.tsx` separates physical surfaces from decorative broadcast architecture. Ropes, ring, floor, desk, steps, chair/sign/trash props, posts, fixed safety rails, and damped movable barricade panels participate in collision. Crowd, LEDs, truss, stage, and lighting do not add solver load.
 
 `camera/cameraDirector.ts` chooses the semantic shot. `CameraRig.tsx` owns shot continuity, placement, target damping, FOV, and impact response. Camera-relative movement freezes its basis while input is held or a cinematic action is active, decoupling control meaning from shot changes.
 
 ## Cleanup lifecycle
 
-Every rematch resets commands, contacts, pending landings, grips, prop joints, replay frames, metrics, and world registrations. React keys include `runtimeId`, forcing old physical rigs and broken-table fragments to unmount before the next match. The bounded browser soak asserts that bodies and joints return to their expected counts across three complete rematches and checks heap growth when Chromium exposes precise memory information.
+Every rematch resets commands, contacts, pending landings, grips, prop joints, replay frames, rolling timing samples, metrics, and world registrations. React keys include `runtimeId`, forcing old physical rigs and broken-table fragments to unmount before the next match. The bounded browser soak asserts that bodies and joints return to their expected counts across six complete rematches and checks heap growth when Chromium exposes precise memory information.
