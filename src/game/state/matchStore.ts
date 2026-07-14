@@ -66,6 +66,8 @@ export const useMatchStore = create<MatchStore>((set) => ({
     bodyWorksRuntime.prepareLabPositions(playerPosition, opponentPosition);
     const player = createFighterRuntime(state.model.player.definitionId, { ...playerPosition }, state.model.player.beersDrunk);
     const opponent = createFighterRuntime(state.model.opponent.definitionId, { ...opponentPosition }, state.model.opponent.beersDrunk);
+    player.facing = Math.atan2(opponentPosition.x - playerPosition.x, opponentPosition.z - playerPosition.z);
+    opponent.facing = Math.atan2(playerPosition.x - opponentPosition.x, playerPosition.z - opponentPosition.z);
     player.state = playerState; player.downTimer = playerState === 'downed' ? 5 : 0;
     opponent.health = Math.max(0, Math.min(100, opponentHealth));
     return { model: { ...state.model, player, opponent, grapple: null, lastImpact: null, hitStop: 0, slowMotion: 0, announcement: 'LAB RESET — INPUT LIVE', announcementTimer: .65, aiIntent: null, aiMovement: { x: 0, z: 0 }, aiRunning: false, aiBlockTimer: 0 }, revision: state.revision + 1, replayActive: false };

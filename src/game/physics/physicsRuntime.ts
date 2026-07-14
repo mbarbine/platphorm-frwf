@@ -834,7 +834,14 @@ export class BodyWorksRuntime {
       // continuous-collision envelope. The earlier lift supplies most of the
       // fall energy; an excessive downward impulse only made heavy bodies
       // tunnel through the deck.
-      defenderPelvis.applyImpulse({ x: direction.x * defender.body.mass * 1.45, y: -defender.body.mass * 1.8, z: direction.z * defender.body.mass * 1.45 }, true);
+      // Drive every segment through the release with the same velocity change.
+      // Applying the whole wrestler mass to the pelvis alone stretched the
+      // ragdoll and could launch a slammed opponent clean over nearby props.
+      for (const body of Object.values(defenderRig.bodies)) {
+        if (!body?.isValid()) continue;
+        const mass = body.mass();
+        body.applyImpulse({ x: direction.x * mass * .9, y: -mass * 1.8, z: direction.z * mass * .9 }, true);
+      }
       defenderChest.applyTorqueImpulse({ x: move.id.includes('suplex') || move.id === 'skyhook' ? -.16 : -.08, y: 0, z: grapple.position === 'overhook' ? .12 : -.08 }, true);
       const attackerVelocity = attackerPelvis.linvel();
       attackerPelvis.setLinvel({ x: attackerVelocity.x * .28, y: Math.max(0, attackerVelocity.y * .2), z: attackerVelocity.z * .28 }, true);
@@ -894,16 +901,25 @@ export class BodyWorksRuntime {
       if (!rig || !pelvis || !chest || !head) continue;
       const bodies = [pelvis, chest, head];
       const lowest = bodies.reduce((candidate, body) => body.translation().y < candidate.translation().y ? body : candidate);
-      const velocity = lowest.linvel(); const speed = Math.hypot(velocity.x, velocity.y, velocity.z);
+      const table = model.props.find((prop) => prop.kind === 'table' && !prop.broken);
+      const tableContactBody = table
+        ? bodies.find((body) => {
+            const position = body.translation();
+            return Math.abs(position.x - table.position.x) <= 1.86 && Math.abs(position.z - table.position.z) <= .82 && position.y <= 1.34;
+          })
+        : undefined;
+      const landingBody = tableContactBody ?? lowest;
+      const velocity = landingBody.linvel(); const speed = Math.hypot(velocity.x, velocity.y, velocity.z);
+      const lowestPosition = lowest.translation(); const tableLanding = Boolean(tableContactBody);
       const inRing = Math.abs(model[landing.defender].position.x) < 6 && Math.abs(model[landing.defender].position.z) < 4.6;
-      const nearDeck = lowest.translation().y <= (inRing ? 2.48 : .72);
+      const nearDeck = tableLanding || lowestPosition.y <= (inRing ? 2.48 : .72);
       if (!nearDeck && !(velocity.y < -1.2 && model.elapsed - landing.releasedAt > .42)) continue;
       const inverseSpeed = 1 / Math.max(.001, speed);
       this.recordContact({
-        time: model.elapsed, sourceFighter: landing.defender, sourceSegment: lowest === head ? 'head' : lowest === chest ? 'chest' : 'pelvis',
-        targetFighter: null, targetSegment: null, targetRegion: 'chest', totalForce: Math.max(75, lowest.mass() * Math.max(2, speed) * 9),
-        maximumForce: Math.max(55, lowest.mass() * Math.max(2, speed) * 6), forceDirection: [velocity.x * inverseSpeed, velocity.y * inverseSpeed, velocity.z * inverseSpeed],
-        relativeSpeed: Math.max(1.1, speed), attackInstanceId: null, moveId: null, sourceObjectId: null, targetSurface: inRing ? 'ring' : 'floor', isLanding: false,
+        time: model.elapsed, sourceFighter: landing.defender, sourceSegment: landingBody === head ? 'head' : landingBody === chest ? 'chest' : 'pelvis',
+        targetFighter: null, targetSegment: null, targetRegion: 'chest', totalForce: Math.max(75, landingBody.mass() * Math.max(2, speed) * 9),
+        maximumForce: Math.max(55, landingBody.mass() * Math.max(2, speed) * 6), forceDirection: [velocity.x * inverseSpeed, velocity.y * inverseSpeed, velocity.z * inverseSpeed],
+        relativeSpeed: Math.max(1.1, speed), attackInstanceId: null, moveId: null, sourceObjectId: null, targetSurface: tableLanding ? 'table' : inRing ? 'ring' : 'floor', isLanding: false,
       });
     }
   }
