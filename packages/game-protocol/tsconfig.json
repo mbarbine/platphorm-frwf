@@ -5,7 +5,9 @@
     "moduleResolution": "NodeNext",
     "lib": ["ES2022"],
     "strict": true,
-    "noEmit": true,
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "declaration": true,
     "skipLibCheck": true
   },
   "include": ["src/**/*"]

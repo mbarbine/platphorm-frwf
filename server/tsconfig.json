@@ -9,11 +9,7 @@
     "esModuleInterop": true,
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
-    "skipLibCheck": true,
-    "paths": {
-      "@frwf/game-protocol": ["../packages/game-protocol/src/index.ts"],
-      "@frwf/game-core": ["../packages/game-core/src/index.ts"]
-    }
+    "skipLibCheck": true
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]

@@ -27,7 +27,6 @@ async function bootstrap(): Promise<void> {
 
   const gameServer = new Server({
     server: httpServer,
-    express: app,
   });
 
   // ── Room definitions ───────────────────────────────────────────────────────

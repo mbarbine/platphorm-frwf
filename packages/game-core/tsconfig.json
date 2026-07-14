@@ -5,11 +5,11 @@
     "moduleResolution": "NodeNext",
     "lib": ["ES2022"],
     "strict": true,
-    "noEmit": true,
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "declaration": true,
     "skipLibCheck": true,
-    "paths": {
-      "@frwf/game-protocol": ["../game-protocol/src/index.ts"]
-    }
+    "paths": {}
   },
   "include": ["src/**/*"]
 }
