@@ -102,6 +102,7 @@ interface FighterRigRegistration {
   restPelvisY: number;
   rootStabilized: boolean;
   skeletonStabilized: boolean;
+  rotationSignature: string;
   supportContacts: Set<BodySegmentId>;
   jumpQueued: boolean;
   jumpCooldown: number;
@@ -226,7 +227,7 @@ export class BodyWorksRuntime {
       const position = body.translation();
       restOffsets[segment] = { x: position.x - pelvisPosition.x, y: position.y - pelvisPosition.y, z: position.z - pelvisPosition.z };
     }
-    this.rigs.set(fighter, { bodies, restOffsets, restPelvisY: pelvisPosition.y, rootStabilized: false, skeletonStabilized: false, supportContacts: new Set<BodySegmentId>(), jumpQueued: false, jumpCooldown: 0, ropeContact: null, cornerAnchor: null, apronAnchor: null, jointFaultFrames: 0, lastSafeCenter: { x: pelvisPosition.x, z: pelvisPosition.z } });
+    this.rigs.set(fighter, { bodies, restOffsets, restPelvisY: pelvisPosition.y, rootStabilized: false, skeletonStabilized: false, rotationSignature: '', supportContacts: new Set<BodySegmentId>(), jumpQueued: false, jumpCooldown: 0, ropeContact: null, cornerAnchor: null, apronAnchor: null, jointFaultFrames: 0, lastSafeCenter: { x: pelvisPosition.x, z: pelvisPosition.z } });
     this.applyLabAdditionalMass(fighter);
     this.recount(jointCount);
     const registeredGeneration = this.generation;
@@ -370,7 +371,7 @@ export class BodyWorksRuntime {
       body.setTranslation({ x: target.x + offset.x, y: rig.restPelvisY + offset.y, z: target.z + offset.z }, true);
       body.setLinvel({ x: 0, y: 0, z: 0 }, true); body.setAngvel({ x: 0, y: 0, z: 0 }, true); body.setRotation({ x: 0, y: 0, z: 0, w: 1 }, true);
     }
-    rig.rootStabilized = false; rig.skeletonStabilized = false; rig.supportContacts.clear(); rig.supportContacts.add('leftFoot'); rig.supportContacts.add('rightFoot'); rig.jumpQueued = false; rig.ropeContact = null; rig.cornerAnchor = null; rig.apronAnchor = null; rig.jointFaultFrames = 0; rig.lastSafeCenter = { ...target };
+    rig.rootStabilized = false; rig.skeletonStabilized = false; rig.rotationSignature = ''; rig.supportContacts.clear(); rig.supportContacts.add('leftFoot'); rig.supportContacts.add('rightFoot'); rig.jumpQueued = false; rig.ropeContact = null; rig.cornerAnchor = null; rig.apronAnchor = null; rig.jointFaultFrames = 0; rig.lastSafeCenter = { ...target };
   }
 
   setFootContact(fighter: FighterKey, foot: BodySegmentId, touching: boolean): void {
@@ -511,15 +512,7 @@ export class BodyWorksRuntime {
       }
       rig.rootStabilized = rootStabilized;
     }
-    // Limbs and torso segments stay dynamic for the entire match. Joint motors
-    // guide them; contact and temporary grips are allowed to displace them.
-    if (!rig.skeletonStabilized) {
-      for (const [segment, body] of Object.entries(rig.bodies) as [BodySegmentId, RapierRigidBody][]) {
-        if (!body?.isValid()) continue;
-        if (segment !== 'pelvis') body.setEnabledRotations(true, true, true, true);
-      }
-      rig.skeletonStabilized = true;
-    }
+    this.configureRotationalAuthority(rig, fighter, motorProfile);
     const intent = this.intents[key];
     const velocity = pelvis.linvel();
     const definition = fighterById(fighter.definitionId);
@@ -629,6 +622,30 @@ export class BodyWorksRuntime {
     if (BODYWORKS_FLAGS.ropes) this.applyRopeController(rig, fighter, model);
     if (BODYWORKS_FLAGS.contactStrikes) this.applyPhysicalStrike(key, rig, fighter, model);
     this.applyPoseDrive(rig, fighter, motorProfile);
+  }
+
+  private configureRotationalAuthority(rig: FighterRigRegistration, fighter: FighterRuntime, profile: MotorProfile): void {
+    const dynamic = new Set<BodySegmentId>();
+    if (profile.rootMode === 'physical') for (const segment of Object.keys(rig.bodies) as BodySegmentId[]) dynamic.add(segment);
+    if (fighter.state === 'blocking') for (const segment of ['leftUpperArm', 'rightUpperArm', 'leftForearm', 'rightForearm', 'leftHand', 'rightHand'] as const) dynamic.add(segment);
+    if (fighter.state === 'grappling' || profile.id === 'clinch' || profile.id === 'lift' || profile.id === 'throw') for (const segment of ['leftUpperArm', 'rightUpperArm', 'leftForearm', 'rightForearm', 'leftHand', 'rightHand', 'chest', 'abdomen'] as const) dynamic.add(segment);
+    const strike = fighter.moveId ? strikeDriveProfile(fighter.moveId) : null;
+    if (strike) {
+      dynamic.add(strike.source);
+      if (strike.source.startsWith('left') && (strike.source.includes('Hand') || strike.source.includes('Arm') || strike.source.includes('Forearm'))) for (const segment of ['leftUpperArm', 'leftForearm', 'leftHand'] as const) dynamic.add(segment);
+      if (strike.source.startsWith('right') && (strike.source.includes('Hand') || strike.source.includes('Arm') || strike.source.includes('Forearm'))) for (const segment of ['rightUpperArm', 'rightForearm', 'rightHand'] as const) dynamic.add(segment);
+      if (strike.source.startsWith('left') && (strike.source.includes('Foot') || strike.source.includes('Shin') || strike.source.includes('Thigh'))) for (const segment of ['leftThigh', 'leftShin', 'leftFoot'] as const) dynamic.add(segment);
+      if (strike.source.startsWith('right') && (strike.source.includes('Foot') || strike.source.includes('Shin') || strike.source.includes('Thigh'))) for (const segment of ['rightThigh', 'rightShin', 'rightFoot'] as const) dynamic.add(segment);
+      if (strike.source === 'chest') for (const segment of ['chest', 'abdomen', 'leftUpperArm', 'rightUpperArm'] as const) dynamic.add(segment);
+    }
+    const signature = `${profile.rootMode}:${[...dynamic].sort().join(',')}`;
+    if (signature === rig.rotationSignature) return;
+    for (const [segment, body] of Object.entries(rig.bodies) as [BodySegmentId, RapierRigidBody][]) {
+      if (!body?.isValid() || segment === 'pelvis') continue;
+      const active = dynamic.has(segment); body.setEnabledRotations(active, active, active, true);
+      if (!active) body.setAngvel({ x: 0, y: 0, z: 0 }, true);
+    }
+    rig.rotationSignature = signature; rig.skeletonStabilized = true;
   }
 
   private applyCorePostureDrive(rig: FighterRigRegistration): void {

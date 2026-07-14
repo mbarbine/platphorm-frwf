@@ -29,7 +29,6 @@ import { pulseConnectedGamepads } from '../input/gamepadHaptics';
 import { renderDiagnostics, resetRenderDiagnostics, sampleRenderDiagnostics } from '../runtime/renderDiagnostics';
 import { selectFighterDetail } from '../presentation/presentationManifest';
 import type { FighterDetail } from '../presentation/presentationManifest';
-import { bodyWorksShippingEnabled } from '../physics/bodyWorksFlags';
 
 interface Props { onPause: () => void; onDevice: (device: ControlDevice) => void; onFinished: () => void }
 
@@ -100,11 +99,11 @@ function Fighters({ detail }: { detail: FighterDetail }) {
   const player = useMatchStore((state) => state.model.player); const opponent = useMatchStore((state) => state.model.opponent);
   const runtimeId = useMatchStore((state) => state.model.runtimeId);
   const replayActive = useMatchStore((state) => state.replayActive);
-  const physicalPresentation = bodyWorksShippingEnabled();
   return <group key={runtimeId} visible={!replayActive}>
-    <PhysicalFighterRig runtime={player} side="player" showVisuals={physicalPresentation} />
-    <PhysicalFighterRig runtime={opponent} side="opponent" showVisuals={physicalPresentation} />
-    {!physicalPresentation && <><FighterModel runtime={player} counterpart={opponent} side="player" detail={detail} /><FighterModel runtime={opponent} counterpart={player} side="opponent" detail={detail} /></>}
+    <PhysicalFighterRig runtime={player} side="player" showVisuals={false} />
+    <PhysicalFighterRig runtime={opponent} side="opponent" showVisuals={false} />
+    <FighterModel runtime={player} counterpart={opponent} side="player" detail={detail} />
+    <FighterModel runtime={opponent} counterpart={player} side="opponent" detail={detail} />
   </group>;
 }
 
