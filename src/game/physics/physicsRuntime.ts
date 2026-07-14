@@ -162,6 +162,7 @@ const JOINT_LINKS: readonly (readonly [BodySegmentId, BodySegmentId])[] = [
   ['leftThigh', 'leftShin'], ['rightThigh', 'rightShin'],
   ['leftShin', 'leftFoot'], ['rightShin', 'rightFoot'],
 ];
+const SEGMENT_PARENT: Readonly<Partial<Record<BodySegmentId, BodySegmentId>>> = Object.fromEntries(JOINT_LINKS.map(([parent, child]) => [child, parent]));
 
 const bodyAnchorWorld = (body: RapierRigidBody, localX: number): { x: number; y: number; z: number } => {
   const position = body.translation(); const rotation = body.rotation();
@@ -1080,7 +1081,7 @@ export class BodyWorksRuntime {
       // therefore scales with segment mass; applying a torso-sized impulse to
       // a hand or upper arm produces solver-speed vibration even when the
       // abstract profile value is bounded.
-      const massTorqueCap = body.mass() * (segment === 'pelvis' || segment === 'abdomen' || segment === 'chest' ? 6.2 : segment === 'head' ? 4.2 : 4.8);
+      const massTorqueCap = body.mass() * (segment === 'pelvis' || segment === 'abdomen' || segment === 'chest' ? 3.2 : segment === 'head' ? 2 : 2.4);
       const maximumTorque = Math.min(chain.maximumTorque * stiffnessScale, massTorqueCap);
       const torque = computeMotorTorque(body.rotation(), targets[segment], body.angvel(), { x: 0, y: 0, z: 0 }, {
         stiffness: chain.stiffness * stiffnessScale,
@@ -1091,7 +1092,10 @@ export class BodyWorksRuntime {
       });
       const requestedMagnitude = Math.hypot(torque.x, torque.y, torque.z);
       if (requestedMagnitude >= maximumTorque * .985) this.metrics.motorSaturationCount += 1;
-      body.applyTorqueImpulse({ x: torque.x * this.currentFixedDt, y: torque.y * this.currentFixedDt, z: torque.z * this.currentFixedDt }, true);
+      const impulse = { x: torque.x * this.currentFixedDt, y: torque.y * this.currentFixedDt, z: torque.z * this.currentFixedDt };
+      body.applyTorqueImpulse(impulse, true);
+      const parentId = SEGMENT_PARENT[segment]; const parent = parentId ? rig.bodies[parentId] : null;
+      if (parent?.isValid()) parent.applyTorqueImpulse({ x: -impulse.x, y: -impulse.y, z: -impulse.z }, true);
     }
   }
 
