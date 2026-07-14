@@ -38,13 +38,13 @@ pnpm preview
 | Dodge / timed counter / downed kick-up / kickout / climb down | Space | A / Cross |
 | Standing jump / hop | C | Left-stick press |
 | Pick up, swing, drop, or throw a prop | E | Left bumper |
-| Ring exit/re-entry, turnbuckle climb/dive, pin, or signature | F | Right stick press |
+| Ring exit/re-entry, turnbuckle climb/dive, corner rail shot, pin, or signature | F | Right stick press |
 | Signature taunt | Q | Right bumper |
 | Pause | Escape | Menu / Options |
 
 Movement is camera-relative and the live control deck always names the move that will fire. With no direction, J/K are Circuit Jab/Fault Hook. Aim forward for Skyline Cross/Voltage Uppercut, backward for Circuit Low Kick/Piston Boot, left for Neon One-Two/Arc Roundhouse, and right for Skyline Cross/Halo High Kick.
 
-L enters a visible collar-and-elbow lock; during its anticipation window, a direction plus J/K/L selects one of fifteen named outcomes including arm drags, trips, chokes, spinebusters, suplexes, powerbombs, side tosses, slams, and an Irish whip. A direction held through release also drives the physical throw. When the defender is already committed over the commentary desk, bounded environmental aim assist keeps the slam on the desk instead of launching the ragdoll past it. Hold I/LT to guard: strikes deal tiny chip damage and drain guard stamina, while a grapple can be stuffed until the guard breaks. Space performs a visible, stamina-bound Livewire Kick-Up while downed.
+L enters a visible collar-and-elbow lock; during its anticipation window, a direction plus J/K/L selects one of fifteen named outcomes including arm drags, trips, chokes, spinebusters, suplexes, powerbombs, side tosses, slams, and an Irish whip. Near a corner, F converts that secured clinch into a physical Turnbuckle Rail Shot. A direction held through release also drives the physical throw. When the defender is already committed over the commentary desk, bounded environmental aim assist keeps the slam on the desk instead of launching the ragdoll past it. Hold I/LT to guard: strikes deal tiny chip damage and drain guard stamina, while a grapple can be stuffed until the guard breaks. Space performs a visible, stamina-bound Livewire Kick-Up while downed; ordinary recovery selects a readable back, front, or side get-up from the last impact.
 
 Running K becomes a Railway Stiff-Arm and a registered hit guarantees a knockdown. Sprint into an elastically deforming rope to compress it; its hard elastic tier prevents normal sprint-through, reverses the complete body, and opens the faster stiff-arm window only on the inward run. Press F near a center rope to crouch through the middle ropes to ringside or return; at a corner, F is reserved for lower, middle, and top turnbuckle stages. From the top: J is Neon Drop Elbow, K is Top-Rope Missile Kick, F is Domefall Dive, Q taunts, and Space descends one stage. Fill Momentum, stagger or drop the opponent, and press F to perform that fighter's signature.
 
@@ -60,7 +60,7 @@ The core body slam is deliberately staged: reach, two-hand grip, pull, visible r
 
 ### The Volt Dome level and camera director
 
-The playable floor extends beyond every apron into a larger barricaded ringside map. The commentary desk, physical three-tier steel steps, entrance lane, reactive perimeter ribbons, expanded crowd bowl, lighting truss, stage wall, and tunnel create readable destinations instead of a dark void around the ring. The ring, floor, desk, steps, ropes, posts, props, and barricades have collision authority; decorative architecture stays out of gameplay physics.
+The playable floor extends beyond every apron into a larger barricaded ringside map. The commentary desk, physical three-tier steel steps, entrance lane, reactive perimeter ribbons, expanded crowd bowl, lighting truss, stage wall, and tunnel create readable destinations instead of a dark void around the ring. Chairs, signs, and a metal trash can are real grippable/throwable bodies. Damped barricade panels visibly give on impact while fixed outer rails preserve the safety boundary. The ring, floor, desk, steps, ropes, posts, props, and barricades have collision authority; decorative architecture stays out of gameplay physics.
 
 The camera director uses stable broadcast, wide, ringside-X, ringside-Z, commentary-table, aerial, grapple, and replay modes. It predicts bounded motion, holds a shot long enough to prevent rapid cuts, selects one camera hemisphere for continuity, and separately damps the look target. Camera-relative controls freeze their basis while input or a cinematic action is active, so a camera move cannot turn a held forward grapple into a side move. Reduced Motion lowers movement and disables impact shake.
 
@@ -110,7 +110,7 @@ All match-shaping constants live in `src/game/data/balance.ts` instead of being 
 | Grapple readability | Visible lock, directional selection window, lift/contact/landing sequence |
 | Crowd Hype | Variety beats repetition; counters, finishers, near falls, and environment spike it |
 
-Deterministic rules remain separate from presentation, but physical contacts are authoritative in the shipping match. The hidden articulated collision rigs use bounded muscle forces, shared center-of-mass locomotion, coherent whole-body impulses, and stable segment rotations rather than uncontrolled ragdoll impulses. The separate production wrestler hierarchy supplies readable walk, run, strike, throw, fall, and recovery performance. The initial shell lazily loads the game scene, and the production build splits React, Three core, React Three Fiber, Drei, React Rapier, and Rapier WASM into separate cacheable chunks. Crowd and ring-deck geometry are instanced, particles are capped, shadows are baked, and device pixel ratio is adaptive.
+Deterministic rules remain separate from presentation, but physical contacts are authoritative in the shipping match. The hidden articulated collision rigs use bounded muscle forces, shared center-of-mass locomotion, coherent whole-body impulses, and stable segment rotations rather than uncontrolled ragdoll impulses. The separate production wrestler hierarchy supplies readable walk, run, strike, throw, fall, and recovery performance. The initial shell starts preloading the lazy game scene only after menu interaction, and the production build splits React, Three core, React Three Fiber, Drei, React Rapier, and Rapier WASM into separate cacheable chunks. Auto/Performance/Quality profiles bound crowd density, DPR, antialiasing, and shadows without changing the simulation.
 
 ### UI-free Toy Test
 
@@ -140,10 +140,11 @@ Vitest covers:
 
 Playwright covers the production-preview full match plus controlled Bodyworks, Toy Test, and mobile journeys: initialization, Chad selection, five-beer setup, Chaos Circuit, exact situational controls, movement and braking, jumping, punch and directional-kick damage, visible guard, a live kick-up, elastic rope load, stiff-arm knockdown, observed two-hand grapple and physical slam landing, three-stage climb, top-rope options, real pin/KO resolution, clean console output, and instant rematch.
 
-Dedicated deterministic browser scenarios prove idle-body stability, rope rebound into a stiff-arm knockdown, a tracked top-rope dive, apron exit/re-entry, and a physical commentary-table collapse. A bounded three-rematch soak checks Rapier body/joint cleanup, emergency resets, frame cost, and browser heap growth without turning the test into an unbounded benchmark.
+Dedicated deterministic browser scenarios prove idle-body stability, rope rebound into a stiff-arm knockdown, a tracked top-rope dive, apron exit/re-entry, a physical commentary-table collapse, standard gamepad control, WebXR capability discovery, and portrait/landscape touch behavior. A 50-match deterministic bot soak checks completion and bounded state. A bounded six-rematch soak checks Rapier body/joint cleanup, emergency resets, rolling frame cost, and browser heap growth without turning the test into an unbounded benchmark.
 
 ```bash
 pnpm test:playability
+pnpm test:ai-soak
 pnpm test:soak
 pnpm test:e2e
 ```
@@ -178,3 +179,5 @@ The game intentionally does not install Vercel Analytics, Speed Insights, databa
 ## PlatPhorm contract
 
 RINGFALL remains a game first. Public discovery files report real static capabilities and honest `unsupported`/`degraded` states for backend health, MCP execution, trace propagation, protected mutations, Vercel request metadata, and authentication. There are no fake runs, fake counts, fake APIs, or simulated downstream integrations.
+
+The detailed Bodyworks baseline, architecture, capability matrix, tuning, performance, test, release, device, platform, and fun-audit documents live in [`docs/bodyworks/`](docs/bodyworks/).

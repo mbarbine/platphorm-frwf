@@ -75,7 +75,7 @@ RINGFALL: CHAOS CIRCUIT is a browser arcade-wrestling game. Its primary value is
 - Ropes apply bounded force and return energy; deliberate apron transitions are force-driven.
 - Chair/sign pickup creates a real spherical hand joint; release inherits hand velocity and an explicit throw impulse.
 - The commentary desk only accumulates stress from a measured landing on its collider and breaks into four bounded fragments. Proximity alone cannot break it.
-- Steel steps, trash can, movable barricade deformation, corner grapples, and placing an opponent on the desk are still absent.
+- Historical gap, now remediated: steel steps, a physical trash can, damped movable barricade panels, nearby corner-grapple rail shots, and bounded desk targeting are implemented. Desk and turnbuckle damage still require physical contact.
 
 ### AI, match pacing, and cleanup
 
@@ -115,4 +115,4 @@ Ropes now have a hard elastic tier that prevents normal locomotion from crossing
 
 The new camera director selects stable broadcast, wide, ringside, desk, aerial, grapple, and replay shots. Its look target is separately damped, its prediction is bounded, and shot changes use a hold window. The arena now has a larger playable floor, expanded physical barricades, physical steel steps, an entrance lane, reactive perimeter lighting, and a larger crowd/stage silhouette.
 
-Deterministic Playwright scenarios and the bounded rematch/heap soak are implemented. Their final production-build gate and the production deployment are intentionally reported separately from implementation status; see `docs/testing.md` for the exact commands and acceptance criteria.
+Deterministic Playwright scenarios, a 50-match seeded bot soak, and the bounded six-rematch/heap soak are implemented. Physics Lab now exposes time controls, repeat/reset, seeded pair and stamina setup, recovery orientations, failed-lift/grip-break stress cases, debug-rig view, and rolling average/p95 timing. Their final production-build gate and production deployment are intentionally reported separately from implementation status; see `docs/testing.md` and `docs/bodyworks/TEST_REPORT.md` for exact acceptance criteria.

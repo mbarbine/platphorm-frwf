@@ -2,11 +2,11 @@
 
 ## Playable map
 
-The ring remains the combat center, but the playable map now continues to a 24.1 by 20.5 unit ringside floor inside expanded physical barricades. The north entrance lane, south commentary desk, east steel steps, four aprons, four turnbuckles, two Chaos props, reactive perimeter ribbon, crowd bowl, stage wall, and tunnel provide clear landmarks in every camera orientation.
+The ring remains the combat center, but the playable map now continues to a 24.1 by 20.5 unit ringside floor inside expanded physical barricades. The north entrance lane, south commentary desk, east steel steps, four aprons, four turnbuckles, three Chaos props, reactive perimeter ribbon, crowd bowl, stage wall, and tunnel provide clear landmarks in every camera orientation.
 
 The arena uses a strict physical/decorative split:
 
-- Physical: ring deck, floor, ropes, posts, turnbuckle pads, commentary desk, steel steps, chair/sign props, table fragments, and barricades.
+- Physical: ring deck, floor, ropes, posts, turnbuckle pads, commentary desk, steel steps, chair/sign/trash props, table fragments, fixed safety rails, and damped movable barricade panels.
 - Decorative: crowd instances, stage screens, entrance LEDs, truss, light fixtures, broadcast walls, and mat markings.
 
 This keeps the larger level interactive without adding dozens of unnecessary rigid bodies. Fighter positions are bounded just inside the barricades, not at the old compact floor limits. After every fixed step, an intact rig that reaches an outer limit is translated as one mass so joint spacing is preserved. A separate containment counter reports boundary corrections and the rare human-scale rig reassembly safety path.
@@ -16,7 +16,8 @@ This keeps the larger level interactive without adding dozens of unnecessary rig
 - Ropes deform from measured approach, stop normal sprint-through at a hard elastic tier, return the complete body inward, and open the stiff-arm window only after release.
 - Center-rope context transitions move a wrestler between apron and ringside.
 - Turnbuckles support lower, middle, and top stages plus climb-down, taunt, and three aerial choices.
-- Steel steps and barricades are real collision surfaces.
+- A secured clinch near a corner can become a Turnbuckle Rail Shot whose defender travel and post contact remain physical.
+- Steel steps and barricades are real collision surfaces; inner barricade panels give under force and spring back without opening the outer boundary.
 - Chaos props create real hand joints and carry released hand velocity.
 - A defender within the commentary-desk targeting envelope is driven toward the desk with a capped horizontal release; a measured whole-body landing can stress or collapse it even though the production character animation and hidden collision tree use different poses.
 

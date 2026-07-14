@@ -15,8 +15,8 @@ const usedHeap = async (page: Page): Promise<number> => page.evaluate(() => {
   return memory?.usedJSHeapSize ?? 0;
 });
 
-test('three bounded instant rematches keep the Rapier world and JS heap stable', async ({ page }) => {
-  test.setTimeout(180_000);
+test('six bounded instant rematches keep the Rapier world and JS heap stable', async ({ page }) => {
+  test.setTimeout(240_000);
   const errors: string[] = [];
   page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()); });
   page.on('pageerror', (error) => errors.push(error.message));
@@ -26,7 +26,7 @@ test('three bounded instant rematches keep the Rapier world and JS heap stable',
   await expect(hud).toHaveAttribute('data-physics-bodies', '32', { timeout: 30_000 });
   await page.requestGC(); const baselineHeap = await usedHeap(page); const heaps = [baselineHeap];
 
-  for (let round = 0; round < 3; round += 1) {
+  for (let round = 0; round < 6; round += 1) {
     await expect(hud).toHaveAttribute('data-physics-bodies', '32', { timeout: 20_000 });
     await expect(hud).toHaveAttribute('data-physics-joints', '30');
     await expect(hud).toHaveAttribute('data-physics-emergency-resets', '0');
@@ -44,5 +44,6 @@ test('three bounded instant rematches keep the Rapier world and JS heap stable',
   await expect.poll(async () => Number(await lab.getAttribute('data-lab-fps')), { timeout: 8_000, intervals: [300, 500] }).toBeGreaterThan(20);
   const heapGrowth = Math.max(...heaps) - baselineHeap;
   if (baselineHeap > 0) expect(heapGrowth).toBeLessThan(Math.max(32 * 1024 * 1024, baselineHeap * .65));
+  if (heaps.length > 3 && heaps[1] && heaps.at(-1)) expect((heaps.at(-1) ?? 0) - heaps[1]).toBeLessThan(24 * 1024 * 1024);
   expect(errors).toEqual([]);
 });

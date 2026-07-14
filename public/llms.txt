@@ -1,5 +1,5 @@
 # RINGFALL: CHAOS CIRCUIT
-Original local-first 3D arcade wrestling game with articulated physics, an expanded interactive Volt Dome, and a stable multi-mode camera director.
+Original local-first 3D arcade wrestling game with articulated physics, adaptive quality, an expanded interactive Volt Dome, environmental grapples, and a stable multi-mode camera director.
 Public game: /
 Health: /api/health
 API docs: /api/docs

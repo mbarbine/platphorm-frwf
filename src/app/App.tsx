@@ -12,9 +12,9 @@ import { Tutorial } from '../ui/Tutorial';
 import { MobileControls } from '../ui/MobileControls';
 import { PhysicsLab, physicsLabEnabled } from '../game/components/PhysicsLab';
 
-type GameSceneModule = typeof import('../game/components/GameScene');
-let gameScenePromise: Promise<GameSceneModule> | null = null;
-const loadGameScene = (): Promise<GameSceneModule> => gameScenePromise ??= import('../game/components/GameScene');
+const importGameScene = () => import('../game/components/GameScene');
+let gameScenePromise: ReturnType<typeof importGameScene> | null = null;
+const loadGameScene = (): ReturnType<typeof importGameScene> => gameScenePromise ??= importGameScene();
 const GameScene = lazy(async () => ({ default: (await loadGameScene()).GameScene }));
 const FighterPreview = lazy(async () => ({ default: (await import('../ui/FighterPreview')).FighterPreview }));
 
