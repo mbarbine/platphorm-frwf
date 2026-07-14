@@ -23,9 +23,9 @@ export interface BodySegmentSchema {
 }
 
 const SEGMENT_RATIOS: Readonly<Record<BodySegmentId, number>> = {
-  pelvis: .15, abdomen: .1, chest: .18, head: .07,
-  leftUpperArm: .035, rightUpperArm: .035, leftForearm: .025, rightForearm: .025, leftHand: .0125, rightHand: .0125,
-  leftThigh: .09, rightThigh: .09, leftShin: .055, rightShin: .055, leftFoot: .04, rightFoot: .04,
+  pelvis: .15, abdomen: .1, chest: .18, head: .08,
+  leftUpperArm: .03, rightUpperArm: .03, leftForearm: .02, rightForearm: .02, leftHand: .01, rightHand: .01,
+  leftThigh: .1, rightThigh: .1, leftShin: .05, rightShin: .05, leftFoot: .035, rightFoot: .035,
 };
 
 const segment = (definition: FighterDefinition, id: BodySegmentId, side: SegmentSide, y: number, x: number, halfLength: number, radius: number): BodySegmentSchema => {

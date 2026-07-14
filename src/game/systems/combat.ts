@@ -126,6 +126,7 @@ const varietyMultiplier = (actor: FighterRuntime, moveId: string): number => {
 export const applyMoveHit = (model: MatchModel, actorKey: 'player' | 'opponent', targetKey: 'player' | 'opponent', move: MoveDefinition, contact?: BodyWorksContact): boolean => {
   const actor = model[actorKey];
   const target = model[targetKey];
+  const impactPosition = contact?.point ? { x: contact.point[0], z: contact.point[2] } : target.position;
   const hitToken = contact ? `${targetKey}:${actor.attackInstanceId}` : targetKey;
   const isPhysicalLanding = contact?.isLanding === true && (move.category === 'grapple' || move.category === 'finisher');
   if ((!isPhysicalLanding && actor.attackPhase !== 'active') || (!move.multiHit && actor.hitTargets.includes(hitToken))) return false;
@@ -157,9 +158,9 @@ export const applyMoveHit = (model: MatchModel, actorKey: 'player' | 'opponent',
       target.state = 'staggered'; target.stateElapsed = -BALANCE.block.guardBreakStagger;
       model.announcement = 'GUARD BREAK!'; model.announcementTimer = 1.1;
       model.hype = clamp(model.hype + 5, 0, 100);
-      addImpact(model, target.position, 'heavy', 1.15, { region: calculatedImpact.region, force: guardedImpact.force, torque: guardedImpact.torque, outcome: 'stagger', moveId: move.id });
+      addImpact(model, impactPosition, 'heavy', 1.15, { region: calculatedImpact.region, force: guardedImpact.force, torque: guardedImpact.torque, outcome: 'stagger', moveId: move.id });
     } else {
-      addImpact(model, target.position, 'blocked', .72, { region: calculatedImpact.region, force: guardedImpact.force, torque: guardedImpact.torque, outcome: 'absorbed', moveId: move.id });
+      addImpact(model, impactPosition, 'blocked', .72, { region: calculatedImpact.region, force: guardedImpact.force, torque: guardedImpact.torque, outcome: 'absorbed', moveId: move.id });
     }
     return true;
   }
@@ -224,7 +225,7 @@ export const applyMoveHit = (model: MatchModel, actorKey: 'player' | 'opponent',
   const highlightKind: HighlightMoment['kind'] = move.category === 'grapple' || move.category === 'finisher' ? 'slam'
     : move.category === 'prop' ? 'weapon' : move.category === 'aerial' ? 'aerial' : move.id === 'rebound' ? 'rope' : 'strike';
   const highlightScore = Math.round((impact.force * 4 + move.hypeValue + (collisionOutcome === 'launch' ? 18 : 0) + (move.category === 'finisher' ? 28 : 0)) * 10) / 10;
-  addImpact(model, target.position, kind, move.category === 'finisher' ? 2.2 : Math.max(.6, move.damage / 13), {
+  addImpact(model, impactPosition, kind, move.category === 'finisher' ? 2.2 : Math.max(.6, move.damage / 13), {
     region: impact.region,
     force: impact.force,
     torque: impact.torque,

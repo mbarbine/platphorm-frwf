@@ -3,37 +3,29 @@ import { useEffect, useMemo, useRef } from 'react';
 import type { Group } from 'three';
 import { bodyWorksRuntime } from '../physics/physicsRuntime';
 import type { PhysicsReplayFrame } from '../physics/replayBuffer';
-import { createFighterRuntime } from '../systems/combat';
-import type { FighterRuntime, ReplayFighterFrame, ReplayFrame } from '../types/game';
 import { useSettings } from '../state/settings';
 import { useMatchStore } from '../state/matchStore';
-import { FighterModel } from './FighterModel';
+import { SegmentVisual } from './PhysicalFighterRig';
+import { buildBodySchema } from '../physics/bodySchema';
+import type { BodySegmentId } from '../physics/bodySchema';
+import { fighterById } from '../data/fighters';
+import type { FighterId } from '../types/game';
 
 const PLAYBACK_SECONDS = 3.85;
 
-const applyPresentationFrame = (runtime: FighterRuntime, frame: ReplayFighterFrame): void => {
-  runtime.position.x = frame.position.x; runtime.position.z = frame.position.z;
-  runtime.velocity.x = frame.velocity.x; runtime.velocity.z = frame.velocity.z;
-  runtime.facing = frame.facing; runtime.state = frame.state; runtime.stateElapsed = frame.stateElapsed;
-  runtime.moveId = frame.moveId; runtime.attackPhase = frame.attackPhase; runtime.phaseElapsed = frame.phaseElapsed;
-  runtime.health = frame.health; runtime.stamina = frame.stamina; runtime.staminaCap = frame.staminaCap; runtime.momentum = frame.momentum;
-  runtime.climbStage = frame.climbStage; runtime.recoveryOrientation = frame.recoveryOrientation;
-  runtime.body.verticalOffset = frame.body.verticalOffset; runtime.body.leanForward = frame.body.leanForward; runtime.body.leanSide = frame.body.leanSide;
-  runtime.body.twist = frame.body.twist; runtime.body.headSnap = frame.body.headSnap; runtime.body.pelvisDrop = frame.body.pelvisDrop;
-  runtime.body.muscle = frame.body.muscle; runtime.body.gaitPhase = frame.body.gaitPhase; runtime.body.stride = frame.body.stride;
-  Object.assign(runtime.body.leftFoot, frame.body.leftFoot); Object.assign(runtime.body.leftFoot.offset, frame.body.leftFoot.offset);
-  Object.assign(runtime.body.rightFoot, frame.body.rightFoot); Object.assign(runtime.body.rightFoot.offset, frame.body.rightFoot.offset);
-};
-
-function RecordedPresentation({ frameRef }: { frameRef: React.RefObject<ReplayFrame | null> }) {
-  const playerId = useMatchStore((state) => state.model.player.definitionId); const opponentId = useMatchStore((state) => state.model.opponent.definitionId);
-  const player = useMemo(() => createFighterRuntime(playerId, { x: 0, z: 0 }), [playerId]);
-  const opponent = useMemo(() => createFighterRuntime(opponentId, { x: 0, z: 0 }), [opponentId]);
+function RecordedPhysicalFighter({ frameRef, side, fighterId }: { frameRef: React.RefObject<PhysicsReplayFrame | null>; side: 'player' | 'opponent'; fighterId: FighterId }) {
+  const segments = useMemo(() => buildBodySchema(fighterById(fighterId)), [fighterId]);
+  const bodies = useRef<Partial<Record<BodySegmentId, Group | null>>>({});
   useFrame(() => {
-    const frame = frameRef.current; if (!frame) return;
-    applyPresentationFrame(player, frame.player); applyPresentationFrame(opponent, frame.opponent);
+    const transforms = frameRef.current?.fighters[side]; if (!transforms) return;
+    for (const segment of segments) {
+      const group = bodies.current[segment.id]; const transform = transforms[segment.id]; if (!group || !transform) continue;
+      group.position.set(transform.position.x, transform.position.y, transform.position.z);
+      group.quaternion.set(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
+      group.visible = true;
+    }
   }, -1);
-  return <><FighterModel runtime={player} counterpart={opponent} side="player" reportAlignment={false} /><FighterModel runtime={opponent} counterpart={player} side="opponent" reportAlignment={false} /></>;
+  return <>{segments.map((segment) => <group key={segment.id} ref={(node) => { bodies.current[segment.id] = node; }} visible={false}><SegmentVisual schema={segment} fighterId={fighterId} /></group>)}</>;
 }
 
 function RecordedProps({ frameRef }: { frameRef: React.RefObject<PhysicsReplayFrame | null> }) {
@@ -58,8 +50,9 @@ function RecordedProps({ frameRef }: { frameRef: React.RefObject<PhysicsReplayFr
 
 export function ReplayDirector() {
   const active = useMatchStore((state) => state.replayActive); const lastImpact = useMatchStore((state) => state.model.lastImpact);
+  const playerId = useMatchStore((state) => state.model.player.definitionId); const opponentId = useMatchStore((state) => state.model.opponent.definitionId);
   const reducedMotion = useSettings((state) => state.reducedMotion);
-  const replayedImpact = useRef(0); const physicsFrames = useRef<readonly PhysicsReplayFrame[]>([]); const presentationFrames = useRef<readonly ReplayFrame[]>([]); const elapsed = useRef(0); const physicsFrame = useRef<PhysicsReplayFrame | null>(null); const presentationFrame = useRef<ReplayFrame | null>(null);
+  const replayedImpact = useRef(0); const physicsFrames = useRef<readonly PhysicsReplayFrame[]>([]); const elapsed = useRef(0); const physicsFrame = useRef<PhysicsReplayFrame | null>(null);
   useEffect(() => {
     if (!lastImpact || lastImpact.id === replayedImpact.current || reducedMotion) return;
     // A physical landing can emit both its move impact and its mat/body response
@@ -71,10 +64,9 @@ export function ReplayDirector() {
     replayedImpact.current = lastImpact.id; useMatchStore.getState().startReplay();
   }, [active, lastImpact, reducedMotion]);
   useEffect(() => {
-    if (!active) { physicsFrame.current = null; presentationFrame.current = null; return; }
+    if (!active) { physicsFrame.current = null; return; }
     physicsFrames.current = bodyWorksRuntime.replay.chronological().slice(-150);
-    presentationFrames.current = useMatchStore.getState().model.replayFrames.slice(-75);
-    elapsed.current = 0; physicsFrame.current = physicsFrames.current[0] ?? null; presentationFrame.current = presentationFrames.current[0] ?? null;
+    elapsed.current = 0; physicsFrame.current = physicsFrames.current[0] ?? null;
   }, [active]);
   useFrame((_, dt) => {
     if (!active || physicsFrames.current.length === 0) return;
@@ -82,10 +74,7 @@ export function ReplayDirector() {
     const physicsTail = Math.min(20, Math.max(1, physicsFrames.current.length - 1)); const physicsLead = physicsFrames.current.length - physicsTail;
     const physicsIndex = elapsed.current < 2.2 ? Math.floor(elapsed.current / 2.2 * physicsLead) : physicsLead + Math.floor((elapsed.current - 2.2) * 30 * .4);
     physicsFrame.current = physicsFrames.current[Math.min(physicsFrames.current.length - 1, physicsIndex)] ?? null;
-    const presentationTail = Math.min(10, Math.max(1, presentationFrames.current.length - 1)); const presentationLead = presentationFrames.current.length - presentationTail;
-    const presentationIndex = elapsed.current < 2.2 ? Math.floor(elapsed.current / 2.2 * presentationLead) : presentationLead + Math.floor((elapsed.current - 2.2) * 15 * .4);
-    presentationFrame.current = presentationFrames.current[Math.min(presentationFrames.current.length - 1, presentationIndex)] ?? null;
     if (elapsed.current >= PLAYBACK_SECONDS) useMatchStore.getState().stopReplay();
   }, -2);
-  return <group visible={active}><RecordedPresentation frameRef={presentationFrame} /><RecordedProps frameRef={physicsFrame} /></group>;
+  return <group visible={active}><RecordedPhysicalFighter frameRef={physicsFrame} side="player" fighterId={playerId} /><RecordedPhysicalFighter frameRef={physicsFrame} side="opponent" fighterId={opponentId} /><RecordedProps frameRef={physicsFrame} /></group>;
 }

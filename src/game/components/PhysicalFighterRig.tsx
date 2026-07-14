@@ -10,31 +10,57 @@ import type { BodySegmentId, BodySegmentSchema } from '../physics/bodySchema';
 import { fighterCollisionGroups } from '../physics/collisionGroups';
 import { bodyWorksRuntime } from '../physics/physicsRuntime';
 import type { FighterKey } from '../physics/physicsRuntime';
+import { strikeDriveProfile } from '../physics/strikeDynamics';
+import { fighterVisual } from '../presentation/fighterVisuals';
 
 interface Props { runtime: FighterRuntime; side: FighterKey; showVisuals?: boolean }
-interface RigUserData { bodyWorks: true; fighter: FighterKey; segment: BodySegmentId; region: BodySegmentSchema['bodyRegion']; surface?: boolean }
+interface RigUserData {
+  bodyWorks: true;
+  fighter: FighterKey;
+  segment: BodySegmentId;
+  region: BodySegmentSchema['bodyRegion'];
+  side: BodySegmentSchema['side'];
+  colliderRole: BodySegmentSchema['colliderRole'];
+  damageMultiplier: number;
+  gripAnchorEligible: boolean;
+  surface?: boolean;
+}
 interface SurfaceUserData { surface: true; kind: string }
 
 const isRigUserData = (value: unknown): value is RigUserData => typeof value === 'object' && value !== null && 'bodyWorks' in value;
 const isSurfaceUserData = (value: unknown): value is SurfaceUserData => typeof value === 'object' && value !== null && 'surface' in value && 'kind' in value;
 
 export function SegmentVisual({ schema, fighterId }: { schema: BodySegmentSchema; fighterId: FighterRuntime['definitionId'] }) {
-  const fighter = fighterById(fighterId); const arm = schema.id.includes('Arm') || schema.id.includes('Forearm') || schema.id.includes('Hand'); const leg = schema.id.includes('Thigh') || schema.id.includes('Shin') || schema.id.includes('Foot');
+  const fighter = fighterById(fighterId); const profile = fighterVisual(fighterId); const arm = schema.id.includes('Arm') || schema.id.includes('Forearm') || schema.id.includes('Hand'); const leg = schema.id.includes('Thigh') || schema.id.includes('Shin') || schema.id.includes('Foot');
   const costume = schema.id.includes('Forearm') || schema.id.includes('Shin') || schema.id.includes('Foot');
   const color = schema.id === 'pelvis' ? fighter.palette.secondary : schema.id === 'chest' || costume ? fighter.palette.primary : arm || leg || schema.id === 'head' || schema.id === 'abdomen' ? fighter.palette.skin : fighter.palette.primary;
   const material = <meshStandardMaterial color={color} roughness={.5} metalness={costume ? .28 : .08} emissive={fighter.palette.emissive} emissiveIntensity={costume ? .16 : .035} />;
   if (schema.id === 'head') return <group>
-    <mesh castShadow><dodecahedronGeometry args={[schema.radius * 1.08, 1]} />{material}</mesh>
-    <mesh position={[-.065, .035, .17]}><sphereGeometry args={[.025, 6, 5]} /><meshBasicMaterial color="#f8fbff" /></mesh><mesh position={[.065, .035, .17]}><sphereGeometry args={[.025, 6, 5]} /><meshBasicMaterial color="#f8fbff" /></mesh>
+    <mesh castShadow scale={[1.03 * profile.headScale[0], 1.14 * profile.headScale[1], 1.02 * profile.headScale[2]]}><sphereGeometry args={[schema.radius * 1.08, 16, 11]} />{material}</mesh>
+    <mesh position={[0, -.105, .105]} scale={[.82, .48, .72]}><sphereGeometry args={[schema.radius, 13, 8]} />{material}</mesh>
+    {[-1, 1].map((faceSide) => <group key={faceSide} position={[faceSide * .066, .03, .178]}>
+      <mesh scale={[.035, .025, .018]}><sphereGeometry args={[1, 9, 7]} /><meshStandardMaterial color="#f6f2ec" roughness={.35} /></mesh>
+      <mesh position={[0, 0, .016]} scale={[.014, .015, .009]}><sphereGeometry args={[1, 8, 6]} /><meshStandardMaterial color={profile.eyeColor} emissive={profile.eyeColor} emissiveIntensity={.18} /></mesh>
+      <mesh position={[0, .053, .007]} rotation={[0, 0, faceSide * -.12]}><boxGeometry args={[.07, .014, .016]} /><meshStandardMaterial color={profile.browColor} roughness={.9} /></mesh>
+    </group>)}
+    <mesh position={[0, -.01, .195]} rotation={[Math.PI / 2, 0, 0]}><coneGeometry args={[.028, .07, 7]} />{material}</mesh>
+    <mesh position={[0, -.09, .19]} scale={[.065, .012, .012]}><sphereGeometry args={[1, 10, 5]} /><meshStandardMaterial color="#5b1f31" roughness={.7} /></mesh>
+    {[-1, 1].map((earSide) => <mesh key={earSide} position={[earSide * .196, .005, 0]} scale={[.035, .055, .025]}><sphereGeometry args={[1, 9, 6]} />{material}</mesh>)}
     <Headwear fighterId={fighterId} />
   </group>;
-  if (schema.id.includes('Hand')) return <mesh castShadow><boxGeometry args={[schema.radius * 1.8, schema.halfLength * 1.8, schema.radius * 1.6]} />{material}</mesh>;
+  if (schema.id.includes('Hand')) return <group>
+    <mesh castShadow scale={[1, 1, .92]}><capsuleGeometry args={[schema.radius * .88, schema.halfLength * 1.25, 6, 10]} />{material}</mesh>
+    <mesh position={[0, schema.halfLength * .78, 0]} rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[schema.radius * .86, .025, 6, 14]} /><meshStandardMaterial color={fighter.palette.secondary} metalness={.28} roughness={.48} /></mesh>
+    {[-.052, -.017, .017, .052].map((x) => <mesh key={x} position={[x, -schema.halfLength * .72, .045]}><capsuleGeometry args={[.019, .055, 4, 6]} />{material}</mesh>)}
+  </group>;
   if (schema.id.includes('Foot')) return <group><mesh castShadow position={[0, 0, .07]}><boxGeometry args={[schema.radius * 2.05, schema.radius, schema.halfLength * 2.7]} />{material}</mesh><mesh position={[0, -.065, .11]}><boxGeometry args={[schema.radius * 2.15, .035, schema.halfLength * 2.8]} /><meshStandardMaterial color={fighter.palette.emissive} emissive={fighter.palette.emissive} emissiveIntensity={.65} /></mesh></group>;
   if (['pelvis', 'abdomen', 'chest'].includes(schema.id)) return <group>
-    <mesh castShadow scale={[schema.id === 'chest' ? 1.45 : 1.15, 1, schema.id === 'chest' ? 1.05 : .9]}><capsuleGeometry args={[schema.radius, schema.halfLength * 1.35, 6, 10]} />{material}</mesh>
+    <mesh castShadow scale={[schema.id === 'chest' ? 1.45 * profile.chestScale : schema.id === 'pelvis' ? 1.22 * profile.waistScale : 1.1 * profile.waistScale, 1, schema.id === 'chest' ? 1.05 : .9]}><capsuleGeometry args={[schema.radius, schema.halfLength * 1.35, 8, 14]} />{material}</mesh>
     {schema.id === 'chest' && <><mesh position={[0, .03, schema.radius * 1.02]}><boxGeometry args={[schema.radius * 1.85, .08, .035]} /><meshStandardMaterial color={fighter.palette.secondary} emissive={fighter.palette.emissive} emissiveIntensity={.32} /></mesh><mesh position={[0, -.1, schema.radius * 1.02]}><octahedronGeometry args={[.11, 0]} /><meshStandardMaterial color={fighter.palette.emissive} emissive={fighter.palette.emissive} emissiveIntensity={.7} /></mesh></>}
+    {schema.id === 'abdomen' && [-.07, .07].map((x) => <mesh key={x} position={[x, 0, schema.radius * .91]} scale={[.052, .12, .025]}><sphereGeometry args={[1, 9, 6]} /><meshStandardMaterial color={fighter.palette.skin} roughness={profile.skinRoughness * .9} /></mesh>)}
+    {schema.id === 'pelvis' && <><mesh position={[0, .03, schema.radius * .92]} scale={[.98, .62, .42]}><sphereGeometry args={[schema.radius, 13, 8]} /><meshStandardMaterial color={fighter.palette.secondary} roughness={.78} metalness={.05} /></mesh><mesh position={[0, schema.halfLength * .7, 0]} rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[schema.radius * 1.12, .035, 7, 18]} /><meshStandardMaterial color={fighter.palette.emissive} emissive={fighter.palette.emissive} emissiveIntensity={.22} /></mesh></>}
   </group>;
-  return <group><mesh castShadow><capsuleGeometry args={[schema.radius, schema.halfLength * 1.72, 6, 9]} />{material}</mesh>{costume && <mesh position={[0, schema.halfLength * .48, 0]}><torusGeometry args={[schema.radius * 1.03, .025, 5, 10]} /><meshStandardMaterial color={fighter.palette.secondary} emissive={fighter.palette.emissive} emissiveIntensity={.25} /></mesh>}</group>;
+  return <group><mesh castShadow scale={[arm ? profile.armScale : leg ? schema.id.includes('Thigh') ? profile.thighScale : profile.calfScale, 1, arm ? profile.armScale : 1]}><capsuleGeometry args={[schema.radius, schema.halfLength * 1.72, 7, 12]} />{material}</mesh><mesh position={[0, schema.halfLength * .92, 0]} scale={[schema.radius * 1.1, schema.radius * .72, schema.radius * 1.1]}><sphereGeometry args={[1, 10, 7]} />{material}</mesh>{costume && <mesh position={[0, schema.halfLength * .48, 0]}><torusGeometry args={[schema.radius * 1.03, .025, 5, 10]} /><meshStandardMaterial color={fighter.palette.secondary} emissive={fighter.palette.emissive} emissiveIntensity={.25} /></mesh>}</group>;
 }
 
 function Headwear({ fighterId }: { fighterId: FighterRuntime['definitionId'] }) {
@@ -59,7 +85,16 @@ interface SegmentBodyProps {
 
 function SegmentBody({ schema, fighterId, side, base, bodyRef, onContactForce, onFootContact, showVisuals }: SegmentBodyProps) {
   const position: [number, number, number] = [base[0] + schema.localPosition[0], base[1] + schema.localPosition[1], base[2] + schema.localPosition[2]];
-  const userData: RigUserData = { bodyWorks: true, fighter: side, segment: schema.id, region: schema.bodyRegion };
+  const userData: RigUserData = {
+    bodyWorks: true,
+    fighter: side,
+    segment: schema.id,
+    region: schema.bodyRegion,
+    side: schema.side,
+    colliderRole: schema.colliderRole,
+    damageMultiplier: schema.damageMultiplier,
+    gripAnchorEligible: schema.gripAnchorEligible,
+  };
   const isFoot = schema.id === 'leftFoot' || schema.id === 'rightFoot'; const isHand = schema.id === 'leftHand' || schema.id === 'rightHand'; const isHead = schema.id === 'head';
   const collider: ReactNode = isHead ? <BallCollider args={[schema.radius]} mass={schema.massKg} />
     : isFoot || isHand ? <CuboidCollider args={[schema.radius, isFoot ? schema.radius * .5 : schema.halfLength, isFoot ? schema.halfLength * 1.35 : schema.radius]} mass={schema.massKg} friction={isFoot ? 1.45 : .72} restitution={.02} />
@@ -114,18 +149,27 @@ export function PhysicalFighterRig({ runtime, side, showVisuals = true }: Props)
   const onContactForce = useCallback((segment: BodySegmentSchema, bodyRef: RefObject<RapierRigidBody | null>, payload: ContactForcePayload): void => {
     const otherData = payload.other.rigidBodyObject?.userData; const target = isRigUserData(otherData) ? otherData : null;
     const landingCandidate = !target && bodyWorksRuntime.isAwaitingLanding(side);
-    if (target?.fighter === side || (!landingCandidate && !segment.attackEligible && payload.totalForceMagnitude < 420)) return;
-    const ownVelocity = bodyRef.current?.linvel() ?? { x: 0, y: 0, z: 0 }; const otherVelocity = payload.other.rigidBody?.linvel() ?? { x: 0, y: 0, z: 0 };
+    if (target?.fighter === side) return;
+    const ownVelocity = bodyRef.current?.linvel() ?? { x: 0, y: 0, z: 0 }; const ownPosition = bodyRef.current?.translation() ?? { x: 0, y: 0, z: 0 }; const otherVelocity = payload.other.rigidBody?.linvel() ?? { x: 0, y: 0, z: 0 };
     const sourceRuntime = useMatchStore.getState().model[side];
     const activeAttack = sourceRuntime.attackPhase === 'active' && sourceRuntime.moveId !== null;
+    const strikeProfile = activeAttack && sourceRuntime.moveId ? strikeDriveProfile(sourceRuntime.moveId) : null;
+    const activeContactLimb = Boolean(strikeProfile && strikeProfile.source === segment.id);
+    // Shipping damage is emitted only by the move's active physical limb. A
+    // nearby foot, shoulder, or authored animation phase cannot impersonate a
+    // jab contact. Environmental contacts remain eligible only while a real
+    // released throw is awaiting its landing surface.
+    if (target && !activeContactLimb) return;
+    if (!target && !landingCandidate) return;
     bodyWorksRuntime.recordContact({
       time: useMatchStore.getState().model.elapsed, sourceFighter: side, sourceSegment: segment.id,
       targetFighter: target?.fighter ?? null, targetSegment: target?.segment ?? null, targetRegion: target?.region ?? segment.bodyRegion,
       totalForce: payload.totalForceMagnitude, maximumForce: payload.maxForceMagnitude,
       forceDirection: [payload.maxForceDirection.x, payload.maxForceDirection.y, payload.maxForceDirection.z],
+      point: [ownPosition.x, ownPosition.y, ownPosition.z],
       relativeSpeed: Math.hypot(ownVelocity.x - otherVelocity.x, ownVelocity.y - otherVelocity.y, ownVelocity.z - otherVelocity.z),
-      attackInstanceId: activeAttack ? sourceRuntime.attackInstanceId : null,
-      moveId: activeAttack ? sourceRuntime.moveId : null,
+      attackInstanceId: activeContactLimb ? sourceRuntime.attackInstanceId : null,
+      moveId: activeContactLimb ? sourceRuntime.moveId : null,
       sourceObjectId: null,
       targetSurface: isSurfaceUserData(otherData) ? otherData.kind : null,
       isLanding: false,
