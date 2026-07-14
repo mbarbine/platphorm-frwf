@@ -82,8 +82,10 @@ export interface BodyWorksMetrics {
   p95StepMs: number;
   maximumStepMs: number;
   replayEstimatedBytes: number;
+  currentJointSeparation: number;
   maximumJointSeparation: number;
   motorSaturationCount: number;
+  currentMotorSaturations: number;
   numericalFaultCount: number;
   lastNumericalFault: string;
   supportScore: number;
@@ -103,6 +105,7 @@ interface FighterRigRegistration {
   rootStabilized: boolean;
   skeletonStabilized: boolean;
   rotationSignature: string;
+  rotationallyDynamic: Set<BodySegmentId>;
   supportContacts: Set<BodySegmentId>;
   jumpQueued: boolean;
   jumpCooldown: number;
@@ -110,6 +113,8 @@ interface FighterRigRegistration {
   cornerAnchor: (Vec2 & { stage: 1 | 2 | 3 }) | null;
   apronAnchor: { target: Vec2; inside: boolean; age: number } | null;
   jointFaultFrames: number;
+  jointFaultReported: boolean;
+  settlingFrames: number;
   lastSafeCenter: Vec2;
 }
 
@@ -218,7 +223,7 @@ export class BodyWorksRuntime {
   private stepSampleCount = 0;
   private stepSampleTotal = 0;
   readonly replay = new PhysicsReplayBuffer(300);
-  readonly metrics: BodyWorksMetrics = { fixedSteps: 0, bodyCount: 0, jointCount: 0, gripCount: 0, nearestGripDistance: 0, maximumGripError: 0, maximumGripLoad: 0, lastGripBreakReason: 'none', worldJointCount: 0, gripCreateCount: 0, gripInvalidCount: 0, propBodyCount: 0, propGripCount: 0, worldBodyCount: 0, invalidRegisteredBodyCount: 0, worldRemoveCount: 0, contactCount: 0, emergencyResetCount: 0, containmentCount: 0, lastStepMs: 0, averageStepMs: 0, p95StepMs: 0, maximumStepMs: 0, replayEstimatedBytes: 0, maximumJointSeparation: 0, motorSaturationCount: 0, numericalFaultCount: 0, lastNumericalFault: 'none', supportScore: 0, taskCount: 0, taskTimeoutCount: 0, lastTaskPhase: 'none' };
+  readonly metrics: BodyWorksMetrics = { fixedSteps: 0, bodyCount: 0, jointCount: 0, gripCount: 0, nearestGripDistance: 0, maximumGripError: 0, maximumGripLoad: 0, lastGripBreakReason: 'none', worldJointCount: 0, gripCreateCount: 0, gripInvalidCount: 0, propBodyCount: 0, propGripCount: 0, worldBodyCount: 0, invalidRegisteredBodyCount: 0, worldRemoveCount: 0, contactCount: 0, emergencyResetCount: 0, containmentCount: 0, lastStepMs: 0, averageStepMs: 0, p95StepMs: 0, maximumStepMs: 0, replayEstimatedBytes: 0, currentJointSeparation: 0, maximumJointSeparation: 0, motorSaturationCount: 0, currentMotorSaturations: 0, numericalFaultCount: 0, lastNumericalFault: 'none', supportScore: 0, taskCount: 0, taskTimeoutCount: 0, lastTaskPhase: 'none' };
 
   registerFighter(fighter: FighterKey, bodies: Partial<Record<BodySegmentId, RapierRigidBody>>, jointCount: number): () => void {
     const pelvisPosition = bodies.pelvis?.translation() ?? { x: 0, y: 3.02, z: 0 };
@@ -227,7 +232,7 @@ export class BodyWorksRuntime {
       const position = body.translation();
       restOffsets[segment] = { x: position.x - pelvisPosition.x, y: position.y - pelvisPosition.y, z: position.z - pelvisPosition.z };
     }
-    this.rigs.set(fighter, { bodies, restOffsets, restPelvisY: pelvisPosition.y, rootStabilized: false, skeletonStabilized: false, rotationSignature: '', supportContacts: new Set<BodySegmentId>(), jumpQueued: false, jumpCooldown: 0, ropeContact: null, cornerAnchor: null, apronAnchor: null, jointFaultFrames: 0, lastSafeCenter: { x: pelvisPosition.x, z: pelvisPosition.z } });
+    this.rigs.set(fighter, { bodies, restOffsets, restPelvisY: pelvisPosition.y, rootStabilized: false, skeletonStabilized: false, rotationSignature: '', rotationallyDynamic: new Set<BodySegmentId>(), supportContacts: new Set<BodySegmentId>(), jumpQueued: false, jumpCooldown: 0, ropeContact: null, cornerAnchor: null, apronAnchor: null, jointFaultFrames: 0, jointFaultReported: false, settlingFrames: 0, lastSafeCenter: { x: pelvisPosition.x, z: pelvisPosition.z } });
     this.applyLabAdditionalMass(fighter);
     this.recount(jointCount);
     const registeredGeneration = this.generation;
@@ -371,7 +376,7 @@ export class BodyWorksRuntime {
       body.setTranslation({ x: target.x + offset.x, y: rig.restPelvisY + offset.y, z: target.z + offset.z }, true);
       body.setLinvel({ x: 0, y: 0, z: 0 }, true); body.setAngvel({ x: 0, y: 0, z: 0 }, true); body.setRotation({ x: 0, y: 0, z: 0, w: 1 }, true);
     }
-    rig.rootStabilized = false; rig.skeletonStabilized = false; rig.rotationSignature = ''; rig.supportContacts.clear(); rig.supportContacts.add('leftFoot'); rig.supportContacts.add('rightFoot'); rig.jumpQueued = false; rig.ropeContact = null; rig.cornerAnchor = null; rig.apronAnchor = null; rig.jointFaultFrames = 0; rig.lastSafeCenter = { ...target };
+    rig.rootStabilized = false; rig.skeletonStabilized = false; rig.rotationSignature = ''; rig.rotationallyDynamic.clear(); rig.supportContacts.clear(); rig.supportContacts.add('leftFoot'); rig.supportContacts.add('rightFoot'); rig.jumpQueued = false; rig.ropeContact = null; rig.cornerAnchor = null; rig.apronAnchor = null; rig.jointFaultFrames = 0; rig.jointFaultReported = false; rig.settlingFrames = 0; rig.lastSafeCenter = { ...target };
   }
 
   setFootContact(fighter: FighterKey, foot: BodySegmentId, touching: boolean): void {
@@ -417,6 +422,7 @@ export class BodyWorksRuntime {
   beforeFixedStep(dt: number, model: MatchModel, world?: World): void {
     this.stepStartedAt = performance.now();
     this.currentFixedDt = dt;
+    this.metrics.currentMotorSaturations = 0;
     if (world) {
       this.world = world;
       if (import.meta.env.DEV && this.instrumentedWorld !== world) {
@@ -645,6 +651,7 @@ export class BodyWorksRuntime {
       const active = dynamic.has(segment); body.setEnabledRotations(active, active, active, true);
       if (!active) body.setAngvel({ x: 0, y: 0, z: 0 }, true);
     }
+    rig.rotationallyDynamic = dynamic;
     rig.rotationSignature = signature; rig.skeletonStabilized = true;
   }
 
@@ -1091,6 +1098,11 @@ export class BodyWorksRuntime {
     const fatigue = 1 - fighter.body.muscle;
     const pose = overridePose ?? targetPoseFor(fighter); const targets = physicalPoseTargets(pose, fighter.facing);
     for (const [segment, body] of Object.entries(rig.bodies) as [BodySegmentId, RapierRigidBody][]) {
+      // Locked neutral limbs are constraint-stabilized and need no motor. A
+      // motor fighting a disabled rotation cannot animate the limb; it only
+      // hammers Rapier's limit and was the source of the old standing buzz.
+      if (segment !== 'pelvis' && !rig.rotationallyDynamic.has(segment)) continue;
+      if (segment === 'pelvis' && motorProfile.rootMode !== 'physical') continue;
       const chain = motorProfile.chains[motorChainForSegment(segment)];
       const pelvisScale = segment === 'pelvis' ? 1.28 : 1;
       const stiffnessScale = definition.physics.jointStiffness * pelvisScale;
@@ -1108,7 +1120,10 @@ export class BodyWorksRuntime {
         fatigue,
       });
       const requestedMagnitude = Math.hypot(torque.x, torque.y, torque.z);
-      if (requestedMagnitude >= maximumTorque * .985) this.metrics.motorSaturationCount += 1;
+      if (requestedMagnitude >= maximumTorque * .985) {
+        this.metrics.motorSaturationCount += 1;
+        this.metrics.currentMotorSaturations += 1;
+      }
       const impulse = { x: torque.x * this.currentFixedDt, y: torque.y * this.currentFixedDt, z: torque.z * this.currentFixedDt };
       body.applyTorqueImpulse(impulse, true);
       const parentId = SEGMENT_PARENT[segment]; const parent = parentId ? rig.bodies[parentId] : null;
@@ -1133,14 +1148,17 @@ export class BodyWorksRuntime {
   }
 
   private inspectNumericalHealth(): void {
+    let currentMaximumJointSeparation = 0;
     for (const rig of this.rigs.values()) {
-      let fault: NumericalFault | null = null;
+      rig.settlingFrames += 1;
+      let bodyFault: NumericalFault | null = null;
       for (const [segment, body] of Object.entries(rig.bodies) as [BodySegmentId, RapierRigidBody][]) {
         if (!body?.isValid()) continue;
-        fault = inspectNumericalBody({ segment, position: body.translation(), rotation: body.rotation(), linearVelocity: body.linvel(), angularVelocity: body.angvel() });
-        if (fault) break;
+        bodyFault = inspectNumericalBody({ segment, position: body.translation(), rotation: body.rotation(), linearVelocity: body.linvel(), angularVelocity: body.angvel() });
+        if (bodyFault) break;
       }
       let maximumJointExcess = 0;
+      let jointFault: NumericalFault | null = null;
       for (const [parentId, childId] of JOINT_LINKS) {
         const parent = rig.bodies[parentId]; const child = rig.bodies[childId]; const parentRest = rig.restOffsets[parentId]; const childRest = rig.restOffsets[childId];
         if (!parent || !child || !parentRest || !childRest) continue;
@@ -1149,15 +1167,33 @@ export class BodyWorksRuntime {
         const childAnchor = rotatedLocalPoint(child, { x: 0, y: -halfY, z: 0 });
         const separation = Math.hypot(childAnchor.x - parentAnchor.x, childAnchor.y - parentAnchor.y, childAnchor.z - parentAnchor.z);
         maximumJointExcess = Math.max(maximumJointExcess, separation);
-        fault ??= jointSeparationFault(childId, 0, separation);
+        jointFault ??= jointSeparationFault(childId, 0, separation);
       }
-      this.metrics.maximumJointSeparation = Math.max(this.metrics.maximumJointSeparation, maximumJointExcess);
-      if (fault) {
-        rig.jointFaultFrames += 1; this.metrics.numericalFaultCount += 1; this.metrics.lastNumericalFault = `${fault.code}:${fault.segment}:${Number.isFinite(fault.value) ? fault.value.toFixed(3) : 'nan'}`;
+      currentMaximumJointSeparation = Math.max(currentMaximumJointSeparation, maximumJointExcess);
+      // React/Rapier registers bodies one effect before all joint constraints
+      // have completed their first solve. Ignore that bounded warm-up in the
+      // historical maximum, but continue inspecting body finiteness at once.
+      if (rig.settlingFrames > 12) this.metrics.maximumJointSeparation = Math.max(this.metrics.maximumJointSeparation, maximumJointExcess);
+      if (bodyFault) {
+        rig.jointFaultFrames += 1;
+        this.metrics.numericalFaultCount += 1;
+        this.metrics.lastNumericalFault = `${bodyFault.code}:${bodyFault.segment}:${Number.isFinite(bodyFault.value) ? bodyFault.value.toFixed(3) : 'nan'}`;
+      } else if (jointFault) {
+        rig.jointFaultFrames += 1;
+        // A single solver frame above tolerance during a hard contact is not
+        // a broken body tree. Report the episode only when the separation is
+        // persistent, while the emergency path still watches every frame.
+        if (rig.jointFaultFrames > 3 && !rig.jointFaultReported && rig.settlingFrames > 12) {
+          rig.jointFaultReported = true;
+          this.metrics.numericalFaultCount += 1;
+          this.metrics.lastNumericalFault = `${jointFault.code}:${jointFault.segment}:${Number.isFinite(jointFault.value) ? jointFault.value.toFixed(3) : 'nan'}`;
+        }
       } else {
-        rig.jointFaultFrames = 0; const center = this.rigPlanarCenter(rig); rig.lastSafeCenter = { x: center.x, z: center.z };
+        rig.jointFaultFrames = 0; rig.jointFaultReported = false;
+        const center = this.rigPlanarCenter(rig); rig.lastSafeCenter = { x: center.x, z: center.z };
       }
     }
+    this.metrics.currentJointSeparation = currentMaximumJointSeparation;
   }
 
   private containRigsToArena(model: MatchModel): void {
@@ -1271,7 +1307,7 @@ export class BodyWorksRuntime {
     this.intents.player = EMPTY_INTENT(); this.intents.opponent = EMPTY_INTENT();
     this.presentationPoints.player = {}; this.presentationPoints.opponent = {};
     this.labAdditionalMass.player = 0; this.labAdditionalMass.opponent = 0;
-    this.metrics.fixedSteps = 0; this.metrics.bodyCount = 0; this.metrics.jointCount = 0; this.metrics.gripCount = 0; this.metrics.nearestGripDistance = 0; this.metrics.maximumGripError = 0; this.metrics.maximumGripLoad = 0; this.metrics.lastGripBreakReason = 'none'; this.metrics.worldJointCount = 0; this.metrics.gripCreateCount = 0; this.metrics.gripInvalidCount = 0; this.metrics.propBodyCount = 0; this.metrics.propGripCount = 0; this.metrics.worldBodyCount = 0; this.metrics.invalidRegisteredBodyCount = 0; this.metrics.worldRemoveCount = 0; this.metrics.contactCount = 0; this.metrics.emergencyResetCount = 0; this.metrics.containmentCount = 0; this.metrics.lastStepMs = 0; this.metrics.averageStepMs = 0; this.metrics.p95StepMs = 0; this.metrics.maximumStepMs = 0; this.metrics.replayEstimatedBytes = 0; this.metrics.maximumJointSeparation = 0; this.metrics.motorSaturationCount = 0; this.metrics.numericalFaultCount = 0; this.metrics.lastNumericalFault = 'none'; this.metrics.supportScore = 0; this.metrics.taskCount = 0; this.metrics.taskTimeoutCount = 0; this.metrics.lastTaskPhase = 'none';
+    this.metrics.fixedSteps = 0; this.metrics.bodyCount = 0; this.metrics.jointCount = 0; this.metrics.gripCount = 0; this.metrics.nearestGripDistance = 0; this.metrics.maximumGripError = 0; this.metrics.maximumGripLoad = 0; this.metrics.lastGripBreakReason = 'none'; this.metrics.worldJointCount = 0; this.metrics.gripCreateCount = 0; this.metrics.gripInvalidCount = 0; this.metrics.propBodyCount = 0; this.metrics.propGripCount = 0; this.metrics.worldBodyCount = 0; this.metrics.invalidRegisteredBodyCount = 0; this.metrics.worldRemoveCount = 0; this.metrics.contactCount = 0; this.metrics.emergencyResetCount = 0; this.metrics.containmentCount = 0; this.metrics.lastStepMs = 0; this.metrics.averageStepMs = 0; this.metrics.p95StepMs = 0; this.metrics.maximumStepMs = 0; this.metrics.replayEstimatedBytes = 0; this.metrics.currentJointSeparation = 0; this.metrics.maximumJointSeparation = 0; this.metrics.motorSaturationCount = 0; this.metrics.currentMotorSaturations = 0; this.metrics.numericalFaultCount = 0; this.metrics.lastNumericalFault = 'none'; this.metrics.supportScore = 0; this.metrics.taskCount = 0; this.metrics.taskTimeoutCount = 0; this.metrics.lastTaskPhase = 'none';
   }
 
   pendingCommandCount(): number { return this.commands.length; }
