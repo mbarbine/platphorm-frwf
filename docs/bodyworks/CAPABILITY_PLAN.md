@@ -25,7 +25,7 @@ This is the release ledger for the revised BodyWorks Gold Master contract. It su
 | 8 | SI-like scale and plausible mass | Implemented — unverified | mass-ratio unit test, roster report | Keep one physics meter per scene unit |
 | 9 | 16-segment physical skeleton and collider metadata | Implemented — unverified | 32-body/30-joint runtime diagnostics, collision tests | Verify selective CCD and no same-fighter collision |
 | 10 | Stable joint strategy and integrity | Partial | headless 30-second stand, joint separation maximum, limit sanitation tests | Spherical joints rely on bounded active motors; certify measured limits or replace with generic joints |
-| 11 | Same physical bodies through every state | Implemented — unverified | live scene inspection and replay transform parity | Physical segment rig is now the shipping visual authority |
+| 11 | Same physical bodies through every state | Partial — release blocker | live scene inspection and replay transform parity | Physics bodies persist through every state, but the readable authored presentation shell remains visible until segment alignment is production-ready |
 | 12 | Data-driven motor profiles | Implemented — unverified | profile/fatigue/knockout tests and saturation metric | Tune caps only from measured scenarios |
 | 13 | Finite motion-task system | Implemented — unverified | task timeout/ownership/cleanup tests, zero timeout soak | Keep one task per fighter and bounded owned resources |
 | 14 | Layered pose targets | Partial | quaternion tests and slow-motion pose review | Add explicit defense/grip/impact/foot correction layers to the target composer |
@@ -55,7 +55,7 @@ This is the release ledger for the revised BodyWorks Gold Master contract. It su
 | 38 | Match highlights | Implemented — unverified | results/highlight journey | Local export remains optional, never a release blocker |
 | 39 | Physics-aware AI | Partial | 50-match all-roster/difficulty/rules soak | Audit every AI command for the same legality path |
 | 40 | Fighter physical identity | Implemented — unverified | roster mass/acceleration/braking/grip/lift comparisons | Tune without hidden bonuses |
-| 41 | Production visual body | Implemented — unverified | front/side/impact screenshots and joint alignment | Physical segment hierarchy replaces detached shell in matches |
+| 41 | Production visual body | Partial — release blocker | front/side/impact screenshots and joint alignment | Close measured shell-to-segment alignment before making the physical debug mesh the shipping presentation |
 | 42 | Procedural physical audio | Implemented — unverified | contact/surface/body-region audio journey and voice-count soak | Add breathing/grip strain coverage where missing |
 | 43 | Deterministic Physics Lab | Partial | every named scenario executable at pause/step/¼/½/1× | Add explicit metrics/assertions for any scenario still visual-only |
 | 44 | Hot-path architecture | Implemented — unverified | profiler, render diagnostics, heap/object soak | No per-step React or unbounded queue growth |

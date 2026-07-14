@@ -1194,21 +1194,26 @@ export class BodyWorksRuntime {
   private refreshPhysicalSupportContacts(): void {
     const world = this.world; if (!world) return;
     for (const rig of this.rigs.values()) {
-      const ownHandles = new Set(Object.values(rig.bodies).filter((body): body is RapierRigidBody => Boolean(body?.isValid())).map((body) => body.handle));
-      const supported = new Set<BodySegmentId>();
+      rig.supportContacts.clear();
       for (const footId of ['leftFoot', 'rightFoot'] as const) {
         const foot = rig.bodies[footId]; if (!foot?.isValid() || foot.numColliders() === 0) continue;
         const collider = foot.collider(0); let touching = false;
         world.contactPairsWith(collider, (other) => {
           if (touching) return;
-          const otherParent = other.parent(); if (otherParent && ownHandles.has(otherParent.handle)) return;
+          const otherParent = other.parent();
+          if (otherParent) {
+            let ownBody = false;
+            for (const body of Object.values(rig.bodies)) {
+              if (body?.isValid() && body.handle === otherParent.handle) { ownBody = true; break; }
+            }
+            if (ownBody) return;
+          }
           world.contactPair(collider, other, (manifold) => {
             if (manifold.numSolverContacts() > 0 || manifold.numContacts() > 0) touching = true;
           });
         });
-        if (touching) supported.add(footId);
+        if (touching) rig.supportContacts.add(footId);
       }
-      rig.supportContacts = supported;
     }
   }
 

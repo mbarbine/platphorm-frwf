@@ -11,6 +11,11 @@ import { renderDiagnostics } from '../runtime/renderDiagnostics';
 interface KeyStep { at: number; code: string; down: boolean }
 interface LabScenario { id: string; label: string; steps: readonly KeyStep[]; duration: number; stressGripAt?: number }
 
+// Scenario placement resets an articulated body tree. Give Rapier a short,
+// deterministic settle window before injecting input so a test measures the
+// requested action, not the one-frame registration pose.
+const SCENARIO_SETTLE_MS = 360;
+
 const tap = (code: string, at = 0, duration = 90): readonly KeyStep[] => [{ at, code, down: true }, { at: at + duration, code, down: false }];
 const hold = (code: string, at: number, duration: number): readonly KeyStep[] => [{ at, code, down: true }, { at: at + duration, code, down: false }];
 const SCENARIOS: readonly LabScenario[] = [
@@ -89,13 +94,13 @@ export function PhysicsLab() {
     else if (scenario.id === 'miss' || scenario.id === 'jabWhiff') useMatchStore.getState().prepareLabScenario({ x: 0, z: -2.6 }, { x: 0, z: 2.6 });
     else useMatchStore.getState().prepareLabScenario({ x: -1.4, z: 0 }, { x: 2.2, z: 0 });
     document.documentElement.dataset.labResetPelvisY = bodyWorksRuntime.fighterSnapshot('player').pelvisY.toFixed(3);
-    for (const step of scenario.steps) timers.current.push(window.setTimeout(() => dispatchKey(step.code, step.down), step.at));
-    if (scenario.id === 'blockedJab') timers.current.push(window.setTimeout(() => useMatchStore.getState().requestLabCommand('opponent', 'quick'), 220));
+    for (const step of scenario.steps) timers.current.push(window.setTimeout(() => dispatchKey(step.code, step.down), SCENARIO_SETTLE_MS + step.at));
+    if (scenario.id === 'blockedJab') timers.current.push(window.setTimeout(() => useMatchStore.getState().requestLabCommand('opponent', 'quick'), SCENARIO_SETTLE_MS + 220));
     if (scenario.stressGripAt !== undefined) {
       timers.current.push(window.setTimeout(() => {
         const stress = window.setInterval(() => { if (bodyWorksRuntime.stressTestGrip('player')) window.clearInterval(stress); }, 40);
         timers.current.push(stress);
-      }, scenario.stressGripAt));
+      }, SCENARIO_SETTLE_MS + scenario.stressGripAt));
     }
     let reboundWatcher: number | null = null;
     if (scenario.id === 'ropeStrike') {
