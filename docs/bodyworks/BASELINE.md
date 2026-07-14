@@ -1,5 +1,7 @@
 # Ringfall Bodyworks baseline
 
+> Historical baseline only. This document records the state before the revised BodyWorks contract. See `STATUS.md` and `CAPABILITY_PLAN.md` for the current candidate; none of the evidence below certifies current source.
+
 Baseline commit: `34144fa` on `feat/bodyworks-gold-master`  
 Captured: 2026-07-13  
 Runtime: Node `v26.5.0`, pnpm `9.15.0`
@@ -48,4 +50,3 @@ Two authority exceptions were identified for remediation in this pass:
 - No corner-grapple environmental finish.
 - Automated multi-match soak covered rematches but not a deterministic 50-match AI simulation batch.
 - Physical gamepad, iOS/Android, and XR hardware remain a release-device matrix rather than something headless CI can certify.
-

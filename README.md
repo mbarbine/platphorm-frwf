@@ -1,5 +1,7 @@
 # RINGFALL: CHAOS CIRCUIT
 
+> **BodyWorks certification is in progress.** Earlier Gold Master wording and deployment evidence describe the previous production release, not the current physics rewrite. The live source-of-truth ledger is [`docs/bodyworks/CAPABILITY_PLAN.md`](docs/bodyworks/CAPABILITY_PLAN.md) and the current status is [`docs/bodyworks/STATUS.md`](docs/bodyworks/STATUS.md). Production stays unchanged until the consolidated gate passes.
+
 An original, local-first 3D arcade wrestling game built with React, TypeScript, Vite, Three.js, React Three Fiber, Rapier, Zustand, and Vitest.
 
 Five original fighters collide in **The Volt Dome** across two-to-four-minute matches. Combat rules are deterministic and phase-based. A 16-body articulated Rapier contact rig per fighter owns locomotion, hand contact, two-hand grips, lift weight, knockback, and measured landings, while a richer hierarchical wrestler model mirrors that authoritative state to keep the player-facing silhouette stable and expressive.

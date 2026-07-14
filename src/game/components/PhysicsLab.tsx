@@ -25,7 +25,7 @@ const SCENARIOS: readonly LabScenario[] = [
   { id: 'brake', label: 'RUN + BRAKE', steps: [...hold('KeyW', 0, 1_150), ...hold('ShiftLeft', 0, 1_150)], duration: 2_600 },
   { id: 'turn', label: 'RAPID TURN', steps: [...hold('KeyA', 0, 500), ...hold('KeyD', 560, 650)], duration: 1_800 },
   { id: 'ropes', label: 'RUN INTO ROPES', steps: [...hold('KeyD', 0, 2_050), ...hold('ShiftLeft', 0, 2_050)], duration: 2_800 },
-  { id: 'ropeStrike', label: 'ROPE LOAD + STIFF-ARM', steps: [...hold('KeyD', 0, 2_200), ...hold('ShiftLeft', 0, 2_200)], duration: 3_400 },
+  { id: 'ropeStrike', label: 'ROPE LOAD + STIFF-ARM', steps: [...hold('KeyS', 0, 2_200), ...hold('KeyA', 0, 2_200), ...hold('ShiftLeft', 0, 2_200)], duration: 3_600 },
   { id: 'apronReturn', label: 'APRON RETURN', steps: tap('KeyF', 900, 180), duration: 3_400 },
   { id: 'jump', label: 'STANDING JUMP', steps: tap('KeyC', 220, 480), duration: 2_200 },
   { id: 'landing', label: 'JUMP + LANDING', steps: tap('KeyC', 220, 480), duration: 2_600 },
