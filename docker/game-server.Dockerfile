@@ -13,7 +13,8 @@ RUN pnpm install --filter "@frwf/game-server..." --frozen-lockfile
 # ── Development image (hot reload via ts-node-dev) ─────────────────────────────
 FROM base AS development
 COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/server/node_modules ./server/node_modules 2>/dev/null || true
+COPY --from=deps /app/server/node_modules ./server/node_modules
+COPY package.json ./
 COPY pnpm-workspace.yaml ./
 COPY packages ./packages
 COPY server ./server
@@ -24,7 +25,7 @@ CMD ["pnpm", "--filter", "@frwf/game-server", "dev"]
 FROM deps AS builder
 COPY packages ./packages
 COPY server ./server
-RUN pnpm --filter "@frwf/game-server" build
+RUN pnpm --filter "@frwf/game-server..." build
 
 # ── Production image ───────────────────────────────────────────────────────────
 FROM node:20-alpine AS production
@@ -40,8 +41,8 @@ COPY packages/game-core/package.json ./packages/game-core/
 RUN pnpm install --filter "@frwf/game-server..." --frozen-lockfile --prod
 
 COPY --from=builder /app/server/dist ./server/dist
-COPY --from=builder /app/packages/game-protocol/src ./packages/game-protocol/src
-COPY --from=builder /app/packages/game-core/src ./packages/game-core/src
+COPY --from=builder /app/packages/game-protocol/dist ./packages/game-protocol/dist
+COPY --from=builder /app/packages/game-core/dist ./packages/game-core/dist
 
 EXPOSE 2567
 USER node
