@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { colyseusClient } from './ColyseusClient';
 import type { ConnectionStatus } from './ColyseusClient';
+import type { ClientRoomState } from './ColyseusClient';
 import type { FighterId } from '@frwf/game-protocol';
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -39,7 +40,7 @@ export interface MultiplayerState {
 export const useMultiplayerStore = create<MultiplayerState>((set, get) => {
   // Wire up ColyseusClient events to Zustand state
   colyseusClient['options'].onStatusChange = (status) => set({ status });
-  colyseusClient['options'].onStateChange = (state: { phase?: string }) => {
+  colyseusClient['options'].onStateChange = (state: ClientRoomState) => {
     set({ roomPhase: state.phase ?? '' });
   };
 

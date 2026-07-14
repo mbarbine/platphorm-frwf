@@ -1,7 +1,40 @@
 import { Client, Room } from 'colyseus.js';
-import type { MatchRoomStateSchema } from '../../../server/src/rooms/WrestlingRoomState';
-import type { CommandMessage, SelectFighterMessage } from '@frwf/game-protocol';
+import type { CommandMessage, SelectFighterMessage, FighterId } from '@frwf/game-protocol';
 import { PROTOCOL_VERSION } from '@frwf/game-protocol';
+
+// Client-side view of the server room state.
+// Uses a plain interface — no Colyseus schema decorators.
+// The server's MatchRoomStateSchema must stay in the server package.
+export interface ClientRoomState {
+  phase: string;
+  resolved: boolean;
+  elapsed: number;
+  hype: number;
+  announcement: string;
+  ruleset: string;
+  difficulty: string;
+  winnerSessionId: string;
+  winMethod: string;
+  fighters: Map<string, ClientFighterState>;
+  roles: Map<string, string>;
+}
+
+export interface ClientFighterState {
+  definitionId: string;
+  health: number;
+  stamina: number;
+  momentum: number;
+  posX: number;
+  posZ: number;
+  facing: number;
+  velocityX: number;
+  velocityZ: number;
+  combatState: string;
+  moveId: string;
+  attackPhase: string;
+  pinCount: number;
+  finisherPrimed: boolean;
+}
 
 // ──────────────────────────────────────────────────────────────────────────────
 // ColyseusClient — thin wrapper around the Colyseus SDK.
@@ -19,7 +52,7 @@ export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 're
 export interface ColyseusClientOptions {
   serverUrl?: string;
   onStatusChange?: (status: ConnectionStatus) => void;
-  onStateChange?: (state: MatchRoomStateSchema) => void;
+  onStateChange?: (state: ClientRoomState) => void;
   onSnapshot?: (snapshot: unknown) => void;
   onImpactEvent?: (event: unknown) => void;
   onMatchResult?: (result: unknown) => void;
@@ -30,7 +63,7 @@ const DEFAULT_SERVER_URL = import.meta.env.VITE_GAME_SERVER_URL ?? 'ws://localho
 
 export class ColyseusClient {
   private readonly sdk: Client;
-  private room: Room<MatchRoomStateSchema> | null = null;
+  private room: Room<ClientRoomState> | null = null;
   private commandSeq = 0;
   private status: ConnectionStatus = 'disconnected';
   private readonly options: Required<ColyseusClientOptions>;
@@ -53,7 +86,7 @@ export class ColyseusClient {
   async joinOrCreate(roomName: string, options: { fighterId?: string; spectate?: boolean } = {}): Promise<void> {
     this.setStatus('connecting');
     try {
-      this.room = await this.sdk.joinOrCreate<MatchRoomStateSchema>(roomName, options);
+      this.room = await this.sdk.joinOrCreate<ClientRoomState>(roomName, options);
       this.setStatus('connected');
       this.attachRoomListeners();
       this.room.send('version', { protocolVersion: PROTOCOL_VERSION, clientVersion: PROTOCOL_VERSION });
@@ -66,7 +99,7 @@ export class ColyseusClient {
   async joinByRoomId(roomId: string, options: { fighterId?: string } = {}): Promise<void> {
     this.setStatus('connecting');
     try {
-      this.room = await this.sdk.joinById<MatchRoomStateSchema>(roomId, options);
+      this.room = await this.sdk.joinById<ClientRoomState>(roomId, options);
       this.setStatus('connected');
       this.attachRoomListeners();
       this.room.send('version', { protocolVersion: PROTOCOL_VERSION, clientVersion: PROTOCOL_VERSION });
@@ -79,7 +112,7 @@ export class ColyseusClient {
   async createPrivateRoom(options: { fighterId?: string; ruleset?: string } = {}): Promise<string> {
     this.setStatus('connecting');
     try {
-      this.room = await this.sdk.create<MatchRoomStateSchema>('practice', { ...options, private: true });
+      this.room = await this.sdk.create<ClientRoomState>('practice', { ...options, private: true });
       this.setStatus('connected');
       this.attachRoomListeners();
       this.room.send('version', { protocolVersion: PROTOCOL_VERSION, clientVersion: PROTOCOL_VERSION });
