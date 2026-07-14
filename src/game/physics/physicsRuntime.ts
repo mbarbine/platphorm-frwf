@@ -287,7 +287,7 @@ export class BodyWorksRuntime {
 
   recordContact(contact: Omit<BodyWorksContact, 'id'>): void {
     const pending = contact.sourceFighter ? this.pendingLandings.get(contact.sourceFighter) : undefined;
-    const torsoLanding = contact.sourceSegment === 'chest' || contact.sourceSegment === 'abdomen' || contact.sourceSegment === 'pelvis' || contact.sourceSegment === 'head' || contact.sourceSegment?.includes('UpperArm') === true;
+    const torsoLanding = contact.sourceSegment === 'chest' || contact.sourceSegment === 'abdomen' || contact.sourceSegment === 'pelvis' || contact.sourceSegment === 'head';
     const validLandingSurface = contact.targetSurface === 'ring' || contact.targetSurface === 'floor' || contact.targetSurface === 'table';
     const committedLanding = contact.maximumForce > 24 || contact.totalForce > 38 || contact.relativeSpeed > 1.05;
     if (pending && contact.targetFighter === null && torsoLanding && validLandingSurface && committedLanding) {
@@ -829,7 +829,13 @@ export class BodyWorksRuntime {
     if (attacker.attackPhase === 'active') {
       grapple.phase = 'release';
       this.releaseAllGrips(world);
-      const direction = { x: Math.sin(attacker.facing), z: Math.cos(attacker.facing) };
+      // A held direction during the release is the player's throw direction.
+      // Fall back to the live clinch axis for a neutral throw; animated facing
+      // can auto-turn during a load and is not physical authority here.
+      const inputLength = Math.hypot(attackerIntent.move.x, attackerIntent.move.z);
+      const direction = inputLength > .25
+        ? { x: attackerIntent.move.x / inputLength, z: attackerIntent.move.z / inputLength }
+        : { x: separationX / planarSeparation, z: separationZ / planarSeparation };
       // The impact is driven into the mat, but kept inside Rapier's reliable
       // continuous-collision envelope. The earlier lift supplies most of the
       // fall energy; an excessive downward impulse only made heavy bodies
@@ -913,7 +919,9 @@ export class BodyWorksRuntime {
       const lowestPosition = lowest.translation(); const tableLanding = Boolean(tableContactBody);
       const inRing = Math.abs(model[landing.defender].position.x) < 6 && Math.abs(model[landing.defender].position.z) < 4.6;
       const nearDeck = tableLanding || lowestPosition.y <= (inRing ? 2.48 : .72);
-      if (!nearDeck && !(velocity.y < -1.2 && model.elapsed - landing.releasedAt > .42)) continue;
+      // Falling is not a landing. The previous time-and-velocity fallback could
+      // consume a throw in midair before the victim reached a nearby table.
+      if (!nearDeck) continue;
       const inverseSpeed = 1 / Math.max(.001, speed);
       this.recordContact({
         time: model.elapsed, sourceFighter: landing.defender, sourceSegment: landingBody === head ? 'head' : landingBody === chest ? 'chest' : 'pelvis',
