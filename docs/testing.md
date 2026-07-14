@@ -27,12 +27,12 @@ pnpm test:soak
 The deterministic playability file starts a fresh production-preview page for each scenario. It proves:
 
 - a planted wrestler's center and head/pelvis relationship remain inside tight bounds;
-- an elastic rope load can return into a stiff-arm knockdown;
+- an elastic rope load stays inside the ring boundary, returns inward, and becomes a stiff-arm knockdown;
 - a three-stage corner climb launches an aerial that closes distance and deals damage;
 - an apron start returns through the ropes to the ring;
 - a real two-hand grapple and measured body landing collapse the commentary desk.
 
-The soak runs exactly three instant rematches. Each round reaches a deterministic lab knockout, enters results, rematches, and verifies the expected 32 fighter bodies, 30 anatomical joints, no leaked grips/props, no emergency resets, bounded fixed-step time, and bounded heap growth where Chromium exposes `performance.memory`. It is deliberately finite.
+The soak runs exactly three instant rematches. Each round reaches a deterministic lab knockout, enters results, rematches, and verifies the expected 32 fighter bodies, 30 anatomical joints, no leaked grips/props, no emergency resets or arena-containment corrections, bounded fixed-step time, and bounded heap growth where Chromium exposes `performance.memory`. It is deliberately finite.
 
 ## Build evidence
 

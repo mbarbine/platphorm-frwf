@@ -64,20 +64,26 @@ export function PhysicsLab() {
     else if (scenario.id === 'miss') useMatchStore.getState().prepareLabScenario({ x: 0, z: -2.6 }, { x: 0, z: 2.6 });
     document.documentElement.dataset.labResetPelvisY = bodyWorksRuntime.fighterSnapshot('player').pelvisY.toFixed(3);
     for (const step of scenario.steps) timers.current.push(window.setTimeout(() => dispatchKey(step.code, step.down), step.at));
+    let reboundWatcher: number | null = null;
     if (scenario.id === 'ropeStrike') {
       // Drive into the rope with normal gameplay input, then fire on the real
       // inward physics transition. This keeps the browser scenario deterministic
       // without replacing its elastic interaction with a test-only teleport.
-      const reboundWatcher = window.setInterval(() => {
+      reboundWatcher = window.setInterval(() => {
         const player = useMatchStore.getState().model.player;
         if (player.ropeRebound <= 0) return;
-        window.clearInterval(reboundWatcher);
+        if (reboundWatcher !== null) window.clearInterval(reboundWatcher);
+        reboundWatcher = null;
         dispatchKey('KeyD', false); dispatchKey('ShiftLeft', false); dispatchKey('KeyK', true);
         timers.current.push(window.setTimeout(() => dispatchKey('KeyK', false), 180));
       }, 8);
       timers.current.push(reboundWatcher);
     }
-    timers.current.push(window.setTimeout(() => { for (const step of scenario.steps) if (step.down) dispatchKey(step.code, false); setActive(null); }, scenario.duration));
+    timers.current.push(window.setTimeout(() => {
+      if (reboundWatcher !== null) window.clearInterval(reboundWatcher);
+      for (const step of scenario.steps) if (step.down) dispatchKey(step.code, false);
+      setActive(null);
+    }, scenario.duration));
   };
   const player = bodyWorksRuntime.fighterSnapshot('player'); const opponent = bodyWorksRuntime.fighterSnapshot('opponent'); const metrics = bodyWorksRuntime.metrics;
   const diagnostics = useMemo(() => [

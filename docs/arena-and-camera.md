@@ -13,7 +13,7 @@ This keeps the larger level interactive without adding dozens of unnecessary rig
 
 ## Interaction beats
 
-- Ropes deform from measured approach and return bounded rebound energy.
+- Ropes deform from measured approach, stop normal sprint-through at a hard elastic tier, return the complete body inward, and open the stiff-arm window only after release.
 - Center-rope context transitions move a wrestler between apron and ringside.
 - Turnbuckles support lower, middle, and top stages plus climb-down, taunt, and three aerial choices.
 - Steel steps and barricades are real collision surfaces.

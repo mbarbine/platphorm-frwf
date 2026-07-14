@@ -31,7 +31,7 @@ describe('PlatPhorm static game contract', () => {
   it('uses the shared auth name, canonical host, trust policy, and XR delivery permission without leaking a key', () => {
     const publicText = routes.map(read).join('\n');
     for (const forbidden of ['TRACE_API_KEY', 'CLAWS_API_KEY', 'BROWSEROPS_API_KEY', 'DOCS_API_KEY', 'PLATPHORM_MCP_API_KEY']) expect(publicText).not.toContain(forbidden);
-    expect(read('public/openapi.yaml')).toContain('https://platphorm-frwf.vercel.app');
+    expect(read('public/openapi.yaml')).toContain('https://frwf.platphormnews.com');
     expect(read('public/.well-known/trust.json')).toContain('PLATPHORM_API_KEY');
     expect(read('vercel.json')).toContain('xr-spatial-tracking=(self)');
   });

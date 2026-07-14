@@ -4,7 +4,7 @@ info:
   version: 1.0.0
   description: Read-only discovery for the static browser game. No protected or mutating API is implemented.
 servers:
-  - url: https://platphorm-frwf.vercel.app
+  - url: https://frwf.platphormnews.com
 paths:
   /api/health:
     get:
