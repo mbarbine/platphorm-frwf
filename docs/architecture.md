@@ -10,13 +10,15 @@ The initial React shell does not import the arena synchronously. `GameScene` is 
 
 The deterministic combat system owns legal states, stamina, health, Momentum, move phases, AI decisions, match resolution, and rematch state. Rapier owns physical body positions, contacts, support, elastic rope response, grips, props, and landing evidence during a shipping match. Simulation advances at a fixed 60 Hz step before each Rapier update; contacts are consumed after the physics step.
 
-Each wrestler has 16 rigid bodies and 15 anatomical joints. Locomotion computes mass-weighted planar center-of-mass velocity and applies the same bounded velocity correction to every segment. Planted states temporarily constrain collision-skeleton pitch/roll and apply an internal core posture drive. Grabs, throws, aerials, knockdowns, recovery, and climbing restore full-body rotations.
+Each wrestler has 16 rigid bodies and 15 anatomical joints. Locomotion computes mass-weighted planar center-of-mass velocity and applies the same bounded velocity correction to every segment. The hidden collision tree keeps stable segment rotations in every state; bounded forces, coherent whole-body translation, physical contacts, and measured landing surfaces remain authoritative. The separate production mesh authors the readable rotations for grabs, throws, aerials, knockdowns, recovery, and climbing without feeding a second pose solver back into Rapier.
 
 Visual wrestler meshes mirror the authoritative physical model through authored walk, run, strike, grapple, reaction, and recovery poses. The visual hierarchy supplies readable character performance; the hidden articulated rig supplies collision and impact truth.
 
 ## Contact and environmental authority
 
-Strikes are eligible only during active frames and use a stance/velocity-aligned swept volume so a few milliseconds of distal joint lag cannot invalidate a visibly correct hit. Grapples require two physical hand grips and do not award damage at acquisition. A grapple scores only when the thrown defender's core produces a measured ring, floor, or commentary-table landing.
+Strikes are eligible only during active frames and use a stance/velocity-aligned swept volume so a few milliseconds of distal joint lag cannot invalidate a visibly correct hit. Grapples require two bounded hand-to-body spring grips and do not award damage at acquisition. Those grips preserve a visible collar-and-elbow lock without creating the closed cross-rig Rapier joint loop that caused solver vibration. A grapple scores only when the thrown defender's body produces a measured ring, floor, or commentary-table landing.
+
+Normal movement compresses the ropes but cannot tunnel through their hard elastic tier. The rebound controller reverses the complete articulated mass and opens the Railway Stiff-Arm window only after inward release. Center-rope context actions own intentional apron transitions, so ordinary locomotion and explicit ring traversal remain distinct.
 
 Throw and dive velocity changes are distributed by each segment's own mass. This keeps the articulated body coherent and prevents a pelvis-only impulse from stretching joints or catapulting the wrestler. The commentary desk applies bounded targeting only when the defender is already close enough for a deliberate environmental spot; collapse still requires a physical table landing.
 

@@ -4,6 +4,8 @@ Date: 2026-07-13
 Branch: `feat/bodyworks-gold-master`  
 Scope: production-preview keyboard play, recorded Playwright video/trace review, deterministic simulation inspection, and Rapier headless checks before the playability-first retune.
 
+Status: historical pre-upgrade baseline. The findings below explain the failures that motivated Bodyworks; the final section records the current implementation and supersedes those findings where behavior changed.
+
 ## Product role
 
 RINGFALL: CHAOS CIRCUIT is a browser arcade-wrestling game. Its primary value is the immediate match loop—move, strike, visibly secure a wrestler, slam them, use the ring, finish, see results, and rematch. Platform/discovery surfaces remain subordinate to that game.
@@ -94,7 +96,7 @@ RINGFALL: CHAOS CIRCUIT is a browser arcade-wrestling game. Its primary value is
 7. Make neutral `L` reliably begin the central body slam; preserve directional move selection after the lock.
 8. Make substantial physical slams replay eligible while keeping routine strikes out of replay.
 
-## Release blockers at baseline
+## Release blockers recorded at baseline
 
 - Complete the new movement/braking/camera-axis browser proof.
 - Make the deliberate body slam pass reliably across repeated valid setups and different sizes.
@@ -105,9 +107,11 @@ RINGFALL: CHAOS CIRCUIT is a browser arcade-wrestling game. Its primary value is
 
 ## Upgrade implementation status
 
-The follow-up Bodyworks pass implements the baseline's primary control and stability remediations. Locomotion now drives one mass-weighted center of mass instead of pushing the pelvis with the wrestler's full mass. Planted fighters use bounded core posture drive and temporary collision-skeleton rotation limits; full articulation returns for grabs, throws, aerials, knockdowns, recovery, and climbing. Touch activity no longer starts in a false-active state.
+The follow-up Bodyworks pass implements the baseline's primary control and stability remediations. Locomotion now drives one mass-weighted center of mass instead of pushing the pelvis with the wrestler's full mass. The hidden 16-body collision tree keeps stable rotations in every state and uses bounded whole-rig forces; the separate production wrestler hierarchy authors the readable walk, run, grab, throw, aerial, knockdown, and recovery poses. Two bounded hand-to-body spring grips preserve a physical collar-and-elbow lock without creating the closed cross-rig joint loop that previously launched or vibrated wrestlers. Touch activity no longer starts in a false-active state, and close-range approach braking prevents joystick overshoot.
 
 Corner dives and grapple releases distribute a shared velocity change across every articulated segment. Aerial collision uses a swept volume aligned to flight velocity. Grapple landings are accepted only at a measured ring, floor, or table surface; downward velocity alone is no longer mistaken for a landing. A nearby commentary desk supplies bounded environmental targeting so a committed desk spot lands on the desk without bypassing contact scoring.
+
+Ropes now have a hard elastic tier that prevents normal locomotion from crossing the apron boundary. Rebound energy reverses the complete articulated mass, and the stiff-arm window opens only on the inward release. Center-rope actions remain the explicit path between ring and ringside. Turnbuckles expose lower, middle, and top stages, climb-down, taunt, and three aerial choices.
 
 The new camera director selects stable broadcast, wide, ringside, desk, aerial, grapple, and replay shots. Its look target is separately damped, its prediction is bounded, and shot changes use a hold window. The arena now has a larger playable floor, expanded physical barricades, physical steel steps, an entrance lane, reactive perimeter lighting, and a larger crowd/stage silhouette.
 

@@ -6,6 +6,7 @@ import { getMove } from '../data/moves';
 import { getPairedPose, getStrikePose, getStrikeReactionPose } from '../animation/choreography';
 import { POSES } from '../animation/poses';
 import type { AnimationKey, FighterId, FighterRuntime } from '../types/game';
+import { recoveryPose } from '../animation/recoveryMotion';
 
 interface Props { runtime?: FighterRuntime; counterpart?: FighterRuntime; fighterId?: FighterId; preview?: boolean; side?: 'player' | 'opponent' }
 
@@ -48,6 +49,7 @@ export function FighterModel({ runtime, counterpart, fighterId, preview = false,
       else if (runtime.state === 'defeated') key = 'defeat';
     }
     let animatedPose = POSES[key];
+    if (runtime && (runtime.state === 'downed' || runtime.state === 'recovering')) animatedPose = recoveryPose(runtime.recoveryOrientation, runtime.state, runtime.stateElapsed);
     if (runtime?.moveId) {
       const move = getMove(runtime.moveId);
       animatedPose = getPairedPose(move, 'actor', runtime.attackPhase, runtime.phaseElapsed, runtime.definitionId) ?? getStrikePose(move, runtime.attackPhase, runtime.phaseElapsed) ?? animatedPose;

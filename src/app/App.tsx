@@ -12,7 +12,10 @@ import { Tutorial } from '../ui/Tutorial';
 import { MobileControls } from '../ui/MobileControls';
 import { PhysicsLab, physicsLabEnabled } from '../game/components/PhysicsLab';
 
-const GameScene = lazy(async () => ({ default: (await import('../game/components/GameScene')).GameScene }));
+type GameSceneModule = typeof import('../game/components/GameScene');
+let gameScenePromise: Promise<GameSceneModule> | null = null;
+const loadGameScene = (): Promise<GameSceneModule> => gameScenePromise ??= import('../game/components/GameScene');
+const GameScene = lazy(async () => ({ default: (await loadGameScene()).GameScene }));
 const FighterPreview = lazy(async () => ({ default: (await import('../ui/FighterPreview')).FighterPreview }));
 
 type Screen = 'init' | 'main' | 'how' | 'settings' | 'select' | 'rules' | 'match' | 'results';
@@ -21,6 +24,7 @@ export function App() {
   const [screen, setScreen] = useState<Screen>('init'); const [selected, setSelected] = useState<FighterId>('atlas'); const [rules, setRules] = useState<Ruleset>('standard');
   const [difficulty, setDifficulty] = useState<Difficulty>('normal'); const [device, setDevice] = useState<ControlDevice>('keyboard'); const [paused, setPaused] = useState(false);
   const [beers, setBeers] = useState(0);
+  const [runtimePreload, setRuntimePreload] = useState<'idle' | 'loading' | 'ready'>('idle');
   const physicsLab = physicsLabEnabled();
   const toyTest = new URLSearchParams(window.location.search).get('toyTest') === '1';
   const settings = useSettings(); const configure = useMatchStore((state) => state.configure); const rematch = useMatchStore((state) => state.rematch); const result = useMatchStore((state) => state.model.result); const replayActive = useMatchStore((state) => state.replayActive);
@@ -28,7 +32,12 @@ export function App() {
   useEffect(() => { document.documentElement.style.setProperty('--ui-scale', String(settings.uiScale)); audioEngine.configure(settings); }, [settings]);
 
   const confirm = (next: Screen): void => { audioEngine.play('confirm', settings); setScreen(next); };
-  const enter = (): void => { audioEngine.unlock(settings); setScreen('main'); };
+  const preloadRuntime = useCallback((): void => {
+    if (runtimePreload !== 'idle') return;
+    setRuntimePreload('loading');
+    void loadGameScene().then(() => setRuntimePreload('ready'));
+  }, [runtimePreload]);
+  const enter = (): void => { audioEngine.unlock(settings); setScreen('main'); preloadRuntime(); };
   const start = (): void => { configure(selected, opponentId, rules, difficulty, beers, 0); if (physicsLab) useMatchStore.getState().setLabMode(true); if (toyTest) useMatchStore.getState().setToyTestMode(true); setPaused(false); confirm('match'); audioEngine.play('bell', settings); };
   const togglePause = useCallback(() => {
     const next = !useMatchStore.getState().model.paused;
@@ -42,7 +51,7 @@ export function App() {
   return <main className={`app app--${screen}${toyTest ? ' app--toy-test' : ''}`}>
     {menuBackdrop}
     {screen === 'init' && <section className="init-screen"><Logo /><div className="init-card"><span>SYSTEM CHECK</span><b>LOCAL ARENA READY</b><small>WebGL · deterministic combat · procedural audio</small></div><button className="button button--hero" onClick={enter}>ENTER THE VOLT DOME</button><p>No network connection required after installation.</p></section>}
-    {screen === 'main' && <section className="menu-screen"><Logo /><div className="menu-copy"><p>NEON UNDERGROUND ARCADE WRESTLING</p><h1>MAKE THE DOME<br /><em>LOSE CONTROL.</em></h1><span>Five originals. One electric ring. Every match tells a different story.</span></div><nav className="main-nav" aria-label="Main menu"><button className="button button--hero" onClick={() => confirm('select')}>PLAY</button><button className="button button--quiet" onClick={() => confirm('how')}>HOW TO PLAY</button><button className="button button--quiet" onClick={() => confirm('settings')}>SETTINGS</button></nav><footer>RINGFALL v1.0 · ORIGINAL COMBAT SPORT</footer></section>}
+    {screen === 'main' && <section className="menu-screen"><Logo /><div className="menu-copy"><p>NEON UNDERGROUND ARCADE WRESTLING</p><h1>MAKE THE DOME<br /><em>LOSE CONTROL.</em></h1><span>Five originals. One electric ring. Every match tells a different story.</span></div><nav className="main-nav" aria-label="Main menu"><button className="button button--hero" onPointerEnter={preloadRuntime} onFocus={preloadRuntime} onClick={() => { preloadRuntime(); confirm('select'); }}>PLAY</button><button className="button button--quiet" onClick={() => confirm('how')}>HOW TO PLAY</button><button className="button button--quiet" onClick={() => confirm('settings')}>SETTINGS</button></nav><footer data-runtime-preload={runtimePreload}>RINGFALL v1.0 · ORIGINAL COMBAT SPORT · ARENA {runtimePreload === 'ready' ? 'PRIMED' : runtimePreload === 'loading' ? 'WARMING' : 'STANDBY'}</footer></section>}
     {screen === 'how' && <section className="panel panel--how"><div className="section-heading"><span>CORNER COACH</span><h2>HOW TO PLAY</h2></div><div className="how-grid">
       <article><b>1 · CONTROL THE SPACE</b><p>WASD moves and aims. Shift runs. C jumps. Near a center rope, F enters or exits cleanly; a corner keeps F reserved for climbing.</p></article><article><b>2 · DIRECTIONAL STRIKING</b><p>J and K change with your direction: high cross and uppercut forward, low kick while retreating, roundhouse left, high kick right. The live deck always names the move that will fire.</p></article><article><b>3 · LOAD THE ROPES</b><p>Sprint into a visibly stretching rope. Its rebound adds speed; press K, Y, or POWER during the glowing window to land a Railway Stiff-Arm knockdown.</p></article><article><b>4 · OWN THE CORNERS</b><p>Press F three times to climb lower, middle, and top. At the top: J drops an elbow, K fires a missile kick, F launches Domefall, Q poses, and Space climbs down.</p></article><article><b>5 · WRESTLE, DON'T MASH</b><p>Press L to establish a two-hand clinch. Keep holding a direction and use J, K, or L; the deck and grapple board name the exact takedown, slam, choke, whip, or throw.</p></article><article><b>6 · RECOVER & FINISH</b><p>I guards; timed Space reverses. When down, Space performs a visible stamina-bound kick-up. Fill Momentum, then use F to finish—or pin a vulnerable opponent.</p></article>
     </div><button className="button" onClick={() => confirm('main')}>BACK TO MENU</button></section>}

@@ -12,7 +12,7 @@ const SCENARIOS: readonly LabScenario[] = [
   { id: 'walk', label: 'WALK + STOP', steps: hold('KeyW', 0, 2_000), duration: 3_000 },
   { id: 'turn', label: 'RAPID TURN', steps: [...hold('KeyA', 0, 500), ...hold('KeyD', 560, 650)], duration: 1_800 },
   { id: 'ropes', label: 'RUN INTO ROPES', steps: [...hold('KeyD', 0, 2_050), ...hold('ShiftLeft', 0, 2_050)], duration: 2_800 },
-  { id: 'ropeStrike', label: 'ROPE LOAD + STIFF-ARM', steps: [...hold('KeyD', 0, 920), ...hold('ShiftLeft', 0, 920), ...tap('KeyK', 340, 200)], duration: 2_400 },
+  { id: 'ropeStrike', label: 'ROPE LOAD + STIFF-ARM', steps: [...hold('KeyD', 0, 1_400), ...hold('ShiftLeft', 0, 1_400)], duration: 2_400 },
   { id: 'apronReturn', label: 'APRON RETURN', steps: tap('KeyF', 300, 140), duration: 2_600 },
   { id: 'jump', label: 'STANDING JUMP', steps: tap('KeyC', 220, 480), duration: 2_200 },
   { id: 'kickup', label: 'KICK-UP RECOVERY', steps: tap('Space', 620, 180), duration: 2_100 },
@@ -59,12 +59,31 @@ export function PhysicsLab() {
     // solver overlap and does not represent a playable ringside setup.
     else if (scenario.id === 'tableCollapse') useMatchStore.getState().prepareLabScenario({ x: 0, z: -5.15 }, { x: 0, z: -6.15 });
     else if (scenario.id === 'kickup') useMatchStore.getState().prepareLabScenario({ x: 0, z: -.7 }, { x: 0, z: 3.4 }, 'downed');
-    else if (scenario.id === 'ropeStrike') useMatchStore.getState().prepareLabScenario({ x: 4.48, z: .2 }, { x: 3.65, z: -.12 });
+    else if (scenario.id === 'ropeStrike') useMatchStore.getState().prepareLabScenario({ x: 4.92, z: .08 }, { x: 3.82, z: -.04 });
     else if (closeRange) useMatchStore.getState().prepareLabScenario({ x: 0, z: -.68 }, { x: 0, z: .68 }, 'idle', scenario.id === 'soakRound' ? 1 : 100);
     else if (scenario.id === 'miss') useMatchStore.getState().prepareLabScenario({ x: 0, z: -2.6 }, { x: 0, z: 2.6 });
     document.documentElement.dataset.labResetPelvisY = bodyWorksRuntime.fighterSnapshot('player').pelvisY.toFixed(3);
     for (const step of scenario.steps) timers.current.push(window.setTimeout(() => dispatchKey(step.code, step.down), step.at));
-    timers.current.push(window.setTimeout(() => { for (const step of scenario.steps) if (step.down) dispatchKey(step.code, false); setActive(null); }, scenario.duration));
+    let reboundWatcher: number | null = null;
+    if (scenario.id === 'ropeStrike') {
+      // Drive into the rope with normal gameplay input, then fire on the real
+      // inward physics transition. This keeps the browser scenario deterministic
+      // without replacing its elastic interaction with a test-only teleport.
+      reboundWatcher = window.setInterval(() => {
+        const player = useMatchStore.getState().model.player;
+        if (player.ropeRebound <= 0) return;
+        if (reboundWatcher !== null) window.clearInterval(reboundWatcher);
+        reboundWatcher = null;
+        dispatchKey('KeyD', false); dispatchKey('ShiftLeft', false); dispatchKey('KeyK', true);
+        timers.current.push(window.setTimeout(() => dispatchKey('KeyK', false), 180));
+      }, 8);
+      timers.current.push(reboundWatcher);
+    }
+    timers.current.push(window.setTimeout(() => {
+      if (reboundWatcher !== null) window.clearInterval(reboundWatcher);
+      for (const step of scenario.steps) if (step.down) dispatchKey(step.code, false);
+      setActive(null);
+    }, scenario.duration));
   };
   const player = bodyWorksRuntime.fighterSnapshot('player'); const opponent = bodyWorksRuntime.fighterSnapshot('opponent'); const metrics = bodyWorksRuntime.metrics;
   const diagnostics = useMemo(() => [
@@ -73,8 +92,8 @@ export function PhysicsLab() {
     ['PLAYER COM', `${model.player.position.x.toFixed(2)}, ${player.pelvisY.toFixed(2)}, ${model.player.position.z.toFixed(2)}`], ['PLAYER SUPPORT', `${player.supportFeet} FEET · UP ${player.upright.toFixed(2)}`], ['PLAYER SPEED', player.speed.toFixed(2)],
     ['OPPONENT COM', `${model.opponent.position.x.toFixed(2)}, ${opponent.pelvisY.toFixed(2)}, ${model.opponent.position.z.toFixed(2)}`], ['BALANCE', `${model.player.body.balance.toFixed(0)} / ${model.opponent.body.balance.toFixed(0)}`],
     ['TASK', `${model.player.state} · ${model.player.moveId ?? 'none'}`], ['PHASE', `${model.player.attackPhase ?? 'none'} · ${model.grapple?.phase ?? 'free'}`], ['WINDOW', model.player.counterWindow > 0 ? 'COUNTER OPEN' : 'closed'],
-    ['CONTACTS', metrics.contactCount], ['FORCE / LOAD', `${model.lastImpact?.force?.toFixed(1) ?? '0'} / ${metrics.maximumGripLoad.toFixed(1)}`], ['RESETS', metrics.emergencyResetCount], ['REPLAY', bodyWorksRuntime.replay.size],
-  ] as const, [fps, metrics.bodyCount, metrics.contactCount, metrics.emergencyResetCount, metrics.gripCount, metrics.gripCreateCount, metrics.jointCount, metrics.lastStepMs, metrics.maximumGripLoad, metrics.maximumStepMs, metrics.worldBodyCount, metrics.worldJointCount, model, opponent.pelvisY, player.pelvisY, player.speed, player.supportFeet, player.upright, revision]);
+    ['CONTACTS', metrics.contactCount], ['FORCE / LOAD', `${model.lastImpact?.force?.toFixed(1) ?? '0'} / ${metrics.maximumGripLoad.toFixed(1)}`], ['RESETS / BOUNDS', `${metrics.emergencyResetCount} / ${metrics.containmentCount}`], ['REPLAY', bodyWorksRuntime.replay.size],
+  ] as const, [fps, metrics.bodyCount, metrics.contactCount, metrics.containmentCount, metrics.emergencyResetCount, metrics.gripCount, metrics.gripCreateCount, metrics.jointCount, metrics.lastStepMs, metrics.maximumGripLoad, metrics.maximumStepMs, metrics.worldBodyCount, metrics.worldJointCount, model, opponent.pelvisY, player.pelvisY, player.speed, player.supportFeet, player.upright, revision]);
   return <aside className="physics-lab" data-testid="physics-lab" data-lab-fps={fps} data-lab-step-ms={metrics.lastStepMs.toFixed(3)} data-lab-max-step-ms={metrics.maximumStepMs.toFixed(3)}>
     <header><span>RINGFALL BODYWORKS</span><b>PHYSICS LAB</b><small>REAL INPUT · REAL RAPIER · FIXED 60 HZ</small></header>
     <div className="physics-lab__diagnostics">{diagnostics.map(([label, value]) => <div key={label}><span>{label}</span><b>{value}</b></div>)}</div>

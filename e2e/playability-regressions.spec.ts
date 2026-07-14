@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
+import { RINGSIDE_THRESHOLD } from '../src/game/physics/ringDynamics';
 
 const enterLabMatch = async (page: Page): Promise<void> => {
   await page.goto('/?physicsLab=1');
@@ -46,6 +47,9 @@ test('rope rebound produces a loaded stiff-arm and physical knockdown', async ({
       if (liveHud?.getAttribute('data-player-move') === 'stiff_arm') document.documentElement.dataset.sawDeterministicStiffArm = 'true';
       if (/downed|airborne/.test(liveHud?.getAttribute('data-opponent-state') ?? '')) document.documentElement.dataset.sawDeterministicKnockdown = 'true';
       if (deck?.textContent?.includes('STIFF-ARM!') || deck?.textContent?.includes('ROPES LOADED')) document.documentElement.dataset.sawDeterministicRopeLoad = 'true';
+      const x = Math.abs(Number(liveHud?.getAttribute('data-player-x'))); const maximum = Number(document.documentElement.dataset.maximumRopeX ?? 0);
+      if (Number.isFinite(x) && x > maximum) document.documentElement.dataset.maximumRopeX = x.toFixed(3);
+      if (liveHud?.getAttribute('data-player-ringside') === 'true') document.documentElement.dataset.sawRopeTunnel = 'true';
     };
     new MutationObserver(observe).observe(document.body, { subtree: true, attributes: true, childList: true }); observe();
   });
@@ -53,6 +57,8 @@ test('rope rebound produces a loaded stiff-arm and physical knockdown', async ({
   await expect(html).toHaveAttribute('data-saw-deterministic-rope-load', 'true', { timeout: 6_000 });
   await expect(html).toHaveAttribute('data-saw-deterministic-stiff-arm', 'true', { timeout: 6_000 });
   await expect(html).toHaveAttribute('data-saw-deterministic-knockdown', 'true', { timeout: 8_000 });
+  expect(Number(await html.getAttribute('data-maximum-rope-x'))).toBeLessThanOrEqual(RINGSIDE_THRESHOLD.x);
+  await expect(html).not.toHaveAttribute('data-saw-rope-tunnel', 'true');
   await expect(hud).toHaveAttribute('data-physics-emergency-resets', '0'); expect(errors).toEqual([]);
 });
 

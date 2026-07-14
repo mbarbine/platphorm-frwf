@@ -30,6 +30,7 @@ test('three bounded instant rematches keep the Rapier world and JS heap stable',
     await expect(hud).toHaveAttribute('data-physics-bodies', '32', { timeout: 20_000 });
     await expect(hud).toHaveAttribute('data-physics-joints', '30');
     await expect(hud).toHaveAttribute('data-physics-emergency-resets', '0');
+    await expect(hud).toHaveAttribute('data-physics-containments', '0');
     await expect(lab.getByRole('button', { name: 'LAB KNOCKOUT' })).toBeEnabled({ timeout: 8_000 });
     await lab.getByRole('button', { name: 'LAB KNOCKOUT' }).click();
     await expect(page.getByRole('button', { name: 'INSTANT REMATCH' })).toBeVisible({ timeout: 25_000 });

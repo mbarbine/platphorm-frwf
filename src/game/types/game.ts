@@ -16,6 +16,7 @@ export type GameCommand = 'quick' | 'heavy' | 'grapple' | 'block' | 'dodge' | 'j
 export type BodyRegion = 'head' | 'chest' | 'ribs' | 'pelvis' | 'leftArm' | 'rightArm' | 'leftLeg' | 'rightLeg';
 export type CollisionOutcome = 'absorbed' | 'stagger' | 'spin' | 'trip' | 'fall' | 'launch';
 export type GrapplePosition = 'collarTie' | 'overhook' | 'underhook' | 'headlock' | 'waistLock' | 'rearWaistLock' | 'frontFacelock' | 'armControl';
+export type RecoveryOrientation = 'back' | 'front' | 'left' | 'right';
 
 export interface Vec2 { x: number; z: number }
 
@@ -134,12 +135,13 @@ export interface FighterRuntime {
   ropeRebound: number;
   finisherPrimed: boolean;
   climbStage: 0 | 1 | 2 | 3;
+  recoveryOrientation: RecoveryOrientation;
   body: BodyDynamicsRuntime;
 }
 
 export interface PropRuntime {
   id: string;
-  kind: 'chair' | 'sign' | 'table';
+  kind: 'chair' | 'sign' | 'trash' | 'table';
   position: Vec2;
   durability: number;
   stress: number;

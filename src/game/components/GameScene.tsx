@@ -2,7 +2,7 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { AdaptiveDpr, BakeShadows } from '@react-three/drei';
 import { Physics, useAfterPhysicsStep, useBeforePhysicsStep } from '@react-three/rapier';
 import { JointData } from '@dimforge/rapier3d-compat';
-import { Component, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { Component, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ErrorInfo, ReactNode } from 'react';
 import { Vector3 } from 'three';
 import type { Group } from 'three';
@@ -24,6 +24,8 @@ import { physicsLabEnabled } from './PhysicsLab';
 import { cameraInputBasis, transformCameraRelative, updateStableBasis } from '../input/cameraRelative';
 import type { CameraInputBasis } from '../input/cameraRelative';
 import { getMove } from '../data/moves';
+import { browserRuntimeQuality } from '../runtime/quality';
+import { usePhysicsLabStore } from '../state/physicsLabStore';
 
 interface Props { onPause: () => void; onDevice: (device: ControlDevice) => void; onFinished: () => void }
 
@@ -38,15 +40,16 @@ function Simulation({ onPause, onDevice, onFinished }: Props) {
   useEffect(() => () => { if (finishTimer.current !== null) window.clearTimeout(finishTimer.current); }, []);
   useBeforePhysicsStep((world) => {
     const session = gl.xr.getSession(); const raw = input.read(session ? Array.from(session.inputSources) : []); const model = useMatchStore.getState().model;
+    const fixedStep = model.labMode ? usePhysicsLabStore.getState().rate / 60 : 1 / 60;
     const middleX = (model.player.position.x + model.opponent.position.x) / 2; const middleZ = (model.player.position.z + model.opponent.position.z) / 2;
     const candidate = cameraInputBasis({ x: camera.position.x, z: camera.position.z }, { x: middleX, z: middleZ });
     if (!inputBasis.current) inputBasis.current = candidate;
     const inputHeld = Math.hypot(raw.move.x, raw.move.z) > .08;
     const cinematic = useMatchStore.getState().replayActive || !['idle', 'locomotion', 'blocking'].includes(model.player.state) || model.player.moveId !== null || model.opponent.moveId !== null;
-    inputBasis.current = updateStableBasis(inputBasis.current, candidate, inputHeld, cinematic, 1 / 60);
+    inputBasis.current = updateStableBasis(inputBasis.current, candidate, inputHeld, cinematic, fixedStep);
     raw.move = transformCameraRelative(raw.move, inputBasis.current);
-    useMatchStore.getState().advance(1 / 60, raw);
-    bodyWorksRuntime.beforeFixedStep(1 / 60, useMatchStore.getState().model, world);
+    useMatchStore.getState().advance(fixedStep, raw);
+    bodyWorksRuntime.beforeFixedStep(fixedStep, useMatchStore.getState().model, world);
   });
   useAfterPhysicsStep(() => {
     bodyWorksRuntime.afterFixedStep(useMatchStore.getState().model);
@@ -86,10 +89,11 @@ function Fighters() {
   const physicsLab = useMatchStore((state) => state.model.labMode);
   const runtimeId = useMatchStore((state) => state.model.runtimeId);
   const replayActive = useMatchStore((state) => state.replayActive);
+  const labDebug = usePhysicsLabStore((state) => state.debug);
   return <group key={runtimeId} visible={!replayActive}>
-    <PhysicalFighterRig runtime={player} side="player" showVisuals={physicsLab} />
-    <PhysicalFighterRig runtime={opponent} side="opponent" showVisuals={physicsLab} />
-    {!physicsLab && <><FighterModel runtime={player} counterpart={opponent} side="player" /><FighterModel runtime={opponent} counterpart={player} side="opponent" /></>}
+    <PhysicalFighterRig runtime={player} side="player" showVisuals={physicsLab && labDebug} />
+    <PhysicalFighterRig runtime={opponent} side="opponent" showVisuals={physicsLab && labDebug} />
+    {(!physicsLab || !labDebug) && <><FighterModel runtime={player} counterpart={opponent} side="player" /><FighterModel runtime={opponent} counterpart={player} side="opponent" /></>}
   </group>;
 }
 
@@ -116,6 +120,9 @@ export function GameScene(props: Props) {
   const replayActive = useMatchStore((state) => state.replayActive);
   const diagnosticModel = useMatchStore((state) => state.model); const toyTestMode = diagnosticModel.toyTestMode; const playerMove = diagnosticModel.player.moveId; const playerPosition = diagnosticModel.player.position; const opponentHealth = diagnosticModel.opponent.health;
   const lab = physicsLabEnabled();
+  const labRate = usePhysicsLabStore((state) => state.rate); const labDebug = usePhysicsLabStore((state) => state.debug);
+  const graphicsQuality = useSettings((state) => state.graphicsQuality); const reducedMotion = useSettings((state) => state.reducedMotion);
+  const quality = useMemo(() => browserRuntimeQuality(graphicsQuality, reducedMotion, lab), [graphicsQuality, lab, reducedMotion]);
   const renderer = useRef<WebGLRenderer | null>(null); const [xrAvailable, setXrAvailable] = useState(false); const [xrPresenting, setXrPresenting] = useState(false); const [xrError, setXrError] = useState('');
   const enterXR = async (): Promise<void> => {
     if (!navigator.xr || !renderer.current) return;
@@ -126,12 +133,12 @@ export function GameScene(props: Props) {
     } catch (error: unknown) { setXrError(error instanceof Error ? error.message : 'XR session could not start'); }
   };
   const exitXR = async (): Promise<void> => { await renderer.current?.xr.getSession()?.end(); };
-  return <SceneBoundary><div className="game-canvas" data-testid="game-canvas" data-toy-test={toyTestMode ? 'true' : 'false'} data-player-move={playerMove ?? ''} data-player-x={playerPosition.x.toFixed(3)} data-player-z={playerPosition.z.toFixed(3)} data-opponent-health={opponentHealth.toFixed(1)}>
-    <Canvas shadows={lab ? false : 'basic'} dpr={lab ? .5 : [.75, 1.5]} gl={{ antialias: !lab, alpha: false, powerPreference: 'high-performance' }} camera={{ position: [8, 7, 11], fov: 48, near: .1, far: 72 }} onCreated={({ gl }) => {
+  return <SceneBoundary><div className="game-canvas" data-testid="game-canvas" data-toy-test={toyTestMode ? 'true' : 'false'} data-graphics-tier={quality.tier} data-physics-bodies={bodyWorksRuntime.metrics.bodyCount} data-physics-steps={bodyWorksRuntime.metrics.fixedSteps} data-player-move={playerMove ?? ''} data-player-x={playerPosition.x.toFixed(3)} data-player-z={playerPosition.z.toFixed(3)} data-opponent-health={opponentHealth.toFixed(1)}>
+    <Canvas shadows={quality.shadows ? 'basic' : false} dpr={quality.dpr} gl={{ antialias: quality.antialias, alpha: false, powerPreference: 'high-performance' }} camera={{ position: [8, 7, 11], fov: 48, near: .1, far: 72 }} onCreated={({ gl }) => {
       renderer.current = gl; gl.xr.enabled = true;
       if (navigator.xr) void navigator.xr.isSessionSupported('immersive-vr').then(setXrAvailable).catch(() => setXrAvailable(false));
     }}>
-      <Suspense fallback={null}><Physics gravity={[0, -18, 0]} timeStep={1 / 60} paused={paused || replayActive} interpolate numSolverIterations={8} numInternalPgsIterations={2} maxCcdSubsteps={2}><Arena /><Fighters /><PlayerControlBeacon /><ImpactEffects /><Simulation {...props} /></Physics><ReplayDirector /><CameraRig /><AdaptiveDpr pixelated />{!lab && <BakeShadows />}</Suspense>
+      <Suspense fallback={null}><Physics gravity={[0, -18, 0]} timeStep={(lab ? labRate : 1) / 60} paused={paused || replayActive} debug={lab && labDebug} interpolate numSolverIterations={8} numInternalPgsIterations={2} maxCcdSubsteps={2}><Arena crowdCount={quality.crowdCount} /><Fighters /><PlayerControlBeacon /><ImpactEffects /><Simulation {...props} /></Physics><ReplayDirector /><CameraRig /><AdaptiveDpr pixelated />{quality.bakeShadows && <BakeShadows />}</Suspense>
     </Canvas>
     {xrAvailable && <button type="button" className="xr-entry" data-testid="xr-entry" onClick={() => void (xrPresenting ? exitXR() : enterXR())}>{xrPresenting ? 'EXIT ARENA XR' : 'ENTER ARENA XR'}<small>QUEST · STEAM FRAME · OPENXR</small></button>}
     {xrError && <div className="xr-error" role="status">XR UNAVAILABLE · {xrError}</div>}

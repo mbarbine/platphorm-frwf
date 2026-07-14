@@ -17,6 +17,7 @@ const MOVE_POSITIONS: Readonly<Record<string, GrapplePosition>> = {
   spinebuster: 'waistLock',
   side_toss: 'overhook',
   mountain_drop: 'waistLock',
+  corner_smash: 'armControl',
   finisher: 'collarTie',
 };
 
@@ -43,6 +44,7 @@ const LIFT_HEIGHTS: Readonly<Record<string, number>> = {
   spinebuster: .74,
   side_toss: .62,
   mountain_drop: 1.48,
+  corner_smash: .3,
   finisher: 1.3,
 };
 
