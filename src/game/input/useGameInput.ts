@@ -13,6 +13,7 @@ const COMMAND_KEYS: Readonly<Record<string, GameCommand>> = {
   KeyC: 'jump',
   KeyE: 'interact',
   KeyF: 'context',
+  KeyP: 'context',
   KeyQ: 'taunt',
 };
 const MOVEMENT_KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowLeft', 'ArrowDown', 'ArrowRight', 'ShiftLeft', 'ShiftRight', 'KeyI']);

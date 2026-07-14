@@ -18,15 +18,15 @@ export interface ControlReadout {
 }
 
 const DEVICE_KEYS: Readonly<Record<ControlDevice, Readonly<Record<ControlId, string>>>> = {
-  keyboard: { move: 'WASD', run: 'SHIFT', quick: 'H / J', heavy: 'K', grapple: 'L', block: 'I', counter: 'SPACE', jump: 'C', interact: 'E', context: 'F', taunt: 'Q' },
+  keyboard: { move: 'WASD', run: 'SHIFT', quick: 'H / J', heavy: 'K', grapple: 'L', block: 'I', counter: 'SPACE', jump: 'C', interact: 'E', context: 'F / P', taunt: 'Q' },
   gamepad: { move: 'L STICK', run: 'RT', quick: 'X / □', heavy: 'Y / △', grapple: 'B / ○', block: 'LT', counter: 'A / ×', jump: 'L3', interact: 'LB', context: 'R3', taunt: 'RB' },
-  touch: { move: 'STICK', run: 'RUN', quick: 'QUICK', heavy: 'KICK', grapple: 'BODY SLAM', block: 'GUARD', counter: '↯', jump: 'JUMP', interact: 'PROP', context: 'SPECIAL', taunt: 'TAUNT' },
+  touch: { move: 'STICK', run: 'RUN', quick: 'QUICK', heavy: 'KICK', grapple: 'BODY SLAM', block: 'GUARD', counter: '↯', jump: 'JUMP', interact: 'PROP', context: 'SPECIAL / PIN', taunt: 'TAUNT' },
 };
 
 export const controlPrompt = (device: ControlDevice, control: ControlId): string => DEVICE_KEYS[device][control];
 
 const BASE_LABELS: Readonly<Record<ControlId, string>> = {
-  move: 'MOVE / AIM', run: 'RUN', quick: 'PUNCH / HEADBUTT', heavy: 'KICK', grapple: 'BODY SLAM', block: 'GUARD', counter: 'KICK-UP', jump: 'JUMP / HOP', interact: 'PROP', context: 'SPECIAL', taunt: 'TAUNT',
+  move: 'MOVE / AIM', run: 'RUN', quick: 'PUNCH / HEADBUTT', heavy: 'KICK', grapple: 'BODY SLAM', block: 'GUARD', counter: 'KICK-UP', jump: 'JUMP / HOP', interact: 'PROP', context: 'SPECIAL / PIN', taunt: 'TAUNT',
 };
 
 const moveLabel = (moveId: string): string => getMove(moveId).displayName.toUpperCase();
@@ -43,9 +43,11 @@ export function buildControlLabels(player: FighterRuntime, opponent: FighterRunt
     : isStanding && directionId === 'neutral' ? BASE_LABELS.quick
       : moveLabel(selectDirectionalStrike(direction, 'quick', player.comboStep));
   labels.heavy = player.heldPropId ? moveLabel('prop')
-    : player.ropeRebound > 0 || running && speed > 3.6 ? moveLabel('stiff_arm')
-      : isStanding && directionId === 'neutral' ? BASE_LABELS.heavy
-        : moveLabel(selectDirectionalStrike(direction, 'heavy', player.comboStep));
+    : player.ropeRebound > 0
+      ? directionId === 'left' ? 'LEFT ARM STIFF-ARM' : directionId === 'right' ? 'RIGHT ARM STIFF-ARM' : moveLabel('stiff_arm')
+      : running || speed > 3.6 ? moveLabel('stiff_arm')
+        : isStanding && directionId === 'neutral' ? BASE_LABELS.heavy
+          : moveLabel(selectDirectionalStrike(direction, 'heavy', player.comboStep));
 
   if (player.state === 'grappling') {
     labels.quick = moveLabel(selectDirectionalGrapple(direction, 'quick'));
@@ -118,7 +120,11 @@ export function buildControlReadout(player: FighterRuntime, opponent: FighterRun
   if (paused) callout = 'SIMULATION STOPPED · RESUME TO WRESTLE';
   else if (player.state === 'pinned') callout = `${keys.counter} RAPIDLY · KICK OUT BEFORE THREE`;
   else if (player.state === 'downed' || player.moveId === 'kick_up') callout = `${keys.counter} · LIVEWIRE KICK-UP`;
-  else if (player.ropeRebound > 0) callout = `${keys.heavy} NOW · RAILWAY STIFF-ARM KNOCKDOWN`;
+  else if (player.ropeRebound > 0) callout = directionId === 'LEFT'
+    ? `${keys.heavy} NOW · LEFT ARM STIFF-ARM`
+    : directionId === 'RIGHT'
+      ? `${keys.heavy} NOW · RIGHT ARM STIFF-ARM`
+      : `${keys.heavy} NOW · RAILWAY STIFF-ARM KNOCKDOWN`;
   else if (player.climbStage > 0 && player.climbStage < 3) callout = `${actionKey} AGAIN · CLIMB TO ${player.climbStage === 1 ? 'MIDDLE' : 'TOP'} ROPE · ${keys.counter} DOWN`;
   else if (player.climbStage === 3) callout = `${keys.quick} ELBOW · ${keys.heavy} MISSILE KICK · ${actionKey} DOMEFALL · ${keys.taunt} POSE`;
   else if (player.state === 'grappling') callout = clinchCornerDistance <= 3.15

@@ -68,7 +68,17 @@ function Simulation({ onPause, onDevice, onFinished }: Props) {
     listeningCamera.getWorldPosition(listenerPosition.current); listeningCamera.getWorldDirection(listenerForward.current);
     audioEngine.setListener({ position: [listenerPosition.current.x, listenerPosition.current.y, listenerPosition.current.z], forward: [listenerForward.current.x, listenerForward.current.y, listenerForward.current.z], up: [0, 1, 0] });
     const liveSettings = useSettings.getState(); const audioSettings = model.toyTestMode ? { ...liveSettings, crowdVolume: 0 } : liveSettings;
-    if (model.lastImpact && model.lastImpact.id !== lastImpactId.current) { lastImpactId.current = model.lastImpact.id; audioEngine.impact(model.lastImpact, audioSettings); pulseConnectedGamepads(model.lastImpact); }
+    if (model.lastImpact && model.lastImpact.id !== lastImpactId.current) {
+      lastImpactId.current = model.lastImpact.id;
+      audioEngine.impact(model.lastImpact, audioSettings);
+      pulseConnectedGamepads(model.lastImpact);
+      document.documentElement.dataset.lastImpactKind = model.lastImpact.kind;
+      document.documentElement.dataset.lastImpactMove = model.lastImpact.moveId ?? '';
+      window.setTimeout(() => {
+        if (document.documentElement.dataset.lastImpactKind === model.lastImpact?.kind) delete document.documentElement.dataset.lastImpactKind;
+        if (document.documentElement.dataset.lastImpactMove === model.lastImpact?.moveId) delete document.documentElement.dataset.lastImpactMove;
+      }, 120);
+    }
     const actionAudio = `${model.player.state}:${model.player.moveId ?? ''}:${model.player.attackInstanceId}:${model.player.climbStage}`;
     if (actionAudio !== lastActionAudio.current) {
       const previous = lastActionAudio.current; lastActionAudio.current = actionAudio;

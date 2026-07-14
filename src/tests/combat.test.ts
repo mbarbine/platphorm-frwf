@@ -61,6 +61,20 @@ describe('deterministic combat rules', () => {
     expect(requestCommand(model, 'player', 'context')).toBe(false); expect(model.opponent.state).not.toBe('pinned');
   });
 
+  it('chooses a left or right stiff-arm after a rope rebound', () => {
+    const left = createMatch('atlas', 'vex', 'standard', 'normal'); left.player.position = { x: 4.8, z: 0 }; left.opponent.position = { x: 3.4, z: 0 }; left.player.ropeRebound = 1.1;
+    expect(requestCommand(left, 'player', 'heavy', { x: -1, z: 0 }, true)).toBe(true); expect(left.player.moveId).toBe('rebound');
+    const right = createMatch('atlas', 'vex', 'standard', 'normal'); right.player.position = { x: 4.8, z: 0 }; right.opponent.position = { x: 3.4, z: 0 }; right.player.ropeRebound = 1.1;
+    expect(requestCommand(right, 'player', 'heavy', { x: 1, z: 0 }, true)).toBe(true); expect(right.player.moveId).toBe('stiff_arm');
+  });
+
+  it('catches a blocked aerial attack and turns it into a countered slam', () => {
+    const model = createMatch('atlas', 'vex', 'standard', 'normal'); model.player.position = { x: 0, z: 0 }; model.opponent.position = { x: 0.8, z: 0 }; model.player.state = 'climbing'; model.player.climbStage = 3;
+    expect(requestCommand(model, 'player', 'context')).toBe(true); model.player.attackPhase = 'active'; model.opponent.state = 'blocking'; model.opponent.stamina = 25;
+    expect(applyMoveHit(model, 'player', 'opponent', getMove('aerial'))).toBe(true);
+    expect(model.player.state).toBe('downed'); expect(model.player.recoveryOrientation).toBe('back'); expect(model.opponent.moveId).toBe('counter');
+  });
+
   it('prioritizes a valid pin over an accidental corner climb', () => {
     const model = createMatch('atlas', 'vex', 'standard', 'normal'); model.player.position = { x: 4.8, z: 3.25 }; model.opponent.position = { x: 4.7, z: 3.1 }; model.opponent.state = 'downed';
     expect(requestCommand(model, 'player', 'context')).toBe(true); expect(model.player.state).toBe('pinning'); expect(model.opponent.state).toBe('pinned');
@@ -360,7 +374,7 @@ describe('deterministic combat rules', () => {
     let attempts = 0;
     for (const attacker of fighters) for (const defender of fighters) for (const side of [-1, 1] as const) for (const lane of [-.32, .32] as const) {
       const model = createMatch(attacker, defender, 'standard', 'hard', 900 + attempts); model.labMode = true;
-      model.player.position = { x: side * .4, z: -.35 + lane }; model.opponent.position = { x: side * .4 + side * 1.12, z: .15 + lane };
+      model.player.position = { x: side * .2, z: -.2 + lane }; model.opponent.position = { x: side * .88, z: -.12 + lane };
       model.player.facing = side > 0 ? Math.PI / 2 : -Math.PI / 2; model.player.stamina = model.player.staminaCap;
       expect(requestCommand(model, 'player', 'grapple')).toBe(true);
       expect(model.player.moveId).toBe('slam'); expect(model.grapple?.phase).toBe('reach');
@@ -411,7 +425,7 @@ describe('deterministic combat rules', () => {
   it('turns directional power into a physical front kick and a running grapple into a spear', () => {
     const kick = createMatch('vex', 'atlas', 'standard', 'normal'); kick.player.position = { x: 0, z: 0 }; kick.opponent.position = { x: 1.3, z: 0 };
     expect(requestCommand(kick, 'player', 'heavy', { x: 0, z: 1 })).toBe(true); expect(kick.player.moveId).toBe('front_kick');
-    const spear = createMatch('brick', 'nova', 'standard', 'normal'); spear.player.position = { x: 0, z: 0 }; spear.opponent.position = { x: 1.4, z: 0 }; spear.player.velocity = { x: 4.4, z: 0 };
+    const spear = createMatch('brick', 'nova', 'standard', 'normal'); spear.player.position = { x: 0, z: 0 }; spear.opponent.position = { x: .9, z: 0 }; spear.player.velocity = { x: 4.4, z: 0 };
     expect(requestCommand(spear, 'player', 'grapple', { x: 0, z: 1 }, true)).toBe(true); expect(spear.player.moveId).toBe('spear'); expect(spear.grapple).toBeNull();
   });
 

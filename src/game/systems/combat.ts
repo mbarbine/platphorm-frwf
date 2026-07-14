@@ -113,7 +113,7 @@ const addImpact = (model: MatchModel, position: Vec2, kind: ImpactEvent['kind'],
       ...metadata.highlight,
     }];
   }
-  model.hitStop = Math.max(model.hitStop, intensity * .045);
+  model.hitStop = Math.max(model.hitStop, intensity * .09);
 };
 
 const varietyMultiplier = (actor: FighterRuntime, moveId: string): number => {
@@ -145,6 +145,17 @@ export const applyMoveHit = (model: MatchModel, actorKey: 'player' | 'opponent',
   } : baseImpact;
   const spatialGuard = contact ? target.state === 'blocking' && (contact.targetSegment?.includes('Forearm') === true || contact.targetSegment?.includes('Hand') === true) : target.state === 'blocking';
   if (spatialGuard && move.category !== 'grapple' && move.category !== 'finisher' && move.category !== 'utility') {
+    if (move.category === 'aerial' && target.stamina > Math.max(6, move.damage * .45)) {
+      actor.hitTargets.push(hitToken);
+      target.stamina = clamp(target.stamina - Math.max(6, move.damage * .45), 0, target.staminaCap);
+      target.state = 'attacking'; target.moveId = 'counter'; target.attackPhase = 'active'; target.phaseElapsed = getMove('counter').anticipationDuration; target.stateElapsed = 0;
+      actor.state = 'downed'; actor.stateElapsed = 0; actor.downTimer = 1.1 + (100 - actor.health) / 120; actor.moveId = null; actor.attackPhase = null; actor.climbStage = 0;
+      actor.body.verticalOffset = 0; actor.body.verticalVelocity = 0; actor.recoveryOrientation = 'back';
+      model.hype = clamp(model.hype + 12, 0, 100);
+      model.announcement = 'BLOCK CATCH!'; model.announcementTimer = .95;
+      addImpact(model, impactPosition, 'counter', 1.05, { region: calculatedImpact.region, force: calculatedImpact.force * .84, torque: calculatedImpact.torque, outcome: 'spin', moveId: move.id });
+      return true;
+    }
     actor.hitTargets.push(hitToken);
     const guardCost = Math.max(2, move.damage * BALANCE.block.strikeStaminaMultiplier);
     target.stamina = clamp(target.stamina - guardCost, 0, target.staminaCap);
@@ -188,6 +199,7 @@ export const applyMoveHit = (model: MatchModel, actorKey: 'player' | 'opponent',
     ? { ...calculatedImpact, force: calculatedImpact.force * 1.18 }
     : calculatedImpact;
   const collisionOutcome = applyLocalizedImpact(target, impact);
+  if (move.id === 'stiff_arm' || move.id === 'rebound' || move.id === 'spear') target.recoveryOrientation = 'back';
   const targetForward = { x: Math.sin(target.facing), z: Math.cos(target.facing) }; const targetRight = { x: Math.cos(target.facing), z: -Math.sin(target.facing) };
   const forwardImpact = impact.direction.x * targetForward.x + impact.direction.z * targetForward.z; const sideImpact = impact.direction.x * targetRight.x + impact.direction.z * targetRight.z;
   target.recoveryOrientation = Math.abs(sideImpact) > Math.abs(forwardImpact) * .82 ? sideImpact > 0 ? 'right' : 'left' : forwardImpact > 0 ? 'front' : 'back';
@@ -231,6 +243,9 @@ export const applyMoveHit = (model: MatchModel, actorKey: 'player' | 'opponent',
     highlight: move.category === 'quick' && impact.force < 7 ? undefined : { label: move.category === 'finisher' ? actorDefinition.signature : move.displayName, score: highlightScore, kind: highlightKind },
     moveId: move.id,
   });
+  if (move.category === 'quick' || move.category === 'heavy' || move.category === 'grapple' || move.category === 'aerial') {
+    model.slowMotion = Math.max(model.slowMotion, move.category === 'quick' ? .08 : move.category === 'heavy' ? .14 : move.category === 'aerial' ? .18 : .22);
+  }
   if (move.category === 'finisher') {
     model.slowMotion = .82;
     model.announcement = `${actorDefinition.signature}!`;
@@ -366,6 +381,9 @@ export const requestCommand = (model: MatchModel, actorKey: 'player' | 'opponent
   if (actor.state === 'climbing' && actor.climbStage === 3 && (command === 'quick' || command === 'heavy')) {
     return launchAerial(model, actor, target, command === 'quick' ? 'aerial_elbow' : 'aerial_kick');
   }
+  if (actor.state === 'climbing' && actor.climbStage === 3 && command === 'jump') {
+    return launchAerial(model, actor, target, 'aerial');
+  }
   if (actor.state === 'grappling' && actor.attackPhase === 'anticipation' && (command === 'quick' || command === 'heavy' || command === 'grapple')) {
     const moveId = selectDirectionalGrapple(direction, command);
     const selected = getMove(moveId);
@@ -460,8 +478,9 @@ export const requestCommand = (model: MatchModel, actorKey: 'player' | 'opponent
   }
   if (command === 'heavy') {
     const moveId = actor.heldPropId ? 'prop'
-      : actor.ropeRebound > 0 || running && Math.hypot(actor.velocity.x, actor.velocity.z) > 3.6 ? 'stiff_arm'
-        : selectDirectionalStrike(direction, 'heavy', actor.comboStep);
+      : actor.ropeRebound > 0 ? direction.x < 0 ? 'rebound' : 'stiff_arm'
+        : running && Math.hypot(actor.velocity.x, actor.velocity.z) > 3.6 ? 'stiff_arm'
+          : selectDirectionalStrike(direction, 'heavy', actor.comboStep);
     return startMove(actor, target, getMove(moveId));
   }
   if (running && Math.hypot(actor.velocity.x, actor.velocity.z) > 3.75 && target.state !== 'downed') return startMove(actor, target, getMove('spear'));

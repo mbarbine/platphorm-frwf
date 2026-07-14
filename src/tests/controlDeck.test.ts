@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createMatch } from '../game/systems/combat';
-import { buildControlLabels, buildControlReadout } from '../ui/ControlDeck';
+import { buildControlLabels, buildControlReadout, controlPrompt } from '../ui/ControlDeck';
 
 describe('live wrestling control deck', () => {
   it('makes a rope rebound and stiff-arm window explicit', () => {
@@ -64,7 +64,8 @@ describe('live wrestling control deck', () => {
     expect(labels.quick).toBe('PUNCH / HEADBUTT');
     expect(labels.heavy).toBe('KICK');
     expect(labels.grapple).toBe('BODY SLAM');
-    expect(labels.context).toBe('SPECIAL');
+    expect(labels.context).toBe('SPECIAL / PIN');
+    expect(controlPrompt('keyboard', 'context')).toBe('F / P');
   });
 
   it('switches the whole action deck for grapple, turnbuckle, rope exit, and kick-up states', () => {
