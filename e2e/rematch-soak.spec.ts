@@ -52,5 +52,6 @@ test('six bounded instant rematches keep the Rapier world and JS heap stable', a
   const heapGrowth = Math.max(...heaps) - baselineHeap;
   if (baselineHeap > 0) expect(heapGrowth).toBeLessThan(Math.max(32 * 1024 * 1024, baselineHeap * .65));
   if (heaps.length > 3 && heaps[1] && heaps.at(-1)) expect((heaps.at(-1) ?? 0) - heaps[1]).toBeLessThan(24 * 1024 * 1024);
+  console.info('[rematch-soak]', JSON.stringify({ rounds: 6, baselineFps, finalFps, averageStepMs: Number(await lab.getAttribute('data-lab-avg-step-ms')), p95StepMs: Number(await lab.getAttribute('data-lab-p95-step-ms')), replayKb: Number(await lab.getAttribute('data-lab-replay-kb')), baselineHeap, maximumHeap: Math.max(...heaps), heapGrowth, heaps }));
   expect(errors).toEqual([]);
 });
