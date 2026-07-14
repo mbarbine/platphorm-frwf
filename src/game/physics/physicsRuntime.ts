@@ -173,6 +173,19 @@ const bodyAnchorWorld = (body: RapierRigidBody, localX: number): { x: number; y:
   };
 };
 
+const rotatedLocalPoint = (body: RapierRigidBody, local: Vector3Value): Vector3Value => {
+  const position = body.translation(); const rotation = body.rotation();
+  const ix = rotation.w * local.x + rotation.y * local.z - rotation.z * local.y;
+  const iy = rotation.w * local.y + rotation.z * local.x - rotation.x * local.z;
+  const iz = rotation.w * local.z + rotation.x * local.y - rotation.y * local.x;
+  const iw = -rotation.x * local.x - rotation.y * local.y - rotation.z * local.z;
+  return {
+    x: position.x + ix * rotation.w + iw * -rotation.x + iy * -rotation.z - iz * -rotation.y,
+    y: position.y + iy * rotation.w + iw * -rotation.y + iz * -rotation.x - ix * -rotation.z,
+    z: position.z + iz * rotation.w + iw * -rotation.z + ix * -rotation.y - iy * -rotation.x,
+  };
+};
+
 /** Imperative simulation state. It is intentionally outside React and Zustand. */
 export class BodyWorksRuntime {
   private jointData: typeof JointData | null = null;
@@ -512,7 +525,7 @@ export class BodyWorksRuntime {
     const locomotion = locomotionProfile(definition);
     const grapplePhase = model.grapple?.attacker === key ? model.grapple.phase : null;
     const grappleHipLoad = grapplePhase === 'load' ? .24 : grapplePhase === 'clinch' ? .08 : grapplePhase === 'lift' ? .12 : 0;
-    const ringPelvisY = 1.92 + 1.12 * (definition.physics.standingHeightM / 1.88) - fighter.body.pelvisDrop * .32 - grappleHipLoad;
+    const ringPelvisY = 1.8 + 1.12 * (definition.physics.standingHeightM / 1.88) - fighter.body.pelvisDrop * .32 - grappleHipLoad;
     const onRingsideFloor = isRingside({ x: pelvis.translation().x, z: pelvis.translation().z });
     const targetPelvisY = ringPelvisY - (onRingsideFloor ? 1.5 : 0);
     const atSideApron = (Math.abs(fighter.position.x) > 5.02 && Math.abs(fighter.position.x) < 5.82 && Math.abs(fighter.position.z) < 2.9)
@@ -1063,7 +1076,12 @@ export class BodyWorksRuntime {
       const chain = motorProfile.chains[motorChainForSegment(segment)];
       const pelvisScale = segment === 'pelvis' ? 1.28 : 1;
       const stiffnessScale = definition.physics.jointStiffness * pelvisScale;
-      const maximumTorque = chain.maximumTorque * stiffnessScale;
+      // Small distal bodies have very little inertia. A human-scale motor cap
+      // therefore scales with segment mass; applying a torso-sized impulse to
+      // a hand or upper arm produces solver-speed vibration even when the
+      // abstract profile value is bounded.
+      const massTorqueCap = body.mass() * (segment === 'pelvis' || segment === 'abdomen' || segment === 'chest' ? 6.2 : segment === 'head' ? 4.2 : 4.8);
+      const maximumTorque = Math.min(chain.maximumTorque * stiffnessScale, massTorqueCap);
       const torque = computeMotorTorque(body.rotation(), targets[segment], body.angvel(), { x: 0, y: 0, z: 0 }, {
         stiffness: chain.stiffness * stiffnessScale,
         damping: chain.damping * stiffnessScale,
@@ -1081,6 +1099,7 @@ export class BodyWorksRuntime {
     if (this.stepStartedAt >= 0) this.recordStepDuration(performance.now() - this.stepStartedAt);
     this.stepStartedAt = -1;
     if (model.paused) return;
+    for (const rig of this.rigs.values()) this.capRigVelocity(rig);
     this.inspectNumericalHealth();
     this.containRigsToArena(model);
     this.syncFighter('player', model.player);
@@ -1104,11 +1123,12 @@ export class BodyWorksRuntime {
       for (const [parentId, childId] of JOINT_LINKS) {
         const parent = rig.bodies[parentId]; const child = rig.bodies[childId]; const parentRest = rig.restOffsets[parentId]; const childRest = rig.restOffsets[childId];
         if (!parent || !child || !parentRest || !childRest) continue;
-        const parentPosition = parent.translation(); const childPosition = child.translation();
-        const actual = Math.hypot(childPosition.x - parentPosition.x, childPosition.y - parentPosition.y, childPosition.z - parentPosition.z);
-        const expected = Math.hypot(childRest.x - parentRest.x, childRest.y - parentRest.y, childRest.z - parentRest.z);
-        const separation = Math.max(0, actual - expected); maximumJointExcess = Math.max(maximumJointExcess, separation);
-        fault ??= jointSeparationFault(childId, expected, actual);
+        const halfY = (childRest.y - parentRest.y) * .5;
+        const parentAnchor = rotatedLocalPoint(parent, { x: childRest.x - parentRest.x, y: halfY, z: childRest.z - parentRest.z });
+        const childAnchor = rotatedLocalPoint(child, { x: 0, y: -halfY, z: 0 });
+        const separation = Math.hypot(childAnchor.x - parentAnchor.x, childAnchor.y - parentAnchor.y, childAnchor.z - parentAnchor.z);
+        maximumJointExcess = Math.max(maximumJointExcess, separation);
+        fault ??= jointSeparationFault(childId, 0, separation);
       }
       this.metrics.maximumJointSeparation = Math.max(this.metrics.maximumJointSeparation, maximumJointExcess);
       if (fault) {
@@ -1192,8 +1212,8 @@ export class BodyWorksRuntime {
     centerX /= totalMass; centerZ /= totalMass;
     const feet = (['leftFoot', 'rightFoot'] as const).filter((id) => rig.supportContacts.has(id)).map((id) => rig.bodies[id]?.translation()).filter((value): value is { x: number; y: number; z: number } => Boolean(value));
     if (feet.length === 0) return 0;
-    if (feet.length === 1) return clamp(1 - Math.hypot(centerX - feet[0].x, centerZ - feet[0].z) / .72, 0, 1);
-    const first = feet[0]; const second = feet[1]; const dx = second.x - first.x; const dz = second.z - first.z; const lengthSquared = dx * dx + dz * dz;
+    if (feet.length === 1) { const foot = feet[0]!; return clamp(1 - Math.hypot(centerX - foot.x, centerZ - foot.z) / .72, 0, 1); }
+    const first = feet[0]!; const second = feet[1]!; const dx = second.x - first.x; const dz = second.z - first.z; const lengthSquared = dx * dx + dz * dz;
     const projection = lengthSquared > .0001 ? clamp(((centerX - first.x) * dx + (centerZ - first.z) * dz) / lengthSquared, 0, 1) : 0;
     const closestX = first.x + dx * projection; const closestZ = first.z + dz * projection;
     return clamp(1 - Math.hypot(centerX - closestX, centerZ - closestZ) / .82, 0, 1);
@@ -1209,7 +1229,7 @@ export class BodyWorksRuntime {
     const upright = clamp(1 - (Math.abs(rotation.x) + Math.abs(rotation.z)) * 1.7, 0, 1);
     const supportScore = this.supportScore(rig); if (key === 'player') this.metrics.supportScore = supportScore;
     fighter.body.balance = clamp(supportScore * 58 + upright * 42 - Math.hypot(velocity.x, velocity.z) * 1.1, 0, 100);
-    fighter.body.verticalOffset = Math.max(0, position.y - 3.02);
+    fighter.body.verticalOffset = Math.max(0, position.y - 2.9);
     if (fighter.state === 'downed' && Math.hypot(velocity.x, velocity.y, velocity.z) < 1.6) {
       const chestRotation = rig.bodies.chest?.rotation() ?? rotation;
       const frontUp = 2 * (chestRotation.y * chestRotation.z - chestRotation.w * chestRotation.x);

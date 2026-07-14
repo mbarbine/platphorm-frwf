@@ -29,7 +29,7 @@ const profile = (id: MotorProfileId, rootMode: MotorProfile['rootMode'], multipl
       stiffness: (override?.stiffness ?? current.stiffness) * multiplier,
       damping: (override?.damping ?? current.damping) * multiplier,
       maximumTorque: (override?.maximumTorque ?? current.maximumTorque) * multiplier,
-      strength: override?.strength ?? current.strength,
+      strength: override?.strength ?? current.strength * multiplier,
     };
   }
   return { id, rootMode, chains: base };

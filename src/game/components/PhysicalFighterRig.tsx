@@ -60,7 +60,7 @@ export function SegmentVisual({ schema, fighterId }: { schema: BodySegmentSchema
     {schema.id === 'abdomen' && [-.07, .07].map((x) => <mesh key={x} position={[x, 0, schema.radius * .91]} scale={[.052, .12, .025]}><sphereGeometry args={[1, 9, 6]} /><meshStandardMaterial color={fighter.palette.skin} roughness={profile.skinRoughness * .9} /></mesh>)}
     {schema.id === 'pelvis' && <><mesh position={[0, .03, schema.radius * .92]} scale={[.98, .62, .42]}><sphereGeometry args={[schema.radius, 13, 8]} /><meshStandardMaterial color={fighter.palette.secondary} roughness={.78} metalness={.05} /></mesh><mesh position={[0, schema.halfLength * .7, 0]} rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[schema.radius * 1.12, .035, 7, 18]} /><meshStandardMaterial color={fighter.palette.emissive} emissive={fighter.palette.emissive} emissiveIntensity={.22} /></mesh></>}
   </group>;
-  return <group><mesh castShadow scale={[arm ? profile.armScale : leg ? schema.id.includes('Thigh') ? profile.thighScale : profile.calfScale, 1, arm ? profile.armScale : 1]}><capsuleGeometry args={[schema.radius, schema.halfLength * 1.72, 7, 12]} />{material}</mesh><mesh position={[0, schema.halfLength * .92, 0]} scale={[schema.radius * 1.1, schema.radius * .72, schema.radius * 1.1]}><sphereGeometry args={[1, 10, 7]} />{material}</mesh>{costume && <mesh position={[0, schema.halfLength * .48, 0]}><torusGeometry args={[schema.radius * 1.03, .025, 5, 10]} /><meshStandardMaterial color={fighter.palette.secondary} emissive={fighter.palette.emissive} emissiveIntensity={.25} /></mesh>}</group>;
+  return <group><mesh castShadow scale={[arm ? profile.armScale : leg ? schema.id.includes('Thigh') ? profile.thighScale : profile.calfScale : 1, 1, arm ? profile.armScale : 1]}><capsuleGeometry args={[schema.radius, schema.halfLength * 1.72, 7, 12]} />{material}</mesh><mesh position={[0, schema.halfLength * .92, 0]} scale={[schema.radius * 1.1, schema.radius * .72, schema.radius * 1.1]}><sphereGeometry args={[1, 10, 7]} />{material}</mesh>{costume && <mesh position={[0, schema.halfLength * .48, 0]}><torusGeometry args={[schema.radius * 1.03, .025, 5, 10]} /><meshStandardMaterial color={fighter.palette.secondary} emissive={fighter.palette.emissive} emissiveIntensity={.25} /></mesh>}</group>;
 }
 
 function Headwear({ fighterId }: { fighterId: FighterRuntime['definitionId'] }) {
@@ -179,6 +179,8 @@ export function PhysicalFighterRig({ runtime, side, showVisuals = true }: Props)
     const otherData = payload.other.rigidBodyObject?.userData;
     if (!isRigUserData(otherData) || otherData.fighter !== side) bodyWorksRuntime.setFootContact(side, foot, touching);
   }, [side]);
-  const base = useMemo(() => [runtime.position.x, 1.92, runtime.position.z] as const, [runtime.position.x, runtime.position.z]);
+  // Ring deck top is 1.845 m; this base places the compact foot collider sole
+  // on the mat instead of suspending both feet above the support surface.
+  const base = useMemo(() => [runtime.position.x, 1.8, runtime.position.z] as const, [runtime.position.x, runtime.position.z]);
   return <group>{schema.map((entry) => <SegmentBody key={entry.id} schema={entry} fighterId={runtime.definitionId} side={side} base={base} bodyRef={refs[entry.id]} onContactForce={onContactForce} onFootContact={onFootContact} showVisuals={showVisuals} />)}</group>;
 }
