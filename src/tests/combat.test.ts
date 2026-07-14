@@ -324,7 +324,10 @@ describe('deterministic combat rules', () => {
     const model = createMatch('atlas', 'nova', 'standard', 'hard', 99); model.player.position = { x: 0, z: 0 }; model.opponent.position = { x: 1, z: 0 };
     expect(requestCommand(model, 'opponent', 'grapple', { x: 0, z: -1 })).toBe(true);
     const decision = chooseAiDecision(model, fighterById('nova'));
-    expect(['quick', 'heavy', 'grapple']).toContain(decision.command); expect(Math.hypot(decision.move.x, decision.move.z)).toBe(1);
+    expect(['quick', 'heavy', 'grapple']).toContain(decision.command);
+    // Neutral (magnitude 0 → piledriver) and directional (magnitude 1) are both valid
+    const moveMag = Math.hypot(decision.move.x, decision.move.z);
+    expect(moveMag === 0 || Math.abs(moveMag - 1) < .001).toBe(true);
     expect(decision.command && isActionLegal(model, decision.command, 'opponent')).toBe(true);
   });
 

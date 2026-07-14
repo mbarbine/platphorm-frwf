@@ -81,6 +81,11 @@ export function buildControlLabels(player: FighterRuntime, opponent: FighterRunt
 export function buildControlReadout(player: FighterRuntime, opponent: FighterRuntime, speed: number, distance: number, paused: boolean, device: ControlDevice = 'keyboard', direction: Vec2 = { x: 0, z: 0 }, runHeld = false): ControlReadout {
   const active = new Set<ControlId>();
   const labels = buildControlLabels(player, opponent, speed, distance, direction, runHeld);
+  // Detect lift phase so the throw command is discoverable
+  const liftMoveIds = new Set(['slam', 'piledriver', 'powerbomb', 'skyhook', 'mountain_drop', 'suplex']);
+  const isInLift = player.state === 'grappling' && player.moveId !== null && liftMoveIds.has(player.moveId)
+    && player.attackPhase === 'anticipation'
+    && player.phaseElapsed > getMove(player.moveId).anticipationDuration * .36;
   const movementHeld = Math.hypot(direction.x, direction.z) > .08;
   if (player.state === 'locomotion' || movementHeld) active.add(runHeld || speed > 3.75 ? 'run' : 'move');
   if (player.state === 'jumping' || player.state === 'airborne') active.add('jump');
@@ -97,7 +102,8 @@ export function buildControlReadout(player: FighterRuntime, opponent: FighterRun
   let state = paused ? 'MATCH PAUSED' : distance > 5.5 ? 'APPROACH YOUR OPPONENT' : 'READY TO FIGHT';
   if (!paused && player.moveId) {
     const move = getMove(player.moveId);
-    state = `${move.displayName.toUpperCase()} · ${(player.attackPhase ?? player.state).toUpperCase()}`;
+    const phaseLabel = isInLift ? 'LIFT ACTIVE — THROW OR SLAM' : (player.attackPhase ?? player.state).toUpperCase();
+    state = `${move.displayName.toUpperCase()} · ${phaseLabel}`;
     if (move.category === 'quick' || move.category === 'ground') active.add('quick');
     if (move.category === 'heavy' || move.category === 'aerial' || move.category === 'finisher' || move.category === 'prop') active.add('heavy');
     if (move.category === 'grapple') active.add('grapple');
@@ -129,6 +135,7 @@ export function buildControlReadout(player: FighterRuntime, opponent: FighterRun
       : `${keys.heavy} NOW · RAILWAY STIFF-ARM KNOCKDOWN`;
   else if (player.climbStage > 0 && player.climbStage < 3) callout = `${actionKey} AGAIN · CLIMB TO ${player.climbStage === 1 ? 'MIDDLE' : 'TOP'} ROPE · ${keys.counter} DOWN`;
   else if (player.climbStage === 3) callout = `${keys.quick} ELBOW · ${keys.heavy} MISSILE KICK · ${actionKey} DOMEFALL · ${keys.taunt} POSE`;
+  else if (isInLift) callout = `${keys.quick} THROW · WASD WALK CARRYING · ${keys.heavy} POWER SLAM`;
   else if (player.state === 'grappling') callout = clinchCornerDistance <= 3.15
     ? `${actionKey} ${labels.context} · ${directionId} CLINCH · ${keys.quick} / ${keys.heavy} / ${keys.grapple} THROW`
     : `${directionId} CLINCH · ${keys.quick} ${labels.quick} · ${keys.heavy} ${labels.heavy} · ${keys.grapple} ${labels.grapple}`;

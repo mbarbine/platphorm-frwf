@@ -175,6 +175,7 @@ export const applyMoveHit = (model: MatchModel, actorKey: 'player' | 'opponent',
   }
   if (!model.toyTestMode) target.health = clamp(target.health - damage, 0, 100);
   actor.hitTargets.push(hitToken);
+  target.comboStep = 0; // reset opponent combo streak on hit
   const variety = varietyMultiplier(actor, move.id);
   const surge = model.chaosEvent?.type === 'CROWD SURGE' ? 1.6 : 1;
   const stats = actorKey === 'player' ? model.playerStats : model.opponentStats;
@@ -260,6 +261,12 @@ export const applyMoveHit = (model: MatchModel, actorKey: 'player' | 'opponent',
       model.slowMotion = Math.max(model.slowMotion, .24);
       model.announcement = move.displayName.toUpperCase(); model.announcementTimer = 1.2;
     }
+  }
+  // Combo streak announcement
+  if (!model.toyTestMode && (move.category === 'quick' || move.category === 'heavy') && actor.comboStep >= 2) {
+    if (actor.comboStep === 2) { model.announcement = 'ONE-TWO!'; model.announcementTimer = .5; }
+    else if (actor.comboStep === 3) { model.announcement = 'TRIPLE!'; model.announcementTimer = .58; }
+    else if (actor.comboStep >= 4) { model.announcement = `${Math.min(actor.comboStep, 9)}× COMBO!`; model.announcementTimer = .68; model.hype = clamp(model.hype + 4, 0, 100); }
   }
   const majorImpact = move.category === 'finisher' || move.category === 'heavy' || move.category === 'grapple' || move.category === 'prop' || move.category === 'aerial';
   const exhaustionKnockout = model.elapsed >= BALANCE.knockout.earliestSeconds
@@ -638,7 +645,7 @@ const updateFighter = (model: MatchModel, actorKey: 'player' | 'opponent', dt: n
     if (actor.downTimer <= 0) { actor.state = 'recovering'; actor.stateElapsed = 0; }
   } else if (actor.state === 'recovering' && !actor.moveId && actor.stateElapsed > .7) {
     actor.state = 'idle'; actor.stateElapsed = 0; actor.finisherPrimed = false;
-  } else if (actor.state === 'staggered' && actor.stateElapsed > .42 + (100 - actor.health) / 240) {
+  } else if (actor.state === 'staggered' && actor.stateElapsed > .55 + (100 - actor.health) / 200) {
     actor.state = 'idle'; actor.stateElapsed = 0;
   }
 

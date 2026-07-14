@@ -126,6 +126,9 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--cyan); outl
 .physics-lab__scenarios button:hover:not(:disabled), .physics-lab__scenarios button.active { border-color: var(--acid); color: var(--acid); background: #1d2b20; }
 .physics-lab__scenarios button:disabled:not(.active) { opacity: .36; }.physics-lab footer { display: block; margin-top: .58rem; line-height: 1.45; }
 
+@keyframes momentum-ready { 0%, 100% { box-shadow: 0 0 8px var(--pink); filter: brightness(1); } 50% { box-shadow: 0 0 28px var(--pink), 0 0 52px var(--acid); filter: brightness(1.9) hue-rotate(14deg); } }
+[data-player-momentum-full="true"] .fighter-hud:not(.fighter-hud--right) .meter--momentum i { animation: momentum-ready 1.0s ease-in-out infinite; }
+[data-player-momentum-full="true"] .fighter-hud:not(.fighter-hud--right) .meter--momentum .meter__track { border-color: var(--pink); box-shadow: 0 0 14px rgba(255,63,143,.58); }
 @keyframes announce { from { opacity: 0; transform: translate(-50%, -50%) scale(.6) skew(-7deg); } to { opacity: 1; transform: translate(-50%, -50%) scale(1) skew(-7deg); } }
 @keyframes grapple-in { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: translateX(0); } }
 @media (max-height: 820px) { .select-layout { min-height: 400px; }.fighter-preview { min-height: 400px; }.fighter-dossier { padding: 1rem; }.fighter-dossier p { margin-block: .6rem; font-size: .76rem; }.fighter-dossier h3 { font-size: 2.25rem; }.stats { margin: .7rem 0; gap: .35rem; }.roster-card { min-height: 64px; padding-block: .45rem; }.panel, .select-screen { padding: 1.15rem; }.select-screen > .button-row { position: sticky; bottom: -.1rem; z-index: 5; padding: .65rem 0 .2rem; background: linear-gradient(180deg, transparent, #090713 24%); }.section-heading h2 { font-size: 2.4rem; margin-bottom: .65rem; } }
