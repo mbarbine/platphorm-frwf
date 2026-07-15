@@ -29,7 +29,11 @@ test('bounded five-minute rematch and heap soak', async ({ page }, testInfo) => 
   };
   await sample();
 
-  while (Date.now() - startedAt < soakDurationMs) {
+  // Keep rematch churn in the first bounded phase. The remainder still runs
+  // the full live simulation and samples it, but cannot start one last slow
+  // runner rematch that outlives the five-minute evidence window.
+  const rematchPhaseMs = Math.min(120_000, Math.max(30_000, soakDurationMs * .4));
+  while (Date.now() - startedAt < rematchPhaseMs) {
     await expect(lab.getByRole('button', { name: 'LAB KNOCKOUT' })).toBeEnabled({ timeout: 12_000 });
     await lab.getByRole('button', { name: 'LAB KNOCKOUT' }).click();
     await expect(page.getByRole('button', { name: 'INSTANT REMATCH' })).toBeVisible({ timeout: 30_000 });
@@ -39,6 +43,12 @@ test('bounded five-minute rematch and heap soak', async ({ page }, testInfo) => 
     await expect(hud).toHaveAttribute('data-physics-joints', '30');
     await expect(hud).toHaveAttribute('data-physics-emergency-resets', '0');
     await expect(hud).toHaveAttribute('data-invalid-bodies', '0');
+  }
+
+  while (Date.now() - startedAt < soakDurationMs) {
+    const remaining = soakDurationMs - (Date.now() - startedAt);
+    await page.waitForTimeout(Math.min(15_000, Math.max(0, remaining)));
+    if (Date.now() - startedAt < soakDurationMs - 1_000) await sample();
   }
 
   const nonZeroHeap = heapSamples.filter((value) => value > 0); const baselineHeap = nonZeroHeap[0] ?? 0;

@@ -61,14 +61,14 @@ export const guardInterceptDriveProfile = (profile: StrikeDriveProfile, strikeDi
   const clearance = Math.max(0, strikeDistance - .2);
   return {
     ...profile,
-    speed: Math.min(profile.speed, .45 + clearance * 14),
-    response: Math.min(profile.response, 12 + clearance * 20),
-    maximumAcceleration: Math.min(profile.maximumAcceleration, 120 + clearance * 500),
+    speed: Math.min(profile.speed, 1.2 + clearance * 16),
+    response: Math.min(profile.response, 18 + clearance * 22),
+    maximumAcceleration: Math.min(profile.maximumAcceleration, 180 + clearance * 520),
   };
 };
 
 /** Returns the near surface of a raised guard limb, never its solid center. */
-export const guardInterceptSurfaceTarget = (source: PhysicsVector3, target: PhysicsVector3, centerClearance = .17): PhysicsVector3 => {
+export const guardInterceptSurfaceTarget = (source: PhysicsVector3, target: PhysicsVector3, centerClearance = .08): PhysicsVector3 => {
   const dx = target.x - source.x; const dy = target.y - source.y; const dz = target.z - source.z;
   const distance = Math.hypot(dx, dy, dz);
   if (distance <= centerClearance || distance < 1e-7) return source;

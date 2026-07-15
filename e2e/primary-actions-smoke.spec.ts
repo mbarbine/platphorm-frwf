@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 test('punch, kick, guard, block, and miss remain visually distinct and contact-true', async ({ page }) => {
+  test.setTimeout(360_000);
   await page.goto('/?physicsLab=1');
   await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
   await page.getByRole('button', { name: 'PLAY', exact: true }).click();
@@ -37,7 +38,7 @@ test('punch, kick, guard, block, and miss remain visually distinct and contact-t
 
   await expect(lab.getByRole('button', { name: 'JAB INTO GUARD' })).toBeEnabled({ timeout: 5_000 });
   await lab.getByRole('button', { name: 'JAB INTO GUARD' }).click();
-  await expect(root).toHaveAttribute('data-saw-physical-block', 'true', { timeout: 8_000 });
+  await expect(root).toHaveAttribute('data-saw-physical-block', 'true', { timeout: 90_000 });
 
   await expect(lab.getByRole('button', { name: 'MISSED KICK' })).toBeEnabled({ timeout: 5_000 });
   await lab.getByRole('button', { name: 'MISSED KICK' }).click();

@@ -40,14 +40,14 @@ describe('physical strike drive', () => {
     expect(guardInterceptDriveProfile(jab, .23)).toMatchObject({
       source: jab.source,
       target: jab.target,
-      speed: expect.closeTo(.87),
-      response: expect.closeTo(12.6),
-      maximumAcceleration: 135,
+      speed: expect.closeTo(1.68),
+      response: expect.closeTo(18.66),
+      maximumAcceleration: expect.closeTo(195.6),
     });
     expect(guardInterceptDriveProfile(jab, 4)).toMatchObject(jab);
     expect(strikePelvisAcceleration(jab, true, 1.4)).toBe(jab.pelvisAcceleration);
-    expect(guardInterceptSurfaceTarget({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 1 })).toEqual({ x: 0, y: 0, z: .83 });
-    expect(guardInterceptSurfaceTarget({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: .12 })).toEqual({ x: 0, y: 0, z: 0 });
+    expect(guardInterceptSurfaceTarget({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 1 })).toEqual({ x: 0, y: 0, z: .92 });
+    expect(guardInterceptSurfaceTarget({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: .07 })).toEqual({ x: 0, y: 0, z: 0 });
   });
 
   it('commits the full torso to a domefall dive', () => {

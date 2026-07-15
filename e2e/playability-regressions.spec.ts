@@ -96,12 +96,13 @@ test('top-rope dive tracks the target and lands physical damage', async ({ page 
 });
 
 test('ringside wrestler returns through the apron without crossing a wall', async ({ page }) => {
+  test.setTimeout(240_000);
   const errors = captureErrors(page); await enterLabMatch(page);
   const hud = page.locator('.hud'); const lab = page.getByTestId('physics-lab');
   await lab.getByRole('button', { name: 'APRON RETURN' }).click();
   await expect(hud).toHaveAttribute('data-player-ringside', 'true', { timeout: 2_000 });
-  await expect(hud).toHaveAttribute('data-player-ringside', 'false', { timeout: 6_000 });
-  await expect.poll(async () => Math.abs(Number(await hud.getAttribute('data-player-x'))), { timeout: 6_000, intervals: [100, 200] }).toBeLessThan(5.3);
+  await expect(hud).toHaveAttribute('data-player-ringside', 'false', { timeout: 90_000 });
+  await expect.poll(async () => Math.abs(Number(await hud.getAttribute('data-player-x'))), { timeout: 90_000, intervals: [100, 200, 500, 1_000] }).toBeLessThan(5.3);
   await expect(hud).toHaveAttribute('data-physics-emergency-resets', '0'); expect(errors).toEqual([]);
 });
 

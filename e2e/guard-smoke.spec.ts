@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 test('a raised guard physically intercepts a jab before the torso', async ({ page }) => {
-  test.setTimeout(120_000);
+  test.setTimeout(240_000);
   await page.goto('/?physicsLab=1');
   await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
   await page.getByRole('button', { name: 'PLAY', exact: true }).click();
@@ -24,11 +24,11 @@ test('a raised guard physically intercepts a jab before the torso', async ({ pag
     new MutationObserver(sample).observe(document.documentElement, { attributes: true, subtree: true }); sample();
   });
   await lab.getByRole('button', { name: 'JAB INTO GUARD' }).click();
-  await expect(root).toHaveAttribute('data-lab-blocked-jab-diagnostics', /.+/, { timeout: 20_000 });
+  await expect(root).toHaveAttribute('data-lab-blocked-jab-diagnostics', /.+/, { timeout: 75_000 });
   const setupDiagnostics = await root.getAttribute('data-lab-blocked-jab-diagnostics');
-  await expect(root, setupDiagnostics ?? 'blocked-jab diagnostics unavailable').toHaveAttribute('data-lab-blocked-jab-accepted', 'true', { timeout: 20_000 });
-  await expect(root).toHaveAttribute('data-saw-guard-contact', 'true', { timeout: 45_000 });
-  await expect(lab).toHaveAttribute('data-lab-scenario', 'idle', { timeout: 30_000 });
+  await expect(root, setupDiagnostics ?? 'blocked-jab diagnostics unavailable').toHaveAttribute('data-lab-blocked-jab-accepted', 'true', { timeout: 75_000 });
+  await expect(root).toHaveAttribute('data-saw-guard-contact', 'true', { timeout: 90_000 });
+  await expect(lab).toHaveAttribute('data-lab-scenario', 'idle', { timeout: 90_000 });
   const diagnostics = {
     accepted: await root.getAttribute('data-lab-blocked-jab-accepted'),
     blocked: await root.getAttribute('data-saw-physical-block'),

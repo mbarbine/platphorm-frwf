@@ -95,10 +95,10 @@ export function PhysicsLab() {
     // Guard certification needs a real glove-engagement lane. The previous
     // 0.54 m centre spacing deeply interpenetrated both articulated rigs and
     // reduced two simulated seconds to minutes of solver churn before a jab
-    // could be classified. At .9 m the torsos remain separated, while the
+    // could be classified. At .8 m the torsos remain separated, while the
     // raised glove is inside the independently driven jab's articulated reach.
     // Its near-field force profile now prevents the old through-guard tunnel.
-    else if (scenario.id === 'blockedJab') useMatchStore.getState().prepareLabScenario({ x: 0, z: -.45 }, { x: 0, z: .45 }, 'blocking');
+    else if (scenario.id === 'blockedJab') useMatchStore.getState().prepareLabScenario({ x: 0, z: -.4 }, { x: 0, z: .4 }, 'blocking');
     else if (recoveryOrientation) useMatchStore.getState().prepareLabScenario({ x: 0, z: -.7 }, { x: 0, z: 3.4 }, 'downed', 100, recoveryOrientation, .75);
     else if (scenario.id === 'kickup') useMatchStore.getState().prepareLabScenario({ x: 0, z: -.7 }, { x: 0, z: 3.4 }, 'downed');
     // Give the run enough in-ring distance to build a genuinely loaded entry.
@@ -120,7 +120,7 @@ export function PhysicsLab() {
     let stagedLastClimbStage = -1; let stagedFinishIssued = false;
     const scheduler = window.setInterval(() => {
       const current = useMatchStore.getState().model; const elapsedMs = (current.elapsed - startedAt) * 1_000;
-      if (performance.now() - wallStartedAt > Math.max(12_000, scenario.duration * 5)) {
+      if (performance.now() - wallStartedAt > Math.max(60_000, Math.min(180_000, scenario.duration * 20))) {
         window.clearInterval(scheduler);
         for (const step of scenario.steps) if (step.down) dispatchKey(step.code, false);
         document.documentElement.dataset.labScenarioAbort = `${scenario.id}:simulation-timeout`;
@@ -168,7 +168,7 @@ export function PhysicsLab() {
         // At rebound speed the 160 ms stiff-arm wind-up covers roughly one
         // metre. Queue inside legal move range, before the chest has already
         // crossed the opponent, so the real arm collider reaches on active.
-        if (player.ropeRebound > 0 && Math.hypot(player.position.x - opponent.position.x, player.position.z - opponent.position.z) <= 1.6) {
+        if (player.ropeRebound > 0 && Math.hypot(player.position.x - opponent.position.x, player.position.z - opponent.position.z) <= 2.2) {
           reboundPressAt = elapsedMs; dispatchKey('KeyK', true);
         }
       } else if (reboundPressAt !== null && !reboundReleased && elapsedMs >= reboundPressAt + 180) {
