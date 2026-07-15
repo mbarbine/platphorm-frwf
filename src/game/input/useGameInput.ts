@@ -69,6 +69,7 @@ export const useGameInput = (onPause: () => void): InputController => {
 
   const read = (xrSources: readonly XRInputSource[] = []): FrameInput => {
     const commands = queued.current?.drain() ?? [];
+    let targetCycle = 0;
     let x = (keys.current.has('KeyD') || keys.current.has('ArrowRight') ? 1 : 0) - (keys.current.has('KeyA') || keys.current.has('ArrowLeft') ? 1 : 0);
     let z = (keys.current.has('KeyS') || keys.current.has('ArrowDown') ? 1 : 0) - (keys.current.has('KeyW') || keys.current.has('ArrowUp') ? 1 : 0);
     let run = keys.current.has('ShiftLeft') || keys.current.has('ShiftRight');
@@ -85,6 +86,9 @@ export const useGameInput = (onPause: () => void): InputController => {
         if (pressed && !previousButtons.current[index]) commands.push(command);
         previousButtons.current[index] = pressed;
       }
+      const targetPressed = gamepad.buttons[8]?.pressed ?? false;
+      if (targetPressed && !previousButtons.current[8]) targetCycle = 1;
+      previousButtons.current[8] = targetPressed;
       if ((gamepad.buttons[9]?.pressed ?? false) && !previousButtons.current[9]) onPause();
       previousButtons.current[9] = gamepad.buttons[9]?.pressed ?? false;
     }
@@ -111,7 +115,7 @@ export const useGameInput = (onPause: () => void): InputController => {
     commands.push(...touch.commands);
     const magnitude = Math.hypot(x, z);
     if (magnitude > 1) { x /= magnitude; z /= magnitude; }
-    return { move: { x, z }, run, block, commands };
+    return { move: { x, z }, run, block, commands, targetCycle };
   };
   return { read, device };
 };

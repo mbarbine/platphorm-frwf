@@ -288,6 +288,7 @@ export interface MatchModel {
   rival2: FighterRuntime;
   rival3: FighterRuntime;
   targets: Record<FighterSlot, FighterSlot>;
+  playerTargetLock: number;
   eliminations: MatchElimination[];
   hype: number;
   props: PropRuntime[];

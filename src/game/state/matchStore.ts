@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { advanceMatch, applyPhysicalContact, createFighterRuntime, createMatch, requestCommand, resetTransientState } from '../systems/combat';
+import { advanceMatch, applyPhysicalContact, createFighterRuntime, createMatch, cyclePlayerTarget, requestCommand, resetTransientState } from '../systems/combat';
 import type { FrameInput } from '../systems/combat';
 import { bodyWorksRuntime } from '../physics/physicsRuntime';
 import { getMove } from '../data/moves';
@@ -21,6 +21,7 @@ interface MatchStore {
   prepareLabScenario: (playerPosition: Vec2, opponentPosition: Vec2, playerState?: Extract<FighterState, 'idle' | 'blocking' | 'downed'>, opponentHealth?: number, recoveryOrientation?: RecoveryOrientation, downTimer?: number, playerStaminaPercent?: number) => void;
   setPhysicsAuthority: (active: boolean) => void;
   resolvePhysicsContacts: (contacts: readonly BodyWorksContact[]) => void;
+  cyclePlayerTarget: (direction?: number) => void;
   rematch: () => void;
   startReplay: () => void;
   stopReplay: () => void;
@@ -99,6 +100,9 @@ export const useMatchStore = create<MatchStore>((set) => ({
     for (const contact of contacts) changed = applyPhysicalContact(state.model, contact) || changed;
     return changed ? { model: { ...state.model }, revision: state.revision + 1 } : state;
   }),
+  cyclePlayerTarget: (direction = 1) => set((state) => cyclePlayerTarget(state.model, direction)
+    ? { model: { ...state.model }, revision: state.revision + 1 }
+    : state),
   rematch: () => set((state) => { bodyWorksRuntime.reset(); useSpectatorStore.getState().reset(); publishAccumulator = 0; return { model: resetTransientState(state.model), revision: state.revision + 1, replayActive: false }; }),
   startReplay: () => set((state) => state.replayActive ? state : ({ replayActive: true, revision: state.revision + 1 })),
   stopReplay: () => set((state) => !state.replayActive ? state : ({ replayActive: false, revision: state.revision + 1 })),

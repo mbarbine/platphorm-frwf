@@ -10,7 +10,7 @@ import type { Difficulty, FighterId, FighterRuntime, FighterSlot, GameCommand, H
 import type { BodyWorksContact } from '../physics/physicsRuntime';
 import { VOLT_DOME } from '../data/arena';
 
-export interface FrameInput { move: Vec2; run: boolean; block: boolean; commands: readonly GameCommand[] }
+export interface FrameInput { move: Vec2; run: boolean; block: boolean; commands: readonly GameCommand[]; targetCycle?: number }
 const EMPTY_STATS = (): MatchStats => ({ damageDealt: 0, counters: 0, grapples: 0, finishers: 0, nearFalls: 0, propImpacts: 0 });
 const EMPTY_HIGHLIGHTS = (): MatchHighlights => ({ bestSpot: null, bestSlam: null, mostBrutalImpact: null, mostUnexpectedReversal: null });
 
@@ -45,7 +45,7 @@ export const createMatch = (playerId: FighterId, opponentId: FighterId, ruleset:
     toyTestMode: false, labMode: false, matchMode, ruleset, difficulty, elapsed: 0, paused: false, physicsAuthority: false, resolved: false,
     player: createFighterRuntime(playerId, { x: -3.25, z: 0 }, playerBeers), opponent: createFighterRuntime(resolvedOpponentId, { x: 3.25, z: 0 }, opponentBeers),
     rival1: createFighterRuntime(rivalIds[0], { x: 0, z: -2.45 }), rival2: createFighterRuntime(rivalIds[1], { x: -1.85, z: 2.35 }), rival3: createFighterRuntime(rivalIds[2], { x: 1.85, z: 2.35 }),
-    targets: { player: 'opponent', opponent: 'player', rival1: 'rival3', rival2: 'rival1', rival3: 'rival2' }, eliminations: [],
+    targets: { player: 'opponent', opponent: 'player', rival1: 'rival3', rival2: 'rival1', rival3: 'rival2' }, playerTargetLock: 0, eliminations: [],
     hype: 8, props: initialProps(ruleset === 'chaos'), chaosEvent: null, nextChaosAt: 38, lastImpact: null, impactSequence: 0,
     announcement: matchMode === 'battle_royale' ? 'BATTLE ROYALE — TOTAL FREE FOR ALL!' : 'ROUND ONE — FIGHT!', announcementTimer: 2.2, hitStop: 0, slowMotion: 0, result: null,
     playerStats, opponentStats, fighterStats, aiThinkTimer: .35, aiIntent: null, aiMovement: { x: 0, z: 0 }, aiRunning: false, aiBlockTimer: 0,
@@ -57,6 +57,22 @@ export const createMatch = (playerId: FighterId, opponentId: FighterId, ruleset:
 export const activeFighterSlots = (model: MatchModel): readonly FighterSlot[] => model.matchMode === 'battle_royale' ? FIGHTER_SLOTS : ['player', 'opponent'];
 
 export const targetSlotFor = (model: MatchModel, actor: FighterSlot): FighterSlot => model.targets[actor];
+
+export const cyclePlayerTarget = (model: MatchModel, direction = 1): boolean => {
+  if (model.matchMode !== 'battle_royale' || model.resolved || ['defeated', 'victorious'].includes(model.player.state)) return false;
+  const candidates = FIGHTER_SLOTS.filter((slot) => slot !== 'player' && !['defeated', 'victorious'].includes(model[slot].state));
+  if (candidates.length === 0) return false;
+  const currentIndex = candidates.indexOf(model.targets.player);
+  const step = direction < 0 ? -1 : 1;
+  const nextIndex = currentIndex < 0 ? (step < 0 ? candidates.length - 1 : 0) : (currentIndex + step + candidates.length) % candidates.length;
+  const nextTarget = candidates[nextIndex];
+  if (!nextTarget) return false;
+  model.targets.player = nextTarget;
+  model.playerTargetLock = 5;
+  model.announcement = `TARGET LOCK — ${fighterById(model[nextTarget].definitionId).name}`;
+  model.announcementTimer = 1.05;
+  return true;
+};
 
 export const resetTransientState = (model: MatchModel): MatchModel => {
   const reset = createMatch(model.player.definitionId, model.opponent.definitionId, model.ruleset, model.difficulty, model.seed + 97, model.player.beersDrunk, model.opponent.beersDrunk, model.matchMode);
@@ -860,6 +876,7 @@ const sampleReplay = (model: MatchModel, dt: number): void => {
 const retargetFighters = (model: MatchModel): void => {
   const active = activeFighterSlots(model).filter((slot) => !['defeated', 'victorious'].includes(model[slot].state));
   for (const slot of active) {
+    if (slot === 'player' && model.playerTargetLock > 0) continue;
     const candidates = active.filter((candidate) => candidate !== slot);
     if (candidates.length === 0) continue;
     const nearest = candidates.sort((a, b) => distance(model[slot].position, model[a].position) - distance(model[slot].position, model[b].position))[0];
@@ -876,6 +893,7 @@ export const advanceMatch = (model: MatchModel, dt: number, playerInput: FrameIn
   if (model.hitStop > 0) { model.hitStop = Math.max(0, model.hitStop - dt); return model; }
   const step = dt * (model.slowMotion > 0 ? .36 : 1); model.slowMotion = Math.max(0, model.slowMotion - dt);
   model.elapsed += step; model.announcementTimer = Math.max(0, model.announcementTimer - step); if (model.announcementTimer === 0) model.announcement = null;
+  model.playerTargetLock = Math.max(0, model.playerTargetLock - step);
   updateChaos(model, step);
   retargetFighters(model);
   updatePin(model, step, playerInput);

@@ -709,11 +709,12 @@ export class BodyWorksRuntime {
     }
     const isCarrying = fighter.state === 'grappling' && (model.grapple?.phase === 'lift' || model.grapple?.phase === 'load') && model.grapple?.attacker === key;
     const movementControl = ['idle', 'locomotion'].includes(fighter.state) ? 1 : fighter.state === 'recovering' ? .08 : isCarrying ? .22 : 0;
-    let desiredSpeed = (intent.run ? locomotion.runSpeed : locomotion.walkSpeed) * (fighter.body.muscle < .3 ? .86 : 1) * movementControl;
+    const battlePlayerControl = model.matchMode === 'battle_royale' && key === 'player';
+    let desiredSpeed = (intent.run ? locomotion.runSpeed : locomotion.walkSpeed) * (fighter.body.muscle < .3 ? .86 : 1) * movementControl * (battlePlayerControl ? 1.12 : 1);
     const inputLength = Math.min(1, Math.hypot(intent.move.x, intent.move.z)) * movementControl;
     const opponent = model[model.targets[key]]; const targetX = opponent.position.x - fighter.position.x; const targetZ = opponent.position.z - fighter.position.z;
     const targetDistance = Math.hypot(targetX, targetZ);
-    if (inputLength > .08 && targetDistance < 2.8) {
+    if (!battlePlayerControl && inputLength > .08 && targetDistance < 2.8) {
       const approachAlignment = (intent.move.x * targetX + intent.move.z * targetZ) / Math.max(.001, inputLength * targetDistance);
       if (approachAlignment > .5) desiredSpeed *= clamp((targetDistance - 1.12) / 1.42, .16, 1);
     }
@@ -750,7 +751,7 @@ export class BodyWorksRuntime {
           desiredZ = clamp((rig.neutralAnchor.z - center.z) * 3.5, -.28, .28);
         }
       }
-      const maximumChange = acceleration * dt * (inputLength > .08 ? 1.52 : 1.72);
+      const maximumChange = acceleration * dt * (inputLength > .08 ? battlePlayerControl ? 1.9 : 1.52 : 1.72);
       const deltaX = clamp(desiredX - center.velocityX, -maximumChange, maximumChange);
       const deltaZ = clamp(desiredZ - center.velocityZ, -maximumChange, maximumChange);
       const settled = inputLength <= .08 && Math.hypot(center.velocityX, center.velocityZ) < .006;
