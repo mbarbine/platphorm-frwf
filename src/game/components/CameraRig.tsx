@@ -165,8 +165,17 @@ export function CameraRig() {
       case 'wide':
         desired.set(middleX * .18, (model.matchMode === 'battle_royale' ? 11.1 : 9.8) + separation * .22, middleZ + (model.matchMode === 'battle_royale' ? 15.1 : 13.6) + separation * .55);
         break;
-      default:
-        desired.set(middleX * .3, 7.35 + separation * .2, middleZ + 11.7 + separation * .5);
+      default: {
+        const lineX = playerTarget.position.x - model.player.position.x; const lineZ = playerTarget.position.z - model.player.position.z;
+        const lineLength = Math.max(.001, Math.hypot(lineX, lineZ));
+        const sideX = lineZ / lineLength; const sideZ = -lineX / lineLength;
+        const distance = 6.25 + Math.min(1.35, separation * .38);
+        // The neutral camera stays perpendicular to the player/target line.
+        // Looking straight down that line stacked both wrestlers into one
+        // silhouette and made movement, guard, and punches unreadable.
+        desired.set(middleX + sideX * distance * shotSide.current, 4.45 + separation * .14, middleZ + sideZ * distance * shotSide.current);
+        break;
+      }
     }
 
     const impact = model.lastImpact;
@@ -186,7 +195,7 @@ export function CameraRig() {
     const shakeAmount = !reduced ? shake * impactImpulse.current * .042 : 0;
     desired.x += Math.sin(elapsed.current * 53) * shakeAmount; desired.y += Math.cos(elapsed.current * 41) * shakeAmount * .7; desired.z += Math.sin(elapsed.current * 47) * shakeAmount * .45;
 
-    const positionDamping = reduced ? 2.8 : shot.current === 'replay' ? 3.1 : shot.current === 'wide' ? 3.4 : shot.current === 'aerial' || shot.current === 'corner' ? 4.2 : shot.current === 'grapple' || shot.current === 'slam' || shot.current === 'table' ? 4.8 : 4.6;
+    const positionDamping = reduced ? 2.8 : shot.current === 'replay' ? 3.1 : shot.current === 'wide' ? 3.4 : shot.current === 'strike' ? 11.5 : shot.current === 'aerial' || shot.current === 'corner' ? 4.2 : shot.current === 'grapple' || shot.current === 'slam' || shot.current === 'table' ? 4.8 : 4.6;
     camera.position.lerp(desired, 1 - Math.exp(-dt * positionDamping));
     desiredTarget.set(focusX, (shot.current === 'grapple' ? 2.7 : shot.current === 'slam' ? 2.45 : shot.current === 'corner' ? 3.05 : shot.current === 'aerial' ? 2.7 : shot.current === 'strike' ? 2.75 : 2.2) + maximumAir * .34 + grappleLift * (shot.current === 'slam' ? .3 : .14), focusZ);
     smoothedTarget.lerp(desiredTarget, 1 - Math.exp(-dt * (reduced ? 4 : 7.2))); camera.lookAt(smoothedTarget);

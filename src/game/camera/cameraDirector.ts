@@ -27,8 +27,8 @@ export function selectCameraShot(context: CameraDirectorContext): CameraShot {
   if (context.securedGrapple) return 'grapple';
   if (context.playerState === 'climbing' || context.opponentState === 'climbing') return 'corner';
   if (aerialState(context.playerState) || aerialState(context.opponentState) || context.playerMoveCategory === 'aerial' || context.opponentMoveCategory === 'aerial') return 'aerial';
-  const activeStrike = (['anticipation', 'active'].includes(context.playerAttackPhase ?? '') && ['quick', 'heavy', 'prop'].includes(context.playerMoveCategory ?? ''))
-    || (['anticipation', 'active'].includes(context.opponentAttackPhase ?? '') && ['quick', 'heavy', 'prop'].includes(context.opponentMoveCategory ?? ''));
+  const activeStrike = (['anticipation', 'active'].includes(context.playerAttackPhase ?? '') && ['heavy', 'prop'].includes(context.playerMoveCategory ?? ''))
+    || (['anticipation', 'active'].includes(context.opponentAttackPhase ?? '') && ['heavy', 'prop'].includes(context.opponentMoveCategory ?? ''));
   if (activeStrike && context.separation < 3.2) return 'strike';
   if (context.tablePosition) {
     const tableDistance = Math.hypot(context.middleX - context.tablePosition.x, context.middleZ - context.tablePosition.z);

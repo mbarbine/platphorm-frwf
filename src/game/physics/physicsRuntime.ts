@@ -397,6 +397,7 @@ export class BodyWorksRuntime {
 
   requestApronTransition(fighter: FighterKey, from: Vec2): void {
     const rig = this.rigs.get(fighter); if (!rig) return;
+    if (rig.apronAnchor) return;
     const transition = apronTransitionTarget(from);
     rig.apronAnchor = { ...transition, age: 0 };
     rig.ropeContact = null; rig.cornerAnchor = null;

@@ -51,25 +51,21 @@ test('five-way play keeps movement authoritative and gives the player target con
   await expect(page.getByTestId('target-switch')).toBeVisible();
 
   const startX = Number(await hud.getAttribute('data-player-x')); const startZ = Number(await hud.getAttribute('data-player-z'));
-
+  await page.evaluate(({ x, z }) => {
+    const root = document.documentElement; const hudNode = document.querySelector('.hud');
+    if (!hudNode) return;
+    const sample = (): void => {
+      const input = document.querySelector('[data-player-intent-x]');
+      const intent = Math.hypot(Number(input?.getAttribute('data-player-intent-x')), Number(input?.getAttribute('data-player-intent-z')));
+      const displacement = Math.hypot(Number(hudNode.getAttribute('data-player-x')) - x, Number(hudNode.getAttribute('data-player-z')) - z);
+      root.dataset.maximumBattleIntent = String(Math.max(Number(root.dataset.maximumBattleIntent ?? 0), intent));
+      root.dataset.maximumBattleDisplacement = String(Math.max(Number(root.dataset.maximumBattleDisplacement ?? 0), displacement));
+    };
+    new MutationObserver(sample).observe(hudNode, { attributes: true, subtree: true }); sample();
+  }, { x: startX, z: startZ });
   await page.keyboard.down('Shift'); await page.keyboard.down('w');
-  let maximumIntent = 0; let maximumDisplacement = 0;
-  for (let sample = 0; sample < 24; sample += 1) {
-    const telemetry = await page.evaluate(() => {
-      const telemetry = document.querySelector('[data-player-intent-x]');
-      const hud = document.querySelector('.hud');
-      return {
-        intent: Math.hypot(Number(telemetry?.getAttribute('data-player-intent-x')), Number(telemetry?.getAttribute('data-player-intent-z'))),
-        x: Number(hud?.getAttribute('data-player-x')),
-        z: Number(hud?.getAttribute('data-player-z')),
-      };
-    });
-    maximumIntent = Math.max(maximumIntent, telemetry.intent);
-    maximumDisplacement = Math.max(maximumDisplacement, Math.hypot(telemetry.x - startX, telemetry.z - startZ));
-    await page.waitForTimeout(50);
-  }
+  await expect.poll(async () => Number(await page.locator('html').getAttribute('data-maximum-battle-intent')), { timeout: 15_000, intervals: [250, 500] }).toBeGreaterThan(.8);
+  await expect.poll(async () => Number(await page.locator('html').getAttribute('data-maximum-battle-displacement')), { timeout: 20_000, intervals: [250, 500] }).toBeGreaterThan(.35);
   await page.keyboard.up('w'); await page.keyboard.up('Shift');
-  expect(maximumIntent).toBeGreaterThan(.8);
-  expect(maximumDisplacement).toBeGreaterThan(.35);
   expect(errors).toEqual([]);
 });

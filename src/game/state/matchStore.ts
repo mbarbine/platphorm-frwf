@@ -5,6 +5,7 @@ import { bodyWorksRuntime } from '../physics/physicsRuntime';
 import { getMove } from '../data/moves';
 import type { BodyWorksContact } from '../physics/physicsRuntime';
 import type { Difficulty, FighterId, FighterState, GameCommand, MatchMode, MatchModel, RecoveryOrientation, Ruleset, Vec2 } from '../types/game';
+import { AI_FIGHTER_SLOTS } from '../types/game';
 import { useSpectatorStore } from './spectatorStore';
 
 interface MatchStore {
@@ -56,6 +57,12 @@ export const useMatchStore = create<MatchStore>((set) => ({
       return accepted;
     });
     advanceMatch(model, dt, { ...input, commands: [] });
+    for (const slot of AI_FIGHTER_SLOTS) {
+      const fighter = model[slot];
+      if (model.aiControllers[slot].intent === 'context' && fighter.state === 'locomotion' && fighter.invulnerability > .3) {
+        bodyWorksRuntime.requestApronTransition(slot, fighter.position);
+      }
+    }
     publishAccumulator += dt;
     const urgent = commandAccepted || previousImpact !== model.impactSequence || wasResolved !== model.resolved;
     if (publishAccumulator >= .1 || urgent) {
