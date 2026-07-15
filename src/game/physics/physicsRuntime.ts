@@ -1,7 +1,7 @@
 import type { RapierRigidBody } from '@react-three/rapier';
 import type { ImpulseJoint, JointData, World } from '@dimforge/rapier3d-compat';
 import type { FrameInput } from '../systems/combat';
-import { AI_FIGHTER_SLOTS, FIGHTER_SLOTS } from '../types/game';
+import { AI_FIGHTER_SLOTS, FALL_REASONS, FIGHTER_SLOTS } from '../types/game';
 import type { BodyRegion, FighterRuntime, FighterSlot, GameCommand, MatchModel, PropRuntime, Vec2 } from '../types/game';
 import { clamp } from '../utils/math';
 import type { BodySegmentId } from './bodySchema';
@@ -28,6 +28,7 @@ import { MotionTaskRunner } from './motionTaskRunner';
 import { ActionBuffer } from '../input/actionBuffer';
 import { actionDirectionToVec2, actionToGameCommand, createActionEvent, gameCommandToAction, isBufferedAction } from '../input/actionLayer';
 import type { ActionEvent } from '../input/actionLayer';
+import { beginFall } from '../systems/falls';
 
 export type FighterKey = FighterSlot;
 
@@ -680,7 +681,16 @@ export class BodyWorksRuntime {
     const locomotion = locomotionProfile(definition);
     const grapplePhase = model.grapple?.attacker === key ? model.grapple.phase : null;
     const grappleHipLoad = grapplePhase === 'load' ? .24 : grapplePhase === 'clinch' ? .08 : grapplePhase === 'lift' ? .12 : 0;
-    const ringPelvisY = 1.8 + 1.12 * (definition.physics.standingHeightM / 1.88) - fighter.body.pelvisDrop * .32 - grappleHipLoad;
+    const planarSpeed = Math.hypot(velocity.x, velocity.z);
+    // A fighting stance is shorter than the authored T-pose used to assemble
+    // the rig. Without this physical stance drop the leg motors held both foot
+    // soles a few millimetres above the mat, reporting zero support while the
+    // locked pelvis looked like a hovering puppet. This offset makes the feet
+    // earn real Rapier contact and scales with gait compression.
+    const stanceDrop = fighter.state === 'blocking' ? .065
+      : fighter.state === 'locomotion' ? clamp(.04 + planarSpeed * .012, .04, .13)
+        : ['idle', 'attacking', 'grappling', 'victorious'].includes(fighter.state) ? .045 : 0;
+    const ringPelvisY = 1.8 + 1.12 * (definition.physics.standingHeightM / 1.88) - fighter.body.pelvisDrop * .32 - grappleHipLoad - stanceDrop;
     const physicalCenter = this.rigPlanarCenter(rig); const physicalPosition = { x: physicalCenter.x, z: physicalCenter.z };
     const onRingsideFloor = isRingside(physicalPosition);
     const targetPelvisY = ringPelvisY - (onRingsideFloor ? 1.5 : 0);
@@ -1378,6 +1388,7 @@ export class BodyWorksRuntime {
       attackerPelvis.setLinvel({ x: attackerVelocity.x * .28, y: Math.max(0, attackerVelocity.y * .2), z: attackerVelocity.z * .28 }, true);
       attackerPelvis.setAngvel({ x: 0, y: attackerPelvis.angvel().y * .25, z: 0 }, true);
       defender.state = 'airborne'; defender.stateElapsed = 0; defender.downTimer = 1.5 + (100 - defender.health) / 85;
+      beginFall(model, grapple.defender, FALL_REASONS.Throw);
       this.pendingLandings.set(grapple.defender, {
         attacker: grapple.attacker, defender: grapple.defender, attackInstanceId: attacker.attackInstanceId, moveId: move.id,
         releasedAt: model.elapsed, expiresAt: model.elapsed + (environmentTargeted ? 4.1 : 2.2),

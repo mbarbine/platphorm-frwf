@@ -36,18 +36,21 @@ export function buildControlLabels(player: FighterRuntime, opponent: FighterRunt
   const nearCorner = Math.abs(player.position.x) > 4.35 && Math.abs(player.position.z) > 2.95;
   const ringside = Math.abs(player.position.x) > 5.82 || Math.abs(player.position.z) > 4.32;
   const clinchCornerDistance = Math.hypot(opponent.position.x - Math.sign(opponent.position.x || player.position.x || 1) * 5.35, opponent.position.z - Math.sign(opponent.position.z || player.position.z || 1) * 3.85);
-  const directionId = combatDirection(direction);
+  const effectiveDirection = Math.hypot(direction.x, direction.z) > .08
+    ? direction
+    : speed > .08 ? player.velocity : direction;
+  const directionId = combatDirection(effectiveDirection);
   const isStanding = ['idle', 'locomotion', 'blocking', 'attacking', 'staggered', 'recovering', 'airborne', 'jumping'].includes(player.state);
 
   labels.quick = opponent.state === 'downed' ? moveLabel('ground')
     : isStanding && directionId === 'neutral' ? BASE_LABELS.quick
-      : moveLabel(selectDirectionalStrike(direction, 'quick', player.comboStep));
+      : moveLabel(selectDirectionalStrike(effectiveDirection, 'quick', player.comboStep));
   labels.heavy = player.heldPropId ? moveLabel('prop')
     : player.ropeRebound > 0
       ? directionId === 'left' ? 'LEFT ARM STIFF-ARM' : directionId === 'right' ? 'RIGHT ARM STIFF-ARM' : moveLabel('stiff_arm')
       : running || speed > 3.6 ? moveLabel('stiff_arm')
         : isStanding && directionId === 'neutral' ? BASE_LABELS.heavy
-          : moveLabel(selectDirectionalStrike(direction, 'heavy', player.comboStep));
+        : moveLabel(selectDirectionalStrike(effectiveDirection, 'heavy', player.comboStep));
 
   if (player.state === 'grappling') {
     labels.quick = moveLabel(selectDirectionalGrapple(direction, 'quick'));

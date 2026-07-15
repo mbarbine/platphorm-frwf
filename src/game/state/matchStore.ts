@@ -8,6 +8,8 @@ import type { Difficulty, FighterId, FighterState, GameCommand, MatchMode, Match
 import { AI_FIGHTER_SLOTS } from '../types/game';
 import { useSpectatorStore } from './spectatorStore';
 import { createActionEvent, gameCommandToAction } from '../input/actionLayer';
+import { beginFall } from '../systems/falls';
+import { FALL_REASONS } from '../types/game';
 
 interface MatchStore {
   model: MatchModel;
@@ -110,7 +112,9 @@ export const useMatchStore = create<MatchStore>((set) => ({
     player.stamina = player.staminaCap * (playerStaminaPercent ?? state.model.player.stamina / Math.max(1, state.model.player.staminaCap) * 100) / 100;
     opponent.stamina = opponent.staminaCap * state.model.opponent.stamina / Math.max(1, state.model.opponent.staminaCap);
     opponent.health = Math.max(0, Math.min(100, opponentHealth));
-    return { model: { ...state.model, player, opponent, grapple: null, lastImpact: null, hitStop: 0, slowMotion: 0, announcement: 'LAB RESET — INPUT LIVE', announcementTimer: .65, aiIntent: null, aiMovement: { x: 0, z: 0 }, aiRunning: false, aiBlockTimer: 0 }, revision: state.revision + 1, replayActive: false };
+    const model = { ...state.model, player, opponent, grapple: null, lastImpact: null, hitStop: 0, slowMotion: 0, announcement: 'LAB RESET — INPUT LIVE', announcementTimer: .65, aiIntent: null, aiMovement: { x: 0, z: 0 }, aiRunning: false, aiBlockTimer: 0 };
+    if (playerState === 'downed') beginFall(model, 'player', FALL_REASONS.PhysicsLab);
+    return { model, revision: state.revision + 1, replayActive: false };
   }),
   setPhysicsAuthority: (active) => set((state) => ({ model: { ...state.model, physicsAuthority: active }, revision: state.revision + 1 })),
   resolvePhysicsContacts: (contacts) => set((state) => {

@@ -58,6 +58,14 @@ describe('live wrestling control deck', () => {
     expect(down.quick).toBe('CIRCUIT LOW KICK');
   });
 
+  it('keeps the moving strike labels exact while a released input is still braking', () => {
+    const model = createMatch('atlas', 'nova', 'standard', 'normal');
+    model.player.state = 'locomotion'; model.player.velocity = { x: 0, z: -2.4 };
+    const labels = buildControlLabels(model.player, model.opponent, 2.4, 3, { x: 0, z: 0 });
+    expect(labels.quick).toBe('SKYLINE CROSS');
+    expect(labels.heavy).toBe('VOLTAGE UPPERCUT');
+  });
+
   it('surfaces wrestler-facing button names in the neutral standing deck', () => {
     const model = createMatch('atlas', 'nova', 'standard', 'normal');
     const labels = buildControlLabels(model.player, model.opponent, 0, 1.4);

@@ -10,6 +10,8 @@ import type { Difficulty, FighterId, FighterRuntime, FighterSlot, GameCommand, H
 import type { BodyWorksContact } from '../physics/physicsRuntime';
 import { VOLT_DOME } from '../data/arena';
 import { actionDirectionToVec2, actionToGameCommand, createActionEvent, gameCommandToAction } from '../input/actionLayer';
+import { auditFallState, beginFall } from './falls';
+import { FALL_REASONS } from '../types/game';
 import type { ActionEvent } from '../input/actionLayer';
 import { canTraverseRopes, resolveContextAction, resolvePropAction } from './contextResolver';
 
@@ -43,6 +45,7 @@ export const createFighterRuntime = (definitionId: FighterId, position: Vec2, be
   state: 'idle', moveId: null, attackPhase: null, phaseElapsed: 0, stateElapsed: 0, hitTargets: [], attackInstanceId: 0, downTimer: 0,
   counterWindow: 0, invulnerability: 0, pinCount: 0, pinEscape: 0, heldPropId: null, comboStep: 0, recentMoves: [],
   lastActionAt: 0, ropeRebound: 0, finisherPrimed: false, climbStage: 0, recoveryOrientation: 'back',
+  fallReason: null, lastFallReason: null, fallSequence: 0,
   body: createBodyDynamics(definition),
   });
 };
@@ -65,7 +68,7 @@ export const createMatch = (playerId: FighterId, opponentId: FighterId, ruleset:
     toyTestMode: false, labMode: false, matchMode, ruleset, difficulty, elapsed: 0, paused: false, physicsAuthority: false, resolved: false,
     player: createFighterRuntime(playerId, { x: -3.25, z: 0 }, playerBeers), opponent: createFighterRuntime(resolvedOpponentId, { x: 3.25, z: 0 }, opponentBeers),
     rival1: createFighterRuntime(rivalIds[0], { x: 0, z: -2.45 }), rival2: createFighterRuntime(rivalIds[1], { x: -1.85, z: 2.35 }), rival3: createFighterRuntime(rivalIds[2], { x: 1.85, z: 2.35 }),
-    targets: { player: 'opponent', opponent: 'player', rival1: 'rival3', rival2: 'rival1', rival3: 'rival2' }, playerTargetLock: 0, eliminations: [],
+    targets: { player: 'opponent', opponent: 'player', rival1: 'rival3', rival2: 'rival1', rival3: 'rival2' }, playerTargetLock: 0, eliminations: [], falls: [], fallSequence: 0, unstableWithoutCauseSeconds: 0,
     hype: 8, props: initialProps(ruleset === 'chaos'), chaosEvent: null, nextChaosAt: 38, lastImpact: null, impactSequence: 0,
     announcement: matchMode === 'battle_royale' ? 'BATTLE ROYALE — TOTAL FREE FOR ALL!' : 'ROUND ONE — FIGHT!', announcementTimer: 2.2, hitStop: 0, slowMotion: 0, result: null,
     playerStats, opponentStats, fighterStats, aiThinkTimer: .35, aiIntent: null, aiMovement: { x: 0, z: 0 }, aiRunning: false, aiBlockTimer: 0,
@@ -202,6 +205,7 @@ export const applyMoveHit = (model: MatchModel, actorKey: FighterSlot, targetKey
       target.stamina = clamp(target.stamina - Math.max(6, move.damage * .45), 0, target.staminaCap);
       target.state = 'attacking'; target.moveId = 'counter'; target.attackPhase = 'active'; target.phaseElapsed = getMove('counter').anticipationDuration; target.stateElapsed = 0;
       actor.state = 'downed'; actor.stateElapsed = 0; actor.downTimer = 1.1 + (100 - actor.health) / 120; actor.moveId = null; actor.attackPhase = null; actor.climbStage = 0;
+      beginFall(model, actorKey, FALL_REASONS.KnockdownMove);
       actor.body.verticalOffset = 0; actor.body.verticalVelocity = 0; actor.recoveryOrientation = 'back';
       model.hype = clamp(model.hype + 12, 0, 100);
       model.announcement = 'BLOCK CATCH!'; model.announcementTimer = .95;
@@ -270,6 +274,11 @@ export const applyMoveHit = (model: MatchModel, actorKey: FighterSlot, targetKey
     }
     const stillAirborne = target.body.verticalOffset > .08 || Math.abs(target.body.verticalVelocity) > 1.2;
     target.state = stillAirborne ? 'airborne' : 'downed';
+    const fallReason = move.category === 'grapple' || move.category === 'finisher' ? FALL_REASONS.Throw
+      : move.category === 'prop' ? FALL_REASONS.RopeOrObject
+        : guaranteedRunningKnockdown ? FALL_REASONS.KnockdownMove
+          : FALL_REASONS.StrikeImpulse;
+    beginFall(model, targetKey, fallReason);
     target.stateElapsed = 0;
     target.downTimer = 1.6 + (100 - target.health) / 75 + (move.category === 'finisher' ? 1.2 : 0);
     target.moveId = null;
@@ -466,6 +475,7 @@ export const requestCommand = (model: MatchModel, actorKey: FighterSlot, command
       : { x: Math.sin(actor.facing), z: Math.cos(actor.facing) };
     releaseGrapple(model, 'idle');
     target.state = 'airborne'; target.stateElapsed = 0; target.moveId = null; target.attackPhase = null; target.climbStage = 0; target.finisherPrimed = false;
+    beginFall(model, targetKey, FALL_REASONS.Throw);
     target.velocity.x = throwDir.x * 8.5; target.velocity.z = throwDir.z * 8.5;
     target.body.verticalVelocity = Math.max(target.body.verticalVelocity, 4.5);
     target.body.verticalOffset = Math.max(target.body.verticalOffset, .7);
@@ -684,14 +694,14 @@ const updatePin = (model: MatchModel, dt: number, playerInput: FrameInput): void
   }
   const threshold = 76 + (100 - pinned.health) * .36 + (pinned.finisherPrimed ? 14 : 0);
   if (pinned.pinEscape >= threshold && count < 3) {
-    pinning.state = 'idle'; pinned.state = 'downed'; pinned.downTimer = .8; pinning.pinCount = 0; pinned.pinCount = 0; pinned.pinEscape = 0;
+    pinning.state = 'idle'; pinned.state = 'downed'; beginFall(model, pinnedKey, FALL_REASONS.KnockdownMove); pinned.downTimer = .8; pinning.pinCount = 0; pinned.pinCount = 0; pinned.pinEscape = 0;
     model.fighterStats[pinningKey].nearFalls += 1;
     model.slowMotion = Math.max(model.slowMotion, .36); model.hitStop = Math.max(model.hitStop, .14);
     model.hype = clamp(model.hype + 16, 0, 100); model.announcement = `${count}.9 — KICKOUT!`; model.announcementTimer = 1.6;
     addImpact(model, pinned.position, 'nearfall', 1.9);
   } else if (count >= 3 && pinning.stateElapsed >= 2.85) {
     if (model.toyTestMode) {
-      pinning.state = 'idle'; pinned.state = 'downed'; pinned.downTimer = .8; pinning.pinCount = 0; pinned.pinCount = 0; pinned.pinEscape = 0;
+      pinning.state = 'idle'; pinned.state = 'downed'; beginFall(model, pinnedKey, FALL_REASONS.KnockdownMove); pinned.downTimer = .8; pinning.pinCount = 0; pinned.pinCount = 0; pinned.pinEscape = 0;
     } else resolveMatch(model, pinningKey, 'PINFALL', pinnedKey);
   }
 };
@@ -703,6 +713,7 @@ const updateFighter = (model: MatchModel, actorKey: FighterSlot, dt: number, mov
   actor.stateElapsed += dt;
   actor.invulnerability = Math.max(0, actor.invulnerability - dt);
   actor.ropeRebound = Math.max(0, actor.ropeRebound - dt);
+  auditFallState(model, actorKey, dt);
   const landing = stepBodyDynamics(actor, dt);
   if (!model.physicsAuthority && landing.landed && landing.landingEnergy > 2.2) {
     addImpact(model, actor.position, 'grapple', clamp(landing.landingEnergy / 7, .55, 1.8), {

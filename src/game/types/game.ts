@@ -22,6 +22,20 @@ export type BodyRegion = 'head' | 'chest' | 'ribs' | 'pelvis' | 'leftArm' | 'rig
 export type CollisionOutcome = 'absorbed' | 'stagger' | 'spin' | 'trip' | 'fall' | 'launch';
 export type GrapplePosition = 'collarTie' | 'overhook' | 'underhook' | 'headlock' | 'waistLock' | 'rearWaistLock' | 'frontFacelock' | 'armControl';
 export type RecoveryOrientation = 'back' | 'front' | 'left' | 'right';
+export const FALL_REASONS = {
+  StrikeImpulse: 'strike_impulse',
+  Throw: 'throw',
+  SupportCollision: 'support_collision',
+  Fatigue: 'fatigue',
+  MissedAerial: 'missed_aerial',
+  DodgeFailure: 'dodge_failure',
+  RopeOrObject: 'rope_or_object',
+  KnockdownMove: 'knockdown_move',
+  Knockout: 'knockout',
+  PhysicsLab: 'physics_lab',
+  Unknown: 'unknown',
+} as const;
+export type FallReason = typeof FALL_REASONS[keyof typeof FALL_REASONS];
 
 export interface Vec2 { x: number; z: number }
 
@@ -141,6 +155,9 @@ export interface FighterRuntime {
   finisherPrimed: boolean;
   climbStage: 0 | 1 | 2 | 3;
   recoveryOrientation: RecoveryOrientation;
+  fallReason: FallReason | null;
+  lastFallReason: FallReason | null;
+  fallSequence: number;
   body: BodyDynamicsRuntime;
 }
 
@@ -272,6 +289,14 @@ export interface MatchElimination {
   time: number;
 }
 
+export interface FallEvent {
+  sequence: number;
+  fighter: FighterSlot;
+  reason: FallReason;
+  time: number;
+  state: Extract<FighterState, 'airborne' | 'downed'>;
+}
+
 export interface MatchModel {
   toyTestMode: boolean;
   labMode: boolean;
@@ -290,6 +315,9 @@ export interface MatchModel {
   targets: Record<FighterSlot, FighterSlot>;
   playerTargetLock: number;
   eliminations: MatchElimination[];
+  falls: FallEvent[];
+  fallSequence: number;
+  unstableWithoutCauseSeconds: number;
   hype: number;
   props: PropRuntime[];
   chaosEvent: ChaosEvent | null;

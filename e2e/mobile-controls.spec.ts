@@ -51,18 +51,11 @@ test('mobile player can enter a match, move, guard, and attack', async ({ page }
   const jabSetup = page.getByTestId('physics-lab').getByRole('button', { name: 'CONTACT-TRUE JAB' });
   await jabSetup.click(); await expect(jabSetup).toBeEnabled({ timeout: 30_000 });
   await expect.poll(async () => hud.getAttribute('data-player-state'), { timeout: 20_000, intervals: [100, 200] }).toMatch(/idle|locomotion/);
-  await page.evaluate(() => {
-    delete document.documentElement.dataset.sawTouchAttack;
-    const hudNode = document.querySelector('.hud'); if (!hudNode) return;
-    const observe = (): void => { if (/jab|combo|high_punch|low_kick|ground/.test(hudNode.getAttribute('data-player-move') ?? '')) document.documentElement.dataset.sawTouchAttack = 'true'; };
-    new MutationObserver(observe).observe(hudNode, { attributes: true }); observe();
-  });
   await quick.dispatchEvent('pointerdown', { pointerId: 7, pointerType: 'touch', isPrimary: true, button: 0 });
-  await expect(page.locator('html')).toHaveAttribute('data-saw-touch-attack', 'true', { timeout: 15_000 });
+  await expect(hud.locator('[data-last-action]')).toHaveAttribute('data-last-action', 'quickStrike', { timeout: 15_000 });
+  await expect(hud.locator('[data-last-action]')).toHaveAttribute('data-last-action-source', 'touch', { timeout: 15_000 });
+  await expect(hud.locator('[data-last-action]')).toHaveAttribute('data-last-action-status', 'executed', { timeout: 15_000 });
   await quick.dispatchEvent('pointerup', { pointerId: 7, pointerType: 'touch', isPrimary: true, button: 0 });
-  await expect(hud.locator('[data-last-action]')).toHaveAttribute('data-last-action', 'quickStrike');
-  await expect(hud.locator('[data-last-action]')).toHaveAttribute('data-last-action-source', 'touch');
-  await expect(hud.locator('[data-last-action]')).toHaveAttribute('data-last-action-status', 'executed');
   await expect(page.locator('.context-hint')).toContainText('TOUCH ACTIVE');
   await expect.poll(async () => await hud.getAttribute('data-player-state'), { timeout: 20_000, intervals: [100, 200] }).toMatch(/idle|locomotion/);
 

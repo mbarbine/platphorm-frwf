@@ -33,7 +33,9 @@ test('standard gamepad axes, run trigger, and quick attack drive the live match'
     const pad = (window as Window & { __ringfallPad?: { axes: number[]; buttons: Array<{ pressed: boolean; touched: boolean; value: number }> } }).__ringfallPad;
     if (!pad) return; pad.axes[0] = 0; const trigger = pad.buttons[7]; if (trigger) { trigger.pressed = false; trigger.value = 0; }
   });
-  const lab = page.getByTestId('physics-lab'); await lab.getByRole('button', { name: 'CONTACT-TRUE JAB' }).click(); await page.waitForTimeout(1_400);
+  const lab = page.getByTestId('physics-lab'); const jabSetup = lab.getByRole('button', { name: 'CONTACT-TRUE JAB' }); await jabSetup.click();
+  await expect(jabSetup).toBeEnabled({ timeout: 30_000 });
+  await expect.poll(async () => hud.getAttribute('data-player-state'), { timeout: 20_000, intervals: [100, 200] }).toMatch(/idle|locomotion/);
   await expect(hud).toHaveAttribute('data-player-move', '', { timeout: 10_000 });
   await page.evaluate(() => { const button = (window as Window & { __ringfallPad?: { buttons: Array<{ pressed: boolean; value: number }> } }).__ringfallPad?.buttons[2]; if (button) { button.pressed = true; button.value = 1; } });
   await expect(hud.locator('[data-last-action]')).toHaveAttribute('data-last-action', 'quickStrike', { timeout: 15_000 });
