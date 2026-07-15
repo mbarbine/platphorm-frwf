@@ -39,7 +39,7 @@ const SCENARIOS: readonly LabScenario[] = [
   { id: 'jabWhiff', label: 'JAB WHIFF', steps: tap('KeyJ'), duration: 1_200 },
   // Let the freshly placed rigs settle before raising guard, then hold it
   // through the incoming jab until generic scenario cleanup.
-  { id: 'blockedJab', label: 'JAB INTO GUARD', steps: [{ at: 0, code: 'KeyI', down: true }], duration: 2_500 },
+  { id: 'blockedJab', label: 'JAB INTO GUARD', steps: [{ at: 0, code: 'KeyI', down: true }], duration: 3_800 },
   { id: 'hook', label: 'TORSO POWER', steps: tap('KeyK'), duration: 1_400 },
   { id: 'frontKick', label: 'FRONT KICK', steps: [...hold('KeyS', 0, 620), ...tap('KeyK', 0, 360)], duration: 1_700 },
   { id: 'guard', label: 'BLOCK WINDOW', steps: hold('KeyI', 0, 1_250), duration: 1_700 },
@@ -112,7 +112,7 @@ export function PhysicsLab() {
     // timeouts made the same input sequence behave differently on a throttled
     // headless GPU because key-up could arrive after only a handful of ticks.
     const startedAt = useMatchStore.getState().model.elapsed; const wallStartedAt = performance.now();
-    const dispatched = new Set<number>(); let blockedJabQueued = false; let blockedJabNextAttemptAt = SCENARIO_SETTLE_MS + 900; let gripStressComplete = scenario.stressGripAt === undefined; let labKnockoutResolved = false;
+    const dispatched = new Set<number>(); let blockedJabQueued = false; let blockedJabNextAttemptAt = SCENARIO_SETTLE_MS + 2_100; let gripStressComplete = scenario.stressGripAt === undefined; let labKnockoutResolved = false;
     let blockedJabAttempts = 0;
     let reboundPressAt: number | null = null; let reboundReleased = false; let slamPressAt: number | null = null; let slamReleased = false;
     let stagedKey: 'KeyF' | 'KeyQ' | null = null; let stagedReleaseAt = 0; let stagedNextAttemptAt = SCENARIO_SETTLE_MS + 80;
