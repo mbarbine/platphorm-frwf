@@ -9,6 +9,14 @@ const noInput: FrameInput = { move: { x: 0, z: 0 }, run: false, block: false, co
 describe('battle royale rules', () => {
   beforeEach(() => useSpectatorStore.getState().reset());
 
+  it('does not globally freeze unrelated wrestlers for overlapping impacts', () => {
+    const model = createMatch('atlas', 'nova', 'standard', 'normal', 1337, 0, 0, 'battle_royale');
+    model.elapsed = 3; model.hitStop = .3; model.slowMotion = .3;
+    advanceMatch(model, .1, noInput);
+    expect(model.elapsed).toBeGreaterThan(3.075);
+    expect(model.hitStop).toBeCloseTo(.2);
+  });
+
   it('starts with every roster member in the ring and no self-targets', () => {
     const model = createMatch('atlas', 'nova', 'standard', 'normal', 1337, 0, 0, 'battle_royale');
     const definitions = FIGHTER_SLOTS.map((slot) => model[slot].definitionId);

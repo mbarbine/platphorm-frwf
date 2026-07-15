@@ -932,8 +932,16 @@ const retargetFighters = (model: MatchModel): void => {
 
 export const advanceMatch = (model: MatchModel, dt: number, playerInput: FrameInput): MatchModel => {
   if (model.paused || model.resolved) return model;
-  if (model.hitStop > 0) { model.hitStop = Math.max(0, model.hitStop - dt); return model; }
-  const step = dt * (model.slowMotion > 0 ? .36 : 1); model.slowMotion = Math.max(0, model.slowMotion - dt);
+  if (model.hitStop > 0) {
+    model.hitStop = Math.max(0, model.hitStop - dt);
+    // A one-on-one impact can briefly stop the shared stage. In a five-way
+    // match, unrelated hits happen continuously; freezing the whole rules and
+    // input simulation for every collision made ten wall-clock seconds advance
+    // only a few match seconds and felt exactly like dropped controls.
+    if (model.matchMode !== 'battle_royale') return model;
+  }
+  const slowMotionScale = model.slowMotion > 0 ? model.matchMode === 'battle_royale' ? .82 : .36 : 1;
+  const step = dt * slowMotionScale; model.slowMotion = Math.max(0, model.slowMotion - dt);
   model.elapsed += step; model.announcementTimer = Math.max(0, model.announcementTimer - step); if (model.announcementTimer === 0) model.announcement = null;
   model.playerTargetLock = Math.max(0, model.playerTargetLock - step);
   updateChaos(model, step);
