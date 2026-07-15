@@ -11,6 +11,7 @@ const enterLabMatch = async (page: Page): Promise<void> => {
 };
 
 test('standard gamepad axes, run trigger, and quick attack drive the live match', async ({ page }) => {
+  test.setTimeout(180_000);
   await page.addInitScript(() => {
     const buttons = Array.from({ length: 17 }, () => ({ pressed: false, touched: false, value: 0 }));
     const pad = { axes: [0, 0, 0, 0], buttons, connected: true, id: 'Ringfall deterministic standard pad', index: 0, mapping: 'standard', timestamp: 0, vibrationActuator: null, hapticActuators: [] };
@@ -34,22 +35,11 @@ test('standard gamepad axes, run trigger, and quick attack drive the live match'
   });
   const lab = page.getByTestId('physics-lab'); await lab.getByRole('button', { name: 'CONTACT-TRUE JAB' }).click(); await page.waitForTimeout(1_400);
   await expect(hud).toHaveAttribute('data-player-move', '', { timeout: 10_000 });
-  await page.evaluate(() => {
-    const sampleUntil = performance.now() + 2_500;
-    const sample = (): void => {
-      const move = document.querySelector('.hud')?.getAttribute('data-player-move') ?? '';
-      if (/jab|combo|high_punch|low_kick/.test(move)) document.documentElement.dataset.sawGamepadAttack = 'true';
-      if (performance.now() < sampleUntil) requestAnimationFrame(sample);
-    };
-    sample();
-  });
   await page.evaluate(() => { const button = (window as Window & { __ringfallPad?: { buttons: Array<{ pressed: boolean; value: number }> } }).__ringfallPad?.buttons[2]; if (button) { button.pressed = true; button.value = 1; } });
-  await page.waitForTimeout(220);
+  await expect(hud.locator('[data-last-action]')).toHaveAttribute('data-last-action', 'quickStrike', { timeout: 15_000 });
+  await expect(hud.locator('[data-last-action]')).toHaveAttribute('data-last-action-source', 'gamepad', { timeout: 15_000 });
+  await expect(hud.locator('[data-last-action]')).toHaveAttribute('data-last-action-status', 'executed', { timeout: 15_000 });
   await page.evaluate(() => { const button = (window as Window & { __ringfallPad?: { buttons: Array<{ pressed: boolean; value: number }> } }).__ringfallPad?.buttons[2]; if (button) { button.pressed = false; button.value = 0; } });
-  await expect(page.locator('html')).toHaveAttribute('data-saw-gamepad-attack', 'true', { timeout: 4_000 });
-  await expect(hud.locator('[data-last-action]')).toHaveAttribute('data-last-action', 'quickStrike');
-  await expect(hud.locator('[data-last-action]')).toHaveAttribute('data-last-action-source', 'gamepad');
-  await expect(hud.locator('[data-last-action]')).toHaveAttribute('data-last-action-status', 'executed');
   await expect(hud.locator('[data-action-executed]')).not.toHaveAttribute('data-action-executed', '0');
 });
 

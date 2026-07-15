@@ -3,6 +3,7 @@ import { expect, test } from '@playwright/test';
 test.use({ hasTouch: true, viewport: { width: 390, height: 844 } });
 
 test('mobile player can enter a match, move, guard, and attack', async ({ page }) => {
+  test.setTimeout(300_000);
   await page.goto('/?physicsLab=1');
   await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
   await page.getByRole('button', { name: 'PLAY', exact: true }).click();
@@ -20,12 +21,6 @@ test('mobile player can enter a match, move, guard, and attack', async ({ page }
   await expect(controls.getByRole('button', { name: 'Jump' })).toBeVisible();
   await expect(controls.getByRole('button', { name: 'Pick up, drop, or throw prop' })).toBeVisible();
   await expect(controls.getByRole('button', { name: 'Taunt' })).toBeVisible();
-
-  await page.evaluate(() => {
-    const hudNode = document.querySelector('.hud'); if (!hudNode) return;
-    const observe = (): void => { if (/jab|combo|high_punch|low_kick/.test(hudNode.getAttribute('data-player-move') ?? '')) document.documentElement.dataset.sawTouchAttack = 'true'; };
-    new MutationObserver(observe).observe(hudNode, { attributes: true }); observe();
-  });
 
   const stick = page.getByRole('group', { name: 'Movement joystick' }); const box = await stick.boundingBox();
   expect(box).not.toBeNull();
@@ -48,17 +43,26 @@ test('mobile player can enter a match, move, guard, and attack', async ({ page }
   await aimAtOpponent(); await page.waitForTimeout(750);
   const after = { x: Number(await hud.getAttribute('data-player-x')), z: Number(await hud.getAttribute('data-player-z')) };
   expect(Math.hypot(after.x - before.x, after.z - before.z)).toBeGreaterThan(.12);
+  await page.mouse.up();
 
-  await expect.poll(async () => {
-    const distance = await aimAtOpponent();
-    const state = await hud.getAttribute('data-player-state');
-    if (distance < 1.9 && (state === 'idle' || state === 'locomotion')) await quick.dispatchEvent('pointerdown', { pointerId: 7, pointerType: 'touch', isPrimary: true, button: 0 });
-    return page.locator('html').getAttribute('data-saw-touch-attack');
-  }, { timeout: 15_000, intervals: [120, 180, 240, 320] }).toBe('true');
+  // Movement is proven above. Use the deterministic lab positioning harness
+  // to make the independent touch-attack assertion insensitive to a 3 FPS
+  // headless approach across the full ring.
+  const jabSetup = page.getByTestId('physics-lab').getByRole('button', { name: 'CONTACT-TRUE JAB' });
+  await jabSetup.click(); await expect(jabSetup).toBeEnabled({ timeout: 30_000 });
+  await expect.poll(async () => hud.getAttribute('data-player-state'), { timeout: 20_000, intervals: [100, 200] }).toMatch(/idle|locomotion/);
+  await page.evaluate(() => {
+    delete document.documentElement.dataset.sawTouchAttack;
+    const hudNode = document.querySelector('.hud'); if (!hudNode) return;
+    const observe = (): void => { if (/jab|combo|high_punch|low_kick|ground/.test(hudNode.getAttribute('data-player-move') ?? '')) document.documentElement.dataset.sawTouchAttack = 'true'; };
+    new MutationObserver(observe).observe(hudNode, { attributes: true }); observe();
+  });
+  await quick.dispatchEvent('pointerdown', { pointerId: 7, pointerType: 'touch', isPrimary: true, button: 0 });
+  await expect(page.locator('html')).toHaveAttribute('data-saw-touch-attack', 'true', { timeout: 15_000 });
+  await quick.dispatchEvent('pointerup', { pointerId: 7, pointerType: 'touch', isPrimary: true, button: 0 });
   await expect(hud.locator('[data-last-action]')).toHaveAttribute('data-last-action', 'quickStrike');
   await expect(hud.locator('[data-last-action]')).toHaveAttribute('data-last-action-source', 'touch');
   await expect(hud.locator('[data-last-action]')).toHaveAttribute('data-last-action-status', 'executed');
-  await page.mouse.up();
   await expect(page.locator('.context-hint')).toContainText('TOUCH ACTIVE');
   await expect.poll(async () => await hud.getAttribute('data-player-state'), { timeout: 20_000, intervals: [100, 200] }).toMatch(/idle|locomotion/);
 

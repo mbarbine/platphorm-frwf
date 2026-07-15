@@ -22,14 +22,19 @@ const Meter = ({ label, value, kind, max = 100 }: { label: string; value: number
   const [ghost, setGhost] = useState(value);
   const prev = useRef(value);
   useEffect(() => {
+    // Only health needs the delayed damage trail. Balance, stamina, and
+    // momentum change nearly every physics publish; reflecting those values
+    // through effect-driven local state can create a render feedback loop on
+    // slow GPUs while adding no useful visual information.
+    if (kind !== 'health') { prev.current = value; return; }
     const dropped = value < prev.current;
     prev.current = value;
     if (!dropped) { setGhost(value); return; }
     const timer = window.setTimeout(() => setGhost(value), 580);
     return () => window.clearTimeout(timer);
-  }, [value]);
+  }, [kind, value]);
   const pct = Math.max(0, Math.min(100, value / max * 100));
-  const ghostPct = Math.max(0, Math.min(100, ghost / max * 100));
+  const ghostPct = kind === 'health' ? Math.max(0, Math.min(100, ghost / max * 100)) : pct;
   return <div className={`meter meter--${kind}`}><div className="meter__label"><span>{label}</span><b>{Math.round(value)}{max !== 100 ? ` / ${Math.round(max)}` : ''}</b></div><div className="meter__track"><b className="meter__ghost" style={{ width: `${ghostPct}%` }} /><i style={{ width: `${pct}%` }} /></div></div>;
 };
 

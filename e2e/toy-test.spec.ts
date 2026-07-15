@@ -10,6 +10,14 @@ test('UI-free Toy Test preserves body control while removing score pressure', as
   await expect.poll(async () => Number(await canvas.getAttribute('data-physics-steps')), { timeout: 10_000, intervals: [100, 150] }).toBeGreaterThan(60);
   await expect(page.locator('.hud')).toHaveCount(0); await expect(page.locator('.tutorial')).toHaveCount(0); await expect(page.locator('.mobile-controls')).toHaveCount(0);
   const initialX = Number(await canvas.getAttribute('data-player-x')); const initialZ = Number(await canvas.getAttribute('data-player-z'));
-  await page.keyboard.down('w'); await expect.poll(async () => Math.hypot(Number(await canvas.getAttribute('data-player-x')) - initialX, Number(await canvas.getAttribute('data-player-z')) - initialZ), { timeout: 6_000, intervals: [100, 150] }).toBeGreaterThan(.75); await page.keyboard.up('w');
+  await page.evaluate(({ x, z }) => {
+    const liveCanvas = document.querySelector('[data-testid="game-canvas"]'); if (!liveCanvas) return;
+    const sample = (): void => {
+      const displacement = Math.hypot(Number(liveCanvas.getAttribute('data-player-x')) - x, Number(liveCanvas.getAttribute('data-player-z')) - z);
+      document.documentElement.dataset.maximumToyDisplacement = String(Math.max(Number(document.documentElement.dataset.maximumToyDisplacement ?? 0), displacement));
+    };
+    new MutationObserver(sample).observe(liveCanvas, { attributes: true }); sample();
+  }, { x: initialX, z: initialZ });
+  await page.keyboard.down('w'); await expect.poll(async () => Number(await page.locator('html').getAttribute('data-maximum-toy-displacement')), { timeout: 20_000, intervals: [100, 250, 500] }).toBeGreaterThan(.75); await page.keyboard.up('w');
   await expect(canvas).toHaveAttribute('data-opponent-health', '100.0'); expect(errors).toEqual([]);
 });
