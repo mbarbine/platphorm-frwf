@@ -8,7 +8,7 @@ Five original fighters collide in **The Volt Dome** across two-to-four-minute ma
 
 ## Run locally
 
-Requires a current Node.js LTS release and pnpm 9.15 or a compatible Corepack-provided pnpm release.
+Requires Node.js 22.13 or later and pnpm 11.13.0, as pinned in `package.json`.
 
 ```bash
 pnpm install --frozen-lockfile
@@ -44,7 +44,7 @@ pnpm preview
 | Signature taunt | Q | Right bumper |
 | Pause | Escape | Menu / Options |
 
-Movement is camera-relative and the live control deck always names the move that will fire. With no direction, J/K are Circuit Jab/Fault Hook. Aim forward for Skyline Cross/Voltage Uppercut, backward for Circuit Low Kick/Piston Boot, left for Neon One-Two/Arc Roundhouse, and right for Skyline Cross/Halo High Kick.
+Movement is camera-relative and the live control deck always names the move that will fire. With no direction, J starts the Circuit Jab/Neon One-Two arm-strike chain and K is Piston Boot. Aim forward for Skyline Cross/Voltage Uppercut, backward for Circuit Low Kick/Piston Boot, left for Neon One-Two/Arc Roundhouse, and right for Skyline Cross/Halo High Kick.
 
 L enters a visible collar-and-elbow lock; during its anticipation window, a direction plus J/K/L selects one of fifteen named outcomes including arm drags, trips, chokes, spinebusters, suplexes, powerbombs, side tosses, slams, and an Irish whip. Near a corner, F converts that secured clinch into a physical Turnbuckle Rail Shot. A direction held through release also drives the physical throw. When the defender is already committed over the commentary desk, bounded environmental aim assist keeps the slam on the desk instead of launching the ragdoll past it. Hold I/LT to guard: strikes deal tiny chip damage and drain guard stamina, while a grapple can be stuffed until the guard breaks. Space performs a visible, stamina-bound Livewire Kick-Up while downed; ordinary recovery selects a readable back, front, or side get-up from the last impact.
 
@@ -93,13 +93,13 @@ src/
     data/       immutable fighter, move, balance, and arena definitions
     input/      keyboard/gamepad abstraction
     state/      Zustand match and persistent settings stores
-    systems/    deterministic combat and legal state transitions
+    systems/    deterministic combat, pure move selection, and legal state transitions
     types/      strict shared contracts
   ui/           broadcast HUD, menus, tutorial, settings, results
   tests/        WebGL-free deterministic combat tests
 ```
 
-Combat and Rapier advance at a fixed 60 Hz step. Moves have anticipation, active, and recovery phases. A stance-anchored swept hurt volume makes a visually valid strike reliable even when a distal hand joint trails by a few milliseconds; eligibility still exists only during active frames and retains one-hit-per-attack deduplication. The player and AI call the same command validation and execution functions.
+Combat and Rapier advance at a fixed 60 Hz step. Moves have anticipation, active, and recovery phases. `systems/moveSelection.ts` is a renderer-free control contract shared by combat and control prompts: neutral J remains an arm strike and neutral K remains a kick, while held direction unlocks the deeper variants. A stance-anchored swept hurt volume makes a visually valid strike reliable even when a distal hand joint trails by a few milliseconds; eligibility still exists only during active frames and retains one-hit-per-attack deduplication. The player and AI call the same command validation and execution functions.
 
 ### Adjustable balance rubric
 
