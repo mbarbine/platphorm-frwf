@@ -1195,7 +1195,7 @@ export class BodyWorksRuntime {
       // The previous limits were below the normal inertial load of two
       // heavyweight rigs and caused hands to pop free before a slam could
       // reach its active frame.
-      const acquisitionGrace = model.elapsed - grip.createdAt < 1.05;
+      const acquisitionGrace = model.elapsed - grip.createdAt < 1.05 || grapple.age < 1.35;
       if (!['grappling', 'attacking'].includes(attacker.state)) this.removeGrip(world, grip, 'incompatible-state');
       // A secured environmental spot remains a real force-held clinch, but it
       // is no longer cancelled by the generic free-wrestling escape threshold
