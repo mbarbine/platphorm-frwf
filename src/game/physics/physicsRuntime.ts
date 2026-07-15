@@ -777,21 +777,11 @@ export class BodyWorksRuntime {
       this.applyRigAcceleration(rig, { x: 0, y: supportAcceleration, z: 0 });
       if (fighter.state === 'recovering') this.applyRecoveryStanceDrive(rig, fighter, targetPelvisY, recoveryBlend);
     }
-    if (fighter.state === 'recovering' || fighter.state === 'jumping') {
-      // Recovery is a physical root motor: it applies bounded torque until the
-      // pelvis' local up axis aligns with gravity. No rotation is written or
-      // snapped, so a landed jump and a mat get-up must both earn uprightness.
-      const rotation = pelvis.rotation(); const angular = pelvis.angvel();
-      const upX = 2 * (rotation.x * rotation.y - rotation.w * rotation.z);
-      const upZ = 2 * (rotation.y * rotation.z + rotation.w * rotation.x);
-      const strength = fighter.state === 'recovering' ? .22 : .055;
-      const torqueLimit = fighter.state === 'recovering' ? 2.8 : 1.35;
-      pelvis.applyTorqueImpulse({
-        x: clamp(-upZ * fighter.body.inertia * strength - angular.x * .11, -torqueLimit, torqueLimit),
-        y: 0,
-        z: clamp(upX * fighter.body.inertia * strength - angular.z * .11, -torqueLimit, torqueLimit),
-      }, true);
-    }
+    // Root rotation is owned by the same damped quaternion motor as every
+    // other active segment. The former second pelvis-only torque controller
+    // fought that motor and had a 180-degree singularity; after several
+    // frames it could invert the pelvis and leave recovery permanently input-
+    // locked even while the presentation shell appeared upright.
     const isCarrying = fighter.state === 'grappling' && (model.grapple?.phase === 'lift' || model.grapple?.phase === 'load') && model.grapple?.attacker === key;
     const movementControl = ['idle', 'locomotion'].includes(fighter.state) ? 1 : fighter.state === 'recovering' ? .08 : isCarrying ? .22 : 0;
     const battlePlayerControl = model.matchMode === 'battle_royale' && key === 'player';
@@ -1935,7 +1925,7 @@ export class BodyWorksRuntime {
       leftFootY: leftFoot.translation().y,
       rightFootY: rightFoot.translation().y,
       restFootOffsetY: Math.min(rig.restOffsets.leftFoot?.y ?? 0, rig.restOffsets.rightFoot?.y ?? 0),
-      upright: clamp(1 - (Math.abs(rotation.x) + Math.abs(rotation.z)) * 1.7, 0, 1),
+      upright: uprightFromRotation(rotation),
       speed: Math.hypot(center.velocityX, velocity.y, center.velocityZ),
       supportFeet: rig.supportContacts.size,
     };
