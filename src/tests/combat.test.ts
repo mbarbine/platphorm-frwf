@@ -175,7 +175,7 @@ describe('deterministic combat rules', () => {
   it('expires stale buffered commands instead of executing them later', () => {
     const runtime = new BodyWorksRuntime(); const expired: string[] = []; let executed = false;
     runtime.captureInput('player', { ...none, commands: ['heavy'] }, 1);
-    runtime.resolveCommands('player', 1.17, () => { executed = true; return true; }, (command) => expired.push(command.command));
+    runtime.resolveCommands('player', 1.37, () => { executed = true; return true; }, (command) => expired.push(command.command));
     expect(executed).toBe(false); expect(expired).toEqual(['heavy']); expect(runtime.pendingCommandCount()).toBe(0); expect(runtime.metrics.actionExpired).toBe(1); expect(runtime.actionFeedback()?.status).toBe('expired');
   });
 

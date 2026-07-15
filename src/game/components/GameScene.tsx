@@ -44,6 +44,7 @@ function Simulation({ onPause, onDevice, onFinished }: Props) {
   const pause = useCallback(onPause, [onPause]); const input = useGameInput(pause); const lastImpactId = useRef(0); const lastActionAudio = useRef(''); const finishNotified = useRef(false); const finishTimer = useRef<number | null>(null); const { camera, gl } = useThree();
   const inputBasis = useRef<CameraInputBasis | null>(null);
   const storeActionCount = useRef(0);
+  const rosterReadiness = useRef({ runtimeId: -1, ready: false });
   const listenerPosition = useRef(new Vector3()); const listenerForward = useRef(new Vector3()); const footstepTimer = useRef(0);
   useEffect(() => onDevice(input.device), [input.device, onDevice]);
   useEffect(() => { useMatchStore.getState().setPhysicsAuthority(true); return () => useMatchStore.getState().setPhysicsAuthority(false); }, []);
@@ -64,7 +65,9 @@ function Simulation({ onPause, onDevice, onFinished }: Props) {
     const fixedStep = model.labMode ? usePhysicsLabStore.getState().rate / 60 : 1 / 60;
     const activeSlots = model.matchMode === 'battle_royale' ? FIGHTER_SLOTS.filter((slot) => model[slot].state !== 'defeated') : FIGHTER_SLOTS.slice(0, 2);
     const expectedBodies = activeSlots.length * BODY_SEGMENT_COUNT;
-    if (bodyWorksRuntime.metrics.bodyCount < expectedBodies) {
+    if (rosterReadiness.current.runtimeId !== model.runtimeId) rosterReadiness.current = { runtimeId: model.runtimeId, ready: false };
+    if (!rosterReadiness.current.ready && bodyWorksRuntime.metrics.bodyCount >= expectedBodies) rosterReadiness.current.ready = true;
+    if (!rosterReadiness.current.ready) {
       // Let registered bodies settle under their motors, but do not let AI,
       // combat, or the match clock run against a partially mounted roster.
       bodyWorksRuntime.beforeFixedStep(fixedStep, model, world);

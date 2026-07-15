@@ -240,7 +240,7 @@ export class BodyWorksRuntime {
   private jointData: typeof JointData | null = null;
   private readonly rigs = new Map<FighterKey, FighterRigRegistration>();
   private readonly intents: Record<FighterKey, IntentState> = { player: EMPTY_INTENT(), opponent: EMPTY_INTENT(), rival1: EMPTY_INTENT(), rival2: EMPTY_INTENT(), rival3: EMPTY_INTENT() };
-  private readonly actions = new ActionBuffer<BufferedPhysicsCommand>({ capacity: 32, defaultTtlMs: 150, contextTtlMs: 110, duplicateWindowMs: 48 });
+  private readonly actions = new ActionBuffer<BufferedPhysicsCommand>({ capacity: 32, defaultTtlMs: 360, contextTtlMs: 240, duplicateWindowMs: 48 });
   private playerActionFeedback: ActionFeedback | null = null;
   private readonly contacts: BodyWorksContact[] = [];
   private contactId = 0;
@@ -361,7 +361,7 @@ export class BodyWorksRuntime {
       if (event.phase !== 'started' || !isBufferedAction(event.action)) continue;
       const command = actionToGameCommand(event.action);
       if (!command) continue;
-      const ttlSeconds = event.action === 'contextAction' || event.action === 'propAction' ? .11 : .15;
+      const ttlSeconds = event.action === 'contextAction' || event.action === 'propAction' ? .24 : .36;
       const buffered = { id: event.sequence, fighter, event, command, direction: actionDirectionToVec2(event.direction), running: input.run, issuedAt: now, expiresAt: now + ttlSeconds };
       const bufferedEvent = this.actions.push(buffered, event, nowMs, `${fighter}:${event.source}:${event.action}:${event.phase}`);
       if (fighter === 'player') this.playerActionFeedback = { event, status: bufferedEvent ? 'buffered' : 'duplicate', updatedAt: now };
@@ -755,6 +755,7 @@ export class BodyWorksRuntime {
           : pelvis.translation().y < recoveryTargetY + .2 ? 1 : 0;
       const supportAcceleration = clamp((recoveryTargetY - pelvis.translation().y) * 30 - velocity.y * 10.5 + 18, -18, 38) * fighter.body.muscle * contactMultiplier * (.42 + recoveryBlend * .58);
       this.applyRigAcceleration(rig, { x: 0, y: supportAcceleration, z: 0 });
+      if (fighter.state === 'recovering') this.applyRecoveryStanceDrive(rig, fighter, targetPelvisY, recoveryBlend);
     }
     if (fighter.state === 'recovering' || fighter.state === 'jumping') {
       // Recovery is a physical root motor: it applies bounded torque until the
@@ -937,6 +938,34 @@ export class BodyWorksRuntime {
       const velocity = foot.linvel(); const planarSpeed = Math.hypot(velocity.x, velocity.z); if (planarSpeed < .18) continue;
       const mass = foot.mass(); const strength = fighter.state === 'recovering' ? 2.2 : 4.8;
       foot.addForce({ x: clamp(-velocity.x * mass * strength, -42, 42), y: 0, z: clamp(-velocity.z * mass * strength, -42, 42) }, true);
+    }
+  }
+
+  private applyRecoveryStanceDrive(rig: FighterRigRegistration, fighter: FighterRuntime, targetPelvisY: number, progress: number): void {
+    const pelvis = rig.bodies.pelvis; if (!pelvis || progress <= .18) return;
+    const pelvisPosition = pelvis.translation(); const pelvisVelocity = pelvis.linvel();
+    const activation = clamp((progress - .18) / .42, 0, 1) * fighter.body.muscle;
+    const cosine = Math.cos(fighter.facing); const sine = Math.sin(fighter.facing);
+    for (const footId of ['leftFoot', 'rightFoot'] as const) {
+      const foot = rig.bodies[footId]; const offset = rig.restOffsets[footId];
+      if (!foot?.isValid() || !offset) continue;
+      const footPosition = foot.translation(); const footVelocity = foot.linvel();
+      const target = {
+        x: pelvisPosition.x + offset.x * cosine + offset.z * sine,
+        y: targetPelvisY + offset.y,
+        z: pelvisPosition.z - offset.x * sine + offset.z * cosine,
+      };
+      const acceleration = {
+        x: clamp((target.x - footPosition.x) * 30 - (footVelocity.x - pelvisVelocity.x) * 8, -24, 24) * activation,
+        y: clamp((target.y - footPosition.y) * 42 - (footVelocity.y - pelvisVelocity.y) * 9, -42, 32) * activation,
+        z: clamp((target.z - footPosition.z) * 30 - (footVelocity.z - pelvisVelocity.z) * 8, -24, 24) * activation,
+      };
+      // Equal-and-opposite internal forces extend the legs toward a real mat
+      // stance without adding net lift. Rapier contact supplies the external
+      // reaction force only after a foot reaches the deck.
+      const force = { x: acceleration.x * foot.mass(), y: acceleration.y * foot.mass(), z: acceleration.z * foot.mass() };
+      foot.addForce(force, true);
+      pelvis.addForce({ x: -force.x, y: -force.y, z: -force.z }, true);
     }
   }
 
@@ -1669,7 +1698,8 @@ export class BodyWorksRuntime {
       const maximumX = battleContained ? RING_HARD_LIMIT.x - .08 : VOLT_DOME.playable.halfWidth - .34;
       const maximumZ = battleContained ? RING_HARD_LIMIT.z - .08 : VOLT_DOME.playable.halfDepth - .34;
       const pelvisPosition = pelvis.translation();
-      let brokenTree = rig.jointFaultFrames > 45 || ![pelvisPosition.x, pelvisPosition.y, pelvisPosition.z].every(Number.isFinite);
+      const belowDeck = battleContained && Math.abs(pelvisPosition.x) <= RING_HARD_LIMIT.x && Math.abs(pelvisPosition.z) <= RING_HARD_LIMIT.z && pelvisPosition.y < 1.22;
+      let brokenTree = belowDeck || rig.jointFaultFrames > 45 || ![pelvisPosition.x, pelvisPosition.y, pelvisPosition.z].every(Number.isFinite);
       for (const body of Object.values(rig.bodies)) {
         if (!body?.isValid()) continue;
         const position = body.translation();
@@ -1690,7 +1720,7 @@ export class BodyWorksRuntime {
         }
         this.metrics.containmentCount += 1;
         this.metrics.emergencyResetCount += 1;
-        this.metrics.lastNumericalFault = 'emergency-safe-reset';
+        this.metrics.lastNumericalFault = belowDeck ? 'below-deck-safe-reset' : 'emergency-safe-reset';
         rig.jointFaultFrames = 0;
         continue;
       }

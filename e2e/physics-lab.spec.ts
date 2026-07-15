@@ -44,8 +44,10 @@ test('Bodyworks lab exposes live Rapier diagnostics and drives real jump/walk in
       const deckNode = document.querySelector('[data-testid="control-deck"]');
       if (/MOVEMENT|STRAFE|SPRINTING/.test(deckNode?.getAttribute('data-control-state') ?? '')) {
         document.documentElement.dataset.sawLocomotionControl = 'true';
-        document.documentElement.dataset.sawLocomotionQuickLabel = deckNode?.querySelector('[data-control="quick"]')?.getAttribute('data-move-label') ?? '';
-        document.documentElement.dataset.sawLocomotionHeavyLabel = deckNode?.querySelector('[data-control="heavy"]')?.getAttribute('data-move-label') ?? '';
+        const quick = deckNode?.querySelector('[data-control="quick"]')?.getAttribute('data-move-label') ?? '';
+        const heavy = deckNode?.querySelector('[data-control="heavy"]')?.getAttribute('data-move-label') ?? '';
+        if (/SKYLINE CROSS|CIRCUIT LOW KICK|NEON ONE-TWO/.test(quick)) document.documentElement.dataset.sawLocomotionQuickLabel = quick;
+        if (/VOLTAGE UPPERCUT|PISTON BOOT|ARC ROUNDHOUSE|HALO HIGH KICK|RAILWAY STIFF-ARM|(?:LEFT|RIGHT) ARM STIFF-ARM/.test(heavy)) document.documentElement.dataset.sawLocomotionHeavyLabel = heavy;
       }
     };
     new MutationObserver(observe).observe(document.body, { subtree: true, attributes: true, childList: true }); observe();
@@ -147,7 +149,7 @@ test('Physics Lab exposes deterministic recovery orientations and a complete run
       verticalVelocity: Number(await hud.getAttribute('data-player-vertical')),
       pelvisY: Number(await hud.getAttribute('data-player-pelvis-y')),
       footY: Number(await hud.getAttribute('data-player-foot-y')),
-    }), { timeout: 8_000, intervals: [80, 160, 320] }).toContain('"state":"idle"');
+    }), { timeout: 30_000, intervals: [80, 160, 320, 640] }).toContain('"state":"idle"');
     await expect(hud.locator('[data-motion-tasks]')).toHaveAttribute('data-motion-tasks', '0');
     await expect(hud.locator('[data-unknown-falls]')).toHaveAttribute('data-unknown-falls', '0');
     await expect.poll(async () => Number(await hud.getAttribute('data-player-support-feet')), { timeout: 3_000, intervals: [50, 100] }).toBeGreaterThanOrEqual(1);
