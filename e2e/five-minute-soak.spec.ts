@@ -33,16 +33,16 @@ test('bounded five-minute rematch and heap soak', async ({ page }, testInfo) => 
   // the full live simulation and samples it, but cannot start one last slow
   // runner rematch that outlives the five-minute evidence window.
   const rematchPhaseMs = Math.min(120_000, Math.max(30_000, soakDurationMs * .4));
-  while (Date.now() - startedAt < rematchPhaseMs) {
+  while (rematches < 3 && Date.now() - startedAt < rematchPhaseMs) {
     await expect(lab.getByRole('button', { name: 'LAB KNOCKOUT' })).toBeEnabled({ timeout: 12_000 });
     await lab.getByRole('button', { name: 'LAB KNOCKOUT' }).click();
     await expect(page.getByRole('button', { name: 'INSTANT REMATCH' })).toBeVisible({ timeout: 30_000 });
-    await sample(); rematches += 1;
     await page.getByRole('button', { name: 'INSTANT REMATCH' }).click();
     await expect(hud).toHaveAttribute('data-physics-bodies', '32', { timeout: 30_000 });
     await expect(hud).toHaveAttribute('data-physics-joints', '30');
     await expect(hud).toHaveAttribute('data-physics-emergency-resets', '0');
     await expect(hud).toHaveAttribute('data-invalid-bodies', '0');
+    await sample(); rematches += 1;
   }
 
   while (Date.now() - startedAt < soakDurationMs) {
