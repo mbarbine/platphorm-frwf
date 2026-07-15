@@ -29,7 +29,7 @@ const SCENARIOS: readonly LabScenario[] = [
   { id: 'apronReturn', label: 'APRON RETURN', steps: tap('KeyF', 900, 180), duration: 3_400 },
   { id: 'jump', label: 'STANDING JUMP', steps: tap('Space', 220, 480), duration: 2_200 },
   { id: 'landing', label: 'JUMP + LANDING', steps: tap('Space', 220, 480), duration: 2_600 },
-  { id: 'kickup', label: 'KICK-UP RECOVERY', steps: tap('Space', 620, 180), duration: 2_100 },
+  { id: 'kickup', label: 'KICK-UP RECOVERY', steps: tap('KeyU', 620, 180), duration: 2_100 },
   { id: 'recoveryBack', label: 'BACK GET-UP', steps: [], duration: 2_100 },
   { id: 'recoveryFront', label: 'FRONT GET-UP', steps: [], duration: 2_100 },
   { id: 'recoverySide', label: 'SIDE GET-UP', steps: [], duration: 2_100 },

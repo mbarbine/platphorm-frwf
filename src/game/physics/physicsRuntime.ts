@@ -651,7 +651,8 @@ export class BodyWorksRuntime {
       const transition = apronTransitionTarget(fighter.position); rig.apronAnchor = { ...transition, age: 0 }; rig.ropeContact = null;
     }
     const battleReturn = model.matchMode === 'battle_royale' && onRingsideFloor && !['defeated', 'victorious', 'climbing'].includes(fighter.state);
-    const aiReturn = key !== 'player' && onRingsideFloor && !isRingside(model[model.targets[key]].position) && ['idle', 'locomotion'].includes(fighter.state);
+    const pursuingChaosProp = model.ruleset === 'chaos' && !fighter.heldPropId && model.props.some((prop) => !prop.broken && !prop.heldBy && prop.kind !== 'table' && isRingside(prop.position));
+    const aiReturn = key !== 'player' && onRingsideFloor && !pursuingChaosProp && !isRingside(model[model.targets[key]].position) && ['idle', 'locomotion'].includes(fighter.state);
     if (!rig.apronAnchor && (battleReturn || aiReturn)) {
       const transition = apronTransitionTarget(fighter.position);
       rig.apronAnchor = { ...transition, age: 0 };

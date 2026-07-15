@@ -2,7 +2,7 @@
 
 ## Local quality gate
 
-Use the committed pnpm lockfile and run the complete gate once after an implementation batch:
+Use the committed pnpm lockfile and run the fast local gate once after an implementation batch:
 
 ```bash
 pnpm install --frozen-lockfile
@@ -10,10 +10,21 @@ pnpm lint
 pnpm typecheck
 pnpm test
 pnpm build
-pnpm test:e2e
 ```
 
-`pnpm verify` runs the same lint, type, unit, build, and browser sequence without reinstalling dependencies.
+`pnpm verify` runs the same lint, type, unit, and build sequence without reinstalling dependencies. The long Playwright matrix is intentionally excluded from this local critical path.
+
+## Scheduled browser regression
+
+The `Playwright Regression` GitHub Actions workflow runs twice weekly and can be dispatched manually. It shards Battle Royale, core matches, physics/playability, device inputs, the six-rematch soak, and the opt-in five-minute soak into isolated jobs with at most two concurrent browsers. CI retries a failed scenario once to separate persistent failures from flakes, then retains HTML reports, traces, screenshots, videos, and test attachments for 14 days.
+
+No Redis service or application secret is required for these deterministic client-side regression jobs. If future multiplayer or persistence coverage needs shared state, provision it separately and inject its URL through a protected GitHub environment secret; never commit a Redis URL.
+
+For an intentional full local browser pass:
+
+```bash
+pnpm verify:regression
+```
 
 Playwright serves the existing production bundle through Vite preview, so build before invoking a focused browser command directly. Readiness-sensitive scenarios wait for both registered physics bodies and completed fixed steps; this prevents first-frame shader compilation from being misreported as failed movement.
 

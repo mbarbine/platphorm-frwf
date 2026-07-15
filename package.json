@@ -10,6 +10,7 @@
     "typecheck": "tsc -b --pretty false",
     "test": "vitest run",
     "test:e2e": "playwright test",
+    "test:regression": "playwright test",
     "test:playability": "playwright test e2e/playability-regressions.spec.ts",
     "test:soak": "playwright test e2e/rematch-soak.spec.ts",
     "test:soak:5m": "RUN_LONG_SOAK=true playwright test e2e/five-minute-soak.spec.ts",
@@ -17,7 +18,8 @@
     "test:watch": "vitest",
     "lint": "eslint . --max-warnings 0",
     "preview": "vite preview",
-    "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm test:e2e"
+    "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+    "verify:regression": "pnpm verify && pnpm test:regression"
   },
   "dependencies": {
     "@dimforge/rapier3d-compat": "0.19.2",

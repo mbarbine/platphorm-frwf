@@ -145,11 +145,14 @@ Playwright covers the production-preview full match plus controlled Bodyworks, T
 Dedicated deterministic browser scenarios prove idle-body stability, rope rebound into a stiff-arm knockdown, a tracked top-rope dive, apron exit/re-entry, a physical commentary-table collapse, standard gamepad control, WebXR capability discovery, and portrait/landscape touch behavior. A 50-match deterministic bot soak checks completion and bounded state. A bounded six-rematch soak checks Rapier body/joint cleanup, emergency resets, rolling frame cost, and browser heap growth without turning the test into an unbounded benchmark.
 
 ```bash
+pnpm verify
 pnpm test:playability
 pnpm test:ai-soak
 pnpm test:soak
 pnpm test:e2e
 ```
+
+`pnpm verify` is the fast local gate: lint, strict types, unit tests, and the production build. The complete Playwright regression matrix runs in GitHub Actions twice each week and on manual dispatch, with separate Battle Royale, match, physics, device, rematch, and five-minute-soak jobs. Failed traces, screenshots, videos, and the HTML report are retained as workflow artifacts for 14 days. Use `pnpm verify:regression` only when the complete browser matrix is intentionally needed locally.
 
 The Vite development server also surfaces browser console errors in its terminal, which is used during live gameplay smoke testing.
 

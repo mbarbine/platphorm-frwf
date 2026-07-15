@@ -902,12 +902,14 @@ export const advanceMatch = (model: MatchModel, dt: number, playerInput: FrameIn
   if (playerInput.block) requestCommand(model, 'player', 'block', playerInput.move, playerInput.run);
   for (const command of playerInput.commands) requestCommand(model, 'player', command, playerInput.move, playerInput.run);
   const active = activeFighterSlots(model);
+  const openingBell = model.matchMode === 'battle_royale' && model.elapsed < 2.4;
   for (const slot of AI_FIGHTER_SLOTS) {
     const controller = model.aiControllers[slot];
     if (!active.includes(slot) || model[slot].state === 'defeated') { controller.movement = { x: 0, z: 0 }; controller.running = false; controller.intent = null; continue; }
     controller.blockTimer = Math.max(0, controller.blockTimer - step); controller.thinkTimer -= step;
-    if (model.labMode) {
+    if (model.labMode || openingBell) {
       controller.movement = { x: 0, z: 0 }; controller.running = false; controller.intent = null; controller.blockTimer = 0;
+      if (openingBell) controller.thinkTimer = Math.max(controller.thinkTimer, 2.4 - model.elapsed);
     } else if (controller.thinkTimer <= 0) {
       const decision = chooseAiDecision(model, fighterById(model[slot].definitionId), slot);
       model.seed = decision.nextSeed; controller.intent = decision.command; controller.movement = decision.move; controller.running = decision.run;

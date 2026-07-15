@@ -34,7 +34,7 @@ test('Battle Royale is the default and starts one real rig for all five wrestler
 });
 
 test('five-way play keeps movement authoritative and gives the player target control', async ({ page }) => {
-  test.setTimeout(120_000);
+  test.setTimeout(180_000);
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()); });

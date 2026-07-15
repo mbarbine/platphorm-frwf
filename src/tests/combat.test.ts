@@ -23,6 +23,14 @@ describe('deterministic combat rules', () => {
     }
   });
 
+  it('gives the player an opening-bell control window before Battle Royale AI attacks', () => {
+    const model = createMatch('atlas', 'vex', 'standard', 'normal', 1337, 0, 0, 'battle_royale');
+    const startingPositions = activeFighterSlots(model).map((slot) => ({ ...model[slot].position }));
+    for (let frame = 0; frame < 120; frame += 1) advanceMatch(model, 1 / 60, none);
+    expect(activeFighterSlots(model).map((slot) => model[slot].health)).toEqual([100, 100, 100, 100, 100]);
+    expect(activeFighterSlots(model).map((slot) => model[slot].position)).toEqual(startingPositions);
+  });
+
   it('keeps Battle Royale running through four eliminations and declares the last wrestler standing', () => {
     const model = createMatch('atlas', 'vex', 'standard', 'normal', 1337, 0, 0, 'battle_royale');
     for (const loser of ['opponent', 'rival1', 'rival2'] as const) {
