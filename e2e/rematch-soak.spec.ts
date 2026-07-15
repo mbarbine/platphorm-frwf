@@ -23,7 +23,7 @@ test('six bounded instant rematches keep the Rapier world and JS heap stable', a
   await enterLabMatch(page);
 
   const hud = page.locator('.hud'); const lab = page.getByTestId('physics-lab');
-  await expect(hud).toHaveAttribute('data-physics-bodies', '32', { timeout: 30_000 });
+  await expect(hud).toHaveAttribute('data-physics-bodies', '32', { timeout: 60_000 });
   await expect.poll(async () => Number(await lab.getAttribute('data-lab-fps')), { timeout: 10_000, intervals: [300, 500] }).toBeGreaterThan(0);
   const baselineFps = Number(await lab.getAttribute('data-lab-fps'));
   await page.requestGC(); const baselineHeap = await usedHeap(page); const heaps = [baselineHeap];

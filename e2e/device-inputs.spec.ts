@@ -33,15 +33,15 @@ test('standard gamepad axes, run trigger, and quick attack drive the live match'
     if (!pad) return; pad.axes[0] = 0; const trigger = pad.buttons[7]; if (trigger) { trigger.pressed = false; trigger.value = 0; }
   });
   const lab = page.getByTestId('physics-lab'); await lab.getByRole('button', { name: 'CONTACT-TRUE JAB' }).click(); await page.waitForTimeout(1_400);
-  await page.evaluate(() => {
-    const hudNode = document.querySelector('.hud'); if (!hudNode) return;
-    const observe = (): void => { if (/jab|combo|high_punch|low_kick/.test(hudNode.getAttribute('data-player-move') ?? '')) document.documentElement.dataset.sawGamepadAttack = 'true'; };
-    new MutationObserver(observe).observe(hudNode, { attributes: true });
-  });
+  await expect(hud).toHaveAttribute('data-player-move', '', { timeout: 10_000 });
   await page.evaluate(() => { const button = (window as Window & { __ringfallPad?: { buttons: Array<{ pressed: boolean; value: number }> } }).__ringfallPad?.buttons[2]; if (button) { button.pressed = true; button.value = 1; } });
-  await page.waitForTimeout(160);
+  let sawGamepadAttack = false;
+  for (let sample = 0; sample < 40 && !sawGamepadAttack; sample += 1) {
+    sawGamepadAttack = /jab|combo|high_punch|low_kick/.test(await hud.getAttribute('data-player-move') ?? '');
+    await page.waitForTimeout(25);
+  }
   await page.evaluate(() => { const button = (window as Window & { __ringfallPad?: { buttons: Array<{ pressed: boolean; value: number }> } }).__ringfallPad?.buttons[2]; if (button) { button.pressed = false; button.value = 0; } });
-  await expect(page.locator('html')).toHaveAttribute('data-saw-gamepad-attack', 'true', { timeout: 4_000 });
+  expect(sawGamepadAttack).toBe(true);
 });
 
 test('WebXR-capable browsers expose the arena entry without loading XR before the match', async ({ page }) => {
