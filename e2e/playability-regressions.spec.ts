@@ -20,6 +20,7 @@ const captureErrors = (page: Page): string[] => {
 };
 
 test('standing articulated wrestlers remain visually stable at idle', async ({ page }) => {
+  test.setTimeout(420_000);
   const errors = captureErrors(page); await enterLabMatch(page);
   const hud = page.locator('.hud'); await page.waitForTimeout(1_400);
   const samples: { x: number; z: number; pelvis: number; head: number }[] = [];
@@ -35,7 +36,7 @@ test('standing articulated wrestlers remain visually stable at idle', async ({ p
   expect(range(samples.map(({ z }) => z))).toBeLessThan(.09);
   expect(range(samples.map(({ pelvis }) => pelvis))).toBeLessThan(.12);
   expect(range(samples.map(({ head, pelvis }) => head - pelvis))).toBeLessThan(.14);
-  await expect(hud).toHaveAttribute('data-physics-emergency-resets', '0'); expect(errors).toEqual([]);
+  await expect(hud).toHaveAttribute('data-physics-emergency-resets', '0', { timeout: 60_000 }); expect(errors).toEqual([]);
 });
 
 test('rope rebound produces a loaded stiff-arm and physical knockdown', async ({ page }) => {

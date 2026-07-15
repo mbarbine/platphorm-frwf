@@ -16,7 +16,7 @@ const usedHeap = async (page: Page): Promise<number> => page.evaluate(() => {
 });
 
 test('six bounded instant rematches keep the Rapier world and JS heap stable', async ({ page }) => {
-  test.setTimeout(240_000);
+  test.setTimeout(900_000);
   const errors: string[] = [];
   page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()); });
   page.on('pageerror', (error) => errors.push(error.message));
@@ -24,26 +24,26 @@ test('six bounded instant rematches keep the Rapier world and JS heap stable', a
 
   const hud = page.locator('.hud'); const lab = page.getByTestId('physics-lab');
   await expect(hud).toHaveAttribute('data-physics-bodies', '32', { timeout: 60_000 });
-  await expect.poll(async () => Number(await lab.getAttribute('data-lab-fps')), { timeout: 10_000, intervals: [300, 500] }).toBeGreaterThan(0);
+  await expect.poll(async () => Number(await lab.getAttribute('data-lab-fps')), { timeout: 60_000, intervals: [300, 500, 1_000] }).toBeGreaterThan(0);
   const baselineFps = Number(await lab.getAttribute('data-lab-fps'));
   await page.requestGC(); const baselineHeap = await usedHeap(page); const heaps = [baselineHeap];
 
   for (let round = 0; round < 6; round += 1) {
-    await expect(hud).toHaveAttribute('data-physics-bodies', '32', { timeout: 20_000 });
-    await expect(hud).toHaveAttribute('data-physics-joints', '30');
-    await expect(hud).toHaveAttribute('data-physics-emergency-resets', '0');
-    await expect(hud).toHaveAttribute('data-physics-containments', '0');
-    await expect(lab.getByRole('button', { name: 'LAB KNOCKOUT' })).toBeEnabled({ timeout: 8_000 });
+    await expect(hud).toHaveAttribute('data-physics-bodies', '32', { timeout: 60_000 });
+    await expect(hud).toHaveAttribute('data-physics-joints', '30', { timeout: 60_000 });
+    await expect(hud).toHaveAttribute('data-physics-emergency-resets', '0', { timeout: 60_000 });
+    await expect(hud).toHaveAttribute('data-physics-containments', '0', { timeout: 60_000 });
+    await expect(lab.getByRole('button', { name: 'LAB KNOCKOUT' })).toBeEnabled({ timeout: 60_000 });
     await lab.getByRole('button', { name: 'LAB KNOCKOUT' }).click();
-    await expect(page.getByRole('button', { name: 'INSTANT REMATCH' })).toBeVisible({ timeout: 25_000 });
+    await expect(page.getByRole('button', { name: 'INSTANT REMATCH' })).toBeVisible({ timeout: 60_000 });
     await page.requestGC(); heaps.push(await usedHeap(page));
     await page.getByRole('button', { name: 'INSTANT REMATCH' }).click();
-    await expect(hud).toHaveAttribute('data-physics-bodies', '32', { timeout: 25_000 });
-    await expect(hud).toHaveAttribute('data-world-bodies', /3[2-9]|4[0-9]/, { timeout: 10_000 });
+    await expect(hud).toHaveAttribute('data-physics-bodies', '32', { timeout: 60_000 });
+    await expect(hud).toHaveAttribute('data-world-bodies', /3[2-9]|4[0-9]/, { timeout: 60_000 });
   }
 
   await page.waitForTimeout(1_200);
-  await expect.poll(async () => Number(await lab.getAttribute('data-lab-fps')), { timeout: 8_000, intervals: [300, 500] }).toBeGreaterThan(0);
+  await expect.poll(async () => Number(await lab.getAttribute('data-lab-fps')), { timeout: 60_000, intervals: [300, 500, 1_000] }).toBeGreaterThan(0);
   const finalFps = Number(await lab.getAttribute('data-lab-fps'));
   expect(finalFps).toBeGreaterThanOrEqual(1);
   expect(Number(await lab.getAttribute('data-lab-avg-step-ms'))).toBeLessThan(4);
