@@ -29,7 +29,7 @@ jobs:
             specs: e2e/chaos-props.spec.ts e2e/full-match.spec.ts e2e/toy-test.spec.ts e2e/wrestling-upgrade.spec.ts
             long-soak: 'false'
           - suite: physics-playability
-            specs: e2e/physics-lab.spec.ts e2e/playability-regressions.spec.ts
+            specs: e2e/physics-lab.spec.ts e2e/playability-regressions.spec.ts e2e/primary-actions-smoke.spec.ts e2e/guard-smoke.spec.ts
             long-soak: 'false'
           - suite: device-inputs
             specs: e2e/device-inputs.spec.ts e2e/mobile-controls.spec.ts

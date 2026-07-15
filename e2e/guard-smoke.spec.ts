@@ -18,6 +18,7 @@ test('a raised guard physically intercepts a jab before the torso', async ({ pag
   await lab.getByRole('button', { name: 'JAB INTO GUARD' }).click();
   await expect(lab).toHaveAttribute('data-lab-scenario', 'idle', { timeout: 12_000 });
   const diagnostics = {
+    accepted: await root.getAttribute('data-lab-blocked-jab-accepted'),
     blocked: await root.getAttribute('data-saw-physical-block'),
     playerHealth: Number(await hud.getAttribute('data-player-health')),
     contact: await hud.locator('[data-physics-last-contact]').getAttribute('data-physics-last-contact'),
@@ -30,6 +31,7 @@ test('a raised guard physically intercepts a jab before the torso', async ({ pag
     minimumPlanar: Number(await hud.locator('[data-min-strike-planar-distance]').getAttribute('data-min-strike-planar-distance')),
     minimumVertical: Number(await hud.locator('[data-min-strike-vertical-distance]').getAttribute('data-min-strike-vertical-distance')),
   };
+  expect(diagnostics.accepted, JSON.stringify(diagnostics)).toBe('true');
   expect(JSON.stringify(diagnostics)).toContain('"blocked":"true"');
   expect(Number(await hud.getAttribute('data-player-health'))).toBeGreaterThan(99);
   await expect(hud).toHaveAttribute('data-physics-emergency-resets', '0');

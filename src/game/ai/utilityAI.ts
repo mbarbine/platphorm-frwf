@@ -71,6 +71,10 @@ export const chooseAiDecision = (model: MatchModel, definition: FighterDefinitio
   const target = model[model.targets[actorKey]];
   const delta = { x: target.position.x - actor.position.x, z: target.position.z - actor.position.z };
   const separation = distance(actor.position, target.position);
+  // A raised physical guard establishes glove contact before the torsos reach
+  // ordinary strike distance. Treat that as a legal engagement lane so the AI
+  // throws into the guard instead of pacing forever against the forearms.
+  const strikingRange = target.state === 'blocking' ? 2.6 : 1.32;
   const magnitude = Math.max(.001, Math.hypot(delta.x, delta.z));
   const toward = { x: delta.x / magnitude, z: delta.z / magnitude };
   const [roll, nextSeed] = seededRandom(model.seed);
@@ -108,7 +112,7 @@ export const chooseAiDecision = (model: MatchModel, definition: FighterDefinitio
   const battleOvertime = model.matchMode === 'battle_royale' && (survivorCount <= 2 || model.elapsed > 90);
   if (battleOvertime) {
     if (target.state === 'downed' && isActionLegal(model, 'context', actorKey)) return { command: 'context', move: toward, run: false, nextSeed };
-    if (separation > 1.32) return { command: null, move: toward, run: separation > 4 && actor.stamina > 30, nextSeed };
+    if (separation > strikingRange) return { command: null, move: toward, run: separation > 4 && actor.stamina > 30, nextSeed };
     const overtimeCommand: GameCommand | null = actor.stamina >= 16 && isActionLegal(model, 'heavy', actorKey) ? 'heavy'
       : isActionLegal(model, 'quick', actorKey) ? 'quick'
         : isActionLegal(model, 'grapple', actorKey) ? 'grapple' : null;
@@ -171,7 +175,7 @@ export const chooseAiDecision = (model: MatchModel, definition: FighterDefinitio
     return { command: null, move: toward, run: separation > 2.0, nextSeed };
   }
   // Commit only after entering physical striking/grip range.
-  if (separation > 1.32) {
+  if (separation > strikingRange) {
     if (separation > 3.1 && actor.health > 48 && roll < personality.showman * .15 && isActionLegal(model, 'taunt', actorKey)) return { command: 'taunt', move: { x: 0, z: 0 }, run: false, nextSeed };
     // Tactical corner positioning for aerial setup
     if (!atCorner && separation > 3.8 && roll < personality.athletic * .1) {

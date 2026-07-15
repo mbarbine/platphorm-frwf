@@ -118,7 +118,11 @@ export const canStartMove = (actor: FighterRuntime, target: FighterRuntime, move
   // Keep a small input-sampling envelope for a fighter already stepping into
   // range. It only admits the motion task; damage still requires Rapier limb
   // contact during the active phase.
-  const strikeReachAssist = ['quick', 'heavy', 'ground', 'prop'].includes(move.category) ? .12 : 0;
+  // A raised physical guard holds gloves/forearms in front of the torso and
+  // can separate the two centres before a punch starts. Admit that reachable
+  // glove-to-glove lane without widening ordinary body-hit range.
+  const strikeReachAssist = target.state === 'blocking' && (move.category === 'quick' || move.category === 'heavy') ? 1.3
+    : ['quick', 'heavy', 'ground', 'prop'].includes(move.category) ? .12 : 0;
   return move.requiredActorStates.includes(actor.state)
     && actor.stamina >= move.staminaCost
     && targetDistance >= move.minimumRange

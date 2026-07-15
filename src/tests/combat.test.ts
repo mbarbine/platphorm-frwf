@@ -362,6 +362,23 @@ describe('deterministic combat rules', () => {
     expect(model.player.health).toBeGreaterThan(98); expect(model.player.stamina).toBeLessThan(stamina); expect(model.lastImpact?.kind).toBe('blocked');
   });
 
+  it('admits a reachable glove-to-glove strike without widening ordinary body-hit range', () => {
+    const model = createMatch('atlas', 'vex', 'standard', 'normal'); const jab = getMove('jab');
+    model.opponent.position = { x: 0, z: 0 }; model.player.position = { x: 0, z: 2.6 };
+    model.player.state = 'blocking';
+    expect(startMove(model.opponent, model.player, jab)).toBe(true);
+    model.opponent.state = 'idle'; model.opponent.moveId = null; model.opponent.attackPhase = null; model.opponent.stamina = model.opponent.staminaCap;
+    model.player.state = 'idle';
+    expect(startMove(model.opponent, model.player, jab)).toBe(false);
+  });
+
+  it('lets AI strike a raised guard from the physical glove-engagement lane', () => {
+    const model = createMatch('atlas', 'vex', 'standard', 'normal', 1337);
+    model.player.position = { x: 0, z: 0 }; model.player.state = 'blocking'; model.opponent.position = { x: 0, z: 2.25 };
+    const decision = chooseAiDecision(model, fighterById(model.opponent.definitionId));
+    expect(decision.command).toMatch(/quick|heavy/);
+  });
+
   it('stuffs a grapple until pressure breaks an exhausted guard', () => {
     const model = createMatch('atlas', 'vex', 'standard', 'normal'); model.player.position = { x: 0, z: 0 }; model.opponent.position = { x: 1, z: 0 };
     requestCommand(model, 'player', 'block'); expect(requestCommand(model, 'opponent', 'grapple')).toBe(true);
