@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { activeFighterSlots, advanceMatch, createMatch, resolveMatch } from '../game/systems/combat';
+import { activeFighterSlots, advanceMatch, createMatch, cyclePlayerTarget, resolveMatch } from '../game/systems/combat';
 import { FIGHTER_SLOTS } from '../game/types/game';
 import { liveSpectatorTargets, resolvedSpectatorTarget, useSpectatorStore } from '../game/state/spectatorStore';
 import type { FrameInput } from '../game/systems/combat';
@@ -62,5 +62,23 @@ describe('battle royale rules', () => {
     expect(useSpectatorStore.getState().target).toBe('rival2');
     useSpectatorStore.getState().setCameraMode('first_person');
     expect(useSpectatorStore.getState().cameraMode).toBe('first_person');
+  });
+
+  it('lets the player choose and temporarily lock a live target', () => {
+    const model = createMatch('atlas', 'nova', 'standard', 'normal', 18, 0, 0, 'battle_royale');
+    const originalTarget = model.targets.player;
+
+    expect(cyclePlayerTarget(model)).toBe(true);
+    expect(model.targets.player).not.toBe(originalTarget);
+    expect(model.playerTargetLock).toBe(5);
+    const lockedTarget = model.targets.player;
+    model[lockedTarget].position = { x: 5.5, z: 3.8 };
+    model[originalTarget].position = { x: model.player.position.x + .4, z: model.player.position.z };
+
+    advanceMatch(model, .5, noInput);
+
+    expect(model.targets.player).toBe(lockedTarget);
+    expect(model.playerTargetLock).toBeCloseTo(4.5);
+    expect(model.announcement).toContain('TARGET LOCK');
   });
 });

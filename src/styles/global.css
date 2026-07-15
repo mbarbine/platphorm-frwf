@@ -16,6 +16,8 @@
   text-rendering: optimizeLegibility;
 }
 
+.target-switch { position: absolute; top: 11.55rem; left: 50%; z-index: 4; display: flex; gap: .45rem; align-items: center; min-height: 30px; padding: .35rem .7rem; transform: translateX(-50%); border: 1px solid rgba(72,231,255,.5); color: white; background: rgba(5,4,12,.86); box-shadow: 0 0 14px rgba(72,231,255,.14); font: 900 .52rem var(--font-tech); letter-spacing: .08em; pointer-events: auto; cursor: pointer; }.target-switch:hover,.target-switch:focus-visible { border-color: var(--acid); box-shadow: 0 0 18px rgba(220,255,70,.22); outline: none; }.target-switch kbd { color: var(--acid); }.target-switch small { color: var(--muted); font-size: .4rem; }.target-switch:disabled { display: none; }
+
 * { box-sizing: border-box; }
 html, body, #root { width: 100%; height: 100%; margin: 0; overflow: hidden; }
 body { background: #080610; }
@@ -165,6 +167,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--cyan); outl
   .results-stats { grid-template-columns: repeat(3, 1fr); }.highlight-reel { grid-template-columns: repeat(2, 1fr); }.grade { position: relative; right: auto; top: auto; width: 95px; }.results-screen h2 { font-size: 2.5rem; }
 }
 @media (max-width: 520px) and (orientation: portrait) { .mobile-stick { width: 128px; }.mobile-modifiers { bottom: calc(max(.75rem, env(safe-area-inset-bottom)) + 136px); }.mobile-actions { width: 188px; height: 170px; }.mobile-action { width: 59px; }.context-hint { bottom: 12rem; max-width: 72vw; }.hud__fighters { grid-template-columns: 1fr 48px 1fr; }.hype > span { letter-spacing: .04em; } }
+@media (max-width: 900px) { .target-switch { top: 8.45rem; min-height: 26px; padding: .25rem .5rem; }.target-switch small { display: none; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
 [data-high-contrast="true"] { --ink: #fff; --muted: #d9d4df; --line: rgba(255,255,255,.48); }
 [data-high-contrast="true"] button:focus-visible, [data-high-contrast="true"] select:focus-visible, [data-high-contrast="true"] input:focus-visible { outline: 3px solid #fff44d; outline-offset: 3px; }
