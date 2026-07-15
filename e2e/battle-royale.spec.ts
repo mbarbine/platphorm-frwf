@@ -19,6 +19,7 @@ test('Battle Royale is the default and starts one real rig for all five wrestler
   page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()); });
 
   await enterBattleRoyale(page);
+  await page.setViewportSize({ width: 390, height: 844 });
   const canvas = page.getByTestId('game-canvas'); const hud = page.locator('.hud'); const roster = page.getByTestId('battle-royale-roster');
   await expect(canvas).toHaveAttribute('data-match-mode', 'battle_royale');
   await expect(canvas).toHaveAttribute('data-active-wrestlers', '5');
@@ -32,6 +33,8 @@ test('Battle Royale is the default and starts one real rig for all five wrestler
   await expect.poll(async () => Number(await hud.getAttribute('data-total-damage')), { timeout: 35_000, intervals: [250, 500] }).toBeGreaterThan(0);
   await expect(page.locator('html')).toHaveAttribute('data-camera-shot', 'battle-royale-steady');
   await expect.poll(async () => Number(await page.locator('html').getAttribute('data-camera-fov')), { timeout: 20_000 }).toBeCloseTo(55, 1);
+  const targetBox = await page.getByTestId('target-switch').boundingBox();
+  expect(targetBox?.width).toBeGreaterThanOrEqual(44); expect(targetBox?.height).toBeGreaterThanOrEqual(44);
   expect(errors).toEqual([]);
 });
 

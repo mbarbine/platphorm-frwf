@@ -23,8 +23,6 @@ test('mobile player can enter a match, move, guard, and attack', async ({ page }
   await expect(controls.getByRole('button', { name: 'Pick up, drop, or throw prop' })).toBeHidden();
   await expect(controls.getByRole('button', { name: 'Taunt' })).toBeHidden();
   await expect(page.locator('.context-hint')).toBeHidden();
-  const targetBox = await page.getByTestId('target-switch').boundingBox();
-  expect(targetBox?.width).toBeGreaterThanOrEqual(44); expect(targetBox?.height).toBeGreaterThanOrEqual(44);
 
   const stick = page.getByRole('group', { name: 'Movement joystick' }); const box = await stick.boundingBox();
   expect(box).not.toBeNull();
@@ -95,7 +93,7 @@ test('paused touch controls cannot queue a stale wrestling action', async ({ pag
   await pause.click({ timeout: 5_000 });
   await expect(page.locator('.pause-overlay')).toBeVisible();
   await expect(quick).toBeDisabled();
-  await expect(controls.getByRole('button', { name: 'Pick up, drop, or throw prop' })).toBeDisabled();
+  await expect(controls.locator('.mobile-hold--prop')).toBeDisabled();
   await expect(controls.getByRole('group', { name: 'Movement joystick' })).toHaveAttribute('aria-disabled', 'true');
   expect(await hitTarget()).toBe('Pause match');
   await quick.dispatchEvent('pointerdown', { pointerId: 9, pointerType: 'touch', isPrimary: true, button: 0 });
