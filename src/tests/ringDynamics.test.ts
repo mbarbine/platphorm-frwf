@@ -41,7 +41,7 @@ describe('elastic ring boundary', () => {
 describe('physical apron transitions', () => {
   it('targets ringside from inside without mutating the source position', () => {
     const source = { x: 5.3, z: .4 }; const target = apronTransitionTarget(source);
-    expect(target.inside).toBe(false); expect(target.target.x).toBeGreaterThan(RING_HARD_LIMIT.x); expect(source).toEqual({ x: 5.3, z: .4 });
+    expect(target.inside).toBe(false); expect(target.target.x).toBeGreaterThan(RING_HARD_LIMIT.x + 1); expect(source).toEqual({ x: 5.3, z: .4 });
   });
 
   it('targets the raised mat when a fighter is ringside', () => {

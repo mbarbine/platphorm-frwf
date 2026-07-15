@@ -23,12 +23,16 @@ describe('deterministic combat rules', () => {
     }
   });
 
-  it('gives the player an opening-bell control window before Battle Royale AI attacks', () => {
+  it('gives the player an opening-bell movement head start before Battle Royale AI attacks', () => {
     const model = createMatch('atlas', 'vex', 'standard', 'normal', 1337, 0, 0, 'battle_royale');
     const startingPositions = activeFighterSlots(model).map((slot) => ({ ...model[slot].position }));
-    for (let frame = 0; frame < 120; frame += 1) advanceMatch(model, 1 / 60, none);
+    const move: FrameInput = { ...none, move: { x: 1, z: 0 }, run: true };
+    for (let frame = 0; frame < 240; frame += 1) advanceMatch(model, 1 / 60, move);
+    const [playerStart, ...aiStarts] = startingPositions;
     expect(activeFighterSlots(model).map((slot) => model[slot].health)).toEqual([100, 100, 100, 100, 100]);
-    expect(activeFighterSlots(model).map((slot) => model[slot].position)).toEqual(startingPositions);
+    expect(playerStart).toBeDefined();
+    expect(playerStart ? Math.hypot(model.player.position.x - playerStart.x, model.player.position.z - playerStart.z) : 0).toBeGreaterThan(1);
+    expect(activeFighterSlots(model).slice(1).map((slot) => model[slot].position)).toEqual(aiStarts);
   });
 
   it('keeps Battle Royale running through four eliminations and declares the last wrestler standing', () => {

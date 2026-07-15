@@ -59,7 +59,7 @@ export const useMatchStore = create<MatchStore>((set) => ({
     advanceMatch(model, dt, { ...input, commands: [] });
     for (const slot of AI_FIGHTER_SLOTS) {
       const fighter = model[slot];
-      if (model.aiControllers[slot].intent === 'context' && fighter.state === 'locomotion' && fighter.invulnerability > .3) {
+      if (model.aiControllers[slot].intent === 'context' && ['idle', 'locomotion'].includes(fighter.state) && fighter.invulnerability > .3) {
         bodyWorksRuntime.requestApronTransition(slot, fighter.position);
       }
     }

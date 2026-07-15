@@ -13,6 +13,7 @@ import { VOLT_DOME } from '../data/arena';
 export interface FrameInput { move: Vec2; run: boolean; block: boolean; commands: readonly GameCommand[]; targetCycle?: number }
 const EMPTY_STATS = (): MatchStats => ({ damageDealt: 0, counters: 0, grapples: 0, finishers: 0, nearFalls: 0, propImpacts: 0 });
 const EMPTY_HIGHLIGHTS = (): MatchHighlights => ({ bestSpot: null, bestSlam: null, mostBrutalImpact: null, mostUnexpectedReversal: null });
+const BATTLE_ROYALE_OPENING_BELL_SECONDS = 4.2;
 
 export const createFighterRuntime = (definitionId: FighterId, position: Vec2, beersDrunk = 0): FighterRuntime => {
   const definition = fighterById(definitionId);
@@ -902,14 +903,14 @@ export const advanceMatch = (model: MatchModel, dt: number, playerInput: FrameIn
   if (playerInput.block) requestCommand(model, 'player', 'block', playerInput.move, playerInput.run);
   for (const command of playerInput.commands) requestCommand(model, 'player', command, playerInput.move, playerInput.run);
   const active = activeFighterSlots(model);
-  const openingBell = model.matchMode === 'battle_royale' && model.elapsed < 2.4;
+  const openingBell = model.matchMode === 'battle_royale' && model.elapsed < BATTLE_ROYALE_OPENING_BELL_SECONDS;
   for (const slot of AI_FIGHTER_SLOTS) {
     const controller = model.aiControllers[slot];
     if (!active.includes(slot) || model[slot].state === 'defeated') { controller.movement = { x: 0, z: 0 }; controller.running = false; controller.intent = null; continue; }
     controller.blockTimer = Math.max(0, controller.blockTimer - step); controller.thinkTimer -= step;
     if (model.labMode || openingBell) {
       controller.movement = { x: 0, z: 0 }; controller.running = false; controller.intent = null; controller.blockTimer = 0;
-      if (openingBell) controller.thinkTimer = Math.max(controller.thinkTimer, 2.4 - model.elapsed);
+      if (openingBell) controller.thinkTimer = Math.max(controller.thinkTimer, BATTLE_ROYALE_OPENING_BELL_SECONDS - model.elapsed);
     } else if (controller.thinkTimer <= 0) {
       const decision = chooseAiDecision(model, fighterById(model[slot].definitionId), slot);
       model.seed = decision.nextSeed; controller.intent = decision.command; controller.movement = decision.move; controller.running = decision.run;

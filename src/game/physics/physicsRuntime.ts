@@ -398,7 +398,8 @@ export class BodyWorksRuntime {
   requestApronTransition(fighter: FighterKey, from: Vec2): void {
     const rig = this.rigs.get(fighter); if (!rig) return;
     if (rig.apronAnchor) return;
-    const transition = apronTransitionTarget(from);
+    const center = this.rigPlanarCenter(rig);
+    const transition = apronTransitionTarget(Number.isFinite(center.x) && Number.isFinite(center.z) ? center : from);
     rig.apronAnchor = { ...transition, age: 0 };
     rig.ropeContact = null; rig.cornerAnchor = null;
   }
@@ -642,25 +643,31 @@ export class BodyWorksRuntime {
     const grapplePhase = model.grapple?.attacker === key ? model.grapple.phase : null;
     const grappleHipLoad = grapplePhase === 'load' ? .24 : grapplePhase === 'clinch' ? .08 : grapplePhase === 'lift' ? .12 : 0;
     const ringPelvisY = 1.8 + 1.12 * (definition.physics.standingHeightM / 1.88) - fighter.body.pelvisDrop * .32 - grappleHipLoad;
-    const onRingsideFloor = isRingside({ x: pelvis.translation().x, z: pelvis.translation().z });
+    const physicalCenter = this.rigPlanarCenter(rig); const physicalPosition = { x: physicalCenter.x, z: physicalCenter.z };
+    const onRingsideFloor = isRingside(physicalPosition);
     const targetPelvisY = ringPelvisY - (onRingsideFloor ? 1.5 : 0);
     const atSideApron = (Math.abs(fighter.position.x) > 5.02 && Math.abs(fighter.position.x) < 5.82 && Math.abs(fighter.position.z) < 2.9)
       || (Math.abs(fighter.position.z) > 3.52 && Math.abs(fighter.position.z) < 4.32 && Math.abs(fighter.position.x) < 4.25);
     const aiController = key === 'player' ? null : model.aiControllers[key];
-    if (aiController && !rig.apronAnchor && aiController.intent === 'context' && fighter.state === 'locomotion' && atSideApron) {
-      const transition = apronTransitionTarget(fighter.position); rig.apronAnchor = { ...transition, age: 0 }; rig.ropeContact = null;
+    if (aiController && !rig.apronAnchor && aiController.intent === 'context' && ['idle', 'locomotion'].includes(fighter.state) && atSideApron) {
+      const transition = apronTransitionTarget(physicalPosition); rig.apronAnchor = { ...transition, age: 0 }; rig.ropeContact = null;
     }
     const battleReturn = model.matchMode === 'battle_royale' && onRingsideFloor && !['defeated', 'victorious', 'climbing'].includes(fighter.state);
     const pursuingChaosProp = model.ruleset === 'chaos' && !fighter.heldPropId && model.props.some((prop) => !prop.broken && !prop.heldBy && prop.kind !== 'table' && isRingside(prop.position));
     const aiReturn = key !== 'player' && onRingsideFloor && !pursuingChaosProp && !isRingside(model[model.targets[key]].position) && ['idle', 'locomotion'].includes(fighter.state);
     if (!rig.apronAnchor && (battleReturn || aiReturn)) {
-      const transition = apronTransitionTarget(fighter.position);
+      const transition = apronTransitionTarget(physicalPosition);
       rig.apronAnchor = { ...transition, age: 0 };
       rig.ropeContact = null;
     }
     if (rig.apronAnchor) {
       const anchor = rig.apronAnchor; anchor.age += dt;
-      const position = pelvis.translation(); const targetY = anchor.inside ? ringPelvisY + .04 : ringPelvisY - 1.46;
+      const position = pelvis.translation();
+      const exitingAcrossX = Math.abs(anchor.target.x) > RING_HARD_LIMIT.x;
+      const clearedDeck = exitingAcrossX
+        ? Math.abs(position.x) > VOLT_DOME.ring.halfWidth + .48
+        : Math.abs(position.z) > VOLT_DOME.ring.halfDepth + .48;
+      const targetY = anchor.inside || !clearedDeck ? ringPelvisY + .04 : ringPelvisY - 1.46;
       const transitionVelocity = pelvis.linvel(); const dx = anchor.target.x - position.x; const dz = anchor.target.z - position.z;
       const planarDistance = Math.hypot(dx, dz);
       this.applyRigAcceleration(rig, {
@@ -669,7 +676,7 @@ export class BodyWorksRuntime {
         z: clamp(dz * 34 - transitionVelocity.z * 7.5, -48, 48),
       });
       this.applyPoseDrive(rig, fighter, motorProfile, CENTER_ROPE_POSE);
-      if ((planarDistance < .24 && Math.abs(targetY - position.y) < .4) || anchor.age > 2.35) rig.apronAnchor = null;
+      if ((planarDistance < .24 && Math.abs(targetY - position.y) < .4) || anchor.age > 3.2) rig.apronAnchor = null;
       return;
     }
     if (fighter.state === 'climbing' && !rig.cornerAnchor && fighter.climbStage > 0) this.requestCornerClimb(key, fighter.position, fighter.climbStage as 1 | 2 | 3);
