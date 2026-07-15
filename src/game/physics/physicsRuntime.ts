@@ -5,7 +5,7 @@ import { AI_FIGHTER_SLOTS, FALL_REASONS, FIGHTER_SLOTS } from '../types/game';
 import type { BodyRegion, FighterRuntime, FighterSlot, GameCommand, MatchModel, PropRuntime, RecoveryOrientation, Vec2 } from '../types/game';
 import { clamp } from '../utils/math';
 import type { BodySegmentId } from './bodySchema';
-import { chasePoseAngularVelocity, computeMotorTorque } from './motorController';
+import { chasePoseAngularVelocity, computeMotorTorque, strikePoseChain } from './motorController';
 import { PhysicsReplayBuffer } from './replayBuffer';
 import { getMove } from '../data/moves';
 import { fighterById } from '../data/fighters';
@@ -919,12 +919,7 @@ export class BodyWorksRuntime {
     if (fighter.state === 'grappling' || profile.id === 'clinch' || profile.id === 'lift' || profile.id === 'throw') for (const segment of ['leftUpperArm', 'rightUpperArm', 'leftForearm', 'rightForearm', 'leftHand', 'rightHand', 'chest', 'abdomen'] as const) dynamic.add(segment);
     const strike = fighter.moveId ? strikeDriveProfile(fighter.moveId) : null;
     if (strike) {
-      dynamic.add(strike.source);
-      if (strike.source.startsWith('left') && (strike.source.includes('Hand') || strike.source.includes('Arm') || strike.source.includes('Forearm'))) for (const segment of ['leftUpperArm', 'leftForearm', 'leftHand'] as const) dynamic.add(segment);
-      if (strike.source.startsWith('right') && (strike.source.includes('Hand') || strike.source.includes('Arm') || strike.source.includes('Forearm'))) for (const segment of ['rightUpperArm', 'rightForearm', 'rightHand'] as const) dynamic.add(segment);
-      if (strike.source.startsWith('left') && (strike.source.includes('Foot') || strike.source.includes('Shin') || strike.source.includes('Thigh'))) for (const segment of ['leftThigh', 'leftShin', 'leftFoot'] as const) dynamic.add(segment);
-      if (strike.source.startsWith('right') && (strike.source.includes('Foot') || strike.source.includes('Shin') || strike.source.includes('Thigh'))) for (const segment of ['rightThigh', 'rightShin', 'rightFoot'] as const) dynamic.add(segment);
-      if (strike.source === 'chest') for (const segment of ['chest', 'abdomen', 'leftUpperArm', 'rightUpperArm'] as const) dynamic.add(segment);
+      for (const segment of strikePoseChain(strike.source)) dynamic.add(segment);
       if (fighter.moveId === 'stiff_arm' || fighter.moveId === 'rebound') for (const segment of ['leftUpperArm', 'leftForearm', 'leftHand', 'rightUpperArm', 'rightForearm', 'rightHand'] as const) dynamic.add(segment);
     }
     const signature = `${profile.rootMode}:${[...dynamic].sort().join(',')}`;
@@ -1569,6 +1564,8 @@ export class BodyWorksRuntime {
     const definition = fighterById(fighter.definitionId);
     const fatigue = 1 - fighter.body.muscle;
     const pose = overridePose ?? targetPoseFor(fighter); const targets = physicalPoseTargets(pose, fighter.facing);
+    const strike = fighter.moveId ? strikeDriveProfile(fighter.moveId) : null;
+    const strikeSegments = strike ? strikePoseChain(strike.source) : [];
     for (const [segment, body] of Object.entries(rig.bodies) as [BodySegmentId, RapierRigidBody][]) {
       // Locked neutral limbs are constraint-stabilized and need no motor. A
       // motor fighting a disabled rotation cannot animate the limb; it only
@@ -1601,6 +1598,13 @@ export class BodyWorksRuntime {
         const current = body.angvel(); const maximumSpeed = segment === 'pelvis' ? 2.8 : segment.includes('Leg') || segment.includes('Shin') || segment.includes('Foot') ? 4.2 : 3.4;
         const response = .14 + fighter.body.muscle * .08;
         body.setAngvel(chasePoseAngularVelocity(body.rotation(), targets[segment], current, 5.2, maximumSpeed, response), true);
+      } else if (strike && (fighter.attackPhase === 'anticipation' || fighter.attackPhase === 'active') && strikeSegments.includes(segment)) {
+        // A combat input must complete its authored chamber/contact arc inside
+        // the move window. This drives the linked chain through real joints;
+        // the strike force and Rapier contact still own the final hit result.
+        const authority = .62 + fighter.body.muscle * .38;
+        const committed = fighter.attackPhase === 'active';
+        body.setAngvel(chasePoseAngularVelocity(body.rotation(), targets[segment], body.angvel(), committed ? 8.4 : 6.2, (committed ? 8.4 : 6.2) * authority, (committed ? .3 : .2) * authority), true);
       } else if (fighter.state === 'blocking' && (segment.includes('Arm') || segment.includes('Forearm') || segment.includes('Hand'))) {
         // Guard is an input, not a two-second animation request. Rapidly bring
         // the real glove/forearm colliders into the strike lane, then let the

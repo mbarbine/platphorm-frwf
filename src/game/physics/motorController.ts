@@ -1,4 +1,5 @@
 import { clamp } from '../utils/math';
+import type { BodySegmentId } from './bodySchema';
 
 export interface QuaternionValue { x: number; y: number; z: number; w: number }
 export interface Vector3Value { x: number; y: number; z: number }
@@ -45,6 +46,23 @@ export const chasePoseAngularVelocity = (
     z: angularVelocity.z + (clamp(error.z * gain, -maximumSpeed, maximumSpeed) - angularVelocity.z) * blend,
   };
 };
+
+const LEFT_ARM_CHAIN = ['leftUpperArm', 'leftForearm', 'leftHand'] as const;
+const RIGHT_ARM_CHAIN = ['rightUpperArm', 'rightForearm', 'rightHand'] as const;
+const LEFT_LEG_CHAIN = ['leftThigh', 'leftShin', 'leftFoot'] as const;
+const RIGHT_LEG_CHAIN = ['rightThigh', 'rightShin', 'rightFoot'] as const;
+const CHEST_CHAIN = ['chest', 'abdomen', 'leftUpperArm', 'rightUpperArm'] as const;
+
+const STRIKE_POSE_CHAINS: Readonly<Partial<Record<BodySegmentId, readonly BodySegmentId[]>>> = {
+  leftUpperArm: LEFT_ARM_CHAIN, leftForearm: LEFT_ARM_CHAIN, leftHand: LEFT_ARM_CHAIN,
+  rightUpperArm: RIGHT_ARM_CHAIN, rightForearm: RIGHT_ARM_CHAIN, rightHand: RIGHT_ARM_CHAIN,
+  leftThigh: LEFT_LEG_CHAIN, leftShin: LEFT_LEG_CHAIN, leftFoot: LEFT_LEG_CHAIN,
+  rightThigh: RIGHT_LEG_CHAIN, rightShin: RIGHT_LEG_CHAIN, rightFoot: RIGHT_LEG_CHAIN,
+  chest: CHEST_CHAIN,
+};
+
+/** Every physical strike drives one complete articulated chain. */
+export const strikePoseChain = (source: BodySegmentId): readonly BodySegmentId[] => STRIKE_POSE_CHAINS[source] ?? [source];
 
 export const computeMotorTorque = (current: QuaternionValue, target: QuaternionValue, angularVelocity: Vector3Value, targetAngularVelocity: Vector3Value, parameters: MotorParameters): Vector3Value => {
   const error = shortestQuaternionError(current, target);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { chasePoseAngularVelocity, computeMotorTorque } from '../game/physics/motorController';
+import { chasePoseAngularVelocity, computeMotorTorque, strikePoseChain } from '../game/physics/motorController';
 
 const parameters = { stiffness: 300, damping: 48, maxTorque: 340, strength: 1, fatigue: 0 } as const;
 
@@ -29,5 +29,12 @@ describe('articulated pose motor stability', () => {
     expect(velocity.x).toBeLessThan(0);
     expect(Math.abs(velocity.x)).toBeLessThanOrEqual(6.4);
     expect(velocity.y).toBe(0); expect(velocity.z).toBe(0);
+  });
+
+  it('drives one complete articulated chain for each physical strike source', () => {
+    expect(strikePoseChain('rightHand')).toEqual(['rightUpperArm', 'rightForearm', 'rightHand']);
+    expect(strikePoseChain('leftFoot')).toEqual(['leftThigh', 'leftShin', 'leftFoot']);
+    expect(strikePoseChain('chest')).toEqual(['chest', 'abdomen', 'leftUpperArm', 'rightUpperArm']);
+    expect(strikePoseChain('head')).toEqual(['head']);
   });
 });
