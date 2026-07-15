@@ -388,6 +388,13 @@ describe('deterministic combat rules', () => {
     for (const id of ['high_punch', 'uppercut', 'low_kick', 'high_kick', 'roundhouse']) expect(getStrikePose(getMove(id), 'active', getMove(id).anticipationDuration + .03)).not.toBeNull();
   });
 
+  it('keeps directionless rescue controls punch-first and kick-first', () => {
+    expect(selectDirectionalStrike({ x: 0, z: 0 }, 'quick', 0)).toBe('jab');
+    expect(selectDirectionalStrike({ x: 0, z: 0 }, 'quick', 1)).toBe('combo');
+    expect(selectDirectionalStrike({ x: 0, z: 0 }, 'quick', 2)).toBe('jab');
+    expect(selectDirectionalStrike({ x: 0, z: 0 }, 'heavy')).toBe('front_kick');
+  });
+
   it('turns a downed counter input into a visible stamina-bound kick-up', () => {
     const model = createMatch('vex', 'atlas', 'standard', 'normal'); model.player.state = 'downed'; model.player.downTimer = 2;
     const stamina = model.player.stamina;

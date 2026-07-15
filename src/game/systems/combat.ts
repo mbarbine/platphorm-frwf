@@ -376,7 +376,7 @@ const GRAPPLE_GRID: Readonly<Record<CombatDirection, Readonly<Record<GrappleButt
 };
 
 const STRIKE_GRID: Readonly<Record<CombatDirection, Readonly<Record<StrikeButton, string>>>> = {
-  neutral: { quick: 'jab', heavy: 'heavy' },
+  neutral: { quick: 'jab', heavy: 'front_kick' },
   up: { quick: 'high_punch', heavy: 'uppercut' },
   down: { quick: 'low_kick', heavy: 'front_kick' },
   left: { quick: 'combo', heavy: 'roundhouse' },
@@ -387,9 +387,8 @@ export const selectDirectionalGrapple = (direction: Vec2, button: GrappleButton)
 export const selectDirectionalStrike = (direction: Vec2, button: StrikeButton, comboStep = 0): string => {
   const directionId = combatDirection(direction);
   if (directionId === 'neutral' && button === 'quick') {
-    // 3-step combo: jab → cross → low kick → repeat
-    const step = comboStep % 3;
-    return step === 0 ? 'jab' : step === 1 ? 'combo' : 'low_kick';
+    // Directionless J remains an arm-strike chain. K owns the visible kick promise.
+    return comboStep % 2 === 0 ? 'jab' : 'combo';
   }
   return STRIKE_GRID[directionId][button];
 };

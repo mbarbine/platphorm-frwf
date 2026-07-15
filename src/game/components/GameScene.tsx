@@ -189,7 +189,13 @@ export function GameScene(props: Props) {
   const lab = physicsLabEnabled();
   const labRate = usePhysicsLabStore((state) => state.rate); const labDebug = usePhysicsLabStore((state) => state.debug);
   const graphicsQuality = useSettings((state) => state.graphicsQuality); const reducedMotion = useSettings((state) => state.reducedMotion);
-  const quality = useMemo(() => browserRuntimeQuality(graphicsQuality, reducedMotion, lab), [graphicsQuality, lab, reducedMotion]);
+  // Five articulated rigs, five presentation shells, ropes, props, and a full
+  // crowd are a materially different render budget from singles. Auto quality
+  // protects control latency first in Battle Royale; an explicit user quality
+  // choice still wins. Slow rendering must never turn the match into slow
+  // motion or make a held direction feel unregistered.
+  const runtimeGraphicsQuality = diagnosticModel.matchMode === 'battle_royale' && graphicsQuality === 'auto' ? 'performance' : graphicsQuality;
+  const quality = useMemo(() => browserRuntimeQuality(runtimeGraphicsQuality, reducedMotion, lab), [lab, reducedMotion, runtimeGraphicsQuality]);
   const fighterDetail = selectFighterDetail(quality.tier);
   const renderer = useRef<WebGLRenderer | null>(null); const [xrAvailable, setXrAvailable] = useState(false); const [xrPresenting, setXrPresenting] = useState(false); const [xrError, setXrError] = useState('');
   const enterXR = async (): Promise<void> => {
