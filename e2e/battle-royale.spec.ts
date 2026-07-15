@@ -30,7 +30,7 @@ test('Battle Royale is the default and starts one real rig for all five wrestler
   await expect.poll(async () => Number(await hud.locator('[data-landing-surfaces]').getAttribute('data-landing-surfaces')), { timeout: 20_000 }).toBeGreaterThanOrEqual(3);
   await expect.poll(async () => Number(await hud.getAttribute('data-match-seconds')), { timeout: 20_000 }).toBeGreaterThan(1);
   await expect.poll(async () => Number(await hud.getAttribute('data-total-damage')), { timeout: 35_000, intervals: [250, 500] }).toBeGreaterThan(0);
-  await expect(page.locator('html')).toHaveAttribute('data-camera-shot', /wide|strike|grapple|slam|aerial|corner/);
+  await expect(page.locator('html')).toHaveAttribute('data-camera-shot', /broadcast|wide|strike|grapple|slam|aerial|corner/);
   expect(errors).toEqual([]);
 });
 

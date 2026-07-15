@@ -12,12 +12,17 @@ interface MobileControlsProps { onPause: () => void; paused: boolean }
 interface HoldButtonProps {
   activeLabel: string;
   className: string;
+  disabled?: boolean;
   onChange: (pressed: boolean) => void;
 }
 
-function HoldButton({ activeLabel, className, onChange }: HoldButtonProps) {
+function HoldButton({ activeLabel, className, disabled = false, onChange }: HoldButtonProps) {
   const [pressed, setPressed] = useState(false);
-  const change = (next: boolean): void => { setPressed(next); onChange(next); };
+  const onChangeRef = useRef(onChange); onChangeRef.current = onChange;
+  const change = (next: boolean): void => {
+    if (disabled && next) return;
+    setPressed(next); onChangeRef.current(next);
+  };
   const press = (event: ReactPointerEvent<HTMLButtonElement>): void => {
     event.preventDefault();
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -27,7 +32,8 @@ function HoldButton({ activeLabel, className, onChange }: HoldButtonProps) {
     event.preventDefault();
     change(false);
   };
-  return <button type="button" className={`${className}${pressed ? ' is-pressed' : ''}`} aria-label={`Hold ${activeLabel}`} aria-pressed={pressed} onPointerDown={press} onPointerUp={release} onPointerCancel={release} onLostPointerCapture={() => change(false)}>{activeLabel}</button>;
+  useEffect(() => { if (disabled) { setPressed(false); onChangeRef.current(false); } }, [disabled]);
+  return <button type="button" disabled={disabled} className={`${className}${pressed ? ' is-pressed' : ''}`} aria-label={`Hold ${activeLabel}`} aria-pressed={pressed} onPointerDown={press} onPointerUp={release} onPointerCancel={release} onLostPointerCapture={() => change(false)}>{activeLabel}</button>;
 }
 
 export function MobileControls({ onPause, paused }: MobileControlsProps) {
@@ -52,11 +58,14 @@ export function MobileControls({ onPause, paused }: MobileControlsProps) {
   const powerLabel = player.state === 'downed' ? 'NO STRIKE' : getMove(heavyMove).displayName.toUpperCase();
   const grappleLabel = player.state === 'climbing' || player.state === 'downed' || player.state === 'pinned' ? 'NO LOCK'
     : grappleMove ? getMove(grappleMove).displayName.toUpperCase()
-      : targetDistance <= GRAPPLE_ACQUISITION_RANGE ? 'LOCK UP' : 'CLOSE DISTANCE';
+      : targetDistance <= GRAPPLE_ACQUISITION_RANGE ? 'COLLAR LOCK' : 'CLOSE DISTANCE';
   const strikeLocked = player.state === 'downed' || player.state === 'pinned' || (player.state === 'climbing' && player.climbStage < 3);
   const grappleLocked = player.state === 'downed' || player.state === 'pinned' || player.state === 'climbing'
     || player.state !== 'grappling' && targetDistance > GRAPPLE_ACQUISITION_RANGE;
 
+  useEffect(() => {
+    if (paused) { pointer.current = null; setStick({ x: 0, z: 0 }); mobileInput.reset(); }
+  }, [paused]);
   useEffect(() => () => mobileInput.reset(), []);
 
   const moveStick = (clientX: number, clientY: number): void => {
@@ -72,7 +81,7 @@ export function MobileControls({ onPause, paused }: MobileControlsProps) {
     mobileInput.setMove(next);
   };
   const startStick = (event: ReactPointerEvent<HTMLDivElement>): void => {
-    if (pointer.current !== null) return;
+    if (paused || pointer.current !== null) return;
     event.preventDefault();
     pointer.current = event.pointerId;
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -90,28 +99,28 @@ export function MobileControls({ onPause, paused }: MobileControlsProps) {
     setStick({ x: 0, z: 0 });
     mobileInput.setMove({ x: 0, z: 0 });
   };
-  const queuePointer = (action: GameAction) => (event: ReactPointerEvent<HTMLButtonElement>): void => { event.preventDefault(); mobileInput.queue(action); };
-  const queueKeyboard = (action: GameAction) => (event: ReactMouseEvent<HTMLButtonElement>): void => { if (event.detail === 0) mobileInput.queue(action); };
+  const queuePointer = (action: GameAction) => (event: ReactPointerEvent<HTMLButtonElement>): void => { event.preventDefault(); if (!paused) mobileInput.queue(action); };
+  const queueKeyboard = (action: GameAction) => (event: ReactMouseEvent<HTMLButtonElement>): void => { if (!paused && event.detail === 0) mobileInput.queue(action); };
 
   if (player.state === 'defeated') return null;
   return <div className={`mobile-controls${paused ? ' mobile-controls--paused' : ''}`} data-testid="mobile-controls">
     <button type="button" className="mobile-pause" aria-label="Pause match" onClick={onPause}>Ⅱ</button>
-    <div ref={pad} className="mobile-stick" role="group" aria-label="Movement joystick" onPointerDown={startStick} onPointerMove={updateStick} onPointerUp={stopStick} onPointerCancel={stopStick}>
+    <div ref={pad} className="mobile-stick" role="group" aria-label="Movement joystick" aria-disabled={paused} onPointerDown={startStick} onPointerMove={updateStick} onPointerUp={stopStick} onPointerCancel={stopStick}>
       <span>MOVE</span><i style={{ transform: `translate(${stick.x * 34}px, ${stick.z * 34}px)` }} />
     </div>
     <div className="mobile-modifiers">
-      <HoldButton activeLabel="RUN" className="mobile-hold mobile-hold--run" onChange={(pressed) => mobileInput.setRun(pressed)} />
-      <HoldButton activeLabel="GUARD" className="mobile-hold mobile-hold--guard" onChange={(pressed) => mobileInput.setBlock(pressed)} />
-      <button type="button" className="mobile-hold mobile-hold--prop" aria-label="Pick up, drop, or throw prop" title={propResolution.displayName} data-action-id={propResolution.actionId} data-action-legal={propResolution.legalState ? 'true' : 'false'} onPointerDown={queuePointer('propAction')} onClick={queueKeyboard('propAction')}>PROP</button>
-      <button type="button" className="mobile-hold mobile-hold--taunt" aria-label="Taunt" onPointerDown={queuePointer('taunt')} onClick={queueKeyboard('taunt')}>TAUNT</button>
+      <HoldButton activeLabel="RUN" className="mobile-hold mobile-hold--run" disabled={paused} onChange={(pressed) => mobileInput.setRun(pressed)} />
+      <HoldButton activeLabel="GUARD" className="mobile-hold mobile-hold--guard" disabled={paused} onChange={(pressed) => mobileInput.setBlock(pressed)} />
+      <button type="button" disabled={paused} className="mobile-hold mobile-hold--prop" aria-label="Pick up, drop, or throw prop" title={propResolution.displayName} data-action-id={propResolution.actionId} data-action-legal={propResolution.legalState ? 'true' : 'false'} onPointerDown={queuePointer('propAction')} onClick={queueKeyboard('propAction')}>PROP</button>
+      <button type="button" disabled={paused} className="mobile-hold mobile-hold--taunt" aria-label="Taunt" onPointerDown={queuePointer('taunt')} onClick={queueKeyboard('taunt')}>TAUNT</button>
     </div>
     <div className="mobile-actions" aria-label="Wrestling actions">
-      <button type="button" disabled={strikeLocked} className={`mobile-action mobile-action--quick${player.moveId === quickMove ? ' is-pressed' : ''}`} aria-label={quickLabel} data-move-label={quickLabel} onPointerDown={queuePointer('quickStrike')} onClick={queueKeyboard('quickStrike')}><b>{quickLabel}</b><small>QUICK</small></button>
-      <button type="button" disabled={strikeLocked} className={`mobile-action mobile-action--power${player.moveId === heavyMove ? ' is-pressed' : ''}`} aria-label={powerLabel} data-move-label={powerLabel} onPointerDown={queuePointer('heavyStrike')} onClick={queueKeyboard('heavyStrike')}><b>{powerLabel}</b><small>{player.ropeRebound > 0 ? 'STIFF-ARM' : 'POWER'}</small></button>
-      <button type="button" disabled={grappleLocked} className={`mobile-action mobile-action--grapple${player.state === 'grappling' ? ' is-pressed' : ''}`} aria-label={grappleLabel} data-move-label={grappleLabel} onPointerDown={queuePointer('grapple')} onClick={queueKeyboard('grapple')}><b>{grappleLabel}</b><small>GRAPPLE</small></button>
-      <button type="button" className={`mobile-action mobile-action--jump${player.state === 'jumping' ? ' is-pressed' : ''}`} aria-label="Jump" onPointerDown={queuePointer('jump')} onClick={queueKeyboard('jump')}><b>↑</b><small>JUMP</small></button>
-      <button type="button" className={`mobile-action mobile-action--context${player.state === 'pinning' || player.moveId === 'finisher' || player.moveId === 'aerial' ? ' is-pressed' : ''}`} aria-label={contextLabel} data-action-id={contextResolution.actionId} data-action-legal={contextResolution.legalState ? 'true' : 'false'} onPointerDown={queuePointer('contextAction')} onClick={queueKeyboard('contextAction')}><b>{contextLabel}</b><small>ACTION</small></button>
-      <button type="button" className={`mobile-action mobile-action--counter${player.moveId === 'kick_up' ? ' is-pressed' : ''}`} aria-label={player.state === 'downed' ? 'Kick up' : 'Dodge or counter'} onPointerDown={queuePointer('dodgeCounter')} onClick={queueKeyboard('dodgeCounter')}><b>↯</b><small>{player.state === 'downed' || player.moveId === 'kick_up' ? 'KICK-UP' : 'COUNTER'}</small></button>
+      <button type="button" disabled={paused || strikeLocked} className={`mobile-action mobile-action--quick${player.moveId === quickMove ? ' is-pressed' : ''}`} aria-label={quickLabel} data-move-label={quickLabel} onPointerDown={queuePointer('quickStrike')} onClick={queueKeyboard('quickStrike')}><b>{quickLabel}</b><small>QUICK</small></button>
+      <button type="button" disabled={paused || strikeLocked} className={`mobile-action mobile-action--power${player.moveId === heavyMove ? ' is-pressed' : ''}`} aria-label={powerLabel} data-move-label={powerLabel} onPointerDown={queuePointer('heavyStrike')} onClick={queueKeyboard('heavyStrike')}><b>{powerLabel}</b><small>{player.ropeRebound > 0 ? 'STIFF-ARM' : 'POWER'}</small></button>
+      <button type="button" disabled={paused || grappleLocked} className={`mobile-action mobile-action--grapple${player.state === 'grappling' ? ' is-pressed' : ''}`} aria-label={grappleLabel} data-move-label={grappleLabel} onPointerDown={queuePointer('grapple')} onClick={queueKeyboard('grapple')}><b>{grappleLabel}</b><small>GRAPPLE</small></button>
+      <button type="button" disabled={paused} className={`mobile-action mobile-action--jump${player.state === 'jumping' ? ' is-pressed' : ''}`} aria-label="Jump" onPointerDown={queuePointer('jump')} onClick={queueKeyboard('jump')}><b>↑</b><small>JUMP</small></button>
+      <button type="button" disabled={paused} className={`mobile-action mobile-action--context${player.state === 'pinning' || player.moveId === 'finisher' || player.moveId === 'aerial' ? ' is-pressed' : ''}`} aria-label={contextLabel} data-action-id={contextResolution.actionId} data-action-legal={contextResolution.legalState ? 'true' : 'false'} onPointerDown={queuePointer('contextAction')} onClick={queueKeyboard('contextAction')}><b>{contextLabel}</b><small>ACTION</small></button>
+      <button type="button" disabled={paused} className={`mobile-action mobile-action--counter${player.moveId === 'kick_up' ? ' is-pressed' : ''}`} aria-label={player.state === 'downed' ? 'Kick up' : 'Dodge or counter'} onPointerDown={queuePointer('dodgeCounter')} onClick={queueKeyboard('dodgeCounter')}><b>↯</b><small>{player.state === 'downed' || player.moveId === 'kick_up' ? 'KICK-UP' : 'COUNTER'}</small></button>
     </div>
   </div>;
 }

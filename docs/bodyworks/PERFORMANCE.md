@@ -25,6 +25,8 @@ The final consolidated gate records:
 
 Headless and local browser numbers are evidence for regression control, not a claim that every physical phone or headset has identical performance. The hardware matrix remains a device-required release task.
 
+The 2026-07-15 Phase 1 build remains successful with the isolated Rapier WASM chunk at 2,236.66 kB minified (842.36 kB gzip), above the configured 900 kB warning threshold. The control-label and coaching-mode work did not introduce a new runtime dependency; no fresh soak or hardware performance claim is made from that build alone.
+
 ## Historical local measurement
 
 - Six-rematch browser soak: 12 FPS baseline, 23 FPS final, 0.338 ms physics average, 0.500 ms p95, 208.3 KB physical replay, and a flat 29.4 MB requested-GC heap across seven samples.

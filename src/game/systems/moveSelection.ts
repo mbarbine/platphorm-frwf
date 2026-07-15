@@ -33,6 +33,12 @@ const STRIKE_GRID: Readonly<Record<CombatDirection, Readonly<Record<StrikeButton
 
 export const selectDirectionalGrapple = (direction: Vec2, button: GrappleButton): string => GRAPPLE_GRID[combatDirection(direction)][button];
 
+/** A directionless first L establishes the learner-friendly default slam. A
+ * second L during the secured clinch still selects the preserved piledriver. */
+export const selectGrappleEntryMove = (direction: Vec2): string => combatDirection(direction) === 'neutral'
+  ? 'slam'
+  : selectDirectionalGrapple(direction, 'grapple');
+
 export const selectDirectionalStrike = (direction: Vec2, button: StrikeButton, comboStep = 0): string => {
   const directionId = combatDirection(direction);
   if (directionId === 'neutral' && button === 'quick') {

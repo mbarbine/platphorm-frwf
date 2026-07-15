@@ -24,6 +24,7 @@ const SCENARIOS: readonly LabScenario[] = [
   { id: 'run', label: 'RUN + MOMENTUM', steps: [...hold('KeyW', 0, 1_800), ...hold('ShiftLeft', 0, 1_800)], duration: 2_600 },
   { id: 'brake', label: 'RUN + BRAKE', steps: [...hold('KeyW', 0, 1_150), ...hold('ShiftLeft', 0, 1_150)], duration: 2_600 },
   { id: 'turn', label: 'RAPID TURN', steps: [...hold('KeyA', 0, 500), ...hold('KeyD', 560, 650)], duration: 1_800 },
+  { id: 'separation', label: 'SOFT SEPARATION', steps: [], duration: 2_600 },
   { id: 'ropes', label: 'RUN INTO ROPES', steps: [...hold('KeyD', 0, 2_050), ...hold('ShiftLeft', 0, 2_050)], duration: 2_800 },
   { id: 'ropeStrike', label: 'ROPE LOAD + STIFF-ARM', steps: [...hold('KeyD', 0, 2_200), ...hold('ShiftLeft', 0, 2_200)], duration: 3_600 },
   { id: 'apronReturn', label: 'APRON RETURN', steps: tap('KeyF', 900, 180), duration: 3_400 },
@@ -54,8 +55,8 @@ const SCENARIOS: readonly LabScenario[] = [
   { id: 'cornerSmash', label: 'TURNBUCKLE RAIL SHOT', steps: [...tap('KeyL', 80), ...tap('KeyF', 1_020)], duration: 4_000 },
   { id: 'clothesline', label: 'ROPE STIFF-ARM', steps: [...hold('KeyW', 0, 850), ...hold('ShiftLeft', 0, 850), ...tap('KeyK', 620)], duration: 2_000 },
   { id: 'spear', label: 'BREAKER SPEAR', steps: [...hold('KeyW', 0, 850), ...hold('ShiftLeft', 0, 850), ...tap('KeyL', 620)], duration: 2_100 },
-  { id: 'climb', label: 'CLIMB + TAUNT', steps: [...tap('KeyF', 80), ...tap('KeyF', 580), ...tap('KeyF', 1_080), ...tap('KeyQ', 1_580)], duration: 3_400 },
-  { id: 'dive', label: 'TOP-ROPE DIVE', steps: [...tap('KeyF', 80), ...tap('KeyF', 580), ...tap('KeyF', 1_080), ...tap('KeyF', 1_580)], duration: 3_800 },
+  { id: 'climb', label: 'CLIMB + TAUNT', steps: [], duration: 8_000 },
+  { id: 'dive', label: 'TOP-ROPE DIVE', steps: [], duration: 8_000 },
   { id: 'tableCollapse', label: 'TABLE COLLAPSE', steps: tap('KeyL', 600), duration: 4_800 },
   { id: 'soakRound', label: 'LAB KNOCKOUT', steps: [], duration: 3_000 },
   { id: 'reset', label: 'COMPLETE RUNTIME RESET', steps: [], duration: 1_200 },
@@ -86,11 +87,18 @@ export function PhysicsLab() {
     }
     const closeRange = ['inputRange', 'jab', 'blockedJab', 'hook', 'frontKick', 'guard', 'kick', 'lock', 'slam', 'failedLift', 'gripBreak', 'suplex', 'german', 'powerbomb', 'clothesline', 'spear', 'soakRound'].includes(scenario.id);
     const recoveryOrientation: RecoveryOrientation | null = scenario.id === 'recoveryFront' ? 'front' : scenario.id === 'recoverySide' ? 'left' : scenario.id === 'recoveryBack' ? 'back' : null;
-    if (scenario.id === 'climb' || scenario.id === 'dive') useMatchStore.getState().prepareLabScenario({ x: -4.52, z: -3.08 }, { x: -1.6, z: -.8 });
+    if (scenario.id === 'separation') useMatchStore.getState().prepareLabScenario({ x: -.12, z: 0 }, { x: .12, z: 0 });
+    else if (scenario.id === 'climb' || scenario.id === 'dive') useMatchStore.getState().prepareLabScenario({ x: -4.52, z: -3.08 }, { x: -1.6, z: -.8 });
     else if (scenario.id === 'cornerSmash') useMatchStore.getState().prepareLabScenario({ x: 3.72, z: 2.45 }, { x: 4.45, z: 3.02 });
     else if (scenario.id === 'apronReturn') useMatchStore.getState().prepareLabScenario({ x: 6.52, z: 0 }, { x: 0, z: 2.4 });
     else if (scenario.id === 'tableCollapse') useMatchStore.getState().prepareLabScenario({ x: 0, z: -5.25 }, { x: 0, z: -6.05 });
-    else if (scenario.id === 'blockedJab') useMatchStore.getState().prepareLabScenario({ x: 0, z: -.27 }, { x: 0, z: .27 }, 'blocking');
+    // Guard certification needs a real glove-engagement lane. The previous
+    // 0.54 m centre spacing deeply interpenetrated both articulated rigs and
+    // reduced two simulated seconds to minutes of solver churn before a jab
+    // could be classified. At .9 m the torsos remain separated, while the
+    // raised glove is inside the independently driven jab's articulated reach.
+    // Its near-field force profile now prevents the old through-guard tunnel.
+    else if (scenario.id === 'blockedJab') useMatchStore.getState().prepareLabScenario({ x: 0, z: -.45 }, { x: 0, z: .45 }, 'blocking');
     else if (recoveryOrientation) useMatchStore.getState().prepareLabScenario({ x: 0, z: -.7 }, { x: 0, z: 3.4 }, 'downed', 100, recoveryOrientation, .75);
     else if (scenario.id === 'kickup') useMatchStore.getState().prepareLabScenario({ x: 0, z: -.7 }, { x: 0, z: 3.4 }, 'downed');
     // Give the run enough in-ring distance to build a genuinely loaded entry.
@@ -104,20 +112,48 @@ export function PhysicsLab() {
     // Lab choreography is scheduled against fixed simulation time. Wall-clock
     // timeouts made the same input sequence behave differently on a throttled
     // headless GPU because key-up could arrive after only a handful of ticks.
-    const startedAt = useMatchStore.getState().model.elapsed;
-    const dispatched = new Set<number>(); let blockedJabQueued = false; let gripStressComplete = scenario.stressGripAt === undefined; let labKnockoutResolved = false;
+    const startedAt = useMatchStore.getState().model.elapsed; const wallStartedAt = performance.now();
+    const dispatched = new Set<number>(); let blockedJabQueued = false; let blockedJabNextAttemptAt = SCENARIO_SETTLE_MS + 220; let gripStressComplete = scenario.stressGripAt === undefined; let labKnockoutResolved = false;
+    let blockedJabAttempts = 0;
     let reboundPressAt: number | null = null; let reboundReleased = false; let slamPressAt: number | null = null; let slamReleased = false;
+    let stagedKey: 'KeyF' | 'KeyQ' | null = null; let stagedReleaseAt = 0; let stagedNextAttemptAt = SCENARIO_SETTLE_MS + 80;
+    let stagedLastClimbStage = -1; let stagedFinishIssued = false;
     const scheduler = window.setInterval(() => {
       const current = useMatchStore.getState().model; const elapsedMs = (current.elapsed - startedAt) * 1_000;
+      if (performance.now() - wallStartedAt > Math.max(12_000, scenario.duration * 5)) {
+        window.clearInterval(scheduler);
+        for (const step of scenario.steps) if (step.down) dispatchKey(step.code, false);
+        document.documentElement.dataset.labScenarioAbort = `${scenario.id}:simulation-timeout`;
+        setActive(null); return;
+      }
       scenario.steps.forEach((step, index) => {
         if (dispatched.has(index) || elapsedMs < SCENARIO_SETTLE_MS + step.at) return;
         dispatchKey(step.code, step.down); dispatched.add(index);
       });
-      if (scenario.id === 'blockedJab' && !blockedJabQueued && current.player.state === 'blocking' && elapsedMs >= SCENARIO_SETTLE_MS + 220) {
-        blockedJabQueued = true;
+      if (scenario.id === 'climb' || scenario.id === 'dive') {
+        if (current.player.climbStage !== stagedLastClimbStage) {
+          stagedLastClimbStage = current.player.climbStage;
+          stagedNextAttemptAt = elapsedMs + 220;
+        }
+        if (stagedKey && elapsedMs >= stagedReleaseAt) {
+          dispatchKey(stagedKey, false); stagedKey = null;
+        }
+        if (!stagedKey && elapsedMs >= stagedNextAttemptAt) {
+          const code = current.player.climbStage < 3 ? 'KeyF' : !stagedFinishIssued ? scenario.id === 'climb' ? 'KeyQ' : 'KeyF' : null;
+          if (code) {
+            dispatchKey(code, true); stagedKey = code; stagedReleaseAt = elapsedMs + 120; stagedNextAttemptAt = elapsedMs + 520;
+            if (current.player.climbStage === 3) stagedFinishIssued = true;
+          }
+        }
+      }
+      if (scenario.id === 'blockedJab' && !blockedJabQueued && current.player.state === 'blocking' && elapsedMs >= blockedJabNextAttemptAt) {
+        blockedJabAttempts += 1;
         const before = current.opponent.attackInstanceId;
         useMatchStore.getState().requestLabCommand('opponent', 'quick');
-        document.documentElement.dataset.labBlockedJabAccepted = useMatchStore.getState().model.opponent.attackInstanceId > before ? 'true' : 'false';
+        blockedJabQueued = useMatchStore.getState().model.opponent.attackInstanceId > before;
+        blockedJabNextAttemptAt = elapsedMs + 220;
+        document.documentElement.dataset.labBlockedJabAccepted = blockedJabQueued ? 'true' : 'false';
+        document.documentElement.dataset.labBlockedJabDiagnostics = JSON.stringify({ attempts: blockedJabAttempts, actorState: current.opponent.state, targetState: current.player.state, target: current.targets.opponent, distance: Math.hypot(current.opponent.position.x - current.player.position.x, current.opponent.position.z - current.player.position.z).toFixed(3) });
       }
       if (scenario.id === 'soakRound' && !labKnockoutResolved && elapsedMs >= SCENARIO_SETTLE_MS + 450) {
         // Resource/rematch soak needs a deterministic lab-only match end. Real
@@ -148,6 +184,7 @@ export function PhysicsLab() {
       for (const step of scenario.steps) if (step.down) dispatchKey(step.code, false);
       if (reboundPressAt !== null && !reboundReleased) dispatchKey('KeyK', false);
       if (slamPressAt !== null && !slamReleased) dispatchKey('KeyK', false);
+      if (stagedKey) dispatchKey(stagedKey, false);
       setActive(null);
     }, 8);
     timers.current.push(scheduler);

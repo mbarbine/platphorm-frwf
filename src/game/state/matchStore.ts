@@ -10,6 +10,7 @@ import { useSpectatorStore } from './spectatorStore';
 import { createActionEvent, gameCommandToAction } from '../input/actionLayer';
 import { beginFall } from '../systems/falls';
 import { FALL_REASONS } from '../types/game';
+import { resolveContextAction, resolvePropAction } from '../systems/contextResolver';
 
 interface MatchStore {
   model: MatchModel;
@@ -41,15 +42,23 @@ export const useMatchStore = create<MatchStore>((set) => ({
     return { model: createMatch(player, opponent, rules, difficulty, 1337, playerBeers, opponentBeers, matchMode), revision: state.revision + 1, replayActive: false };
   }),
   advance: (dt, input) => set((state) => {
-    const model = state.model; const previousImpact = model.impactSequence; const wasResolved = model.resolved; let commandAccepted = false; const pinRecoveryActions = [] as NonNullable<FrameInput['actions']>[number][];
+    const model = state.model;
+    if (model.paused || model.resolved) {
+      bodyWorksRuntime.rejectPendingActions('player', model.elapsed, model.paused ? 'Match paused' : 'Match resolved');
+      return state;
+    }
+    const previousImpact = model.impactSequence; const wasResolved = model.resolved; const wasPlayerInactive = ['defeated', 'victorious'].includes(model.player.state); let commandAccepted = false; const pinRecoveryActions = [] as NonNullable<FrameInput['actions']>[number][];
     bodyWorksRuntime.captureInput('player', input, model.elapsed);
     bodyWorksRuntime.resolveCommands('player', model.elapsed, (buffered) => {
       const wasClimbing = model.player.state === 'climbing';
       const wasDowned = model.player.state === 'downed';
+      const wasGrappling = model.player.state === 'grappling';
+      const contextPreview = buffered.command === 'context' ? resolveContextAction(model, 'player', buffered.direction).displayName : null;
+      const propPreview = buffered.command === 'interact' ? resolvePropAction(model, 'player', buffered.direction).displayName : null;
       const wasNearApron = ((Math.abs(model.player.position.x) > 4.62 && Math.abs(model.player.position.x) < 6.9 && Math.abs(model.player.position.z) < 3.55)
         || (Math.abs(model.player.position.z) > 3.05 && Math.abs(model.player.position.z) < 5.6 && Math.abs(model.player.position.x) < 5.15));
       if (wasDowned === false && model.player.state === 'pinned' && ['context', 'dodge', 'quick', 'heavy'].includes(buffered.command)) {
-        pinRecoveryActions.push(buffered.event); commandAccepted = true; return true;
+        pinRecoveryActions.push(buffered.event); commandAccepted = true; return { executed: true, displayName: 'KICK OUT' };
       }
       const accepted = requestCommand(model, 'player', buffered.command, buffered.direction, buffered.running);
       commandAccepted ||= accepted;
@@ -60,9 +69,13 @@ export const useMatchStore = create<MatchStore>((set) => ({
       if (accepted && buffered.command === 'context' && wasClimbing && model.player.state === 'climbing') bodyWorksRuntime.requestCornerClimb('player', model.player.position, model.player.climbStage || 1);
       if (accepted && wasClimbing && model.player.moveId && getMove(model.player.moveId).category === 'aerial') bodyWorksRuntime.requestCornerDive('player', model[model.targets.player].position);
       if (accepted && buffered.command === 'context' && !wasClimbing && wasNearApron && model.player.state === 'locomotion') bodyWorksRuntime.requestApronTransition('player', model.player.position);
-      return accepted;
+      const displayName = buffered.command === 'grapple' && !wasGrappling ? 'COLLAR LOCK'
+        : model.player.moveId ? getMove(model.player.moveId).displayName.toUpperCase()
+          : contextPreview ?? propPreview ?? undefined;
+      return { executed: accepted, displayName };
     });
     advanceMatch(model, dt, { ...input, actions: pinRecoveryActions, commands: [] });
+    if (!wasPlayerInactive && ['defeated', 'victorious'].includes(model.player.state)) bodyWorksRuntime.rejectPendingActions('player', model.elapsed, 'Fighter is no longer active');
     for (const slot of AI_FIGHTER_SLOTS) {
       const fighter = model[slot];
       if (model.aiControllers[slot].intent === 'context' && ['idle', 'locomotion'].includes(fighter.state) && fighter.invulnerability > .3) {
@@ -77,7 +90,10 @@ export const useMatchStore = create<MatchStore>((set) => ({
     }
     return state;
   }),
-  pause: (paused) => set((state) => ({ model: { ...state.model, paused }, revision: state.revision + 1 })),
+  pause: (paused) => set((state) => {
+    if (paused) bodyWorksRuntime.rejectPendingActions('player', state.model.elapsed, 'Match paused');
+    return { model: { ...state.model, paused }, revision: state.revision + 1 };
+  }),
   setLabMode: (active) => set((state) => ({ model: { ...state.model, labMode: active, aiIntent: null, aiMovement: { x: 0, z: 0 }, aiRunning: false, aiBlockTimer: 0 }, revision: state.revision + 1 })),
   setToyTestMode: (active) => set((state) => ({ model: { ...state.model, toyTestMode: active }, revision: state.revision + 1 })),
   configureLab: (playerId, opponentId, seed, playerStaminaPercent, opponentStaminaPercent, playerAdditionalMass = 0, opponentAdditionalMass = 0) => set((state) => {

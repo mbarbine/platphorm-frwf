@@ -12,6 +12,11 @@ export interface ActionBufferMetrics {
 }
 
 export type ActionResolution = 'executed' | 'rejected' | 'defer';
+export type ActionPushResult = 'buffered' | 'duplicate' | 'rejected';
+
+export const ACTION_BUFFER_DEFAULT_TTL_MS = 150;
+export const ACTION_BUFFER_CONTEXT_TTL_MS = 110;
+export const ACTION_BUFFER_DUPLICATE_WINDOW_MS = 48;
 
 interface BufferedAction<T> {
   payload: T;
@@ -51,28 +56,27 @@ export class ActionBuffer<T> {
 
   constructor(options: ActionBufferOptions = {}) {
     this.capacity = options.capacity ?? 32;
-    this.defaultTtlMs = options.defaultTtlMs ?? 150;
-    this.contextTtlMs = options.contextTtlMs ?? 110;
-    this.duplicateWindowMs = options.duplicateWindowMs ?? 48;
+    this.defaultTtlMs = options.defaultTtlMs ?? ACTION_BUFFER_DEFAULT_TTL_MS;
+    this.contextTtlMs = options.contextTtlMs ?? ACTION_BUFFER_CONTEXT_TTL_MS;
+    this.duplicateWindowMs = options.duplicateWindowMs ?? ACTION_BUFFER_DUPLICATE_WINDOW_MS;
   }
 
-  push(payload: T, event: ActionEvent, nowMs: number, dedupeKey = `${event.source}:${event.action}:${event.phase}`): boolean {
+  push(payload: T, event: ActionEvent, nowMs: number, dedupeKey = `${event.source}:${event.action}:${event.phase}`): ActionPushResult {
     this.prune(nowMs);
     const duplicate = this.entries.some((entry) => entry.dedupeKey === dedupeKey
       && Math.abs(entry.queuedAt - nowMs) <= this.duplicateWindowMs);
     if (duplicate) {
       this.state.duplicate += 1;
-      return false;
+      return 'duplicate';
+    }
+    if (this.entries.length >= this.capacity) {
+      this.state.rejected += 1;
+      return 'rejected';
     }
     const ttlMs = event.action === 'contextAction' || event.action === 'propAction' ? this.contextTtlMs : this.defaultTtlMs;
     this.entries.push({ payload, event, queuedAt: nowMs, expiresAt: nowMs + ttlMs, priority: actionPriority(event.action), dedupeKey });
     this.state.buffered += 1;
-    if (this.entries.length > this.capacity) {
-      this.entries.sort(ActionBuffer.compare);
-      this.entries.shift();
-      this.state.rejected += 1;
-    }
-    return true;
+    return 'buffered';
   }
 
   resolveNext(nowMs: number, eligible: (payload: T) => boolean, attempt: (payload: T) => ActionResolution, onExpired?: (payload: T) => void): ActionResolution | null {
@@ -104,6 +108,19 @@ export class ActionBuffer<T> {
     }
   }
 
+  rejectWhere(predicate: (payload: T) => boolean, onRejected?: (payload: T) => void): number {
+    let rejected = 0;
+    for (let index = this.entries.length - 1; index >= 0; index -= 1) {
+      const entry = this.entries[index];
+      if (!entry || !predicate(entry.payload)) continue;
+      this.entries.splice(index, 1);
+      this.state.rejected += 1;
+      rejected += 1;
+      onRejected?.(entry.payload);
+    }
+    return rejected;
+  }
+
   get size(): number { return this.entries.length; }
   get metrics(): Readonly<ActionBufferMetrics> { return { ...this.state }; }
 
@@ -118,6 +135,6 @@ export class ActionBuffer<T> {
   }
 
   private static compare<T>(left: BufferedAction<T>, right: BufferedAction<T>): number {
-    return left.event.sequence - right.event.sequence || right.priority - left.priority || left.queuedAt - right.queuedAt;
+    return right.priority - left.priority || left.event.sequence - right.event.sequence || left.queuedAt - right.queuedAt;
   }
 }

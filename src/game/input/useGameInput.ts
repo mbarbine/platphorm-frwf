@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { FrameInput } from '../systems/combat';
 import type { ControlDevice, Vec2 } from '../types/game';
 import {
@@ -43,43 +43,90 @@ export const readGamepadDirection = (gamepad: Gamepad): Vec2 => {
   };
 };
 
-export const useGameInput = (onPause: () => void): InputController => {
+export const useGameInput = (onPause: () => void, enabled = true, onClear?: (reason: string) => void): InputController => {
   const keys = useRef(new Set<string>());
   const edgeEvents = useRef<ActionEventCollector | null>(null);
   const heldActions = useRef<HeldActionTracker | null>(null);
   if (!edgeEvents.current) edgeEvents.current = new ActionEventCollector();
   if (!heldActions.current) heldActions.current = new HeldActionTracker();
   const previousButtons = useRef<boolean[]>([]);
+  const previousPausePressed = useRef(false);
   const previousXRButtons = useRef(new Map<string, boolean>());
   const actionReadCount = useRef(0);
+  const enabledRef = useRef(enabled); enabledRef.current = enabled;
+  const onPauseRef = useRef(onPause); onPauseRef.current = onPause;
+  const onClearRef = useRef(onClear); onClearRef.current = onClear;
   const [device, setDevice] = useState<ControlDevice>('keyboard');
+
+  const clearInputState = useCallback((reason: string): void => {
+    keys.current.clear(); edgeEvents.current?.clear(); heldActions.current?.reset(); mobileInput.reset();
+    const gamepad = navigator.getGamepads?.()[0];
+    previousButtons.current = Array.from(gamepad?.buttons ?? [], (button) => button.pressed);
+    previousPausePressed.current = gamepad?.buttons[9]?.pressed ?? false;
+    previousXRButtons.current.clear();
+    onClearRef.current?.(reason);
+  }, []);
 
   useEffect(() => {
     const down = (event: KeyboardEvent): void => {
       const action = KEYBOARD_ACTIONS[event.code];
       if (event.repeat && action) return;
+      if (action === 'pause') {
+        onPauseRef.current(); event.preventDefault(); return;
+      }
+      if (!enabledRef.current) {
+        if (action || MOVEMENT_KEYS.has(event.code)) event.preventDefault();
+        return;
+      }
       keys.current.add(event.code);
       setDevice('keyboard');
       if (action && isBufferedAction(action)) {
         edgeEvents.current?.push(createActionEvent(action, { source: 'keyboard', direction: keyboardDirection(keys.current) }));
-      } else if (action === 'pause') {
-        edgeEvents.current?.push(createActionEvent('pause', { source: 'keyboard' }));
-        onPause();
       }
       if (action || MOVEMENT_KEYS.has(event.code)) event.preventDefault();
     };
     const up = (event: KeyboardEvent): void => { keys.current.delete(event.code); };
-    const clear = (): void => { keys.current.clear(); edgeEvents.current?.clear(); heldActions.current?.reset(); mobileInput.reset(); };
-    const visibility = (): void => { if (document.hidden) clear(); };
+    const clear = (): void => clearInputState('focus lost');
+    const visibility = (): void => { if (document.hidden) clearInputState('document hidden'); };
     const connected = (): void => setDevice('gamepad');
     const touchActivity = (): void => setDevice('touch');
     document.documentElement.dataset.gameInputReady = 'true';
     const unsubscribeTouch = mobileInput.subscribe(touchActivity);
     window.addEventListener('keydown', down); window.addEventListener('keyup', up); window.addEventListener('blur', clear); document.addEventListener('visibilitychange', visibility); window.addEventListener('gamepadconnected', connected);
-    return () => { clear(); unsubscribeTouch(); delete document.documentElement.dataset.gameInputReady; window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); window.removeEventListener('blur', clear); document.removeEventListener('visibilitychange', visibility); window.removeEventListener('gamepadconnected', connected); };
-  }, [onPause]);
+    return () => { clearInputState('input controller unmounted'); unsubscribeTouch(); delete document.documentElement.dataset.gameInputReady; window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); window.removeEventListener('blur', clear); document.removeEventListener('visibilitychange', visibility); window.removeEventListener('gamepadconnected', connected); };
+  }, [clearInputState]);
+
+  useEffect(() => {
+    let frame = 0;
+    const pollPause = (): void => {
+      const pressed = navigator.getGamepads?.()[0]?.buttons[9]?.pressed ?? false;
+      if (pressed && !previousPausePressed.current) onPauseRef.current();
+      previousPausePressed.current = pressed;
+      frame = window.requestAnimationFrame(pollPause);
+    };
+    frame = window.requestAnimationFrame(pollPause);
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+
+  useEffect(() => {
+    if (!enabled) clearInputState('input disabled');
+    else previousButtons.current = Array.from(navigator.getGamepads?.()[0]?.buttons ?? [], (button) => button.pressed);
+  }, [clearInputState, enabled]);
 
   const read = (xrSources: readonly XRInputSource[] = []): FrameInput => {
+    const gamepad = navigator.getGamepads?.()[0];
+    if (!enabledRef.current) {
+      previousButtons.current = Array.from(gamepad?.buttons ?? [], (button) => button.pressed);
+      return { move: { x: 0, z: 0 }, run: false, block: false, actions: [], targetCycle: 0 };
+    }
+    const pausePressed = gamepad?.buttons[9]?.pressed ?? false;
+    if (pausePressed && !previousPausePressed.current) {
+      previousPausePressed.current = true;
+      previousButtons.current = Array.from(gamepad?.buttons ?? [], (button) => button.pressed);
+      onPauseRef.current();
+      return { move: { x: 0, z: 0 }, run: false, block: false, actions: [], targetCycle: 0 };
+    }
+    if (!pausePressed) previousPausePressed.current = false;
     const actions: ActionEvent[] = edgeEvents.current?.drain() ?? [];
     let targetCycle = 0;
     const keyboardMove = keyboardDirection(keys.current);
@@ -87,7 +134,6 @@ export const useGameInput = (onPause: () => void): InputController => {
     let run = keys.current.has('ShiftLeft') || keys.current.has('ShiftRight');
     let block = keys.current.has('KeyI');
     let heldSource: ActionSource = 'keyboard';
-    const gamepad = navigator.getGamepads?.()[0];
     if (gamepad) {
       const direction = readGamepadDirection(gamepad);
       if (Math.hypot(direction.x, direction.z) > .18) { x = direction.x; z = direction.z; heldSource = 'gamepad'; setDevice('gamepad'); }
@@ -106,9 +152,6 @@ export const useGameInput = (onPause: () => void): InputController => {
       const targetPressed = gamepad.buttons[8]?.pressed ?? false;
       if (targetPressed && !previousButtons.current[8]) targetCycle = 1;
       previousButtons.current[8] = targetPressed;
-      const pausePressed = gamepad.buttons[9]?.pressed ?? false;
-      if (pausePressed && !previousButtons.current[9]) { actions.push(createActionEvent('pause', { source: 'gamepad' })); onPause(); }
-      previousButtons.current[9] = pausePressed;
     }
     if (xrSources.length > 0) {
       setDevice('gamepad');

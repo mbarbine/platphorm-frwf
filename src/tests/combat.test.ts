@@ -196,17 +196,28 @@ describe('deterministic combat rules', () => {
     runtime.captureInput('player', { ...none, commands: [], actions: [action] }, .05);
     expect(runtime.metrics.actionBuffered).toBe(1);
     expect(runtime.actionFeedback()).toMatchObject({ status: 'buffered', event: { action: 'quickStrike', source: 'gamepad', sequence: 41 } });
-    runtime.resolveCommands('player', .06, (command) => { accepted.push(command.command); return true; });
+    runtime.resolveCommands('player', .06, (command) => { accepted.push(command.command); return { executed: true, displayName: 'CIRCUIT JAB' }; });
     expect(accepted).toEqual(['quick']);
     expect(runtime.metrics.actionExecuted).toBe(1);
-    expect(runtime.actionFeedback()?.status).toBe('executed');
+    expect(runtime.actionFeedback()).toMatchObject({ status: 'executed', displayName: 'CIRCUIT JAB' });
   });
 
   it('expires stale buffered commands instead of executing them later', () => {
     const runtime = new BodyWorksRuntime(); const expired: string[] = []; let executed = false;
     runtime.captureInput('player', { ...none, commands: ['heavy'] }, 1);
-    runtime.resolveCommands('player', 1.37, () => { executed = true; return true; }, (command) => expired.push(command.command));
+    runtime.resolveCommands('player', 1.151, () => { executed = true; return true; }, (command) => expired.push(command.command));
     expect(executed).toBe(false); expect(expired).toEqual(['heavy']); expect(runtime.pendingCommandCount()).toBe(0); expect(runtime.metrics.actionExpired).toBe(1); expect(runtime.actionFeedback()?.status).toBe('expired');
+  });
+
+  it('uses a shorter context window and rejects pending control when the match pauses', () => {
+    const runtime = new BodyWorksRuntime(); let executed = false;
+    runtime.captureInput('player', { ...none, actions: [createActionEvent('contextAction', { source: 'keyboard', timestamp: 0, sequence: 51 })] }, 0);
+    runtime.resolveCommands('player', .111, () => { executed = true; return true; });
+    expect(executed).toBe(false); expect(runtime.metrics.actionExpired).toBe(1);
+    runtime.captureInput('player', { ...none, actions: [createActionEvent('grapple', { source: 'keyboard', timestamp: 120, sequence: 52 })] }, .12);
+    expect(runtime.rejectPendingActions('player', .13, 'Match paused')).toBe(1);
+    expect(runtime.pendingCommandCount()).toBe(0); expect(runtime.metrics.actionRejected).toBe(1);
+    expect(runtime.actionFeedback()).toMatchObject({ status: 'rejected', reason: 'Match paused', event: { action: 'grapple' } });
   });
 
   it('successful counter interrupts the incoming move', () => {
@@ -483,7 +494,7 @@ describe('deterministic combat rules', () => {
     expect(requestCommand(model, 'opponent', 'grapple', { x: 0, z: -1 })).toBe(true);
     const decision = chooseAiDecision(model, fighterById('nova'));
     expect(['quick', 'heavy', 'grapple']).toContain(decision.command);
-    // Neutral (magnitude 0 → piledriver) and directional (magnitude 1) are both valid
+    // Neutral and directional selections remain valid after the default slam establishes the lock.
     const moveMag = Math.hypot(decision.move.x, decision.move.z);
     expect(moveMag === 0 || Math.abs(moveMag - 1) < .001).toBe(true);
     expect(decision.command && isActionLegal(model, decision.command, 'opponent')).toBe(true);
@@ -532,9 +543,10 @@ describe('deterministic combat rules', () => {
     expect(model.player.moveId).toBe('clutch'); expect(model.player.stamina).toBe(afterLock);
   });
 
-  it('makes neutral grapple an iconic voltage piledriver', () => {
+  it('starts a neutral collar lock with the default body slam while preserving piledriver depth', () => {
     const model = createMatch('brick', 'vex', 'standard', 'normal'); model.player.position = { x: 0, z: 0 }; model.opponent.position = { x: 1, z: 0 };
-    expect(requestCommand(model, 'player', 'grapple')).toBe(true); expect(model.player.moveId).toBe('piledriver'); expect(model.grapple?.phase).toBe('reach');
+    expect(requestCommand(model, 'player', 'grapple')).toBe(true); expect(model.player.moveId).toBe('slam'); expect(model.grapple?.phase).toBe('reach');
+    expect(requestCommand(model, 'player', 'grapple')).toBe(true); expect(model.player.moveId).toBe('piledriver');
   });
 
   it('uses the shared physical collar-tie range for a neutral grapple', () => {
@@ -544,7 +556,7 @@ describe('deterministic combat rules', () => {
     expect(requestCommand(tooFar, 'player', 'grapple')).toBe(false);
   });
 
-  it('completes one hundred neutral piledrivers across the full weight and approach matrix without a stuck attacker', () => {
+  it('completes one hundred neutral body slams across the full weight and approach matrix without a stuck attacker', () => {
     const fighters = FIGHTERS.map((fighter) => fighter.id);
     let attempts = 0;
     for (const attacker of fighters) for (const defender of fighters) for (const side of [-1, 1] as const) for (const lane of [-.32, .32] as const) {
@@ -552,7 +564,7 @@ describe('deterministic combat rules', () => {
       model.player.position = { x: side * .2, z: -.2 + lane }; model.opponent.position = { x: side * .88, z: -.12 + lane };
       model.player.facing = side > 0 ? Math.PI / 2 : -Math.PI / 2; model.player.stamina = model.player.staminaCap;
       expect(requestCommand(model, 'player', 'grapple')).toBe(true);
-      expect(model.player.moveId).toBe('piledriver'); expect(model.grapple?.phase).toBe('reach');
+      expect(model.player.moveId).toBe('slam'); expect(model.grapple?.phase).toBe('reach');
       for (let frame = 0; frame < 240; frame += 1) advanceMatch(model, 1 / 60, none);
       expect(model.opponent.health).toBeLessThan(100); expect(model.player.moveId).toBeNull();
       expect(['idle', 'locomotion']).toContain(model.player.state); expect(model.grapple).toBeNull();

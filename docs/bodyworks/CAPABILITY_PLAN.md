@@ -11,6 +11,21 @@ This is the release ledger for the revised BodyWorks Gold Master contract. It su
 5. Spectacle that follows physics: camera cues, impact hierarchy, audio, crowd, physical-transform replay, and highlights.
 6. Lifecycle truth: bounded memory and object counts, AI legality, accessibility, discovery/docs parity, immutable preview, and production gating.
 
+## Current Phase 1 control evidence — 2026-07-15
+
+- Keyboard, gamepad, touch, XR, AI, replay, and network paths use the semantic action contract; local player edges cross one bounded, instrumented authority buffer.
+- Resolver-derived F/E previews and execution share one priority contract. Exact executed labels survive transient move cleanup in the feedback record.
+- Neutral L starts the default Voltage Slam/body slam; the secured neutral L follow-up remains Voltage Piledriver. The 100-trial rules matrix completes the default slam without a stuck attacker.
+- Full, compact, prompts-only, and hidden coaching modes passed their focused 4/4 production-build browser suite. This is source/browser evidence, not human/device or release certification.
+
+## Current Phase 2 neutral-stability evidence — 2026-07-15
+
+- Neutral animation derives movement heading, bounded torso combat orientation, and head target independently. The physical controller remains authoritative for locomotion and support.
+- Five wrestlers × eight movement directions passed a headless Rapier move/stop matrix with zero unknown falls, unexplained unstable time, or emergency resets.
+- The production-build browser gate passed 2/2 across stand, walk, stop, run, brake, rapid turn, and exact-overlap soft separation; all scenarios returned supported and stable.
+- The 50-match AI soak completed with 218 explicitly categorized impact/throw falls and zero unknown falls or unexplained unstable time. The automated Toy Test also remained at zero unknown/unstable/reset telemetry after movement.
+- The optimized-preview visual sample showed planted opponent-facing combat stances, but the procedural wrestler shell and human feel remain uncertified.
+
 ## Contract ledger
 
 | § | Capability | Current implementation state | Certification evidence | Release action |
@@ -20,7 +35,7 @@ This is the release ledger for the revised BodyWorks Gold Master contract. It su
 | 3 | Preserve Ringfall product | Implemented — unverified | menu, five fighters, beer, both rules/difficulties, pin/KO/results/rematch browser journeys | No UI rewrite or backend added |
 | 4 | Safe migration and rollback flags | Implemented — unverified | flag unit test, build identity, rollback documentation | Keep only `VITE_BODYWORKS_ENABLED` after release window |
 | 5 | Zero false completion | Process gate | evidence index with measurements and slow-motion captures | No certification from types/screenshots alone |
-| 6 | Authority pipeline | Partial | source audit plus contact/task/browser traces | Continue moving rule mutations out of the physics runtime event path |
+| 6 | Authority pipeline | Partial — semantic input path implemented | source audit plus action feedback, contact/task/browser traces | Continue moving rule mutations out of the physics runtime event path |
 | 7 | Remove physical anti-patterns | Implemented — unverified for synthetic strikes, rope teleport, landing chase, aerial chase, ordinary rotation snap | source grep, jab/rope/slam browser scenarios | Any remaining transform write must be lab/reset/emergency-only |
 | 8 | SI-like scale and plausible mass | Implemented — unverified | mass-ratio unit test, roster report | Keep one physics meter per scene unit |
 | 9 | 16-segment physical skeleton and collider metadata | Implemented — unverified | 32-body/30-joint runtime diagnostics, collision tests | Verify selective CCD and no same-fighter collision |
@@ -29,8 +44,8 @@ This is the release ledger for the revised BodyWorks Gold Master contract. It su
 | 12 | Data-driven motor profiles | Implemented — unverified | profile/fatigue/knockout tests and saturation metric | Tune caps only from measured scenarios |
 | 13 | Finite motion-task system | Implemented — unverified | task timeout/ownership/cleanup tests, zero timeout soak | Keep one task per fighter and bounded owned resources |
 | 14 | Layered pose targets | Partial | quaternion tests and slow-motion pose review | Add explicit defense/grip/impact/foot correction layers to the target composer |
-| 15 | Physical locomotion gate | Partial | 50 repetitions of stand/walk/stop/turn/run/brake/reverse | Tune foot slip and stopping ranges after browser measurements |
-| 16 | Foot support and balance | Partial | support score, contact markers, COM projection, foot-slip report | Add contact-force and predicted landing-point detail |
+| 15 | Physical locomotion gate | Implemented — automated checkpoint only | all five wrestlers × eight directions headless; production browser stand/walk/stop/run/brake/rapid-turn 2/2 | Complete human keyboard/gamepad/touch direction and feel matrix |
+| 16 | Foot support and balance | Implemented — automated checkpoint only | two-foot/support score checks; AI 50-match fall attribution; automated Toy Test; zero unknown/unstable/reset telemetry | Add contact-force and predicted landing-point detail; complete manual ten-minute Toy Test |
 | 17 | Physical jump | Implemented — unverified | feet unsupported, pelvis apex, landing and cooldown scenario | Verify keyboard C, gamepad stick, touch action |
 | 18 | Contact-true jab | Implemented — unverified | 100 in-range + 100 out-of-range trials, exactly-once damage | No swept gameplay hit fallback allowed |
 | 19 | Physical block | Implemented — unverified | 50 guard trials and guard-bypass trial | Contact must name hand/forearm, not guard state alone |
@@ -43,7 +58,7 @@ This is the release ledger for the revised BodyWorks Gold Master contract. It su
 | 26 | Distinct suplex mechanics | Partial | snap/German side-view slow motion | Confirm no shared invisible orbit |
 | 27 | Powerbomb and spinebuster distinction | Partial | paired side-view scenarios | Measure support, loading height and momentum source |
 | 28 | Clothesline and spear contact | Partial | physical limb/torso contact trials | Verify no pass-through at rebound speed |
-| 29 | Continuous active-ragdoll control levels | Implemented — unverified | motor-profile transitions and KO settle test | Tune state blends, never swap bodies |
+| 29 | Continuous active-ragdoll control levels | Implemented — automated neutral checkpoint | combat orientation unit matrix plus optimized-preview stance review | Tune state blends, never swap bodies; certify attack/downed profiles in their ordered phases |
 | 30 | Physical get-up | Implemented — unverified | 20 back/front/left/right trials plus obstruction and KO cases | Require ≥95% unobstructed recovery without transform writes |
 | 31 | Force-driven ropes | Implemented — unverified | compression/rebound/stiff-arm repeat and no teleport grep | Add measured local rope-node force telemetry if needed |
 | 32 | Mat and ring response | Implemented — unverified | impact hierarchy video and frame-time check | Keep visual deformation bounded |
@@ -62,9 +77,9 @@ This is the release ledger for the revised BodyWorks Gold Master contract. It su
 | 45 | Fixed 60 Hz loop | Implemented — unverified | timestep assertion and frame/physics percentiles | Preserve stable insertion order and seeds |
 | 46 | Performance budget | Uncertified | five-minute soak; physics avg/p95; render avg/p95; heap and counts | Select graphics tier without replacing physical fighters |
 | 47 | Numerical health and emergency behavior | Implemented — unverified | deliberate-fault unit tests, zero ordinary resets in soak | Every emergency reset is counted and surfaced |
-| 48 | Unit test contract | Partial | consolidated Vitest inventory | Fill any missing named classifier/controller tests before preview |
+| 48 | Unit test contract | Partial — 32 files / 197 tests at combined Phase 2 checkpoint | consolidated Vitest inventory | Fill any missing named classifier/controller tests before preview |
 | 49 | Headless Rapier contract | Partial | stand/walk/brake/jump/jab/whiff/block/grapple/slam/fail/KO/get-up/reset | No WebGL required |
-| 50 | Browser and slow-motion verification | Uncertified | complete 25-step journey, five videos, console and frame sequence review | Run only against production build and immutable preview |
+| 50 | Browser and slow-motion verification | Uncertified; focused control-deck matrix 4/4 | complete 25-step journey, five videos, console and frame sequence review | Run only against production build and immutable preview |
 | 51 | 50-match AI soak | Implemented harness; uncertified on final commit | artifact with all required counters and zero fail conditions | Re-run once after final build |
 | 52 | Phase ordering | Active | this ledger plus Git history and gate evidence | Do not certify later phases while Gold Master gates fail |
 | 53 | Source-control discipline | Active | coherent verified commits | Do not commit a broken release branch |

@@ -5,6 +5,7 @@ import { AdditiveBlending, Vector3 } from 'three';
 import type { Group, Mesh, MeshBasicMaterial } from 'three';
 import { getPairedPose, getStrikePose, getStrikeReactionPose, getTauntPose } from '../animation/choreography';
 import { locomotionPresentation } from '../animation/locomotionPresentation';
+import { resolveCombatOrientation } from '../animation/combatOrientation';
 import { POSES } from '../animation/poses';
 import { recoveryPose } from '../animation/recoveryMotion';
 import { fighterById } from '../data/fighters';
@@ -483,6 +484,7 @@ export function FighterModel({ runtime, counterpart, fighterId, preview = false,
     if (!shell.current || !root.current || !torso.current || !head.current || !leftArm.current || !rightArm.current || !leftForearm.current || !rightForearm.current || !leftLeg.current || !rightLeg.current || !leftShin.current || !rightShin.current) return;
     const t = elapsed.current;
     const movement = runtime ? locomotionPresentation(runtime) : null;
+    const combatOrientation = runtime ? resolveCombatOrientation(runtime, counterpart) : null;
     let key = animationFor(runtime, preview);
     if (movement?.state === 'braking') key = 'walk';
     let animatedPose = POSES[key];
@@ -545,8 +547,8 @@ export function FighterModel({ runtime, counterpart, fighterId, preview = false,
       group.rotation.y += (rotation[1] - group.rotation.y) * smooth;
       group.rotation.z += (rotation[2] - group.rotation.z) * smooth;
     };
-    apply(torso.current, [animatedPose.torso[0] + breath + fatigue * .06, animatedPose.torso[1] + (runtime?.body.twist ?? 0) * .34, animatedPose.torso[2]]);
-    apply(head.current, [(runtime?.body.headSnap ?? 0) * .55 + fatigue * .06, -(runtime?.body.twist ?? 0) * .18, (runtime?.body.headSnap ?? 0) * .24]);
+    apply(torso.current, [animatedPose.torso[0] + breath + fatigue * .06, animatedPose.torso[1] + (runtime?.body.twist ?? 0) * .34 + (combatOrientation?.torsoYaw ?? 0), animatedPose.torso[2]]);
+    apply(head.current, [(runtime?.body.headSnap ?? 0) * .55 + fatigue * .06, -(runtime?.body.twist ?? 0) * .18 + (combatOrientation?.headYaw ?? 0), (runtime?.body.headSnap ?? 0) * .24]);
     const armDroop = idle ? fatigue * profile.fatigueDroop * .34 : 0;
     const gaitCycle = runtime?.body.gaitPhase ?? t * 3;
     const armSwing = movement && movement.state === 'run' ? Math.sin(gaitCycle) * movement.gaitStrength * .68

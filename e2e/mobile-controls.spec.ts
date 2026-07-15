@@ -52,7 +52,7 @@ test('mobile player can enter a match, move, guard, and attack', async ({ page }
   const rangeSetup = page.getByTestId('physics-lab').getByRole('button', { name: 'CLOSE-RANGE INPUT' });
   await rangeSetup.click(); await expect(rangeSetup).toBeEnabled({ timeout: 30_000 });
   await expect.poll(async () => hud.getAttribute('data-player-state'), { timeout: 20_000, intervals: [100, 200] }).toMatch(/idle|locomotion/);
-  await expect(grapple).toHaveAttribute('data-move-label', 'LOCK UP'); await expect(grapple).toBeEnabled();
+  await expect(grapple).toHaveAttribute('data-move-label', 'COLLAR LOCK'); await expect(grapple).toBeEnabled();
   await quick.dispatchEvent('pointerdown', { pointerId: 7, pointerType: 'touch', isPrimary: true, button: 0 });
   await expect(hud.locator('[data-last-action]')).toHaveAttribute('data-last-action', 'quickStrike', { timeout: 15_000 });
   await expect(hud.locator('[data-last-action]')).toHaveAttribute('data-last-action-source', 'touch', { timeout: 15_000 });
@@ -65,6 +65,39 @@ test('mobile player can enter a match, move, guard, and attack', async ({ page }
   await expect.poll(async () => await hud.getAttribute('data-player-state'), { timeout: 20_000, intervals: [100, 200] }).toMatch(/idle|locomotion/);
   await guard.hover(); await page.mouse.down();
   await expect(guard).toHaveAttribute('aria-pressed', 'true'); await page.mouse.up(); await expect(guard).toHaveAttribute('aria-pressed', 'false');
+
   await page.setViewportSize({ width: 844, height: 390 });
   await expect(controls).toBeVisible(); await expect(page.getByRole('group', { name: 'Movement joystick' })).toBeVisible();
+});
+
+test('paused touch controls cannot queue a stale wrestling action', async ({ page }) => {
+  test.setTimeout(150_000);
+  await page.goto('/?physicsLab=1');
+  await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
+  await page.getByRole('button', { name: 'PLAY', exact: true }).click();
+  await page.getByRole('button', { name: /LOCK IN ATLAS/ }).click();
+  await page.getByRole('button', { name: 'START MATCH' }).click();
+
+  const controls = page.getByTestId('mobile-controls'); const hud = page.locator('.hud'); const canvas = page.locator('.game-canvas canvas');
+  const pause = controls.getByRole('button', { name: 'Pause match' }); const quick = controls.locator('.mobile-action--quick');
+  await expect(hud).toHaveAttribute('data-physics-bodies', '32', { timeout: 30_000 });
+  expect(await canvas.evaluate((element) => getComputedStyle(element).pointerEvents)).toBe('none');
+  const hitTarget = async (): Promise<string | null> => pause.evaluate((button) => {
+    const bounds = button.getBoundingClientRect();
+    return document.elementFromPoint(bounds.left + bounds.width / 2, bounds.top + bounds.height / 2)?.getAttribute('aria-label') ?? null;
+  });
+  expect(await hitTarget()).toBe('Pause match');
+
+  const executedBeforePause = Number(await hud.locator('[data-action-executed]').getAttribute('data-action-executed'));
+  await pause.click({ timeout: 5_000 });
+  await expect(page.locator('.pause-overlay')).toBeVisible();
+  await expect(quick).toBeDisabled();
+  await expect(controls.getByRole('button', { name: 'Pick up, drop, or throw prop' })).toBeDisabled();
+  await expect(controls.getByRole('group', { name: 'Movement joystick' })).toHaveAttribute('aria-disabled', 'true');
+  expect(await hitTarget()).toBe('Pause match');
+  await quick.dispatchEvent('pointerdown', { pointerId: 9, pointerType: 'touch', isPrimary: true, button: 0 });
+  await pause.click({ timeout: 5_000 });
+  await expect(page.locator('.pause-overlay')).toHaveCount(0);
+  await page.waitForTimeout(350);
+  expect(Number(await hud.locator('[data-action-executed]').getAttribute('data-action-executed'))).toBe(executedBeforePause);
 });

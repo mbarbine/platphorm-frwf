@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createMatch } from '../game/systems/combat';
-import { buildControlLabels, buildControlReadout, controlPrompt } from '../ui/ControlDeck';
+import { buildControlLabels, buildControlReadout, buildVisibleControls, controlPrompt } from '../ui/ControlDeck';
 
 describe('live wrestling control deck', () => {
   it('makes a rope rebound and stiff-arm window explicit', () => {
@@ -69,10 +69,11 @@ describe('live wrestling control deck', () => {
   it('surfaces wrestler-facing button names in the neutral standing deck', () => {
     const model = createMatch('atlas', 'nova', 'standard', 'normal');
     const labels = buildControlLabels(model.player, model.opponent, 0, 1.4);
-    expect(labels.quick).toBe('PUNCH');
-    expect(labels.heavy).toBe('KICK');
-    expect(labels.grapple).toBe('BODY SLAM');
-    expect(labels.context).toBe('SPECIAL / PIN');
+    expect(labels.quick).toBe('CIRCUIT JAB');
+    expect(labels.heavy).toBe('PISTON BOOT');
+    expect(labels.grapple).toBe('COLLAR LOCK');
+    expect(labels.context).toBe('NO CONTEXT ACTION');
+    expect(labels.taunt).toBe('SIGNATURE TAUNT');
     expect(controlPrompt('keyboard', 'context')).toBe('F');
     expect(controlPrompt('keyboard', 'jump')).toBe('C');
     expect(controlPrompt('keyboard', 'counter')).toBe('SPACE');
@@ -80,8 +81,22 @@ describe('live wrestling control deck', () => {
 
   it('matches the visible body-slam prompt to the real collar-tie range', () => {
     const model = createMatch('atlas', 'nova', 'standard', 'normal');
-    expect(buildControlLabels(model.player, model.opponent, 0, 1.65).grapple).toBe('BODY SLAM');
+    expect(buildControlLabels(model.player, model.opponent, 0, 1.65).grapple).toBe('COLLAR LOCK');
     expect(buildControlLabels(model.player, model.opponent, 0, 1.66).grapple).toBe('CLOSE DISTANCE');
+  });
+
+  it('renders five compact controls and takes context labels from the authoritative resolvers', () => {
+    const model = createMatch('atlas', 'nova', 'standard', 'normal');
+    const readout = buildControlReadout(model.player, model.opponent, 0, 1.4, false);
+    const controls = buildVisibleControls(readout, 'keyboard', 'compact', 'PIN SHOULDERS', 'PICK UP CHAIR');
+    expect(controls.map((control) => control.id)).toEqual(['quick', 'heavy', 'grapple', 'context', 'taunt']);
+    expect(controls.find((control) => control.id === 'context')).toMatchObject({ key: 'F', label: 'PIN SHOULDERS' });
+    expect(controls.some((control) => control.id === 'interact')).toBe(false);
+  });
+
+  it('names the exact neutral combo strike before it is pressed', () => {
+    const model = createMatch('atlas', 'nova', 'standard', 'normal'); model.player.comboStep = 1;
+    expect(buildControlLabels(model.player, model.opponent, 0, 1.4).quick).toBe('NEON ONE-TWO');
   });
 
   it('switches the whole action deck for grapple, turnbuckle, rope exit, and kick-up states', () => {

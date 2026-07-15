@@ -1,12 +1,13 @@
 import { ColliderDesc, JointData, RigidBodyDesc, World, init } from '@dimforge/rapier3d-compat';
 import type { RigidBody } from '@dimforge/rapier3d-compat';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { fighterById } from '../game/data/fighters';
+import { FIGHTERS, fighterById } from '../game/data/fighters';
 import { buildBodySchema } from '../game/physics/bodySchema';
 import type { BodySegmentId, BodySegmentSchema } from '../game/physics/bodySchema';
 import { arenaCollisionGroups, fighterCollisionGroups } from '../game/physics/collisionGroups';
 import { BodyWorksRuntime } from '../game/physics/physicsRuntime';
 import { advanceMatch, applyPhysicalContact, createMatch, requestCommand } from '../game/systems/combat';
+import { FALL_REASONS } from '../game/types/game';
 import type { FighterId, FighterSlot, MatchModel, Vec2 } from '../game/types/game';
 
 const STEP = 1 / 60;
@@ -55,14 +56,14 @@ const createHeadlessRig = (world: World, fighterId: FighterId, slot: FighterSlot
   return { bodies, joints: 15 };
 };
 
-const makeHarness = (): { world: World; runtime: BodyWorksRuntime; model: MatchModel; rig: HeadlessRig } => {
+const makeHarness = (fighterId: FighterId = 'atlas'): { world: World; runtime: BodyWorksRuntime; model: MatchModel; rig: HeadlessRig } => {
   const world = new World({ x: 0, y: -18, z: 0 }); world.timestep = STEP;
   const mat = world.createRigidBody(RigidBodyDesc.fixed().setTranslation(0, 1.52, 0));
   world.createCollider(ColliderDesc.cuboid(6, .325, 4.5).setFriction(1.1).setCollisionGroups(arenaCollisionGroups), mat);
-  const runtime = new BodyWorksRuntime(); const model = createMatch('atlas', 'nova', 'standard', 'normal', 913); model.physicsAuthority = true; model.aiThinkTimer = 999; model.aiControllers.opponent.thinkTimer = 999;
+  const runtime = new BodyWorksRuntime(); const model = createMatch(fighterId, fighterId === 'nova' ? 'atlas' : 'nova', 'standard', 'normal', 913); model.physicsAuthority = true; model.aiThinkTimer = 999; model.aiControllers.opponent.thinkTimer = 999;
   runtime.setJointData(JointData);
   runtime.registerLandingSurface('ring', 'ring', mat);
-  const rig = createHeadlessRig(world, 'atlas', 'player', -1.6); runtime.registerFighter('player', rig.bodies, rig.joints);
+  const rig = createHeadlessRig(world, fighterId, 'player', -1.6); runtime.registerFighter('player', rig.bodies, rig.joints);
   runtime.setFootContact('player', 'leftFoot', true); runtime.setFootContact('player', 'rightFoot', true);
   return { world, runtime, model, rig };
 };
@@ -190,4 +191,27 @@ describe('Rapier-backed Bodyworks integration', () => {
     expect(runtime.fighterSnapshot('player').upright).toBeGreaterThan(.62);
     expect(runtime.metrics.emergencyResetCount).toBe(0); world.free();
   });
+
+  it('traverses cardinal and diagonal directions with every wrestler and records zero unknown falls', () => {
+    const directions = [
+      { x: 1, z: 0 }, { x: -1, z: 0 }, { x: 0, z: 1 }, { x: 0, z: -1 },
+      { x: .707, z: .707 }, { x: -.707, z: -.707 }, { x: .707, z: -.707 }, { x: -.707, z: .707 },
+    ];
+    for (const fighter of FIGHTERS) {
+      const { world, runtime, model } = makeHarness(fighter.id);
+      for (let frame = 0; frame < 30; frame += 1) stepHarness(world, runtime, model);
+      for (const direction of directions) {
+        const before = { ...model.player.position };
+        for (let frame = 0; frame < 30; frame += 1) stepHarness(world, runtime, model, direction);
+        expect(Math.hypot(model.player.position.x - before.x, model.player.position.z - before.z), fighter.id).toBeGreaterThan(.55);
+        for (let frame = 0; frame < 30; frame += 1) stepHarness(world, runtime, model);
+        expect(runtime.fighterSnapshot('player').speed, fighter.id).toBeLessThan(1.2);
+        expect(runtime.fighterSnapshot('player').upright, fighter.id).toBeGreaterThan(.6);
+      }
+      expect(model.falls.filter((fall) => fall.reason === FALL_REASONS.Unknown), fighter.id).toHaveLength(0);
+      expect(model.unstableWithoutCauseSeconds, fighter.id).toBe(0);
+      expect(runtime.metrics.emergencyResetCount, fighter.id).toBe(0);
+      world.free();
+    }
+  }, 30_000);
 });

@@ -54,10 +54,20 @@ describe('authoritative action buffer', () => {
     expect(buffer.size).toBe(0);
   });
 
+  it('executes higher-priority intent before an earlier ordinary strike', () => {
+    const buffer = new ActionBuffer<string>();
+    buffer.push('strike', event('quickStrike', 1), 100);
+    buffer.push('counter', event('dodgeCounter', 2), 101);
+    const executed: string[] = [];
+    buffer.resolveNext(110, () => true, (value) => { executed.push(value); return 'executed'; });
+    buffer.resolveNext(120, () => true, (value) => { executed.push(value); return 'executed'; });
+    expect(executed).toEqual(['counter', 'strike']);
+  });
+
   it('deduplicates same-source action edges inside the bounded window', () => {
     const buffer = new ActionBuffer<string>({ duplicateWindowMs: 48 });
-    expect(buffer.push('first', event('grapple', 1), 100)).toBe(true);
-    expect(buffer.push('duplicate', event('grapple', 2), 140)).toBe(false);
+    expect(buffer.push('first', event('grapple', 1), 100)).toBe('buffered');
+    expect(buffer.push('duplicate', event('grapple', 2), 140)).toBe('duplicate');
     expect(buffer.metrics).toMatchObject({ buffered: 1, duplicate: 1 });
     expect(buffer.size).toBe(1);
   });
@@ -73,10 +83,21 @@ describe('authoritative action buffer', () => {
 
   it('bounds capacity and counts overflow as an honest rejection', () => {
     const buffer = new ActionBuffer<string>({ capacity: 2 });
-    buffer.push('one', event('quickStrike', 1), 100);
-    buffer.push('two', event('heavyStrike', 2), 110);
-    buffer.push('three', event('grapple', 3), 120);
+    expect(buffer.push('one', event('quickStrike', 1), 100)).toBe('buffered');
+    expect(buffer.push('two', event('heavyStrike', 2), 110)).toBe('buffered');
+    expect(buffer.push('three', event('grapple', 3), 120)).toBe('rejected');
     expect(buffer.size).toBe(2);
-    expect(buffer.metrics).toMatchObject({ buffered: 3, rejected: 1 });
+    expect(buffer.metrics).toMatchObject({ buffered: 2, rejected: 1 });
+  });
+
+  it('rejects and removes matching pending actions when control ownership ends', () => {
+    const buffer = new ActionBuffer<string>();
+    buffer.push('player', event('grapple', 1), 100);
+    buffer.push('network', { ...event('quickStrike', 2), source: 'network' }, 110);
+    const rejected: string[] = [];
+    expect(buffer.rejectWhere((value) => value === 'player', (value) => rejected.push(value))).toBe(1);
+    expect(rejected).toEqual(['player']);
+    expect(buffer.size).toBe(1);
+    expect(buffer.metrics.rejected).toBe(1);
   });
 });

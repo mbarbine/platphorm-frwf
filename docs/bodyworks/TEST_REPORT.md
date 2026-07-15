@@ -6,6 +6,42 @@ The tables below record the preceding release. They are not reused for the revis
 
 The previous production baseline at commit `34144fa` passed lint, typecheck, 101 Vitest tests, 12 Playwright scenarios, production build, and a live smoke. This pass changes runtime loading, quality selection, metrics, props, barricades, recovery, corner grapples, device scenarios, lab tooling, and soak coverage, so previous evidence is not reused as final certification.
 
+## Current local Phase 1 checkpoint — 2026-07-15
+
+This checkpoint covers the controls-to-authoritative-action buffer, paused-input lifecycle, exact action feedback, neutral grapple semantics, and four coaching-display modes on the current uncommitted working tree. It does not replace the required final matrix below and does not establish preview or production identity.
+
+| Gate | Command | Result |
+| --- | --- | --- |
+| Frozen install | `CI=1 npx --yes pnpm@11.13.0 install --frozen-lockfile` | pass; lockfile already current |
+| Lint | `npx --yes pnpm@11.13.0 lint` | pass, zero warnings/errors |
+| Strict types | `npx --yes pnpm@11.13.0 typecheck` | pass, zero errors |
+| Unit/integration | `npx --yes pnpm@11.13.0 test` | 30 files, 190/190 pass |
+| Production bundle | `npx --yes pnpm@11.13.0 build` | pass; known Rapier WASM size warning remains |
+| Paused touch lifecycle | `npx --yes pnpm@11.13.0 exec playwright test e2e/mobile-controls.spec.ts -g "paused touch controls"` | 1/1 pass in 9.2 seconds |
+| Gamepad + touch lifecycle | `npx --yes pnpm@11.13.0 exec playwright test e2e/device-inputs.spec.ts e2e/mobile-controls.spec.ts -g "standard gamepad\|paused touch controls"` | 3/3 pass in 36.9 seconds |
+| Exact control labels + display modes | `PLAYWRIGHT_SUITE=control-deck-modes-four npx --yes pnpm@11.13.0 playwright test e2e/control-deck-modes.spec.ts` | 4/4 pass in 48.4 seconds; full/compact labels matched resolvers, compact first-L path observed `slam`, prompts-only retained exact feedback, hidden removed coaching overlays |
+| Playability regressions, first run | `npx --yes pnpm@11.13.0 test:playability` | 6/6 pass in 3.5 minutes |
+| Playability regressions, repeat | `npx --yes pnpm@11.13.0 test:playability` | **fail**, 5/6 pass in 4.4 minutes; loaded stiff-arm had no required physical contact, impact, or knockdown |
+
+The focused touch proof uses a physical Playwright click, verifies the pause button remains the page hit target, confirms paused controls are disabled, attempts a touch edge while paused, resumes, and confirms the executed-action count does not advance. The gamepad proof pauses and resumes with the standard Start button while physics is stopped and likewise rejects a paused strike. The display-mode proof uses real keyboard edges and a MutationObserver only to retain the transient resolved move ID; it does not mutate gameplay state. No `force` click or direct pause-state mutation is used. The non-repeatable rope result prevents broader playability signoff.
+
+## Current local Phase 2 checkpoint — 2026-07-15
+
+This checkpoint covers neutral stance/orientation, all-roster traversal, braking, rapid turns, soft separation, and explicit fall attribution on the current uncommitted working tree. It is automated local evidence only; it is not a human-play, physical-device, preview-deployment, or release certificate.
+
+| Gate | Command | Result |
+| --- | --- | --- |
+| Orientation and separation units | `npx --yes pnpm@11.13.0 exec vitest run src/tests/combatOrientation.test.ts src/tests/closeRangeSeparation.test.ts` | pass, 6/6; bounded independent orientation and exact-overlap separation |
+| Headless physical traversal | `npx --yes pnpm@11.13.0 exec vitest run src/tests/physicsRuntime.integration.test.ts` | pass, 7/7; all five wrestlers × eight directions, stop, support, and fall audit included |
+| Neutral production-build browser | `PLAYWRIGHT_SUITE=neutral-orientation npx --yes pnpm@11.13.0 playwright test e2e/neutral-stability.spec.ts` | pass, 2/2 in 54.8 seconds; stand/walk/stop/run/brake/rapid-turn/soft-separation, zero unknown falls, unexplained instability, or emergency resets |
+| AI fall-attribution soak | `npx --yes pnpm@11.13.0 test:ai-soak` | pass, 2/2; singles 50/50 complete with 218 known falls (102 impact, 116 throw), zero unknown falls or unexplained unstable time; Battle Royale sample also zero unknown/unstable |
+| Automated Toy Test neutral gate | `PLAYWRIGHT_SUITE=toy-neutral npx --yes pnpm@11.13.0 playwright test e2e/toy-test.spec.ts` | pass, 1/1 in 32.5 seconds; zero unknown falls, unexplained instability, or emergency resets after movement |
+| Production-preview visual sample | local optimized preview at `127.0.0.1:4182` with Playwright Chromium | pass for the scoped neutral sample: two-foot support, combat stance, zero facing error, zero unknown/unstable telemetry, no console errors; procedural close-range visuals remain uncertified |
+| Combined fast gate | `npx --yes pnpm@11.13.0 verify` | pass; lint, strict types, 32 files / 197 tests, and production build; known isolated Rapier WASM size warning remains |
+| Default Battle Royale production-build browser | `PLAYWRIGHT_SUITE=battle-royale-final npx --yes pnpm@11.13.0 playwright test e2e/battle-royale.spec.ts` | pass, 3/3 in 1.9 minutes; five rigs, default-mode UI, target cycling, authoritative movement, above-deck active bodies, and clean browser error capture |
+
+The AI result records causes instead of treating match completion as sufficient. The browser orientation telemetry is derived from the same pure orientation model used by the fighter presentation, while support/fall/reset evidence comes from the live physical runtime. A manual ten-minute Toy Test and physical keyboard/gamepad/touch matrix remain required.
+
 ## Required final evidence
 
 | Gate | Command | Acceptance |

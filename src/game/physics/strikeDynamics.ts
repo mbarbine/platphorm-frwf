@@ -39,6 +39,43 @@ export const strikeDriveProfile = (moveId: string): StrikeDriveProfile | null =>
   return null;
 };
 
+/**
+ * A raised guard supplies the reachable target in front of the defender's
+ * torso. The striking limb still receives its full authored drive, but the
+ * attacker's centre of mass must not charge through that target and collapse
+ * two articulated rigs into the same solver space.
+ */
+export const strikePelvisAcceleration = (profile: StrikeDriveProfile, guardIntercept: boolean, strikeDistance = .2): number => {
+  if (!guardIntercept) return profile.pelvisAcceleration;
+  const clearance = Math.max(0, strikeDistance - .2);
+  return Math.min(profile.pelvisAcceleration, .8 + clearance * 4.75);
+};
+
+/**
+ * Guard limbs are a near-field target. Driving an already-adjacent glove at
+ * the move's full open-space speed asks the constraint solver to tunnel one
+ * articulated chain through another. Approach the contact surface at a speed
+ * proportional to the remaining clearance while preserving the authored limb.
+ */
+export const guardInterceptDriveProfile = (profile: StrikeDriveProfile, strikeDistance: number): StrikeDriveProfile => {
+  const clearance = Math.max(0, strikeDistance - .2);
+  return {
+    ...profile,
+    speed: Math.min(profile.speed, .45 + clearance * 14),
+    response: Math.min(profile.response, 12 + clearance * 20),
+    maximumAcceleration: Math.min(profile.maximumAcceleration, 120 + clearance * 500),
+  };
+};
+
+/** Returns the near surface of a raised guard limb, never its solid center. */
+export const guardInterceptSurfaceTarget = (source: PhysicsVector3, target: PhysicsVector3, centerClearance = .17): PhysicsVector3 => {
+  const dx = target.x - source.x; const dy = target.y - source.y; const dz = target.z - source.z;
+  const distance = Math.hypot(dx, dy, dz);
+  if (distance <= centerClearance || distance < 1e-7) return source;
+  const scale = (distance - centerClearance) / distance;
+  return { x: source.x + dx * scale, y: source.y + dy * scale, z: source.z + dz * scale };
+};
+
 const clampMagnitude = (vector: PhysicsVector3, maximum: number): PhysicsVector3 => {
   const magnitude = Math.hypot(vector.x, vector.y, vector.z);
   if (magnitude <= maximum || magnitude < 1e-7) return vector;

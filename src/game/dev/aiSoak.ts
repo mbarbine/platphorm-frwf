@@ -1,8 +1,10 @@
 import { FIGHTERS } from '../data/fighters';
 import { advanceMatch, createMatch } from '../systems/combat';
 import type { FrameInput } from '../systems/combat';
+import { FALL_REASONS } from '../types/game';
 import type { FighterId, FighterSlot, GameCommand, MatchMode, MatchModel, Vec2 } from '../types/game';
 import { createActionEvent, gameCommandToAction } from '../input/actionLayer';
+import { fallCount } from '../systems/falls';
 
 export interface AiSoakMatch {
   seed: number;
@@ -21,6 +23,13 @@ export interface AiSoakMatch {
   simulatedSeconds: number;
   steps: number;
   wallMs: number;
+  falls: number;
+  commandedFalls: number;
+  impactFalls: number;
+  throwFalls: number;
+  fatigueFalls: number;
+  unknownFalls: number;
+  unstableWithoutCauseSeconds: number;
 }
 
 export interface AiSoakReport {
@@ -34,6 +43,13 @@ export interface AiSoakReport {
   p95MatchWallMs: number;
   maximumReplayFrames: number;
   maximumProps: number;
+  totalFalls: number;
+  commandedFalls: number;
+  impactFalls: number;
+  throwFalls: number;
+  fatigueFalls: number;
+  unknownFalls: number;
+  unstableWithoutCauseSeconds: number;
   matches: readonly AiSoakMatch[];
 }
 
@@ -68,6 +84,11 @@ export const runAiSoak = (count = 50, seedBase = 41_000, maximumMatchSeconds = 2
       maximumReplayFrames = Math.max(maximumReplayFrames, model.replayFrames.length); maximumProps = Math.max(maximumProps, model.props.length);
     }
     const wallMs = performance.now() - started; totalSteps += steps; totalWallMs += wallMs;
+    const commandedFalls = fallCount(model, FALL_REASONS.PhysicsLab, FALL_REASONS.DodgeFailure, FALL_REASONS.MissedAerial);
+    const impactFalls = fallCount(model, FALL_REASONS.StrikeImpulse, FALL_REASONS.SupportCollision, FALL_REASONS.RopeOrObject, FALL_REASONS.KnockdownMove, FALL_REASONS.Knockout);
+    const throwFalls = fallCount(model, FALL_REASONS.Throw);
+    const fatigueFalls = fallCount(model, FALL_REASONS.Fatigue);
+    const unknownFalls = fallCount(model, FALL_REASONS.Unknown);
     matches.push({
       seed, player, opponent: model.opponent.definitionId, completed: model.resolved, winner: model.result?.winner ?? null, method: model.result?.method ?? null, matchMode, eliminations: model.eliminations.length,
       remaining: (['player', 'opponent', 'rival1', 'rival2', 'rival3'] as const).filter((slot) => model[slot].state !== 'defeated'),
@@ -75,7 +96,7 @@ export const runAiSoak = (count = 50, seedBase = 41_000, maximumMatchSeconds = 2
       finalHealth: Object.fromEntries((['player', 'opponent', 'rival1', 'rival2', 'rival3'] as const).map((slot) => [slot, model[slot].health])) as Record<FighterSlot, number>,
       finalTargets: { ...model.targets },
       finalPositions: Object.fromEntries((['player', 'opponent', 'rival1', 'rival2', 'rival3'] as const).map((slot) => [slot, { ...model[slot].position }])) as Record<FighterSlot, Vec2>,
-      simulatedSeconds: model.elapsed, steps, wallMs,
+      simulatedSeconds: model.elapsed, steps, wallMs, falls: model.falls.length, commandedFalls, impactFalls, throwFalls, fatigueFalls, unknownFalls, unstableWithoutCauseSeconds: model.unstableWithoutCauseSeconds,
     });
   }
   const completed = matches.filter((match) => match.completed); const wallSamples = matches.map((match) => match.wallMs).sort((a, b) => a - b);
@@ -90,6 +111,13 @@ export const runAiSoak = (count = 50, seedBase = 41_000, maximumMatchSeconds = 2
     p95MatchWallMs: wallSamples[Math.max(0, Math.ceil(wallSamples.length * .95) - 1)] ?? 0,
     maximumReplayFrames,
     maximumProps,
+    totalFalls: matches.reduce((total, match) => total + match.falls, 0),
+    commandedFalls: matches.reduce((total, match) => total + match.commandedFalls, 0),
+    impactFalls: matches.reduce((total, match) => total + match.impactFalls, 0),
+    throwFalls: matches.reduce((total, match) => total + match.throwFalls, 0),
+    fatigueFalls: matches.reduce((total, match) => total + match.fatigueFalls, 0),
+    unknownFalls: matches.reduce((total, match) => total + match.unknownFalls, 0),
+    unstableWithoutCauseSeconds: matches.reduce((total, match) => total + match.unstableWithoutCauseSeconds, 0),
     matches,
   };
 };

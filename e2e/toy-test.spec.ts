@@ -20,5 +20,9 @@ test('UI-free Toy Test preserves body control while removing score pressure', as
     new MutationObserver(sample).observe(liveCanvas, { attributes: true }); sample();
   }, { x: initialX, z: initialZ });
   await page.keyboard.down('w'); await expect.poll(async () => Number(await page.locator('html').getAttribute('data-maximum-toy-displacement')), { timeout: 60_000, intervals: [100, 250, 500, 1_000] }).toBeGreaterThan(.75); await page.keyboard.up('w');
-  await expect(canvas).toHaveAttribute('data-opponent-health', '100.0'); expect(errors).toEqual([]);
+  await expect(canvas).toHaveAttribute('data-opponent-health', '100.0');
+  await expect(canvas).toHaveAttribute('data-unknown-falls', '0');
+  await expect(canvas).toHaveAttribute('data-unstable-without-cause-seconds', '0.000');
+  await expect(canvas).toHaveAttribute('data-physics-emergency-resets', '0');
+  expect(errors).toEqual([]);
 });

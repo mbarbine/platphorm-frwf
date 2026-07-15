@@ -92,6 +92,10 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--cyan); outl
 .control-deck li span { overflow: hidden; font-size: .47rem; font-weight: 950; letter-spacing: .075em; text-overflow: ellipsis; white-space: nowrap; }
 .control-deck li.is-active { color: #0a0710; border-color: #f4ffb3; background: linear-gradient(90deg,var(--acid),#8cf8c8); box-shadow: 0 0 18px rgba(220,255,70,.3); transform: translateY(-1px); }
 .control-deck li.is-active kbd { color: white; border-color: #ff9ec6; background: linear-gradient(145deg,var(--pink),var(--violet)); box-shadow: 0 2px 0 #571247; }
+.control-deck--compact { width: min(820px, calc(100vw - 2rem)); }
+.control-deck--compact ul { grid-template-columns: repeat(5,minmax(0,1fr)); }
+.control-deck--compact header { grid-template-columns: auto 1fr; }
+.control-deck--compact header strong { grid-column: 1 / -1; text-align: center; }
 .control-deck--paused { opacity: .62; filter: grayscale(.45); }
 .action-strip { position: absolute; left: 50%; bottom: 8.2rem; display: flex; gap: .5rem; align-items: center; transform: translateX(-50%); padding: .3rem .62rem; color: #ded8e7; border: 1px solid rgba(255,255,255,.2); border-left: 4px solid var(--cyan); background: rgba(6,4,13,.9); box-shadow: 0 8px 24px rgba(0,0,0,.45); font-size: .52rem; letter-spacing: .1em; }
 .action-strip span { color: var(--cyan); font-size: .42rem; font-weight: 950; }.action-strip b { color: white; font: 950 .65rem Impact,sans-serif; }.action-strip small { color: var(--muted); font-size: .4rem; font-weight: 900; }
@@ -110,6 +114,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--cyan); outl
 .mobile-controls button:active, .mobile-controls button.is-pressed { transform: scale(.92); filter: brightness(1.35); }.mobile-controls--paused { opacity: .2; pointer-events: none; }
 .mobile-controls button:disabled { opacity: .32; filter: grayscale(.8); pointer-events: none; }
 .mobile-pause { position: absolute; top: max(.55rem, env(safe-area-inset-top)); left: 50%; width: 38px; height: 32px; transform: translateX(-50%); pointer-events: auto; border-radius: 8px; font-weight: 950; letter-spacing: -.18em; }
+.mobile-controls .mobile-pause:active { transform: translateX(-50%) scale(.92); }
 .mobile-stick { position: absolute; left: max(.75rem, env(safe-area-inset-left)); bottom: max(.75rem, env(safe-area-inset-bottom)); width: clamp(116px, 25vw, 156px); aspect-ratio: 1; display: grid; place-items: center; pointer-events: auto; touch-action: none; border: 2px solid rgba(72,231,255,.48); border-radius: 50%; background: radial-gradient(circle, rgba(72,231,255,.15), rgba(7,5,15,.68) 67%, rgba(72,231,255,.08)); box-shadow: inset 0 0 28px rgba(72,231,255,.13), 0 12px 35px rgba(0,0,0,.48); }
 .mobile-stick::before, .mobile-stick::after { content: ""; position: absolute; background: rgba(72,231,255,.18); }.mobile-stick::before { width: 74%; height: 1px; }.mobile-stick::after { width: 1px; height: 74%; }.mobile-stick > span { position: absolute; bottom: 13%; color: rgba(255,255,255,.52); font-size: .48rem; font-weight: 950; letter-spacing: .17em; }
 .mobile-stick > i { position: relative; z-index: 1; width: 52%; aspect-ratio: 1; border: 2px solid rgba(255,255,255,.58); border-radius: 50%; background: radial-gradient(circle at 35% 30%, #63f1ff, #7740dc 63%, #241253); box-shadow: 0 0 22px rgba(72,231,255,.42), inset 0 -8px 14px rgba(0,0,0,.32); will-change: transform; }
@@ -149,7 +154,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--cyan); outl
 @media (max-width: 1050px) { .select-layout { grid-template-columns: 220px 1fr 310px; }.how-grid { grid-template-columns: repeat(2, 1fr); }.hud__fighters { grid-template-columns: 1fr 120px 1fr; gap: 1rem; }.fighter-hud__name b { font-size: 1.1rem; }.control-deck header { grid-template-columns: auto 1fr; }.control-deck header strong { display: none; } }
 @media (max-width: 850px) { .locker-room { grid-template-columns: 1fr auto; }.locker-room > div:last-child { grid-column: 1 / -1; }.beer-cans { justify-self: end; } }
 @media (hover: none), (pointer: coarse), (max-width: 900px) {
-  .mobile-controls { display: block; }.match-screen { touch-action: none; }
+  .mobile-controls { display: block; }.match-screen { touch-action: none; }.game-canvas:not([data-player-state="defeated"]) canvas { pointer-events: none; }
   .control-deck { display: none; }.control-deck + .context-hint { bottom: calc(max(.55rem, env(safe-area-inset-bottom)) + clamp(158px, 35vw, 210px)); }
   .hud__fighters { grid-template-columns: minmax(120px, 1fr) 64px minmax(120px, 1fr); gap: .45rem; padding: max(.42rem, env(safe-area-inset-top)) max(.55rem, env(safe-area-inset-right)) .5rem max(.55rem, env(safe-area-inset-left)); }
   .fighter-hud__name { margin-bottom: .2rem; }.fighter-hud__name b { max-width: 72%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: clamp(.75rem, 2.4vw, 1rem); }.fighter-hud__name span { font-size: .4rem; }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeStrikeForce, strikeDriveProfile, sweptPlanarPathHitsTarget } from '../game/physics/strikeDynamics';
+import { computeStrikeForce, guardInterceptDriveProfile, guardInterceptSurfaceTarget, strikeDriveProfile, strikePelvisAcceleration, sweptPlanarPathHitsTarget } from '../game/physics/strikeDynamics';
 import { selectDirectionalStrike } from '../game/systems/moveSelection';
 
 describe('physical strike drive', () => {
@@ -27,6 +27,27 @@ describe('physical strike drive', () => {
     expect(punch).toMatchObject({ source: 'rightHand', target: 'chest' });
     expect(followUp).toMatchObject({ source: 'leftHand', target: 'chest' });
     expect(kick).toMatchObject({ source: 'rightFoot', target: 'chest' });
+  });
+
+  it('bounds whole-body travel and near-field limb speed into a physical guard', () => {
+    const jab = strikeDriveProfile('jab');
+    expect(jab).not.toBeNull();
+    if (!jab) return;
+
+    expect(strikePelvisAcceleration(jab, false)).toBe(jab.pelvisAcceleration);
+    expect(strikePelvisAcceleration(jab, true, .23)).toBeLessThan(1);
+    expect(strikePelvisAcceleration(jab, true, .23)).toBeGreaterThan(0);
+    expect(guardInterceptDriveProfile(jab, .23)).toMatchObject({
+      source: jab.source,
+      target: jab.target,
+      speed: expect.closeTo(.87),
+      response: expect.closeTo(12.6),
+      maximumAcceleration: 135,
+    });
+    expect(guardInterceptDriveProfile(jab, 4)).toMatchObject(jab);
+    expect(strikePelvisAcceleration(jab, true, 1.4)).toBe(jab.pelvisAcceleration);
+    expect(guardInterceptSurfaceTarget({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 1 })).toEqual({ x: 0, y: 0, z: .83 });
+    expect(guardInterceptSurfaceTarget({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: .12 })).toEqual({ x: 0, y: 0, z: 0 });
   });
 
   it('commits the full torso to a domefall dive', () => {

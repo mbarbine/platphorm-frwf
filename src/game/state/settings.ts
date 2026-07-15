@@ -9,13 +9,16 @@ export interface Settings {
   reducedMotion: boolean;
   uiScale: number;
   graphicsQuality: GraphicsQuality;
+  controlDeckMode: ControlDeckMode;
   grappleGuide: 'full' | 'minimal' | 'off';
   cameraCuts: 'full' | 'reduced' | 'off';
   lowFlash: boolean;
   highContrast: boolean;
 }
 
-const DEFAULTS: Settings = { masterVolume: .72, effectsVolume: .86, crowdVolume: .66, shake: .65, reducedMotion: false, uiScale: 1, graphicsQuality: 'auto', grappleGuide: 'full', cameraCuts: 'full', lowFlash: false, highContrast: false };
+export type ControlDeckMode = 'full' | 'compact' | 'prompts' | 'hidden';
+
+const DEFAULTS: Settings = { masterVolume: .72, effectsVolume: .86, crowdVolume: .66, shake: .65, reducedMotion: false, uiScale: 1, graphicsQuality: 'auto', controlDeckMode: 'full', grappleGuide: 'full', cameraCuts: 'full', lowFlash: false, highContrast: false };
 const STORAGE_KEY = 'ringfall-settings-v1';
 
 const load = (): Settings => {
@@ -32,6 +35,7 @@ const load = (): Settings => {
       reducedMotion: typeof candidate.reducedMotion === 'boolean' ? candidate.reducedMotion : window.matchMedia('(prefers-reduced-motion: reduce)').matches,
       uiScale: typeof candidate.uiScale === 'number' ? Math.min(1.25, Math.max(.85, candidate.uiScale)) : DEFAULTS.uiScale,
       graphicsQuality: candidate.graphicsQuality === 'performance' || candidate.graphicsQuality === 'quality' ? candidate.graphicsQuality : 'auto',
+      controlDeckMode: candidate.controlDeckMode === 'compact' || candidate.controlDeckMode === 'prompts' || candidate.controlDeckMode === 'hidden' ? candidate.controlDeckMode : 'full',
       grappleGuide: candidate.grappleGuide === 'minimal' || candidate.grappleGuide === 'off' ? candidate.grappleGuide : 'full',
       cameraCuts: candidate.cameraCuts === 'reduced' || candidate.cameraCuts === 'off' ? candidate.cameraCuts : 'full',
       lowFlash: typeof candidate.lowFlash === 'boolean' ? candidate.lowFlash : DEFAULTS.lowFlash,
@@ -50,7 +54,7 @@ const persist = (settings: Settings): void => localStorage.setItem(STORAGE_KEY, 
 export const useSettings = create<SettingsStore>((set) => ({
   ...load(),
   update: (patch) => set((current) => {
-    const next: Settings = { masterVolume: current.masterVolume, effectsVolume: current.effectsVolume, crowdVolume: current.crowdVolume, shake: current.shake, reducedMotion: current.reducedMotion, uiScale: current.uiScale, graphicsQuality: current.graphicsQuality, grappleGuide: current.grappleGuide, cameraCuts: current.cameraCuts, lowFlash: current.lowFlash, highContrast: current.highContrast, ...patch };
+    const next: Settings = { masterVolume: current.masterVolume, effectsVolume: current.effectsVolume, crowdVolume: current.crowdVolume, shake: current.shake, reducedMotion: current.reducedMotion, uiScale: current.uiScale, graphicsQuality: current.graphicsQuality, controlDeckMode: current.controlDeckMode, grappleGuide: current.grappleGuide, cameraCuts: current.cameraCuts, lowFlash: current.lowFlash, highContrast: current.highContrast, ...patch };
     persist(next); return next;
   }),
   reset: () => { persist(DEFAULTS); set(DEFAULTS); },

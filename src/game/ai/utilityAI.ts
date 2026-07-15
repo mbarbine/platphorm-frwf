@@ -8,7 +8,7 @@ import { GRAPPLE_ACQUISITION_RANGE } from '../systems/moveSelection';
 export interface AiDecision { command: GameCommand | null; move: { x: number; z: number }; run: boolean; nextSeed: number }
 
 const grappleDirectionFor = (tendency: FighterDefinition['tendency'], roll: number): { x: number; z: number } => {
-  // 22% chance for neutral piledriver on any grapple command
+  // Neutral grapple commands establish the dependable default body slam.
   if (roll < .22) return { x: 0, z: 0 };
   const r = (roll - .22) / .78;
   if (tendency === 'aggressive') return r < .65 ? { x: 0, z: -1 } : { x: 0, z: 1 };
@@ -170,7 +170,7 @@ export const chooseAiDecision = (model: MatchModel, definition: FighterDefinitio
 
   // Desperation mode: when very low health, gamble on a piledriver
   if (actor.health < 28 && actor.stamina > 22 && separation < 1.5 && roll < .52 && isActionLegal(model, 'grapple', actorKey)) {
-    return { command: 'grapple', move: { x: 0, z: 0 }, run: false, nextSeed }; // neutral = piledriver
+    return { command: 'grapple', move: { x: 0, z: 0 }, run: false, nextSeed }; // neutral = body slam lock-up
   }
 
   // Full momentum: aggressively pursue finisher setup
@@ -194,7 +194,7 @@ export const chooseAiDecision = (model: MatchModel, definition: FighterDefinitio
   const heavyThreshold = clampChance(.7 - personality.aggressive * .12 - personality.reckless * .1);
   const command: GameCommand = bias === 'technical' && roll < grappleThreshold + .16 ? 'grapple'
     : bias === 'opportunistic' && roll > heavyThreshold ? 'heavy'
-    : bias === 'aggressive' && roll < .28 ? 'grapple' // aggressive fighters grab for piledriver
+    : bias === 'aggressive' && roll < .28 ? 'grapple' // aggressive fighters grab for a default slam
     : roll < .44 ? 'quick' : roll < .44 + grappleThreshold ? 'grapple' : 'heavy';
   const legal = isActionLegal(model, command, actorKey) ? command : isActionLegal(model, 'quick', actorKey) ? 'quick' : null;
   const move = legal === 'grapple' ? grappleDirectionFor(definition.tendency, roll)

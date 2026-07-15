@@ -2,10 +2,11 @@ import { getMove } from '../game/data/moves';
 import { canTransitionThroughRopes } from '../game/systems/combat';
 import { combatDirection, GRAPPLE_ACQUISITION_RANGE, selectDirectionalGrapple, selectDirectionalStrike } from '../game/systems/moveSelection';
 import type { ControlDevice, FighterRuntime, Vec2 } from '../game/types/game';
+import type { ControlDeckMode } from '../game/state/settings';
 
 type ControlId = 'move' | 'run' | 'quick' | 'heavy' | 'grapple' | 'block' | 'counter' | 'jump' | 'interact' | 'context' | 'taunt';
 
-interface ControlDefinition {
+export interface ControlDefinition {
   id: ControlId;
   label: string;
   key: string;
@@ -21,14 +22,17 @@ export interface ControlReadout {
 const DEVICE_KEYS: Readonly<Record<ControlDevice, Readonly<Record<ControlId, string>>>> = {
   keyboard: { move: 'WASD', run: 'SHIFT', quick: 'J', heavy: 'K', grapple: 'L', block: 'I', counter: 'SPACE', jump: 'C', interact: 'E', context: 'F', taunt: 'Q' },
   gamepad: { move: 'L STICK', run: 'RT', quick: 'X / □', heavy: 'Y / △', grapple: 'B / ○', block: 'LT', counter: 'A / ×', jump: 'L3', interact: 'LB', context: 'R3', taunt: 'RB' },
-  touch: { move: 'STICK', run: 'RUN', quick: 'QUICK', heavy: 'KICK', grapple: 'BODY SLAM', block: 'GUARD', counter: '↯', jump: 'JUMP', interact: 'PROP', context: 'SPECIAL / PIN', taunt: 'TAUNT' },
+  touch: { move: 'STICK', run: 'RUN', quick: 'QUICK', heavy: 'KICK', grapple: 'GRAPPLE', block: 'GUARD', counter: '↯', jump: 'JUMP', interact: 'PROP', context: 'SPECIAL / PIN', taunt: 'TAUNT' },
 };
 
 export const controlPrompt = (device: ControlDevice, control: ControlId): string => DEVICE_KEYS[device][control];
 
 const BASE_LABELS: Readonly<Record<ControlId, string>> = {
-  move: 'MOVE', run: 'SPRINT', quick: 'PUNCH', heavy: 'KICK', grapple: 'BODY SLAM', block: 'GUARD (HOLD)', counter: 'DODGE / COUNTER', jump: 'JUMP', interact: 'PROP', context: 'SPECIAL / PIN', taunt: 'TAUNT',
+  move: 'MOVE', run: 'SPRINT', quick: 'CIRCUIT JAB', heavy: 'PISTON BOOT', grapple: 'COLLAR LOCK', block: 'GUARD (HOLD)', counter: 'DODGE / COUNTER', jump: 'JUMP', interact: 'PROP', context: 'NO CONTEXT ACTION', taunt: 'SIGNATURE TAUNT',
 };
+
+const FULL_CONTROL_IDS = Object.keys(BASE_LABELS) as ControlId[];
+const COMPACT_CONTROL_IDS: readonly ControlId[] = ['quick', 'heavy', 'grapple', 'context', 'taunt'];
 
 const moveLabel = (moveId: string): string => getMove(moveId).displayName.toUpperCase();
 
@@ -41,16 +45,12 @@ export function buildControlLabels(player: FighterRuntime, opponent: FighterRunt
     ? direction
     : speed > .08 ? player.velocity : direction;
   const directionId = combatDirection(effectiveDirection);
-  const isStanding = ['idle', 'locomotion', 'blocking', 'attacking', 'staggered', 'recovering', 'airborne', 'jumping'].includes(player.state);
-
   labels.quick = opponent.state === 'downed' ? moveLabel('ground')
-    : isStanding && directionId === 'neutral' ? BASE_LABELS.quick
-      : moveLabel(selectDirectionalStrike(effectiveDirection, 'quick', player.comboStep));
+    : moveLabel(selectDirectionalStrike(effectiveDirection, 'quick', player.comboStep));
   labels.heavy = player.heldPropId ? moveLabel('prop')
     : player.ropeRebound > 0
       ? directionId === 'left' ? 'LEFT ARM STIFF-ARM' : directionId === 'right' ? 'RIGHT ARM STIFF-ARM' : moveLabel('stiff_arm')
       : running || speed > 3.6 ? moveLabel('stiff_arm')
-        : isStanding && directionId === 'neutral' ? BASE_LABELS.heavy
         : moveLabel(selectDirectionalStrike(effectiveDirection, 'heavy', player.comboStep));
 
   if (player.state === 'grappling') {
@@ -127,8 +127,8 @@ export function buildControlReadout(player: FighterRuntime, opponent: FighterRun
   const ringside = Math.abs(player.position.x) > 5.82 || Math.abs(player.position.z) > 4.32;
   const clinchCornerDistance = Math.hypot(opponent.position.x - Math.sign(opponent.position.x || player.position.x || 1) * 5.35, opponent.position.z - Math.sign(opponent.position.z || player.position.z || 1) * 3.85);
   let callout = distance > 5.5
-    ? `${keys.move} MOVE · ${keys.run} SPRINT · CLOSE IN THEN ${keys.quick} PUNCH OR ${keys.grapple} BODY SLAM`
-    : `${keys.quick} PUNCH · ${keys.heavy} KICK · ${keys.grapple} BODY SLAM · ${keys.jump} JUMP · ${keys.block} GUARD`;
+    ? `${keys.move} MOVE · ${keys.run} SPRINT · CLOSE IN THEN ${keys.quick} ${labels.quick} OR ${keys.grapple} COLLAR LOCK`
+    : `${keys.quick} ${labels.quick} · ${keys.heavy} ${labels.heavy} · ${keys.grapple} COLLAR LOCK · ${keys.jump} JUMP · ${keys.block} GUARD`;
   if (paused) callout = 'SIMULATION STOPPED · RESUME TO WRESTLE';
   else if (player.state === 'pinned') callout = `${keys.counter} RAPIDLY · KICK OUT BEFORE THREE`;
   else if (player.state === 'downed' || player.moveId === 'kick_up') callout = `${keys.counter} · LIVEWIRE KICK-UP`;
@@ -149,18 +149,28 @@ export function buildControlReadout(player: FighterRuntime, opponent: FighterRun
   else if (canTransitionThroughRopes(player.position)) callout = `${actionKey} · ${ringside ? 'ENTER RING' : 'EXIT TO RINGSIDE'} THROUGH CENTER ROPE`;
   else if (!nearCorner && (Math.abs(player.position.x) > 4.1 || Math.abs(player.position.z) > 3.2)) callout = `NEAR ROPES · SPRINT TO REBOUND · ${actionKey} AT APRON TO EXIT RING`;
   else if (player.counterWindow > 0) callout = `${keys.counter} NOW · REVERSE THE ATTACK`;
-  else if (distance <= GRAPPLE_ACQUISITION_RANGE) callout = `${keys.quick} RAPID COMBO · UP+${keys.quick}=CROSS · DOWN+${keys.quick}=KICK · ${keys.grapple} BODY SLAM`;
+  else if (distance <= GRAPPLE_ACQUISITION_RANGE) callout = `${keys.grapple} COLLAR LOCK · BODY SLAM DEFAULT · ${keys.quick} RAPID COMBO · ${keys.heavy} ${labels.heavy}`;
   else if (distance < 4.8 && movementHeld && !runHeld) callout = `IN RANGE · RAPID ${keys.quick}=JAB→ONE-TWO · ${keys.heavy}=KICK · HOLD WASD+${keys.quick}/${keys.heavy} FOR DIRECTIONAL STRIKES`;
 
   return { active, callout, labels, state };
 }
 
-export function ControlDeck({ device, player, opponent, speed, distance, paused, direction = { x: 0, z: 0 }, runHeld = false, contextPreview, propPreview }: { device: ControlDevice; player: FighterRuntime; opponent: FighterRuntime; speed: number; distance: number; paused: boolean; direction?: Vec2; runHeld?: boolean; contextPreview?: string; propPreview?: string }) {
-  const readout = buildControlReadout(player, opponent, speed, distance, paused, device, direction, runHeld);
-  const controls: readonly ControlDefinition[] = (Object.keys(BASE_LABELS) as ControlId[]).map((id) => ({ id, key: DEVICE_KEYS[device][id], label: readout.labels[id] }));
+export const buildVisibleControls = (readout: ControlReadout, device: ControlDevice, mode: Extract<ControlDeckMode, 'full' | 'compact'>, contextPreview?: string, propPreview?: string): readonly ControlDefinition[] => {
+  const ids = mode === 'compact' ? COMPACT_CONTROL_IDS : FULL_CONTROL_IDS;
+  return ids.map((id) => ({
+    id,
+    key: DEVICE_KEYS[device][id],
+    label: id === 'context' && contextPreview ? contextPreview : id === 'interact' && propPreview ? propPreview : readout.labels[id],
+  }));
+};
 
-  return <aside className={`control-deck${paused ? ' control-deck--paused' : ''}`} aria-label="Live wrestling controls" data-testid="control-deck" data-control-state={readout.state} data-control-direction={combatDirection(direction)} data-context-preview={contextPreview ?? ''} data-prop-preview={propPreview ?? ''}>
-    <header><span>LIVE WRESTLING CONTROLS · {device.toUpperCase()}</span><b>{readout.state}</b><strong>{contextPreview || propPreview ? `F ${contextPreview ?? 'NO ACTION'} · E ${propPreview ?? 'NO ACTION'}` : readout.callout}</strong></header>
+export function ControlDeck({ device, player, opponent, speed, distance, paused, mode = 'full', direction = { x: 0, z: 0 }, runHeld = false, contextPreview, propPreview }: { device: ControlDevice; player: FighterRuntime; opponent: FighterRuntime; speed: number; distance: number; paused: boolean; mode?: Extract<ControlDeckMode, 'full' | 'compact'>; direction?: Vec2; runHeld?: boolean; contextPreview?: string; propPreview?: string }) {
+  const readout = buildControlReadout(player, opponent, speed, distance, paused, device, direction, runHeld);
+  const controls = buildVisibleControls(readout, device, mode, contextPreview, propPreview);
+  const keys = DEVICE_KEYS[device];
+
+  return <aside className={`control-deck control-deck--${mode}${paused ? ' control-deck--paused' : ''}`} aria-label="Live wrestling controls" data-testid="control-deck" data-control-mode={mode} data-control-state={readout.state} data-control-direction={combatDirection(direction)} data-context-preview={contextPreview ?? ''} data-prop-preview={propPreview ?? ''}>
+    <header><span>LIVE WRESTLING CONTROLS · {device.toUpperCase()}</span><b>{readout.state}</b><strong>{contextPreview || propPreview ? `${keys.context} ${contextPreview ?? 'NO ACTION'} · ${keys.interact} ${propPreview ?? 'NO ACTION'}` : readout.callout}</strong></header>
     <ul>{controls.map((control) => <li className={readout.active.has(control.id) ? 'is-active' : ''} data-control={control.id} data-move-label={control.label} key={control.id}><kbd>{control.key}</kbd><span>{control.label}</span></li>)}</ul>
   </aside>;
 }

@@ -53,6 +53,37 @@ test('standard gamepad axes, run trigger, and quick attack drive the live match'
   await expect(hud.locator('[data-action-executed]')).not.toHaveAttribute('data-action-executed', '0');
 });
 
+test('standard gamepad can resume a paused match without leaking a paused action', async ({ page }) => {
+  test.setTimeout(150_000);
+  await page.addInitScript(() => {
+    const buttons = Array.from({ length: 17 }, () => ({ pressed: false, touched: false, value: 0 }));
+    const pad = { axes: [0, 0, 0, 0], buttons, connected: true, id: 'Ringfall deterministic standard pad', index: 0, mapping: 'standard', timestamp: 0, vibrationActuator: null, hapticActuators: [] };
+    Object.defineProperty(navigator, 'getGamepads', { configurable: true, value: () => [pad] });
+    (window as Window & { __ringfallPad?: typeof pad }).__ringfallPad = pad;
+  });
+  await enterLabMatch(page);
+  await page.evaluate(() => window.dispatchEvent(new Event('gamepadconnected')));
+  const hud = page.locator('.hud');
+  const setButton = async (index: number, pressed: boolean): Promise<void> => page.evaluate(({ buttonIndex, nextPressed }) => {
+    const button = (window as Window & { __ringfallPad?: { buttons: Array<{ pressed: boolean; value: number }> } }).__ringfallPad?.buttons[buttonIndex];
+    if (button) { button.pressed = nextPressed; button.value = nextPressed ? 1 : 0; }
+  }, { buttonIndex: index, nextPressed: pressed });
+  const executedBeforePause = Number(await hud.locator('[data-action-executed]').getAttribute('data-action-executed'));
+
+  await setButton(9, true);
+  await expect(page.locator('.pause-overlay')).toBeVisible();
+  await setButton(9, false);
+  await page.waitForTimeout(100);
+  await setButton(2, true);
+  await page.waitForTimeout(100);
+  await setButton(2, false);
+  await setButton(9, true);
+  await expect(page.locator('.pause-overlay')).toHaveCount(0);
+  await setButton(9, false);
+  await page.waitForTimeout(350);
+  expect(Number(await hud.locator('[data-action-executed]').getAttribute('data-action-executed'))).toBe(executedBeforePause);
+});
+
 test('WebXR-capable browsers expose the arena entry without loading XR before the match', async ({ page }) => {
   await page.addInitScript(() => {
     Object.defineProperty(navigator, 'xr', { configurable: true, value: { isSessionSupported: async (mode: string) => mode === 'immersive-vr' } });

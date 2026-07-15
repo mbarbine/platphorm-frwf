@@ -14,7 +14,7 @@ import { auditFallState, beginFall } from './falls';
 import { FALL_REASONS } from '../types/game';
 import type { ActionEvent } from '../input/actionLayer';
 import { canTraverseRopes, resolveContextAction, resolvePropAction } from './contextResolver';
-import { GRAPPLE_ACQUISITION_RANGE, selectDirectionalGrapple, selectDirectionalStrike } from './moveSelection';
+import { GRAPPLE_ACQUISITION_RANGE, selectDirectionalGrapple, selectDirectionalStrike, selectGrappleEntryMove } from './moveSelection';
 
 export { combatDirection, selectDirectionalGrapple, selectDirectionalStrike } from './moveSelection';
 export type { CombatDirection, GrappleButton, StrikeButton } from './moveSelection';
@@ -567,7 +567,7 @@ export const requestCommand = (model: MatchModel, actorKey: FighterSlot, command
     target.state = 'staggered'; target.stateElapsed = -BALANCE.block.guardBreakStagger;
     model.announcement = 'GUARD BROKEN — GRAPPLE!'; model.announcementTimer = .9;
   }
-  const moveId = selectDirectionalGrapple(direction, 'grapple');
+  const moveId = selectGrappleEntryMove(direction);
   const started = startMove(actor, target, getMove(moveId));
   if (started) {
     actor.comboStep += 1; target.state = model.physicsAuthority ? 'staggered' : 'grabbed'; target.stateElapsed = 0; target.velocity = scale(target.velocity, .3);

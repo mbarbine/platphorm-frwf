@@ -15,6 +15,8 @@ Report these states separately:
 5. production deployment Ready;
 6. canonical `https://frwf.platphormnews.com` verified.
 
+Current working-tree checkpoint: the exact-label/four-mode control surface and neutral-stability layer have local source, unit, build, focused production-build browser, 50-match AI fall-audit, and automated Toy Test evidence only. No immutable preview was created, no production deployment was promoted, and human neutral feel, the manual ten-minute Toy Test, close-range visual maturity, and the open rope-contact repeatability blocker still prevent release promotion.
+
 ## Clean rollback path
 
 Ringfall does not ship a permanent second engine or a fake runtime feature flag. Vercel's immutable deployment history is the single rollback path:
