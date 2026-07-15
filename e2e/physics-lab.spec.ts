@@ -138,6 +138,19 @@ test('Physics Lab exposes deterministic recovery orientations and a complete run
     await lab.getByRole('button', { name: button }).click();
     await expect(orientation).toHaveAttribute('data-player-recovery-orientation', expected);
     await expect(lab).toHaveAttribute('data-lab-scenario', 'idle', { timeout: 4_000 });
+    await expect.poll(async () => JSON.stringify({
+      state: await hud.getAttribute('data-player-state'),
+      balance: Number(await hud.getAttribute('data-player-balance')),
+      upright: Number(await hud.getAttribute('data-player-upright')),
+      supportFeet: Number(await hud.getAttribute('data-player-support-feet')),
+      supportScore: Number(await hud.locator('[data-support-score]').getAttribute('data-support-score')),
+      verticalVelocity: Number(await hud.getAttribute('data-player-vertical')),
+      pelvisY: Number(await hud.getAttribute('data-player-pelvis-y')),
+      footY: Number(await hud.getAttribute('data-player-foot-y')),
+    }), { timeout: 8_000, intervals: [80, 160, 320] }).toContain('"state":"idle"');
+    await expect(hud.locator('[data-motion-tasks]')).toHaveAttribute('data-motion-tasks', '0');
+    await expect(hud.locator('[data-unknown-falls]')).toHaveAttribute('data-unknown-falls', '0');
+    await expect.poll(async () => Number(await hud.getAttribute('data-player-support-feet')), { timeout: 3_000, intervals: [50, 100] }).toBeGreaterThanOrEqual(1);
   }
   const runtimeBefore = await hud.getAttribute('data-runtime-id');
   await lab.getByRole('button', { name: 'COMPLETE RUNTIME RESET' }).click();

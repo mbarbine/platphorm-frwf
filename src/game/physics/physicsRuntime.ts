@@ -746,7 +746,13 @@ export class BodyWorksRuntime {
     if (groundedControl) {
       const recoveryBlend = fighter.state === 'recovering' ? clamp(fighter.stateElapsed / .7, 0, 1) : 1;
       const recoveryTargetY = targetPelvisY - (1 - recoveryBlend) * .62;
-      const contactMultiplier = rig.supportContacts.size > 0 ? 1 : pelvis.translation().y < recoveryTargetY + .2 ? 1 : 0;
+      // A get-up cannot generate vertical support before a foot reaches the
+      // mat. The generic spawn bootstrap is useful for already-authored
+      // standing rigs, but applying it to a folded recovery pose levitates the
+      // complete ragdoll at pelvis height with both feet in the air.
+      const contactMultiplier = rig.supportContacts.size > 0 ? 1
+        : fighter.state === 'recovering' ? 0
+          : pelvis.translation().y < recoveryTargetY + .2 ? 1 : 0;
       const supportAcceleration = clamp((recoveryTargetY - pelvis.translation().y) * 30 - velocity.y * 10.5 + 18, -18, 38) * fighter.body.muscle * contactMultiplier * (.42 + recoveryBlend * .58);
       this.applyRigAcceleration(rig, { x: 0, y: supportAcceleration, z: 0 });
     }

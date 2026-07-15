@@ -17,7 +17,7 @@ test('neutral standing, walk, and stop retain real support with no unknown fall'
   await expect(hud).toHaveAttribute('data-player-state', 'idle');
   await expect(fallAudit).toHaveAttribute('data-unknown-falls', '0');
   await expect.poll(async () => Number(await hud.getAttribute('data-player-support-feet')), { timeout: 5_000, intervals: [50, 100] }).toBeGreaterThanOrEqual(1);
-  await expect.poll(async () => Number(await hud.getAttribute('data-support-score')), { timeout: 5_000, intervals: [50, 100] }).toBeGreaterThan(.55);
+  await expect.poll(async () => Number(await hud.locator('[data-support-score]').getAttribute('data-support-score')), { timeout: 5_000, intervals: [50, 100] }).toBeGreaterThan(.55);
 
   const before = { x: Number(await hud.getAttribute('data-player-x')), z: Number(await hud.getAttribute('data-player-z')) };
   const walk = lab.getByRole('button', { name: 'WALK + STOP' });
