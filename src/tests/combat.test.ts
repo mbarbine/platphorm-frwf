@@ -3,7 +3,7 @@ import { chooseAiDecision, isActionLegal } from '../game/ai/utilityAI';
 import { cinematicProgress, getPairedPose, getStrikePose, getStrikeReactionPose, getTauntPose } from '../game/animation/choreography';
 import { FIGHTERS, fighterById } from '../game/data/fighters';
 import { getMove } from '../game/data/moves';
-import { advanceMatch, applyMoveHit, applyPhysicalContact, createMatch, getAttackPhase, requestCommand, resetTransientState, selectDirectionalGrapple, selectDirectionalStrike, startMove } from '../game/systems/combat';
+import { activeFighterSlots, advanceMatch, applyMoveHit, applyPhysicalContact, createMatch, getAttackPhase, requestCommand, resetTransientState, resolveMatch, selectDirectionalGrapple, selectDirectionalStrike, startMove } from '../game/systems/combat';
 import { canTransition } from '../game/systems/stateMachine';
 import type { FrameInput } from '../game/systems/combat';
 import { BodyWorksRuntime } from '../game/physics/physicsRuntime';
@@ -11,6 +11,63 @@ import { BodyWorksRuntime } from '../game/physics/physicsRuntime';
 const none: FrameInput = { move: { x: 0, z: 0 }, run: false, block: false, commands: [] };
 
 describe('deterministic combat rules', () => {
+  it('creates a five-wrestler Battle Royale with unique entrants and live rival targets', () => {
+    const model = createMatch('atlas', 'atlas', 'standard', 'normal', 1337, 0, 0, 'battle_royale');
+    const slots = activeFighterSlots(model);
+    expect(slots).toHaveLength(5);
+    expect(new Set(slots.map((slot) => model[slot].definitionId))).toEqual(new Set(FIGHTERS.map(({ id }) => id)));
+    expect(new Set(slots.map((slot) => `${model[slot].position.x}:${model[slot].position.z}`)).size).toBe(5);
+    for (const slot of slots) {
+      expect(model.targets[slot]).not.toBe(slot);
+      expect(slots).toContain(model.targets[slot]);
+    }
+  });
+
+  it('keeps Battle Royale running through four eliminations and declares the last wrestler standing', () => {
+    const model = createMatch('atlas', 'vex', 'standard', 'normal', 1337, 0, 0, 'battle_royale');
+    for (const loser of ['opponent', 'rival1', 'rival2'] as const) {
+      resolveMatch(model, 'player', 'KNOCKOUT', loser);
+      expect(model.resolved).toBe(false);
+      expect(model[loser].state).toBe('defeated');
+      const remaining = activeFighterSlots(model).filter((slot) => model[slot].state !== 'defeated');
+      for (const slot of remaining) expect(remaining).toContain(model.targets[slot]);
+    }
+    resolveMatch(model, 'player', 'KNOCKOUT', 'rival3');
+    expect(model.resolved).toBe(true);
+    expect(model.result?.winner).toBe('player');
+    expect(model.player.state).toBe('victorious');
+    expect(model.eliminations.map(({ fighter }) => fighter)).toEqual(['opponent', 'rival1', 'rival2', 'rival3']);
+  });
+
+  it('preserves the singles result contract by marking the loser defeated', () => {
+    const model = createMatch('atlas', 'vex', 'standard', 'normal');
+    resolveMatch(model, 'player', 'PINFALL', 'opponent');
+    expect(model.resolved).toBe(true);
+    expect(model.player.state).toBe('victorious');
+    expect(model.opponent.state).toBe('defeated');
+  });
+
+  it('allows only one pin sequence across a Battle Royale ring', () => {
+    const model = createMatch('atlas', 'vex', 'standard', 'normal', 1337, 0, 0, 'battle_royale');
+    model.elapsed = 90; model.opponent.state = 'pinning'; model.player.state = 'pinned';
+    model.targets.rival1 = 'rival2'; model.rival1.position = { x: 0, z: 0 }; model.rival2.position = { x: .8, z: 0 };
+    model.rival2.state = 'downed'; model.rival2.health = 4;
+    expect(isActionLegal(model, 'context', 'rival1')).toBe(false);
+    expect(requestCommand(model, 'rival1', 'context')).toBe(false);
+    expect(model.rival2.state).toBe('downed');
+  });
+
+  it('eliminates the rival actually struck when a Battle Royale attack catches a bystander', () => {
+    const model = createMatch('atlas', 'vex', 'standard', 'normal', 1337, 0, 0, 'battle_royale');
+    model.player.position = { x: 0, z: 0 }; model.opponent.position = { x: 1, z: 0 }; model.rival1.position = { x: .8, z: 0 }; model.rival1.health = 1;
+    expect(startMove(model.player, model.opponent, getMove('heavy'))).toBe(true);
+    model.player.attackPhase = 'active';
+    expect(applyMoveHit(model, 'player', 'rival1', getMove('heavy'))).toBe(true);
+    expect(model.rival1.state).toBe('defeated');
+    expect(model.opponent.state).not.toBe('defeated');
+    expect(model.eliminations[0]?.fighter).toBe('rival1');
+  });
+
   it('applies damage only during a move active phase', () => {
     const model = createMatch('atlas', 'vex', 'standard', 'normal'); model.player.position = { x: 0, z: 0 }; model.opponent.position = { x: 1, z: 0 };
     expect(startMove(model.player, model.opponent, getMove('heavy'))).toBe(true);
@@ -359,6 +416,13 @@ describe('deterministic combat rules', () => {
     startMove(model.player, model.opponent, getMove('slam')); model.player.attackPhase = 'active'; const health = model.opponent.health;
     const contact = { id: 1, time: 1, sourceFighter: 'player' as const, sourceSegment: 'chest' as const, targetFighter: 'opponent' as const, targetSegment: 'chest' as const, targetRegion: 'chest' as const, totalForce: 120, maximumForce: 90, forceDirection: [1, 0, 0] as const, relativeSpeed: 2, attackInstanceId: model.player.attackInstanceId, moveId: 'slam', sourceObjectId: null, targetSurface: null, isLanding: false };
     expect(applyPhysicalContact(model, contact)).toBe(false); expect(model.opponent.health).toBe(health);
+  });
+
+  it('accepts real upper-arm contact from the chest-led Domefall dive', () => {
+    const model = createMatch('atlas', 'vex', 'standard', 'normal'); model.physicsAuthority = true; model.player.position = { x: 0, z: 0 }; model.opponent.position = { x: 1, z: 0 };
+    startMove(model.player, model.opponent, getMove('aerial')); model.player.attackPhase = 'active'; const health = model.opponent.health;
+    const contact = { id: 1, time: 1, sourceFighter: 'player' as const, sourceSegment: 'leftUpperArm' as const, targetFighter: 'opponent' as const, targetSegment: 'chest' as const, targetRegion: 'chest' as const, totalForce: 120, maximumForce: 90, forceDirection: [1, 0, 0] as const, relativeSpeed: 2, attackInstanceId: model.player.attackInstanceId, moveId: 'aerial', sourceObjectId: null, targetSurface: null, isLanding: false };
+    expect(applyPhysicalContact(model, contact)).toBe(true); expect(model.opponent.health).toBeLessThan(health);
   });
 
   it('allows a grapple selection during the visible lock without duplicate base cost', () => {

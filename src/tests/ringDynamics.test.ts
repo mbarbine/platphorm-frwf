@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { apronTransitionTarget, isRingside, RING_HARD_LIMIT, RING_ROPE_LIMIT, solveRopeResponse } from '../game/physics/ringDynamics';
+import { apronTransitionTarget, isRingside, RING_HARD_LIMIT, RING_ROPE_LIMIT, shouldReleaseRopeRebound, solveRopeReleaseDirection, solveRopeResponse } from '../game/physics/ringDynamics';
 
 describe('elastic ring boundary', () => {
   it('stays passive in the playable center', () => {
@@ -18,6 +18,23 @@ describe('elastic ring boundary', () => {
     const standard = solveRopeResponse(position, { x: 3.2, z: 1 });
     const overdrive = solveRopeResponse(position, { x: 3.2, z: 1 }, true);
     expect(standard.axis).toBe('x'); expect(overdrive.force.x).toBeLessThan(standard.force.x);
+  });
+
+  it('releases a fully loaded rebound only after outward travel is arrested', () => {
+    expect(shouldReleaseRopeRebound({ compression: .5, outwardSpeed: .9 }, .5, 5.4, .9)).toBe(false);
+    expect(shouldReleaseRopeRebound({ compression: .5, outwardSpeed: .08 }, .5, 5.4, .08)).toBe(true);
+    expect(shouldReleaseRopeRebound({ compression: .5, outwardSpeed: .08 }, .5, .8, .08)).toBe(false);
+    expect(shouldReleaseRopeRebound({ compression: .5, outwardSpeed: .08 }, .5, 1.2, .08)).toBe(true);
+    expect(shouldReleaseRopeRebound({ compression: .24, outwardSpeed: 3.2 }, .24, 5.4, 3.2)).toBe(false);
+    expect(shouldReleaseRopeRebound({ compression: .31, outwardSpeed: 0 }, .4, 4.2, -.8)).toBe(true);
+  });
+
+  it('aims an in-ring rebound lane without ever steering toward a ringside target', () => {
+    expect(solveRopeReleaseDirection({ x: -.6, z: -.8 }, { x: -5.4, z: .4 }, 'x', 1, false).x).toBeLessThan(-.9);
+    const ringside = solveRopeReleaseDirection({ x: -1, z: 0 }, { x: 1, z: 0 }, 'x', 1, true);
+    expect(ringside).toEqual({ x: -1, z: 0 });
+    const tangential = solveRopeReleaseDirection({ x: -1, z: 0 }, { x: 0, z: 2 }, 'x', 1, false);
+    expect(tangential).toEqual({ x: -1, z: 0 });
   });
 });
 

@@ -17,6 +17,12 @@ describe('physical strike drive', () => {
     expect(strikeDriveProfile('taunt')).toBeNull();
   });
 
+  it('commits the full torso to a domefall dive', () => {
+    const aerial = strikeDriveProfile('aerial');
+    expect(aerial).toMatchObject({ source: 'chest', target: 'chest' });
+    expect(aerial?.pelvisAcceleration).toBeGreaterThan(strikeDriveProfile('front_kick')?.pelvisAcceleration ?? 0);
+  });
+
   it('keeps a high-speed rebound contact when the attacker crosses the target between phases', () => {
     expect(sweptPlanarPathHitsTarget({ x: 4.9, z: 0 }, { x: 2.7, z: .05 }, { x: 3.8, z: -.04 }, 1.32)).toBe(true);
     expect(sweptPlanarPathHitsTarget({ x: 4.9, z: 0 }, { x: 2.7, z: .05 }, { x: 3.8, z: 1.7 }, 1.32)).toBe(false);

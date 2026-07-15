@@ -4,13 +4,14 @@ import type { FrameInput } from '../systems/combat';
 import { bodyWorksRuntime } from '../physics/physicsRuntime';
 import { getMove } from '../data/moves';
 import type { BodyWorksContact } from '../physics/physicsRuntime';
-import type { Difficulty, FighterId, FighterState, GameCommand, MatchModel, RecoveryOrientation, Ruleset, Vec2 } from '../types/game';
+import type { Difficulty, FighterId, FighterState, GameCommand, MatchMode, MatchModel, RecoveryOrientation, Ruleset, Vec2 } from '../types/game';
+import { useSpectatorStore } from './spectatorStore';
 
 interface MatchStore {
   model: MatchModel;
   revision: number;
   replayActive: boolean;
-  configure: (player: FighterId, opponent: FighterId, rules: Ruleset, difficulty: Difficulty, playerBeers?: number, opponentBeers?: number) => void;
+  configure: (player: FighterId, opponent: FighterId, rules: Ruleset, difficulty: Difficulty, playerBeers?: number, opponentBeers?: number, matchMode?: MatchMode) => void;
   advance: (dt: number, input: FrameInput) => void;
   pause: (paused: boolean) => void;
   setLabMode: (active: boolean) => void;
@@ -28,10 +29,10 @@ interface MatchStore {
 let publishAccumulator = 0;
 
 export const useMatchStore = create<MatchStore>((set) => ({
-  model: createMatch('atlas', 'nova', 'standard', 'normal'), revision: 0, replayActive: false,
-  configure: (player, opponent, rules, difficulty, playerBeers = 0, opponentBeers = 0) => set((state) => {
-    bodyWorksRuntime.reset(); publishAccumulator = 0;
-    return { model: createMatch(player, opponent, rules, difficulty, 1337, playerBeers, opponentBeers), revision: state.revision + 1, replayActive: false };
+  model: createMatch('atlas', 'nova', 'standard', 'normal', 1337, 0, 0, 'battle_royale'), revision: 0, replayActive: false,
+  configure: (player, opponent, rules, difficulty, playerBeers = 0, opponentBeers = 0, matchMode = 'battle_royale') => set((state) => {
+    bodyWorksRuntime.reset(); useSpectatorStore.getState().reset(); publishAccumulator = 0;
+    return { model: createMatch(player, opponent, rules, difficulty, 1337, playerBeers, opponentBeers, matchMode), revision: state.revision + 1, replayActive: false };
   }),
   advance: (dt, input) => set((state) => {
     const model = state.model; const previousImpact = model.impactSequence; const wasResolved = model.resolved; let commandAccepted = false;
@@ -48,7 +49,7 @@ export const useMatchStore = create<MatchStore>((set) => ({
       if (accepted && buffered.command === 'dodge' && wasClimbing && model.player.state === 'climbing') bodyWorksRuntime.requestCornerClimb('player', model.player.position, model.player.climbStage || 1);
       if (accepted && buffered.command === 'context' && !wasClimbing && model.player.state === 'climbing') bodyWorksRuntime.requestCornerClimb('player', model.player.position);
       if (accepted && buffered.command === 'context' && wasClimbing && model.player.state === 'climbing') bodyWorksRuntime.requestCornerClimb('player', model.player.position, model.player.climbStage || 1);
-      if (accepted && wasClimbing && model.player.moveId && getMove(model.player.moveId).category === 'aerial') bodyWorksRuntime.requestCornerDive('player', model.opponent.position);
+      if (accepted && wasClimbing && model.player.moveId && getMove(model.player.moveId).category === 'aerial') bodyWorksRuntime.requestCornerDive('player', model[model.targets.player].position);
       if (accepted && buffered.command === 'context' && !wasClimbing && wasNearApron && model.player.state === 'locomotion') bodyWorksRuntime.requestApronTransition('player', model.player.position);
       return accepted;
     });
@@ -98,7 +99,7 @@ export const useMatchStore = create<MatchStore>((set) => ({
     for (const contact of contacts) changed = applyPhysicalContact(state.model, contact) || changed;
     return changed ? { model: { ...state.model }, revision: state.revision + 1 } : state;
   }),
-  rematch: () => set((state) => { bodyWorksRuntime.reset(); publishAccumulator = 0; return { model: resetTransientState(state.model), revision: state.revision + 1, replayActive: false }; }),
+  rematch: () => set((state) => { bodyWorksRuntime.reset(); useSpectatorStore.getState().reset(); publishAccumulator = 0; return { model: resetTransientState(state.model), revision: state.revision + 1, replayActive: false }; }),
   startReplay: () => set((state) => state.replayActive ? state : ({ replayActive: true, revision: state.revision + 1 })),
   stopReplay: () => set((state) => !state.replayActive ? state : ({ replayActive: false, revision: state.revision + 1 })),
 }));

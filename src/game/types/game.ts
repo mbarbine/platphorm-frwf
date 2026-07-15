@@ -1,4 +1,8 @@
 export type FighterId = 'atlas' | 'vex' | 'nova' | 'brick' | 'chad';
+export type FighterSlot = 'player' | 'opponent' | 'rival1' | 'rival2' | 'rival3';
+export type AiFighterSlot = Exclude<FighterSlot, 'player'>;
+export const FIGHTER_SLOTS: readonly FighterSlot[] = ['player', 'opponent', 'rival1', 'rival2', 'rival3'];
+export const AI_FIGHTER_SLOTS: readonly AiFighterSlot[] = ['opponent', 'rival1', 'rival2', 'rival3'];
 export type FighterState =
   | 'idle' | 'locomotion' | 'jumping' | 'attacking' | 'grappling' | 'grabbed' | 'airborne'
   | 'blocking' | 'climbing' | 'staggered' | 'downed' | 'recovering' | 'pinning' | 'pinned' | 'victorious' | 'defeated';
@@ -9,6 +13,7 @@ export type AnimationKey =
   | 'lift' | 'slam' | 'throw' | 'stagger' | 'knockdown' | 'downed' | 'recovery' | 'dodge'
   | 'counter' | 'block' | 'climb' | 'aerial' | 'taunt' | 'pin' | 'kickout' | 'victory' | 'defeat' | 'finisher';
 export type Ruleset = 'standard' | 'chaos';
+export type MatchMode = 'battle_royale' | 'singles';
 export type Difficulty = 'normal' | 'hard';
 export type Tendencies = 'aggressive' | 'technical' | 'opportunistic';
 export type ControlDevice = 'keyboard' | 'gamepad' | 'touch';
@@ -146,7 +151,7 @@ export interface PropRuntime {
   durability: number;
   stress: number;
   failureStage: 'intact' | 'stressed' | 'cracked' | 'failed';
-  heldBy: 'player' | 'opponent' | null;
+  heldBy: FighterSlot | null;
   broken: boolean;
 }
 
@@ -160,7 +165,7 @@ export interface MatchStats {
 }
 
 export interface MatchResult {
-  winner: 'player' | 'opponent';
+  winner: FighterSlot;
   method: 'PINFALL' | 'KNOCKOUT';
   duration: number;
   hype: number;
@@ -182,8 +187,8 @@ export interface ImpactEvent {
 }
 
 export interface GrappleRuntime {
-  attacker: 'player' | 'opponent';
-  defender: 'player' | 'opponent';
+  attacker: FighterSlot;
+  defender: FighterSlot;
   position: GrapplePosition;
   leverage: number;
   tension: number;
@@ -252,9 +257,25 @@ export interface ChaosEvent {
   remaining: number;
 }
 
+export interface AiControllerRuntime {
+  thinkTimer: number;
+  intent: GameCommand | null;
+  movement: Vec2;
+  running: boolean;
+  blockTimer: number;
+}
+
+export interface MatchElimination {
+  fighter: FighterSlot;
+  by: FighterSlot;
+  method: 'PINFALL' | 'KNOCKOUT';
+  time: number;
+}
+
 export interface MatchModel {
   toyTestMode: boolean;
   labMode: boolean;
+  matchMode: MatchMode;
   ruleset: Ruleset;
   difficulty: Difficulty;
   elapsed: number;
@@ -263,6 +284,11 @@ export interface MatchModel {
   resolved: boolean;
   player: FighterRuntime;
   opponent: FighterRuntime;
+  rival1: FighterRuntime;
+  rival2: FighterRuntime;
+  rival3: FighterRuntime;
+  targets: Record<FighterSlot, FighterSlot>;
+  eliminations: MatchElimination[];
   hype: number;
   props: PropRuntime[];
   chaosEvent: ChaosEvent | null;
@@ -276,11 +302,13 @@ export interface MatchModel {
   result: MatchResult | null;
   playerStats: MatchStats;
   opponentStats: MatchStats;
+  fighterStats: Record<FighterSlot, MatchStats>;
   aiThinkTimer: number;
   aiIntent: GameCommand | null;
   aiMovement: Vec2;
   aiRunning: boolean;
   aiBlockTimer: number;
+  aiControllers: Record<AiFighterSlot, AiControllerRuntime>;
   grapple: GrappleRuntime | null;
   replayFrames: ReplayFrame[];
   replaySampleTimer: number;

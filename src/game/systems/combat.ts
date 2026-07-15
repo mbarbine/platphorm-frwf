@@ -1,11 +1,12 @@
-import { fighterById } from '../data/fighters';
+import { FIGHTERS, fighterById } from '../data/fighters';
 import { getMove } from '../data/moves';
 import { BALANCE } from '../data/balance';
 import { chooseAiDecision, isActionLegal } from '../ai/utilityAI';
 import { applyLocalizedImpact, calculateImpact, createBodyDynamics, integrateLocomotion, stepBodyDynamics } from '../physics/bodyDynamics';
 import { createGrappleRuntime, releaseGrapple, retargetGrapple, stepGrappleDynamics } from '../physics/grappleDynamics';
 import { clamp, distance, normalize, scale, seededRandom } from '../utils/math';
-import type { Difficulty, FighterId, FighterRuntime, GameCommand, HighlightMoment, ImpactEvent, MatchHighlights, MatchModel, MatchResult, MatchStats, MoveDefinition, PropRuntime, ReplayFighterFrame, Ruleset, Vec2 } from '../types/game';
+import { AI_FIGHTER_SLOTS, FIGHTER_SLOTS } from '../types/game';
+import type { Difficulty, FighterId, FighterRuntime, FighterSlot, GameCommand, HighlightMoment, ImpactEvent, MatchHighlights, MatchMode, MatchModel, MatchResult, MatchStats, MoveDefinition, PropRuntime, ReplayFighterFrame, Ruleset, Vec2 } from '../types/game';
 import type { BodyWorksContact } from '../physics/physicsRuntime';
 import { VOLT_DOME } from '../data/arena';
 
@@ -34,17 +35,31 @@ const initialProps = (enabled: boolean): PropRuntime[] => enabled ? [
   { id: 'table-1', kind: 'table', position: { x: VOLT_DOME.commentaryTable.x, z: VOLT_DOME.commentaryTable.z }, durability: 1, stress: 0, failureStage: 'intact', heldBy: null, broken: false },
 ] : [{ id: 'table-1', kind: 'table', position: { x: VOLT_DOME.commentaryTable.x, z: VOLT_DOME.commentaryTable.z }, durability: 1, stress: 0, failureStage: 'intact', heldBy: null, broken: false }];
 
-export const createMatch = (playerId: FighterId, opponentId: FighterId, ruleset: Ruleset, difficulty: Difficulty, seed = 1337, playerBeers = 0, opponentBeers = 0): MatchModel => ({
-  toyTestMode: false, labMode: false, ruleset, difficulty, elapsed: 0, paused: false, physicsAuthority: false, resolved: false,
-  player: createFighterRuntime(playerId, { x: -2.3, z: 0 }, playerBeers), opponent: createFighterRuntime(opponentId, { x: 2.3, z: 0 }, opponentBeers),
-  hype: 8, props: initialProps(ruleset === 'chaos'), chaosEvent: null, nextChaosAt: 38, lastImpact: null, impactSequence: 0,
-  announcement: 'ROUND ONE — FIGHT!', announcementTimer: 2.2, hitStop: 0, slowMotion: 0, result: null,
-  playerStats: EMPTY_STATS(), opponentStats: EMPTY_STATS(), aiThinkTimer: .35, aiIntent: null, aiMovement: { x: 0, z: 0 }, aiRunning: false, aiBlockTimer: 0,
-  grapple: null, replayFrames: [], replaySampleTimer: 0, highlights: [], runtimeId: seed, seed,
-});
+export const createMatch = (playerId: FighterId, opponentId: FighterId, ruleset: Ruleset, difficulty: Difficulty, seed = 1337, playerBeers = 0, opponentBeers = 0, matchMode: MatchMode = 'singles'): MatchModel => {
+  const resolvedOpponentId = matchMode === 'battle_royale' && opponentId === playerId ? FIGHTERS.find(({ id }) => id !== playerId)?.id ?? opponentId : opponentId;
+  const remaining = FIGHTERS.map(({ id }) => id).filter((id) => id !== playerId && id !== resolvedOpponentId);
+  const rivalIds = [remaining[0] ?? 'vex', remaining[1] ?? 'brick', remaining[2] ?? 'chad'] as const;
+  const playerStats = EMPTY_STATS(); const opponentStats = EMPTY_STATS();
+  const fighterStats: Record<FighterSlot, MatchStats> = { player: playerStats, opponent: opponentStats, rival1: EMPTY_STATS(), rival2: EMPTY_STATS(), rival3: EMPTY_STATS() };
+  return {
+    toyTestMode: false, labMode: false, matchMode, ruleset, difficulty, elapsed: 0, paused: false, physicsAuthority: false, resolved: false,
+    player: createFighterRuntime(playerId, { x: -3.25, z: 0 }, playerBeers), opponent: createFighterRuntime(resolvedOpponentId, { x: 3.25, z: 0 }, opponentBeers),
+    rival1: createFighterRuntime(rivalIds[0], { x: 0, z: -2.45 }), rival2: createFighterRuntime(rivalIds[1], { x: -1.85, z: 2.35 }), rival3: createFighterRuntime(rivalIds[2], { x: 1.85, z: 2.35 }),
+    targets: { player: 'opponent', opponent: 'player', rival1: 'rival3', rival2: 'rival1', rival3: 'rival2' }, eliminations: [],
+    hype: 8, props: initialProps(ruleset === 'chaos'), chaosEvent: null, nextChaosAt: 38, lastImpact: null, impactSequence: 0,
+    announcement: matchMode === 'battle_royale' ? 'BATTLE ROYALE — TOTAL FREE FOR ALL!' : 'ROUND ONE — FIGHT!', announcementTimer: 2.2, hitStop: 0, slowMotion: 0, result: null,
+    playerStats, opponentStats, fighterStats, aiThinkTimer: .35, aiIntent: null, aiMovement: { x: 0, z: 0 }, aiRunning: false, aiBlockTimer: 0,
+    aiControllers: Object.fromEntries(AI_FIGHTER_SLOTS.map((slot, index) => [slot, { thinkTimer: .24 + index * .07, intent: null, movement: { x: 0, z: 0 }, running: false, blockTimer: 0 }])) as MatchModel['aiControllers'],
+    grapple: null, replayFrames: [], replaySampleTimer: 0, highlights: [], runtimeId: seed, seed,
+  };
+};
+
+export const activeFighterSlots = (model: MatchModel): readonly FighterSlot[] => model.matchMode === 'battle_royale' ? FIGHTER_SLOTS : ['player', 'opponent'];
+
+export const targetSlotFor = (model: MatchModel, actor: FighterSlot): FighterSlot => model.targets[actor];
 
 export const resetTransientState = (model: MatchModel): MatchModel => {
-  const reset = createMatch(model.player.definitionId, model.opponent.definitionId, model.ruleset, model.difficulty, model.seed + 97, model.player.beersDrunk, model.opponent.beersDrunk);
+  const reset = createMatch(model.player.definitionId, model.opponent.definitionId, model.ruleset, model.difficulty, model.seed + 97, model.player.beersDrunk, model.opponent.beersDrunk, model.matchMode);
   reset.labMode = model.labMode; reset.toyTestMode = model.toyTestMode; return reset;
 };
 
@@ -121,9 +136,10 @@ const varietyMultiplier = (actor: FighterRuntime, moveId: string): number => {
   return repeats === 0 ? 1 : repeats === 1 ? .55 : .12;
 };
 
-export const applyMoveHit = (model: MatchModel, actorKey: 'player' | 'opponent', targetKey: 'player' | 'opponent', move: MoveDefinition, contact?: BodyWorksContact): boolean => {
+export const applyMoveHit = (model: MatchModel, actorKey: FighterSlot, targetKey: FighterSlot, move: MoveDefinition, contact?: BodyWorksContact): boolean => {
   const actor = model[actorKey];
   const target = model[targetKey];
+  if (['defeated', 'victorious'].includes(actor.state) || ['defeated', 'victorious'].includes(target.state)) return false;
   const impactPosition = contact?.point ? { x: contact.point[0], z: contact.point[2] } : target.position;
   const hitToken = contact ? `${targetKey}:${actor.attackInstanceId}` : targetKey;
   const isPhysicalLanding = contact?.isLanding === true && (move.category === 'grapple' || move.category === 'finisher');
@@ -178,7 +194,7 @@ export const applyMoveHit = (model: MatchModel, actorKey: 'player' | 'opponent',
   target.comboStep = 0; // reset opponent combo streak on hit
   const variety = varietyMultiplier(actor, move.id);
   const surge = model.chaosEvent?.type === 'CROWD SURGE' ? 1.6 : 1;
-  const stats = actorKey === 'player' ? model.playerStats : model.opponentStats;
+  const stats = model.fighterStats[actorKey];
   if (!model.toyTestMode) {
     actor.momentum = clamp(actor.momentum + move.momentumGain * variety * (model.ruleset === 'chaos' ? 1.2 : 1) * surge, 0, 100);
     model.hype = clamp(model.hype + move.hypeValue * variety * BALANCE.hypeScale, 0, 100);
@@ -274,11 +290,11 @@ export const applyMoveHit = (model: MatchModel, actorKey: 'player' | 'opponent',
     && target.health <= BALANCE.knockout.healthThreshold
     && target.stamina <= BALANCE.knockout.staminaThreshold
     && move.damage >= BALANCE.knockout.minimumMoveDamage;
-  if (!model.toyTestMode && ((target.health <= 0 && majorImpact) || (majorImpact && exhaustionKnockout))) resolveMatch(model, actorKey, 'KNOCKOUT');
+  if (!model.toyTestMode && ((target.health <= 0 && majorImpact) || (majorImpact && exhaustionKnockout))) resolveMatch(model, actorKey, 'KNOCKOUT', targetKey);
   return true;
 };
 
-export const performCounter = (model: MatchModel, defenderKey: 'player' | 'opponent', attackerKey: 'player' | 'opponent'): boolean => {
+export const performCounter = (model: MatchModel, defenderKey: FighterSlot, attackerKey: FighterSlot): boolean => {
   const defender = model[defenderKey];
   const attacker = model[attackerKey];
   if (!attacker.moveId || attacker.attackPhase !== 'anticipation' || defender.stamina < 10) return false;
@@ -288,7 +304,7 @@ export const performCounter = (model: MatchModel, defenderKey: 'player' | 'oppon
   attacker.state = 'staggered'; attacker.moveId = null; attacker.attackPhase = null; attacker.climbStage = 0; attacker.stateElapsed = 0;
   defender.state = 'attacking'; defender.moveId = 'counter'; defender.attackPhase = 'active'; defender.phaseElapsed = getMove('counter').anticipationDuration;
   defender.stamina = clamp(defender.stamina - 10, 0, defender.staminaCap); defender.momentum = clamp(defender.momentum + 18, 0, 100);
-  const stats = defenderKey === 'player' ? model.playerStats : model.opponentStats;
+  const stats = model.fighterStats[defenderKey];
   stats.counters += 1;
   model.hype = clamp(model.hype + 18, 0, 100);
   addImpact(model, attacker.position, 'counter', 1.4, { outcome: 'spin', highlight: { label: `Reversed ${incoming.displayName}`, score: 58 + incoming.damage, kind: 'reversal' } });
@@ -340,9 +356,9 @@ const startPin = (actor: FighterRuntime, target: FighterRuntime): boolean => {
   return true;
 };
 
-const useProp = (model: MatchModel, actorKey: 'player' | 'opponent'): boolean => {
+const useProp = (model: MatchModel, actorKey: FighterSlot): boolean => {
   const actor = model[actorKey];
-  const target = actorKey === 'player' ? model.opponent : model.player;
+  const target = model[targetSlotFor(model, actorKey)];
   if (actor.heldPropId) {
     if (distance(actor.position, target.position) <= 2.3) return startMove(actor, target, getMove('prop'));
     const prop = model.props.find((candidate) => candidate.id === actor.heldPropId);
@@ -392,9 +408,9 @@ const launchAerial = (model: MatchModel, actor: FighterRuntime, target: FighterR
   return false;
 };
 
-export const requestCommand = (model: MatchModel, actorKey: 'player' | 'opponent', command: GameCommand, direction: Vec2 = { x: 0, z: 0 }, running = false): boolean => {
+export const requestCommand = (model: MatchModel, actorKey: FighterSlot, command: GameCommand, direction: Vec2 = { x: 0, z: 0 }, running = false): boolean => {
   const actor = model[actorKey];
-  const targetKey = actorKey === 'player' ? 'opponent' : 'player';
+  const targetKey = targetSlotFor(model, actorKey);
   const target = model[targetKey];
   if (actor.state === 'climbing' && actor.climbStage === 3 && (command === 'quick' || command === 'heavy')) {
     return launchAerial(model, actor, target, command === 'quick' ? 'aerial_elbow' : 'aerial_kick');
@@ -476,7 +492,7 @@ export const requestCommand = (model: MatchModel, actorKey: 'player' | 'opponent
       }
       return launchAerial(model, actor, target, 'aerial');
     }
-    if (actor.momentum >= 100 && ['staggered', 'downed'].includes(target.state)) {
+    if (actor.momentum >= 100 && !model.grapple && ['staggered', 'downed'].includes(target.state)) {
       const started = startMove(actor, target, getMove('finisher'));
       if (started) {
         target.state = model.physicsAuthority ? 'staggered' : 'grabbed'; target.stateElapsed = 0; target.velocity = scale(target.velocity, .25);
@@ -555,20 +571,38 @@ const summarizeHighlights = (moments: readonly HighlightMoment[]): MatchHighligh
   mostUnexpectedReversal: strongestHighlight(moments, (moment) => moment.kind === 'reversal'),
 });
 
-const resolveMatch = (model: MatchModel, winner: 'player' | 'opponent', method: MatchResult['method']): void => {
+export const resolveMatch = (model: MatchModel, winner: FighterSlot, method: MatchResult['method'], loser = targetSlotFor(model, winner)): void => {
   if (model.resolved || model.toyTestMode) return;
+  if (model.matchMode === 'battle_royale') {
+    if (model[loser].state === 'defeated') return;
+    model[loser].state = 'defeated'; model[loser].moveId = null; model[loser].attackPhase = null; model[loser].health = 0;
+    model.eliminations.push({ fighter: loser, by: winner, method, time: model.elapsed });
+    if (model.grapple && (model.grapple.attacker === loser || model.grapple.defender === loser)) model.grapple = null;
+    const remaining = activeFighterSlots(model).filter((slot) => model[slot].state !== 'defeated');
+    for (const slot of remaining) if (model.targets[slot] === loser) {
+      model.targets[slot] = remaining.filter((candidate) => candidate !== slot).sort((a, b) => distance(model[slot].position, model[a].position) - distance(model[slot].position, model[b].position))[0] ?? slot;
+    }
+    if (remaining.length > 1) {
+      model.announcement = `${fighterById(model[loser].definitionId).name} ELIMINATED — ${remaining.length} REMAIN!`; model.announcementTimer = 2.2;
+      addImpact(model, model[loser].position, method === 'KNOCKOUT' ? 'ko' : 'finisher', 2.1);
+      return;
+    }
+    winner = remaining[0] ?? winner;
+  } else {
+    model[loser].state = 'defeated'; model[loser].moveId = null; model[loser].attackPhase = null;
+    if (model.grapple && (model.grapple.attacker === loser || model.grapple.defender === loser)) model.grapple = null;
+  }
   model.resolved = true;
   model[winner].state = 'victorious';
-  model[winner === 'player' ? 'opponent' : 'player'].state = 'defeated';
   model.result = { winner, method, duration: model.elapsed, hype: model.hype, grade: scoreGrade(model.hype), playerStats: { ...model.playerStats }, highlights: summarizeHighlights(model.highlights) };
-  model.announcement = method === 'KNOCKOUT' ? 'KNOCKOUT!' : 'THREE!'; model.announcementTimer = 4;
+  model.announcement = model.matchMode === 'battle_royale' ? 'LAST WRESTLER STANDING!' : method === 'KNOCKOUT' ? 'KNOCKOUT!' : 'THREE!'; model.announcementTimer = 4;
   addImpact(model, model[winner].position, method === 'KNOCKOUT' ? 'ko' : 'finisher', 2.4);
 };
 
 const updatePin = (model: MatchModel, dt: number, playerInput: FrameInput): void => {
-  const pinningKey = model.player.state === 'pinning' ? 'player' : model.opponent.state === 'pinning' ? 'opponent' : null;
+  const slots = activeFighterSlots(model); const pinningKey = slots.find((slot) => model[slot].state === 'pinning') ?? null;
   if (!pinningKey) return;
-  const pinnedKey = pinningKey === 'player' ? 'opponent' : 'player';
+  const pinnedKey = slots.find((slot) => model[slot].state === 'pinned') ?? null; if (!pinnedKey) return;
   const pinning = model[pinningKey]; const pinned = model[pinnedKey];
   pinning.stateElapsed += dt; pinned.stateElapsed += dt;
   if (pinnedKey === 'player') {
@@ -589,7 +623,7 @@ const updatePin = (model: MatchModel, dt: number, playerInput: FrameInput): void
       return;
     }
   }
-  if (pinnedKey === 'opponent') {
+  if (pinnedKey !== 'player') {
     const difficultyFactor = model.difficulty === 'hard' ? 1.08 : .92;
     pinned.pinEscape += dt * (9 + pinned.health * .2 + pinned.stamina * .08) * difficultyFactor;
   }
@@ -604,20 +638,20 @@ const updatePin = (model: MatchModel, dt: number, playerInput: FrameInput): void
   const threshold = 76 + (100 - pinned.health) * .36 + (pinned.finisherPrimed ? 14 : 0);
   if (pinned.pinEscape >= threshold && count < 3) {
     pinning.state = 'idle'; pinned.state = 'downed'; pinned.downTimer = .8; pinning.pinCount = 0; pinned.pinCount = 0; pinned.pinEscape = 0;
-    const stats = pinningKey === 'player' ? model.playerStats : model.opponentStats; stats.nearFalls += 1;
+    model.fighterStats[pinningKey].nearFalls += 1;
     model.slowMotion = Math.max(model.slowMotion, .36); model.hitStop = Math.max(model.hitStop, .14);
     model.hype = clamp(model.hype + 16, 0, 100); model.announcement = `${count}.9 — KICKOUT!`; model.announcementTimer = 1.6;
     addImpact(model, pinned.position, 'nearfall', 1.9);
   } else if (count >= 3 && pinning.stateElapsed >= 2.85) {
     if (model.toyTestMode) {
       pinning.state = 'idle'; pinned.state = 'downed'; pinned.downTimer = .8; pinning.pinCount = 0; pinned.pinCount = 0; pinned.pinEscape = 0;
-    } else resolveMatch(model, pinningKey, 'PINFALL');
+    } else resolveMatch(model, pinningKey, 'PINFALL', pinnedKey);
   }
 };
 
-const updateFighter = (model: MatchModel, actorKey: 'player' | 'opponent', dt: number, movement: Vec2, run: boolean, blockingHeld: boolean): void => {
+const updateFighter = (model: MatchModel, actorKey: FighterSlot, dt: number, movement: Vec2, run: boolean, blockingHeld: boolean): void => {
   const actor = model[actorKey];
-  const target = actorKey === 'player' ? model.opponent : model.player;
+  const target = model[targetSlotFor(model, actorKey)];
   const definition = fighterById(actor.definitionId);
   actor.stateElapsed += dt;
   actor.invulnerability = Math.max(0, actor.invulnerability - dt);
@@ -663,13 +697,13 @@ const updateFighter = (model: MatchModel, actorKey: 'player' | 'opponent', dt: n
     actor.state = 'downed'; actor.stateElapsed = 0;
     actor.downTimer = Math.max(actor.downTimer, 1.25 + (100 - actor.health) / 90);
   }
-  if (actor.state === 'jumping' && actor.body.verticalOffset <= .001 && actor.body.verticalVelocity <= .01 && actor.stateElapsed > .12) {
-    actor.state = 'idle'; actor.stateElapsed = 0;
+  if (actor.state === 'jumping' && actor.body.verticalOffset <= .001 && Math.abs(actor.body.verticalVelocity) <= .45 && actor.stateElapsed > .12) {
+    actor.state = 'recovering'; actor.stateElapsed = 0;
   }
   if (actor.state === 'downed') {
     actor.downTimer -= dt; actor.stamina = clamp(actor.stamina + dt * 10, 0, actor.staminaCap);
     if (actor.downTimer <= 0) { actor.state = 'recovering'; actor.stateElapsed = 0; }
-  } else if (actor.state === 'recovering' && !actor.moveId && actor.stateElapsed > .7) {
+  } else if (actor.state === 'recovering' && !actor.moveId && actor.stateElapsed > .7 && (!model.physicsAuthority || actor.body.balance >= 68 && Math.abs(actor.body.verticalVelocity) <= .45)) {
     actor.state = 'idle'; actor.stateElapsed = 0; actor.finisherPrimed = false;
   } else if (actor.state === 'staggered' && actor.stateElapsed > .55 + (100 - actor.health) / 200) {
     actor.state = 'idle'; actor.stateElapsed = 0;
@@ -696,7 +730,7 @@ const updateFighter = (model: MatchModel, actorKey: 'player' | 'opponent', dt: n
       actor.velocity.x += chase.x * dt * 6.5;
       actor.velocity.z += chase.z * dt * 6.5;
     }
-    if (actor.attackPhase === 'active' && !model.physicsAuthority && move.id !== 'taunt' && move.id !== 'kick_up') applyMoveHit(model, actorKey, actorKey === 'player' ? 'opponent' : 'player', move);
+    if (actor.attackPhase === 'active' && !model.physicsAuthority && move.id !== 'taunt' && move.id !== 'kick_up') applyMoveHit(model, actorKey, targetSlotFor(model, actorKey), move);
     if (!actor.attackPhase) {
       const completedTurnbuckleTaunt = move.id === 'taunt' && actor.state === 'climbing';
       if (move.id === 'taunt' && !model.toyTestMode) {
@@ -771,7 +805,7 @@ const updateChaos = (model: MatchModel, dt: number): void => {
     if (model.chaosEvent.remaining <= 0) model.chaosEvent = null;
     return;
   }
-  if (model.elapsed < model.nextChaosAt || model.player.state === 'pinning' || model.opponent.state === 'pinning') return;
+  if (model.elapsed < model.nextChaosAt || activeFighterSlots(model).some((slot) => model[slot].state === 'pinning')) return;
   const types = ['PROP DROP', 'CROWD SURGE', 'OVERDRIVE ROPES', 'SPOTLIGHT SHOWDOWN'] as const;
   const [roll, nextSeed] = seededRandom(model.seed); model.seed = nextSeed;
   const type = types[Math.floor(roll * types.length)] ?? 'PROP DROP';
@@ -823,51 +857,73 @@ const sampleReplay = (model: MatchModel, dt: number): void => {
   if (model.replayFrames.length > 75) model.replayFrames.splice(0, model.replayFrames.length - 75);
 };
 
+const retargetFighters = (model: MatchModel): void => {
+  const active = activeFighterSlots(model).filter((slot) => !['defeated', 'victorious'].includes(model[slot].state));
+  for (const slot of active) {
+    const candidates = active.filter((candidate) => candidate !== slot);
+    if (candidates.length === 0) continue;
+    const nearest = candidates.sort((a, b) => distance(model[slot].position, model[a].position) - distance(model[slot].position, model[b].position))[0];
+    if (!nearest) continue;
+    const current = model.targets[slot]; const currentValid = candidates.includes(current);
+    const currentDistance = currentValid ? distance(model[slot].position, model[current].position) : Number.POSITIVE_INFINITY;
+    const nearestDistance = distance(model[slot].position, model[nearest].position);
+    if (!currentValid || nearestDistance + .72 < currentDistance) model.targets[slot] = nearest;
+  }
+};
+
 export const advanceMatch = (model: MatchModel, dt: number, playerInput: FrameInput): MatchModel => {
   if (model.paused || model.resolved) return model;
   if (model.hitStop > 0) { model.hitStop = Math.max(0, model.hitStop - dt); return model; }
   const step = dt * (model.slowMotion > 0 ? .36 : 1); model.slowMotion = Math.max(0, model.slowMotion - dt);
   model.elapsed += step; model.announcementTimer = Math.max(0, model.announcementTimer - step); if (model.announcementTimer === 0) model.announcement = null;
   updateChaos(model, step);
+  retargetFighters(model);
   updatePin(model, step, playerInput);
-  if (model.player.state === 'pinned' || model.opponent.state === 'pinned') return model;
+  if (activeFighterSlots(model).some((slot) => model[slot].state === 'pinned')) return model;
 
   if (playerInput.block) requestCommand(model, 'player', 'block', playerInput.move, playerInput.run);
   for (const command of playerInput.commands) requestCommand(model, 'player', command, playerInput.move, playerInput.run);
-  model.aiBlockTimer = Math.max(0, model.aiBlockTimer - step);
-  model.aiThinkTimer -= step;
-  let aiMove: Vec2 = { ...model.aiMovement }; let aiRun = model.aiRunning;
-  if (model.labMode) {
-    aiMove = { x: 0, z: 0 }; aiRun = false; model.aiIntent = null; model.aiBlockTimer = 0;
-  } else if (model.aiThinkTimer <= 0) {
-    const decision = chooseAiDecision(model, fighterById(model.opponent.definitionId));
-    model.seed = decision.nextSeed; model.aiIntent = decision.command; aiMove = decision.move; aiRun = decision.run;
-      model.aiThinkTimer = model.difficulty === 'hard' ? .13 : .22;
-    if (decision.command) {
-      requestCommand(model, 'opponent', decision.command, decision.move, model.aiRunning);
-      if (decision.command === 'block') model.aiBlockTimer = model.difficulty === 'hard' ? .72 : .48;
+  const active = activeFighterSlots(model);
+  for (const slot of AI_FIGHTER_SLOTS) {
+    const controller = model.aiControllers[slot];
+    if (!active.includes(slot) || model[slot].state === 'defeated') { controller.movement = { x: 0, z: 0 }; controller.running = false; controller.intent = null; continue; }
+    controller.blockTimer = Math.max(0, controller.blockTimer - step); controller.thinkTimer -= step;
+    if (model.labMode) {
+      controller.movement = { x: 0, z: 0 }; controller.running = false; controller.intent = null; controller.blockTimer = 0;
+    } else if (controller.thinkTimer <= 0) {
+      const decision = chooseAiDecision(model, fighterById(model[slot].definitionId), slot);
+      model.seed = decision.nextSeed; controller.intent = decision.command; controller.movement = decision.move; controller.running = decision.run;
+      controller.thinkTimer = (model.difficulty === 'hard' ? .13 : .22) + (slot === 'opponent' ? 0 : .025 * Number(slot.slice(-1)));
+      if (decision.command) {
+        requestCommand(model, slot, decision.command, decision.move, controller.running);
+        if (decision.command === 'block') controller.blockTimer = model.difficulty === 'hard' ? .72 : .48;
+      }
     }
   }
-  model.aiMovement = { ...aiMove }; model.aiRunning = aiRun;
-  const grappleStep = model.physicsAuthority ? { broken: false, liftEnergy: 0 } : stepGrappleDynamics(model, step, playerInput.move, aiMove);
+  const opponentController = model.aiControllers.opponent;
+  model.aiThinkTimer = opponentController.thinkTimer; model.aiIntent = opponentController.intent; model.aiMovement = { ...opponentController.movement }; model.aiRunning = opponentController.running; model.aiBlockTimer = opponentController.blockTimer;
+  const grappleAi = model.grapple && model.grapple.attacker !== 'player' ? model.aiControllers[model.grapple.attacker] : model.grapple && model.grapple.defender !== 'player' ? model.aiControllers[model.grapple.defender] : opponentController;
+  const grappleStep = model.physicsAuthority ? { broken: false, liftEnergy: 0 } : stepGrappleDynamics(model, step, playerInput.move, grappleAi.movement);
   if (grappleStep.broken) {
     releaseGrapple(model, 'staggered');
     model.announcement = 'GRIP BROKEN — SCRAMBLE!'; model.announcementTimer = .9;
     model.hype = clamp(model.hype + 4, 0, 100);
   }
   updateFighter(model, 'player', step, playerInput.move, playerInput.run, playerInput.block);
-  updateFighter(model, 'opponent', step, aiMove, aiRun, model.aiBlockTimer > 0);
+  for (const slot of AI_FIGHTER_SLOTS) if (active.includes(slot)) {
+    const controller = model.aiControllers[slot]; updateFighter(model, slot, step, controller.movement, controller.running, controller.blockTimer > 0);
+  }
   sampleReplay(model, step);
-  const playerThreat = model.opponent.moveId ? getMove(model.opponent.moveId) : null;
-  model.player.counterWindow = playerThreat?.counterWindow && model.opponent.attackPhase === 'anticipation' && distance(model.player.position, model.opponent.position) < playerThreat.maximumRange + .3 && model.opponent.phaseElapsed >= playerThreat.counterWindow[0] && model.opponent.phaseElapsed <= playerThreat.counterWindow[1] ? .1 : 0;
-  const opponentThreat = model.player.moveId ? getMove(model.player.moveId) : null;
-  model.opponent.counterWindow = opponentThreat?.counterWindow && model.player.attackPhase === 'anticipation' && distance(model.player.position, model.opponent.position) < opponentThreat.maximumRange + .3 && model.player.phaseElapsed >= opponentThreat.counterWindow[0] && model.player.phaseElapsed <= opponentThreat.counterWindow[1] ? .1 : 0;
+  for (const slot of active) {
+    const target = model[model.targets[slot]]; const threat = target.moveId ? getMove(target.moveId) : null;
+    model[slot].counterWindow = threat?.counterWindow && target.attackPhase === 'anticipation' && distance(model[slot].position, target.position) < threat.maximumRange + .3 && target.phaseElapsed >= threat.counterWindow[0] && target.phaseElapsed <= threat.counterWindow[1] ? .1 : 0;
+  }
   return model;
 };
 
 const expectedContactSegment = (move: MoveDefinition, segment: string): boolean => {
   if (move.id === 'aerial_elbow') return segment.includes('Forearm') || segment.includes('UpperArm') || segment === 'chest';
-  if (move.category === 'aerial' || move.id === 'ground' || move.id === 'front_kick' || move.id === 'low_kick' || move.id === 'high_kick' || move.id === 'roundhouse') return segment.includes('Foot') || segment.includes('Shin') || segment.includes('chest');
+  if (move.category === 'aerial' || move.id === 'ground' || move.id === 'front_kick' || move.id === 'low_kick' || move.id === 'high_kick' || move.id === 'roundhouse') return segment.includes('Foot') || segment.includes('Shin') || segment.includes('chest') || move.id === 'aerial' && (segment === 'abdomen' || segment === 'pelvis' || segment.includes('UpperArm') || segment.includes('Forearm') || segment.includes('Hand') || segment.includes('Thigh'));
   if (move.id === 'rebound' || move.id === 'stiff_arm') return segment.includes('Hand') || segment.includes('Forearm') || segment.includes('UpperArm') || segment === 'chest';
   if (move.id === 'spear') return segment === 'chest' || segment.includes('UpperArm');
   if (move.category === 'quick' || move.category === 'heavy' || move.category === 'prop' || move.id === 'counter') return segment.includes('Hand');

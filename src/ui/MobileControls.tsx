@@ -34,7 +34,7 @@ export function MobileControls({ onPause, paused }: MobileControlsProps) {
   const pointer = useRef<number | null>(null);
   const [stick, setStick] = useState({ x: 0, z: 0 });
   const player = useMatchStore((state) => state.model.player);
-  const opponent = useMatchStore((state) => state.model.opponent);
+  const opponent = useMatchStore((state) => state.model[state.model.targets.player]);
   const distance = Math.hypot(player.position.x - opponent.position.x, player.position.z - opponent.position.z);
   const nearCorner = Math.abs(player.position.x) > 4.35 && Math.abs(player.position.z) > 2.95;
   const ringside = Math.abs(player.position.x) > 5.82 || Math.abs(player.position.z) > 4.32;
@@ -93,6 +93,7 @@ export function MobileControls({ onPause, paused }: MobileControlsProps) {
   const queuePointer = (command: GameCommand) => (event: ReactPointerEvent<HTMLButtonElement>): void => { event.preventDefault(); mobileInput.queue(command); };
   const queueKeyboard = (command: GameCommand) => (event: ReactMouseEvent<HTMLButtonElement>): void => { if (event.detail === 0) mobileInput.queue(command); };
 
+  if (player.state === 'defeated') return null;
   return <div className={`mobile-controls${paused ? ' mobile-controls--paused' : ''}`} data-testid="mobile-controls">
     <button type="button" className="mobile-pause" aria-label="Pause match" onClick={onPause}>Ⅱ</button>
     <div ref={pad} className="mobile-stick" role="group" aria-label="Movement joystick" onPointerDown={startStick} onPointerMove={updateStick} onPointerUp={stopStick} onPointerCancel={stopStick}>

@@ -59,7 +59,7 @@ const makeHarness = (): { world: World; runtime: BodyWorksRuntime; model: MatchM
   const world = new World({ x: 0, y: -18, z: 0 }); world.timestep = STEP;
   const mat = world.createRigidBody(RigidBodyDesc.fixed().setTranslation(0, 1.52, 0));
   world.createCollider(ColliderDesc.cuboid(6, .325, 4.5).setFriction(1.1).setCollisionGroups(arenaCollisionGroups), mat);
-  const runtime = new BodyWorksRuntime(); const model = createMatch('atlas', 'nova', 'standard', 'normal', 913); model.physicsAuthority = true; model.aiThinkTimer = 999;
+  const runtime = new BodyWorksRuntime(); const model = createMatch('atlas', 'nova', 'standard', 'normal', 913); model.physicsAuthority = true; model.aiThinkTimer = 999; model.aiControllers.opponent.thinkTimer = 999;
   runtime.setJointData(JointData);
   const rig = createHeadlessRig(world, 'atlas', -1.6); runtime.registerFighter('player', rig.bodies, rig.joints);
   runtime.setFootContact('player', 'leftFoot', true); runtime.setFootContact('player', 'rightFoot', true);
@@ -74,14 +74,20 @@ const stepHarness = (world: World, runtime: BodyWorksRuntime, model: MatchModel,
 beforeAll(async () => { await init(); });
 
 describe('Rapier-backed Bodyworks integration', () => {
-  it('holds a 16-body fighter upright through a ten-second fixed-step soak', () => {
+  it('holds a 16-body fighter upright without planar drift through a one-minute fixed-step soak', () => {
     const { world, runtime, model, rig } = makeHarness(); stepHarness(world, runtime, model);
     const initialPosition = { ...model.player.position };
-    for (let frame = 1; frame < 600; frame += 1) stepHarness(world, runtime, model);
+    let minimumX = initialPosition.x; let maximumX = initialPosition.x; let minimumZ = initialPosition.z; let maximumZ = initialPosition.z;
+    for (let frame = 1; frame < 3_600; frame += 1) {
+      stepHarness(world, runtime, model);
+      minimumX = Math.min(minimumX, model.player.position.x); maximumX = Math.max(maximumX, model.player.position.x);
+      minimumZ = Math.min(minimumZ, model.player.position.z); maximumZ = Math.max(maximumZ, model.player.position.z);
+    }
     const snapshot = runtime.fighterSnapshot('player');
     expect(Object.values(rig.bodies).every((body) => [body.translation().x, body.translation().y, body.translation().z, body.linvel().x, body.linvel().y, body.linvel().z].every(Number.isFinite))).toBe(true);
     expect(snapshot.pelvisY).toBeGreaterThan(2.65); expect(snapshot.pelvisY).toBeLessThan(3.35); expect(snapshot.upright).toBeGreaterThan(.72);
     expect(Math.hypot(model.player.position.x - initialPosition.x, model.player.position.z - initialPosition.z)).toBeLessThan(.08);
+    expect(maximumX - minimumX).toBeLessThan(.09); expect(maximumZ - minimumZ).toBeLessThan(.09);
     expect(runtime.metrics.emergencyResetCount, JSON.stringify(runtime.metrics)).toBe(0); expect(runtime.metrics.invalidRegisteredBodyCount).toBe(0); expect(world.bodies.len()).toBe(17); expect(world.impulseJoints.len()).toBe(15);
     runtime.reset(); expect(runtime.metrics.bodyCount).toBe(0); expect(runtime.metrics.jointCount).toBe(0); expect(runtime.replay.size).toBe(0); world.free();
   });
@@ -92,10 +98,21 @@ describe('Rapier-backed Bodyworks integration', () => {
     const travelled = model.player.position.x + 1.6; expect(travelled).toBeGreaterThan(.65);
     for (let frame = 0; frame < 90; frame += 1) stepHarness(world, runtime, model);
     expect(runtime.fighterSnapshot('player').speed).toBeLessThan(1.2);
-    model.player.state = 'jumping'; runtime.requestJump('player'); let apex = runtime.fighterSnapshot('player').pelvisY;
+    model.player.state = 'jumping'; model.player.stateElapsed = 0; runtime.requestJump('player'); let apex = runtime.fighterSnapshot('player').pelvisY;
     for (let frame = 0; frame < 150; frame += 1) { stepHarness(world, runtime, model); apex = Math.max(apex, runtime.fighterSnapshot('player').pelvisY); }
-    expect(apex).toBeGreaterThan(startX + .25); expect(runtime.fighterSnapshot('player').pelvisY).toBeGreaterThan(2.65); expect(runtime.metrics.emergencyResetCount, JSON.stringify(runtime.metrics)).toBe(0);
+    const landed = runtime.fighterSnapshot('player');
+    expect(apex).toBeGreaterThan(startX + .25); expect(landed.pelvisY, JSON.stringify({ state: model.player.state, position: model.player.position, verticalOffset: model.player.body.verticalOffset, verticalVelocity: model.player.body.verticalVelocity, supportFeet: landed.supportFeet, supportScore: runtime.metrics.supportScore })).toBeGreaterThan(2.65); expect(runtime.metrics.emergencyResetCount, JSON.stringify(runtime.metrics)).toBe(0);
     runtime.reset(); expect(runtime.pendingCommandCount()).toBe(0); expect(runtime.metrics.worldBodyCount).toBe(0); expect(runtime.metrics.worldJointCount).toBe(0); world.free();
+  });
+
+  it('keeps an impacted Battle Royale wrestler inside the ring instead of stranding the match at ringside', () => {
+    const { world, runtime, model, rig } = makeHarness(); model.matchMode = 'battle_royale'; model.player.state = 'downed'; model.player.downTimer = 4;
+    for (const body of Object.values(rig.bodies)) body.setLinvel({ x: 13, y: 1.2, z: 8 }, true);
+    for (let frame = 0; frame < 240; frame += 1) stepHarness(world, runtime, model);
+    expect(Math.abs(model.player.position.x), JSON.stringify({ position: model.player.position, containment: runtime.metrics.containmentCount })).toBeLessThan(5.82);
+    expect(Math.abs(model.player.position.z), JSON.stringify({ position: model.player.position, containment: runtime.metrics.containmentCount })).toBeLessThan(4.32);
+    expect(runtime.metrics.emergencyResetCount, JSON.stringify(runtime.metrics)).toBe(0);
+    world.free();
   });
 
   it('answers directional input promptly without destabilizing the articulated rig', () => {

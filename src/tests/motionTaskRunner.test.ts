@@ -14,6 +14,7 @@ describe('bounded physical motion tasks', () => {
   it('fails a task at its finite timeout and clears the active slot', () => {
     const runner = new MotionTaskRunner(); runner.request({ actorId: 'opponent', targetId: 'player', moveId: 'slam', attackInstanceId: 8, maximumDuration: .5, phaseId: 'lift' });
     expect(runner.update(.49).timedOut).toHaveLength(0);
-    const result = runner.update(.02); expect(result.timedOut).toHaveLength(1); expect(result.timedOut[0]!.status).toBe('failed'); expect(runner.active('opponent')).toBeNull();
+    const result = runner.update(.02); expect(result.timedOut).toHaveLength(1);
+    const [timedOut] = result.timedOut; expect(timedOut?.status).toBe('failed'); expect(runner.active('opponent')).toBeNull();
   });
 });
