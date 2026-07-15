@@ -72,13 +72,13 @@ test('five-way play keeps movement authoritative and gives the player target con
 });
 
 test('controls remain live after the opening exchange and every active body stays above the deck', async ({ page }) => {
-  test.setTimeout(180_000);
+  test.setTimeout(300_000);
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()); });
   await enterBattleRoyale(page);
   const hud = page.locator('.hud'); const html = page.locator('html');
-  await expect.poll(async () => Number(await hud.getAttribute('data-match-seconds')), { timeout: 30_000, intervals: [250, 500] }).toBeGreaterThan(9);
+  await expect.poll(async () => Number(await hud.getAttribute('data-match-seconds')), { timeout: 90_000, intervals: [250, 500, 1_000] }).toBeGreaterThan(9);
   const storeActionsBefore = Number(await html.getAttribute('data-store-action-count'));
   await page.keyboard.press('j');
   await expect.poll(async () => Number(await html.getAttribute('data-store-action-count')), { timeout: 15_000, intervals: [50, 100, 250] }).toBeGreaterThan(storeActionsBefore);

@@ -5,7 +5,10 @@ const soakDurationMs = Math.max(60_000, Math.min(300_000, Number.isFinite(reques
 
 test('bounded five-minute rematch and heap soak', async ({ page }, testInfo) => {
   test.skip(process.env.RUN_LONG_SOAK !== 'true', 'Run explicitly with pnpm test:soak:5m.');
-  test.setTimeout(soakDurationMs + 90_000);
+  // The soak duration is wall-clock time. Reserve one full slow-runner cycle
+  // for the final knockout, heap sample, and rematch rather than timing out
+  // while Playwright is collecting the evidence we need.
+  test.setTimeout(soakDurationMs + 180_000);
   const errors: string[] = [];
   page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()); });
   page.on('pageerror', (error) => errors.push(error.message));

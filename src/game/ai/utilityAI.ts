@@ -4,6 +4,7 @@ import { distance, seededRandom } from '../utils/math';
 import { FIGHTER_SLOTS } from '../types/game';
 import type { FighterDefinition, FighterSlot, GameCommand, MatchModel } from '../types/game';
 import { GRAPPLE_ACQUISITION_RANGE } from '../systems/moveSelection';
+import { isRingside } from '../physics/ringDynamics';
 
 export interface AiDecision { command: GameCommand | null; move: { x: number; z: number }; run: boolean; nextSeed: number }
 
@@ -82,6 +83,7 @@ export const chooseAiDecision = (model: MatchModel, definition: FighterDefinitio
   const personality = definition.personality;
   const actorRingside = Math.abs(actor.position.x) > 5.82 || Math.abs(actor.position.z) > 4.32;
   const targetInRing = Math.abs(target.position.x) <= 5.72 && Math.abs(target.position.z) <= 4.22;
+  const availableRingsideProp = model.ruleset === 'chaos' && !actor.heldPropId && model.props.some((prop) => !prop.broken && !prop.heldBy && prop.kind !== 'table' && isRingside(prop.position));
   if (actor.state === 'downed') return { command: isActionLegal(model, 'dodge', actorKey) && roll < (model.difficulty === 'hard' ? .72 : .48) ? 'dodge' : null, move: { x: 0, z: 0 }, run: false, nextSeed };
   if (actor.state === 'climbing') {
     if (actor.climbStage < 3) return { command: 'context', move: { x: 0, z: 0 }, run: false, nextSeed };
@@ -89,7 +91,7 @@ export const chooseAiDecision = (model: MatchModel, definition: FighterDefinitio
     const legalAerial = isActionLegal(model, aerialCommand, actorKey) ? aerialCommand : isActionLegal(model, 'context', actorKey) ? 'context' : isActionLegal(model, 'dodge', actorKey) ? 'dodge' : null;
     return { command: legalAerial, move: toward, run: false, nextSeed };
   }
-  if (actorRingside && targetInRing && isActionLegal(model, 'context', actorKey)) return { command: 'context', move: { x: 0, z: 0 }, run: false, nextSeed };
+  if (actorRingside && targetInRing && !availableRingsideProp && isActionLegal(model, 'context', actorKey)) return { command: 'context', move: { x: 0, z: 0 }, run: false, nextSeed };
   if (actor.state === 'grappling' && actor.attackPhase === 'anticipation') {
     if (actor.phaseElapsed > .12) return { command: null, move: { x: 0, z: 0 }, run: false, nextSeed };
     // Corner smash when opponent near corner

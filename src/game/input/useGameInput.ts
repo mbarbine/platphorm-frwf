@@ -43,6 +43,10 @@ export const readGamepadDirection = (gamepad: Gamepad): Vec2 => {
   };
 };
 
+export const keyboardTargetCycle = (code: string, shiftKey = false): -1 | 0 | 1 => (
+  code === 'Tab' ? shiftKey ? -1 : 1 : 0
+);
+
 export const useGameInput = (onPause: () => void, enabled = true, onClear?: (reason: string) => void): InputController => {
   const keys = useRef(new Set<string>());
   const edgeEvents = useRef<ActionEventCollector | null>(null);
@@ -52,6 +56,7 @@ export const useGameInput = (onPause: () => void, enabled = true, onClear?: (rea
   const previousButtons = useRef<boolean[]>([]);
   const previousPausePressed = useRef(false);
   const previousXRButtons = useRef(new Map<string, boolean>());
+  const pendingTargetCycle = useRef<-1 | 0 | 1>(0);
   const actionReadCount = useRef(0);
   const enabledRef = useRef(enabled); enabledRef.current = enabled;
   const onPauseRef = useRef(onPause); onPauseRef.current = onPause;
@@ -60,6 +65,7 @@ export const useGameInput = (onPause: () => void, enabled = true, onClear?: (rea
 
   const clearInputState = useCallback((reason: string): void => {
     keys.current.clear(); edgeEvents.current?.clear(); heldActions.current?.reset(); mobileInput.reset();
+    pendingTargetCycle.current = 0;
     const gamepad = navigator.getGamepads?.()[0];
     previousButtons.current = Array.from(gamepad?.buttons ?? [], (button) => button.pressed);
     previousPausePressed.current = gamepad?.buttons[9]?.pressed ?? false;
@@ -71,6 +77,11 @@ export const useGameInput = (onPause: () => void, enabled = true, onClear?: (rea
     const down = (event: KeyboardEvent): void => {
       const action = KEYBOARD_ACTIONS[event.code];
       if (event.repeat && action) return;
+      const targetCycle = keyboardTargetCycle(event.code, event.shiftKey);
+      if (targetCycle !== 0) {
+        if (!event.repeat && enabledRef.current) pendingTargetCycle.current = targetCycle;
+        event.preventDefault(); return;
+      }
       if (action === 'pause') {
         onPauseRef.current(); event.preventDefault(); return;
       }
@@ -128,7 +139,8 @@ export const useGameInput = (onPause: () => void, enabled = true, onClear?: (rea
     }
     if (!pausePressed) previousPausePressed.current = false;
     const actions: ActionEvent[] = edgeEvents.current?.drain() ?? [];
-    let targetCycle = 0;
+    let targetCycle = pendingTargetCycle.current;
+    pendingTargetCycle.current = 0;
     const keyboardMove = keyboardDirection(keys.current);
     let x = keyboardMove.x; let z = keyboardMove.z;
     let run = keys.current.has('ShiftLeft') || keys.current.has('ShiftRight');

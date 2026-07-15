@@ -1,9 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { readGamepadDirection } from '../game/input/useGameInput';
+import { keyboardTargetCycle, readGamepadDirection } from '../game/input/useGameInput';
 
 const gamepadWithAxes = (axes: readonly number[]): Gamepad => ({ axes }) as unknown as Gamepad;
 
 describe('desktop and XR gamepad normalization', () => {
+  it('turns Tab and Shift+Tab into authoritative target-cycle edges', () => {
+    expect(keyboardTargetCycle('Tab')).toBe(1);
+    expect(keyboardTargetCycle('Tab', true)).toBe(-1);
+    expect(keyboardTargetCycle('KeyJ')).toBe(0);
+  });
+
   it('uses the active standard stick pair', () => {
     const direction = readGamepadDirection(gamepadWithAxes([.8, 0, 0, 0]));
     expect(direction.x).toBeGreaterThan(.7); expect(direction.z).toBe(0);
