@@ -14,7 +14,7 @@ import { auditFallState, beginFall } from './falls';
 import { FALL_REASONS } from '../types/game';
 import type { ActionEvent } from '../input/actionLayer';
 import { canTraverseRopes, resolveContextAction, resolvePropAction } from './contextResolver';
-import { selectDirectionalGrapple, selectDirectionalStrike } from './moveSelection';
+import { GRAPPLE_ACQUISITION_RANGE, selectDirectionalGrapple, selectDirectionalStrike } from './moveSelection';
 
 export { combatDirection, selectDirectionalGrapple, selectDirectionalStrike } from './moveSelection';
 export type { CombatDirection, GrappleButton, StrikeButton } from './moveSelection';
@@ -123,10 +123,11 @@ export const canStartMove = (actor: FighterRuntime, target: FighterRuntime, move
   // glove-to-glove lane without widening ordinary body-hit range.
   const strikeReachAssist = target.state === 'blocking' && (move.category === 'quick' || move.category === 'heavy') ? 1.3
     : ['quick', 'heavy', 'ground', 'prop'].includes(move.category) ? .12 : 0;
+  const maximumInputRange = move.category === 'grapple' ? Math.max(move.maximumRange, GRAPPLE_ACQUISITION_RANGE) : move.maximumRange + strikeReachAssist;
   return move.requiredActorStates.includes(actor.state)
     && actor.stamina >= move.staminaCost
     && targetDistance >= move.minimumRange
-    && targetDistance <= move.maximumRange + strikeReachAssist
+    && targetDistance <= maximumInputRange
     && (!move.requiredTargetStates || move.requiredTargetStates.includes(target.state));
 };
 

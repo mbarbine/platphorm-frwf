@@ -3,6 +3,7 @@ import { BALANCE } from '../data/balance';
 import { distance, seededRandom } from '../utils/math';
 import { FIGHTER_SLOTS } from '../types/game';
 import type { FighterDefinition, FighterSlot, GameCommand, MatchModel } from '../types/game';
+import { GRAPPLE_ACQUISITION_RANGE } from '../systems/moveSelection';
 
 export interface AiDecision { command: GameCommand | null; move: { x: number; z: number }; run: boolean; nextSeed: number }
 
@@ -63,7 +64,7 @@ export const isActionLegal = (model: MatchModel, command: GameCommand, actorKey:
   if (command === 'grapple' && model.grapple) return false;
   const move = command === 'quick' ? target.state === 'downed' ? MOVES.ground : MOVES.jab : command === 'heavy' ? actor.ropeRebound > 0 ? MOVES.stiff_arm : MOVES.heavy : MOVES.slam;
   if (!move) return false;
-  return move.requiredActorStates.includes(actor.state) && actor.stamina >= move.staminaCost && (command !== 'grapple' || targetDistance <= move.maximumRange);
+  return move.requiredActorStates.includes(actor.state) && actor.stamina >= move.staminaCost && (command !== 'grapple' || targetDistance <= GRAPPLE_ACQUISITION_RANGE);
 };
 
 export const chooseAiDecision = (model: MatchModel, definition: FighterDefinition, actorKey: FighterSlot = 'opponent'): AiDecision => {

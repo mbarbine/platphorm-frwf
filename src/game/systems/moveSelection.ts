@@ -4,6 +4,11 @@ export type GrappleButton = 'quick' | 'heavy' | 'grapple';
 export type CombatDirection = 'neutral' | 'up' | 'down' | 'left' | 'right';
 export type StrikeButton = 'quick' | 'heavy';
 
+// One shared collar-and-elbow entry range keeps rules, AI, and every control
+// surface honest. Rapier still has to pull the hands onto real body anchors
+// before the grapple can progress beyond reach/acquire.
+export const GRAPPLE_ACQUISITION_RANGE = 1.65;
+
 export const combatDirection = (direction: Vec2): CombatDirection => {
   if (Math.hypot(direction.x, direction.z) < .35) return 'neutral';
   if (Math.abs(direction.x) > Math.abs(direction.z)) return direction.x < 0 ? 'left' : 'right';

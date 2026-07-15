@@ -78,6 +78,12 @@ describe('live wrestling control deck', () => {
     expect(controlPrompt('keyboard', 'counter')).toBe('SPACE');
   });
 
+  it('matches the visible body-slam prompt to the real collar-tie range', () => {
+    const model = createMatch('atlas', 'nova', 'standard', 'normal');
+    expect(buildControlLabels(model.player, model.opponent, 0, 1.65).grapple).toBe('BODY SLAM');
+    expect(buildControlLabels(model.player, model.opponent, 0, 1.66).grapple).toBe('CLOSE DISTANCE');
+  });
+
   it('switches the whole action deck for grapple, turnbuckle, rope exit, and kick-up states', () => {
     const model = createMatch('chad', 'atlas', 'standard', 'normal');
     model.player.state = 'grappling'; model.player.moveId = 'slam'; model.player.attackPhase = 'anticipation';

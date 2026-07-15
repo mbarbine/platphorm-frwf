@@ -6,8 +6,8 @@ import { buildBodySchema } from '../game/physics/bodySchema';
 import type { BodySegmentId, BodySegmentSchema } from '../game/physics/bodySchema';
 import { arenaCollisionGroups, fighterCollisionGroups } from '../game/physics/collisionGroups';
 import { BodyWorksRuntime } from '../game/physics/physicsRuntime';
-import { advanceMatch, createMatch } from '../game/systems/combat';
-import type { FighterId, MatchModel, Vec2 } from '../game/types/game';
+import { advanceMatch, applyPhysicalContact, createMatch, requestCommand } from '../game/systems/combat';
+import type { FighterId, FighterSlot, MatchModel, Vec2 } from '../game/types/game';
 
 const STEP = 1 / 60;
 const STILL = { move: { x: 0, z: 0 }, run: false, block: false, commands: [] } as const;
@@ -19,7 +19,7 @@ interface HeadlessRig {
 
 const schemaById = (schema: readonly BodySegmentSchema[]): Map<BodySegmentId, BodySegmentSchema> => new Map(schema.map((entry) => [entry.id, entry]));
 
-const createHeadlessRig = (world: World, fighterId: FighterId, x: number): HeadlessRig => {
+const createHeadlessRig = (world: World, fighterId: FighterId, slot: FighterSlot, x: number): HeadlessRig => {
   const schema = buildBodySchema(fighterById(fighterId));
   const byId = schemaById(schema); const bodies = {} as Record<BodySegmentId, RigidBody>;
   for (const segment of schema) {
@@ -30,7 +30,7 @@ const createHeadlessRig = (world: World, fighterId: FighterId, x: number): Headl
       : segment.id.includes('Foot') || segment.id.includes('Hand')
         ? ColliderDesc.cuboid(segment.radius, segment.id.includes('Foot') ? segment.radius * .5 : segment.halfLength, segment.id.includes('Foot') ? segment.halfLength * 1.35 : segment.radius)
         : ColliderDesc.capsule(segment.halfLength, segment.radius);
-    world.createCollider(collider.setMass(segment.massKg).setFriction(segment.id.includes('Foot') ? 1.45 : .76).setRestitution(.015).setCollisionGroups(fighterCollisionGroups('player')), body);
+    world.createCollider(collider.setMass(segment.massKg).setFriction(segment.id.includes('Foot') ? 1.45 : .76).setRestitution(.015).setCollisionGroups(fighterCollisionGroups(slot)), body);
     bodies[segment.id] = body;
   }
   const entry = (id: BodySegmentId): BodySegmentSchema => {
@@ -61,7 +61,8 @@ const makeHarness = (): { world: World; runtime: BodyWorksRuntime; model: MatchM
   world.createCollider(ColliderDesc.cuboid(6, .325, 4.5).setFriction(1.1).setCollisionGroups(arenaCollisionGroups), mat);
   const runtime = new BodyWorksRuntime(); const model = createMatch('atlas', 'nova', 'standard', 'normal', 913); model.physicsAuthority = true; model.aiThinkTimer = 999; model.aiControllers.opponent.thinkTimer = 999;
   runtime.setJointData(JointData);
-  const rig = createHeadlessRig(world, 'atlas', -1.6); runtime.registerFighter('player', rig.bodies, rig.joints);
+  runtime.registerLandingSurface('ring', 'ring', mat);
+  const rig = createHeadlessRig(world, 'atlas', 'player', -1.6); runtime.registerFighter('player', rig.bodies, rig.joints);
   runtime.setFootContact('player', 'leftFoot', true); runtime.setFootContact('player', 'rightFoot', true);
   return { world, runtime, model, rig };
 };
@@ -69,6 +70,29 @@ const makeHarness = (): { world: World; runtime: BodyWorksRuntime; model: MatchM
 const stepHarness = (world: World, runtime: BodyWorksRuntime, model: MatchModel, movement: Vec2 = STILL.move, run = false): void => {
   const input = { move: movement, run, block: false, commands: [] };
   runtime.captureInput('player', input, model.elapsed); advanceMatch(model, STEP, input); runtime.beforeFixedStep(STEP, model, world); world.step(); runtime.afterFixedStep(model);
+  for (const contact of runtime.consumeContacts()) applyPhysicalContact(model, contact);
+};
+
+const makeGrappleHarness = (): { world: World; runtime: BodyWorksRuntime; model: MatchModel } => {
+  const world = new World({ x: 0, y: -18, z: 0 }); world.timestep = STEP;
+  const mat = world.createRigidBody(RigidBodyDesc.fixed().setTranslation(0, 1.52, 0));
+  world.createCollider(ColliderDesc.cuboid(6, .325, 4.5).setFriction(1.1).setCollisionGroups(arenaCollisionGroups), mat);
+  const runtime = new BodyWorksRuntime(); const model = createMatch('atlas', 'nova', 'standard', 'normal', 1217);
+  model.physicsAuthority = true; model.labMode = true; model.aiThinkTimer = 999; model.aiControllers.opponent.thinkTimer = 999;
+  model.player.position = { x: -.8, z: 0 }; model.opponent.position = { x: .8, z: 0 };
+  model.player.facing = Math.PI / 2; model.opponent.facing = -Math.PI / 2;
+  runtime.setJointData(JointData); runtime.registerLandingSurface('ring', 'ring', mat);
+  const player = createHeadlessRig(world, 'atlas', 'player', -.8); const opponent = createHeadlessRig(world, 'nova', 'opponent', .8);
+  runtime.registerFighter('player', player.bodies, player.joints); runtime.registerFighter('opponent', opponent.bodies, opponent.joints);
+  runtime.setFootContact('player', 'leftFoot', true); runtime.setFootContact('player', 'rightFoot', true);
+  runtime.setFootContact('opponent', 'leftFoot', true); runtime.setFootContact('opponent', 'rightFoot', true);
+  return { world, runtime, model };
+};
+
+const stepGrappleHarness = (world: World, runtime: BodyWorksRuntime, model: MatchModel): void => {
+  const input = { move: STILL.move, run: false, block: false, commands: [] };
+  advanceMatch(model, STEP, input); runtime.beforeFixedStep(STEP, model, world); world.step(); runtime.afterFixedStep(model);
+  for (const contact of runtime.consumeContacts()) applyPhysicalContact(model, contact);
 };
 
 beforeAll(async () => { await init(); });
@@ -134,6 +158,30 @@ describe('Rapier-backed Bodyworks integration', () => {
     expect(runtime.metrics.emergencyResetCount, JSON.stringify(runtime.metrics)).toBe(0);
     world.free();
   });
+
+  it('completes a two-grip lift and scores only the solved torso-to-mat landing', () => {
+    const { world, runtime, model } = makeGrappleHarness();
+    for (let frame = 0; frame < 45; frame += 1) stepGrappleHarness(world, runtime, model);
+    const positions = { player: model.player.position, opponent: model.opponent.position };
+    expect(requestCommand(model, 'player', 'grapple'), JSON.stringify(positions)).toBe(true);
+    expect(requestCommand(model, 'player', 'heavy')).toBe(true);
+    stepGrappleHarness(world, runtime, model);
+    let sawTwoGrips = false; let sawLift = false; let sawLanding = false;
+    for (let frame = 0; frame < 540 && model.opponent.health === 100; frame += 1) {
+      stepGrappleHarness(world, runtime, model);
+      sawTwoGrips ||= runtime.metrics.gripCreateCount >= 2;
+      sawLift ||= model.grapple?.phase === 'lift';
+      sawLanding ||= runtime.metrics.lastContactPair === 'chest>ring';
+    }
+    expect(sawTwoGrips, JSON.stringify(runtime.metrics)).toBe(true);
+    expect(sawLift, JSON.stringify({ grapple: model.grapple, player: model.player, metrics: runtime.metrics })).toBe(true);
+    expect(sawLanding, JSON.stringify({ opponent: model.opponent, metrics: runtime.metrics })).toBe(true);
+    expect(model.opponent.health).toBeLessThan(100);
+    expect(model.playerStats.grapples).toBe(1);
+    expect(runtime.pendingLandingCount()).toBe(0);
+    expect(runtime.metrics.emergencyResetCount, JSON.stringify(runtime.metrics)).toBe(0);
+    world.free();
+  }, 30_000);
 
   it('answers directional input promptly without destabilizing the articulated rig', () => {
     const { world, runtime, model } = makeHarness(); const initialX = model.player.position.x;

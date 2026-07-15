@@ -4,7 +4,7 @@ import { mobileInput } from '../game/input/mobileInput';
 import { useMatchStore } from '../game/state/matchStore';
 import type { GameAction } from '../game/input/actionLayer';
 import { getMove } from '../game/data/moves';
-import { selectDirectionalGrapple, selectDirectionalStrike } from '../game/systems/moveSelection';
+import { GRAPPLE_ACQUISITION_RANGE, selectDirectionalGrapple, selectDirectionalStrike } from '../game/systems/moveSelection';
 import { resolveContextAction, resolvePropAction } from '../game/systems/contextResolver';
 
 interface MobileControlsProps { onPause: () => void; paused: boolean }
@@ -39,6 +39,7 @@ export function MobileControls({ onPause, paused }: MobileControlsProps) {
   const opponent = model[model.targets.player];
   const contextResolution = resolveContextAction(model, 'player', stick);
   const propResolution = resolvePropAction(model, 'player', stick);
+  const targetDistance = Math.hypot(player.position.x - opponent.position.x, player.position.z - opponent.position.z);
   const contextLabel = contextResolution.displayName;
   const quickMove = player.state === 'grappling' ? selectDirectionalGrapple(stick, 'quick')
     : player.state === 'climbing' && player.climbStage === 3 ? 'aerial_elbow'
@@ -49,9 +50,12 @@ export function MobileControls({ onPause, paused }: MobileControlsProps) {
   const grappleMove = player.state === 'grappling' ? selectDirectionalGrapple(stick, 'grapple') : null;
   const quickLabel = player.state === 'downed' ? 'NO STRIKE' : getMove(quickMove).displayName.toUpperCase();
   const powerLabel = player.state === 'downed' ? 'NO STRIKE' : getMove(heavyMove).displayName.toUpperCase();
-  const grappleLabel = player.state === 'climbing' || player.state === 'downed' || player.state === 'pinned' ? 'NO LOCK' : grappleMove ? getMove(grappleMove).displayName.toUpperCase() : 'LOCK UP';
+  const grappleLabel = player.state === 'climbing' || player.state === 'downed' || player.state === 'pinned' ? 'NO LOCK'
+    : grappleMove ? getMove(grappleMove).displayName.toUpperCase()
+      : targetDistance <= GRAPPLE_ACQUISITION_RANGE ? 'LOCK UP' : 'CLOSE DISTANCE';
   const strikeLocked = player.state === 'downed' || player.state === 'pinned' || (player.state === 'climbing' && player.climbStage < 3);
-  const grappleLocked = player.state === 'downed' || player.state === 'pinned' || player.state === 'climbing';
+  const grappleLocked = player.state === 'downed' || player.state === 'pinned' || player.state === 'climbing'
+    || player.state !== 'grappling' && targetDistance > GRAPPLE_ACQUISITION_RANGE;
 
   useEffect(() => () => mobileInput.reset(), []);
 

@@ -499,6 +499,13 @@ describe('deterministic combat rules', () => {
     expect(requestCommand(model, 'player', 'grapple')).toBe(true); expect(model.player.moveId).toBe('piledriver'); expect(model.grapple?.phase).toBe('reach');
   });
 
+  it('uses the shared physical collar-tie range for a neutral grapple', () => {
+    const reachable = createMatch('brick', 'vex', 'standard', 'normal'); reachable.player.position = { x: 0, z: 0 }; reachable.opponent.position = { x: 1.65, z: 0 };
+    expect(requestCommand(reachable, 'player', 'grapple')).toBe(true);
+    const tooFar = createMatch('brick', 'vex', 'standard', 'normal'); tooFar.player.position = { x: 0, z: 0 }; tooFar.opponent.position = { x: 1.66, z: 0 };
+    expect(requestCommand(tooFar, 'player', 'grapple')).toBe(false);
+  });
+
   it('completes one hundred neutral piledrivers across the full weight and approach matrix without a stuck attacker', () => {
     const fighters = FIGHTERS.map((fighter) => fighter.id);
     let attempts = 0;
