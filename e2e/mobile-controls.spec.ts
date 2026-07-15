@@ -20,8 +20,11 @@ test('mobile player can enter a match, move, guard, and attack', async ({ page }
   await expect(controls.locator('.mobile-action--power')).toHaveAttribute('data-move-label', 'PISTON BOOT');
   await expect(grapple).toHaveAttribute('data-move-label', 'CLOSE DISTANCE'); await expect(grapple).toBeDisabled();
   await expect(controls.getByRole('button', { name: 'Jump' })).toBeVisible();
-  await expect(controls.getByRole('button', { name: 'Pick up, drop, or throw prop' })).toBeVisible();
-  await expect(controls.getByRole('button', { name: 'Taunt' })).toBeVisible();
+  await expect(controls.getByRole('button', { name: 'Pick up, drop, or throw prop' })).toBeHidden();
+  await expect(controls.getByRole('button', { name: 'Taunt' })).toBeHidden();
+  await expect(page.locator('.context-hint')).toBeHidden();
+  const targetBox = await page.getByTestId('target-switch').boundingBox();
+  expect(targetBox?.width).toBeGreaterThanOrEqual(44); expect(targetBox?.height).toBeGreaterThanOrEqual(44);
 
   const stick = page.getByRole('group', { name: 'Movement joystick' }); const box = await stick.boundingBox();
   expect(box).not.toBeNull();

@@ -30,7 +30,8 @@ test('Battle Royale is the default and starts one real rig for all five wrestler
   await expect.poll(async () => Number(await hud.locator('[data-landing-surfaces]').getAttribute('data-landing-surfaces')), { timeout: 20_000 }).toBeGreaterThanOrEqual(3);
   await expect.poll(async () => Number(await hud.getAttribute('data-match-seconds')), { timeout: 20_000 }).toBeGreaterThan(1);
   await expect.poll(async () => Number(await hud.getAttribute('data-total-damage')), { timeout: 35_000, intervals: [250, 500] }).toBeGreaterThan(0);
-  await expect(page.locator('html')).toHaveAttribute('data-camera-shot', /broadcast|wide|strike|grapple|slam|aerial|corner/);
+  await expect(page.locator('html')).toHaveAttribute('data-camera-shot', 'battle-royale-steady');
+  await expect.poll(async () => Number(await page.locator('html').getAttribute('data-camera-fov')), { timeout: 20_000 }).toBeCloseTo(55, 1);
   expect(errors).toEqual([]);
 });
 
@@ -50,6 +51,7 @@ test('five-way play keeps movement authoritative and gives the player target con
   await page.keyboard.press('Tab');
   await expect.poll(() => hud.getAttribute('data-player-target')).not.toBe(originalTarget);
   await expect(page.getByTestId('target-switch')).toBeVisible();
+  await expect(page.locator('html')).toHaveAttribute('data-camera-shot', 'battle-royale-steady');
 
   const startX = Number(await hud.getAttribute('data-player-x')); const startZ = Number(await hud.getAttribute('data-player-z'));
   await page.evaluate(({ x, z }) => {

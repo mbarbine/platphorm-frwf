@@ -1,6 +1,13 @@
 import type { AttackPhase, FighterState } from '../types/game';
 
-export type CameraShot = 'broadcast' | 'wide' | 'ringside-x' | 'ringside-z' | 'table' | 'strike' | 'grapple' | 'slam' | 'corner' | 'aerial' | 'replay';
+export type CameraShot = 'battle-royale-steady' | 'broadcast' | 'wide' | 'ringside-x' | 'ringside-z' | 'table' | 'strike' | 'grapple' | 'slam' | 'corner' | 'aerial' | 'replay';
+
+/** One readable arena frame for active Battle Royale play. */
+export const BATTLE_ROYALE_CAMERA_FRAME = Object.freeze({
+  position: Object.freeze({ x: 0, y: 13, z: 17.5 }),
+  target: Object.freeze({ x: 0, y: 2.25, z: 0 }),
+  fov: 55,
+});
 
 export interface CameraDirectorContext {
   replayActive: boolean;

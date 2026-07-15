@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { selectCameraShot } from '../game/camera/cameraDirector';
+import { BATTLE_ROYALE_CAMERA_FRAME, selectCameraShot } from '../game/camera/cameraDirector';
 
 const base = {
   replayActive: false, middleX: 0, middleZ: 0, separation: 2,
@@ -10,6 +10,13 @@ const base = {
 };
 
 describe('camera director', () => {
+  it('defines one fixed arena-wide Battle Royale frame', () => {
+    expect(BATTLE_ROYALE_CAMERA_FRAME).toEqual({ position: { x: 0, y: 13, z: 17.5 }, target: { x: 0, y: 2.25, z: 0 }, fov: 55 });
+    expect(Object.isFrozen(BATTLE_ROYALE_CAMERA_FRAME)).toBe(true);
+    expect(Object.isFrozen(BATTLE_ROYALE_CAMERA_FRAME.position)).toBe(true);
+    expect(Object.isFrozen(BATTLE_ROYALE_CAMERA_FRAME.target)).toBe(true);
+  });
+
   it('prioritizes match storytelling shots without losing broad spatial coverage', () => {
     expect(selectCameraShot(base)).toBe('broadcast');
     expect(selectCameraShot({ ...base, separation: 8 })).toBe('wide');

@@ -2,7 +2,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { useMemo, useRef } from 'react';
 import { Vector3 } from 'three';
 import type { PerspectiveCamera } from 'three';
-import { cameraShotIsUrgent, selectCameraShot } from '../camera/cameraDirector';
+import { BATTLE_ROYALE_CAMERA_FRAME, cameraShotIsUrgent, selectCameraShot } from '../camera/cameraDirector';
 import type { CameraShot } from '../camera/cameraDirector';
 import { getMove } from '../data/moves';
 import { useMatchStore } from '../state/matchStore';
@@ -13,6 +13,7 @@ import { bodyWorksRuntime } from '../physics/physicsRuntime';
 import { resolvedSpectatorTarget, useSpectatorStore } from '../state/spectatorStore';
 
 const boundedPrediction = (position: number, velocity: number, seconds: number): number => position + Math.max(-1.25, Math.min(1.25, velocity * seconds));
+const usesSteadyBattleRoyaleCamera = (matchMode: string): boolean => matchMode === 'battle_royale';
 
 export function CameraRig() {
   const { camera, gl } = useThree();
@@ -45,6 +46,27 @@ export function CameraRig() {
       if ('fov' in camera) {
         const perspective = camera as PerspectiveCamera; const targetFov = spectator.cameraMode === 'first_person' ? 64 : 52;
         perspective.fov += (targetFov - perspective.fov) * (1 - Math.exp(-dt * 7)); perspective.updateProjectionMatrix();
+      }
+      return;
+    }
+    if (usesSteadyBattleRoyaleCamera(model.matchMode)) {
+      // Battle Royale is already visually dense. Keep one arena-wide frame
+      // while the player is active: target changes and move events never cut,
+      // orbit, shake, or pump the zoom. Explicit spectator modes still own the
+      // camera after elimination through the branch above.
+      const frame = BATTLE_ROYALE_CAMERA_FRAME;
+      shot.current = 'battle-royale-steady';
+      document.documentElement.dataset.cameraShot = shot.current;
+      desired.set(frame.position.x, frame.position.y, frame.position.z);
+      desiredTarget.set(frame.target.x, frame.target.y, frame.target.z);
+      camera.position.lerp(desired, 1 - Math.exp(-dt * 5.2));
+      smoothedTarget.lerp(desiredTarget, 1 - Math.exp(-dt * 6.4));
+      camera.lookAt(smoothedTarget);
+      if ('fov' in camera) {
+        const perspective = camera as PerspectiveCamera;
+        perspective.fov += (frame.fov - perspective.fov) * (1 - Math.exp(-dt * 6.4));
+        perspective.updateProjectionMatrix();
+        document.documentElement.dataset.cameraFov = perspective.fov.toFixed(2);
       }
       return;
     }
