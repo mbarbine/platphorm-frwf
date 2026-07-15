@@ -2,7 +2,7 @@ import type { RapierRigidBody } from '@react-three/rapier';
 import type { ImpulseJoint, JointData, World } from '@dimforge/rapier3d-compat';
 import type { FrameInput } from '../systems/combat';
 import { AI_FIGHTER_SLOTS, FALL_REASONS, FIGHTER_SLOTS } from '../types/game';
-import type { BodyRegion, FighterRuntime, FighterSlot, GameCommand, MatchModel, PropRuntime, Vec2 } from '../types/game';
+import type { BodyRegion, FighterRuntime, FighterSlot, GameCommand, MatchModel, PropRuntime, RecoveryOrientation, Vec2 } from '../types/game';
 import { clamp } from '../utils/math';
 import type { BodySegmentId } from './bodySchema';
 import { computeMotorTorque } from './motorController';
@@ -456,6 +456,23 @@ export class BodyWorksRuntime {
     this.placeFighter('player', player); this.placeFighter('opponent', opponent);
   }
 
+  prepareLabFall(fighter: FighterKey, orientation: RecoveryOrientation, facing: number): void {
+    const rig = this.rigs.get(fighter); const pelvis = rig?.bodies.pelvis; if (!rig || !pelvis) return;
+    const rootRotation = orientation === 'back' ? quaternionFromEuler([-Math.PI / 2, facing, 0])
+      : orientation === 'front' ? quaternionFromEuler([Math.PI / 2, facing, 0])
+        : orientation === 'left' ? quaternionFromEuler([0, facing, -Math.PI / 2])
+          : quaternionFromEuler([0, facing, Math.PI / 2]);
+    const origin = pelvis.translation(); const anchorY = 2.13;
+    for (const [segment, body] of Object.entries(rig.bodies) as [BodySegmentId, RapierRigidBody][]) {
+      const offset = rig.restOffsets[segment]; if (!body?.isValid() || !offset) continue;
+      const rotated = rotateByQuaternion(offset, rootRotation);
+      body.setEnabledRotations(true, true, true, true);
+      body.setTranslation({ x: origin.x + rotated.x, y: anchorY + rotated.y, z: origin.z + rotated.z }, true);
+      body.setRotation(rootRotation, true); body.setLinvel({ x: 0, y: 0, z: 0 }, true); body.setAngvel({ x: 0, y: 0, z: 0 }, true);
+    }
+    rig.rootStabilized = false; rig.skeletonStabilized = false; rig.rotationSignature = ''; rig.rotationallyDynamic.clear(); rig.supportContacts.clear(); rig.settlingFrames = 0;
+  }
+
   private placeFighter(fighter: FighterKey, target: Vec2): void {
     const rig = this.rigs.get(fighter); const pelvis = rig?.bodies.pelvis; if (!rig || !pelvis) return;
     const placementPelvisY = rig.restPelvisY - (isRingside(target) ? 1.46 : 0);
@@ -767,8 +784,8 @@ export class BodyWorksRuntime {
       const rotation = pelvis.rotation(); const angular = pelvis.angvel();
       const upX = 2 * (rotation.x * rotation.y - rotation.w * rotation.z);
       const upZ = 2 * (rotation.y * rotation.z + rotation.w * rotation.x);
-      const strength = fighter.state === 'recovering' ? .16 : .055;
-      const torqueLimit = fighter.state === 'recovering' ? 2.25 : 1.35;
+      const strength = fighter.state === 'recovering' ? .22 : .055;
+      const torqueLimit = fighter.state === 'recovering' ? 2.8 : 1.35;
       pelvis.applyTorqueImpulse({
         x: clamp(-upZ * fighter.body.inertia * strength - angular.x * .11, -torqueLimit, torqueLimit),
         y: 0,
@@ -955,12 +972,17 @@ export class BodyWorksRuntime {
   }
 
   private applyRecoveryStanceDrive(rig: FighterRigRegistration, fighter: FighterRuntime, targetPelvisY: number, progress: number): void {
-    const pelvis = rig.bodies.pelvis; if (!pelvis || progress <= .2) return;
+    const pelvis = rig.bodies.pelvis; if (!pelvis || progress <= .12) return;
     const pelvisPosition = pelvis.translation(); const pelvisVelocity = pelvis.linvel();
     const externalSupport = this.hasExternalSupport(rig);
-    const activation = clamp((progress - .2) / .5, 0, 1) * fighter.body.muscle;
+    const activation = clamp((progress - .12) / .46, 0, 1) * fighter.body.muscle;
     const cosine = Math.cos(fighter.facing); const sine = Math.sin(fighter.facing);
-    for (const [segment, body] of Object.entries(rig.bodies) as [BodySegmentId, RapierRigidBody][]) {
+    // The legs build the stance; the regular angular motors articulate the
+    // torso and arms. Driving every segment toward a standing position made
+    // the upper body pull the pelvis down at the same time as the feet tried
+    // to extend it, producing the folded, hovering recovery lockup.
+    for (const segment of ['leftThigh', 'rightThigh', 'leftShin', 'rightShin', 'leftFoot', 'rightFoot'] as const) {
+      const body = rig.bodies[segment];
       const offset = rig.restOffsets[segment];
       if (!body?.isValid() || !offset) continue;
       const bodyPosition = body.translation(); const bodyVelocity = body.linvel();
@@ -969,13 +991,13 @@ export class BodyWorksRuntime {
         y: pelvisPosition.y + offset.y,
         z: pelvisPosition.z - offset.x * sine + offset.z * cosine,
       };
-      const loadBearing = segment.includes('Thigh') || segment.includes('Shin') || segment.includes('Foot');
-      const stiffness = loadBearing ? 62 : segment === 'abdomen' || segment === 'chest' || segment === 'head' ? 38 : 28;
-      const damping = loadBearing ? 12 : 9;
+      const isFoot = segment.includes('Foot');
+      const stiffness = isFoot ? 74 : 58;
+      const damping = isFoot ? 13 : 11;
       const acceleration = {
-        x: clamp((target.x - bodyPosition.x) * stiffness - (bodyVelocity.x - pelvisVelocity.x) * damping, -58, 58) * activation,
-        y: clamp((target.y - bodyPosition.y) * stiffness - (bodyVelocity.y - pelvisVelocity.y) * damping, -92, 72) * activation,
-        z: clamp((target.z - bodyPosition.z) * stiffness - (bodyVelocity.z - pelvisVelocity.z) * damping, -58, 58) * activation,
+        x: clamp((target.x - bodyPosition.x) * stiffness - (bodyVelocity.x - pelvisVelocity.x) * damping, -52, 52) * activation,
+        y: clamp((target.y - bodyPosition.y) * stiffness - (bodyVelocity.y - pelvisVelocity.y) * damping, -88, 58) * activation,
+        z: clamp((target.z - bodyPosition.z) * stiffness - (bodyVelocity.z - pelvisVelocity.z) * damping, -52, 52) * activation,
       };
       // Internal equal-and-opposite forces rebuild the articulated rest tree
       // around the live pelvis. They cannot levitate the wrestler because the
@@ -988,7 +1010,7 @@ export class BodyWorksRuntime {
       // A hand, knee, or torso contact can provide the first bounded ground
       // reaction. Once a foot reaches the mat the ordinary foot-support motor
       // takes over, avoiding two competing lift controllers.
-      const braceAcceleration = clamp((targetPelvisY - pelvisPosition.y) * 16 - pelvisVelocity.y * 9 + 12, -10, 18) * activation;
+      const braceAcceleration = clamp((targetPelvisY - pelvisPosition.y) * 14 - pelvisVelocity.y * 9 + 10, -8, 14) * activation;
       this.applyRigAcceleration(rig, { x: 0, y: braceAcceleration, z: 0 });
     }
     if (rig.supportContacts.size > 0) {
@@ -1832,7 +1854,7 @@ export class BodyWorksRuntime {
     const center = this.rigPlanarCenter(rig);
     fighter.position.x = center.x; fighter.position.z = center.z;
     fighter.velocity.x = center.velocityX; fighter.velocity.z = center.velocityZ;
-    const upright = clamp(1 - (Math.abs(rotation.x) + Math.abs(rotation.z)) * 1.7, 0, 1);
+    const upright = uprightFromRotation(rotation);
     const supportScore = this.supportScore(rig); if (key === 'player') this.metrics.supportScore = supportScore;
     fighter.body.balance = clamp(supportScore * 58 + upright * 42 - Math.hypot(velocity.x, velocity.z) * 1.1, 0, 100);
     const groundedPelvisY = rig.restPelvisY - (isRingside(fighter.position) ? 1.46 : 0);
@@ -1949,9 +1971,29 @@ const quaternionMultiply = (a: QuaternionValue, b: QuaternionValue): QuaternionV
   w: a.w * b.w - a.x * b.x - a.y * b.y - a.z * b.z,
 });
 
+const rotateByQuaternion = (value: Vector3Value, rotation: QuaternionValue): Vector3Value => {
+  const ix = rotation.w * value.x + rotation.y * value.z - rotation.z * value.y;
+  const iy = rotation.w * value.y + rotation.z * value.x - rotation.x * value.z;
+  const iz = rotation.w * value.z + rotation.x * value.y - rotation.y * value.x;
+  const iw = -rotation.x * value.x - rotation.y * value.y - rotation.z * value.z;
+  return {
+    x: ix * rotation.w + iw * -rotation.x + iy * -rotation.z - iz * -rotation.y,
+    y: iy * rotation.w + iw * -rotation.y + iz * -rotation.x - ix * -rotation.z,
+    z: iz * rotation.w + iw * -rotation.z + ix * -rotation.y - iy * -rotation.x,
+  };
+};
+
 const quaternionFromEuler = ([x, y, z]: readonly [number, number, number]): QuaternionValue => {
   const cx = Math.cos(x / 2); const sx = Math.sin(x / 2); const cy = Math.cos(y / 2); const sy = Math.sin(y / 2); const cz = Math.cos(z / 2); const sz = Math.sin(z / 2);
   return { x: sx * cy * cz + cx * sy * sz, y: cx * sy * cz - sx * cy * sz, z: cx * cy * sz + sx * sy * cz, w: cx * cy * cz - sx * sy * sz };
+};
+
+const uprightFromRotation = (rotation: QuaternionValue): number => {
+  // Measure the pelvis' actual local-up vector against world up. Quaternion
+  // component magnitudes are not angles and misclassified valid yawed stances
+  // as tilted, which could keep otherwise recovered wrestlers input-locked.
+  const upY = 1 - 2 * (rotation.x * rotation.x + rotation.z * rotation.z);
+  return clamp(upY, 0, 1);
 };
 
 const withYaw = (yaw: QuaternionValue, euler: readonly [number, number, number]): QuaternionValue => quaternionMultiply(yaw, quaternionFromEuler(euler));

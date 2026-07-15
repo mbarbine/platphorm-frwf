@@ -761,7 +761,7 @@ const updateFighter = (model: MatchModel, actorKey: FighterSlot, dt: number, mov
   if (actor.state === 'downed') {
     actor.downTimer -= dt; actor.stamina = clamp(actor.stamina + dt * 10, 0, actor.staminaCap);
     if (actor.downTimer <= 0) { actor.state = 'recovering'; actor.stateElapsed = 0; }
-  } else if (actor.state === 'recovering' && !actor.moveId && actor.stateElapsed > .7 && (!model.physicsAuthority || actor.body.balance >= 84 && Math.abs(actor.body.verticalVelocity) <= .45)) {
+  } else if (actor.state === 'recovering' && !actor.moveId && actor.stateElapsed > .7 && (!model.physicsAuthority || actor.body.balance >= 70 && Math.abs(actor.body.verticalVelocity) <= .45)) {
     actor.state = 'idle'; actor.stateElapsed = 0; actor.finisherPrimed = false;
   } else if (actor.state === 'staggered' && actor.stateElapsed > .55 + (100 - actor.health) / 200) {
     actor.state = 'idle'; actor.stateElapsed = 0;

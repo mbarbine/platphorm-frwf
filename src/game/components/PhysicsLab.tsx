@@ -30,9 +30,9 @@ const SCENARIOS: readonly LabScenario[] = [
   { id: 'jump', label: 'STANDING JUMP', steps: tap('KeyC', 220, 480), duration: 2_200 },
   { id: 'landing', label: 'JUMP + LANDING', steps: tap('KeyC', 220, 480), duration: 2_600 },
   { id: 'kickup', label: 'KICK-UP RECOVERY', steps: tap('Space', 620, 180), duration: 2_100 },
-  { id: 'recoveryBack', label: 'BACK GET-UP', steps: [], duration: 2_100 },
-  { id: 'recoveryFront', label: 'FRONT GET-UP', steps: [], duration: 2_100 },
-  { id: 'recoverySide', label: 'SIDE GET-UP', steps: [], duration: 2_100 },
+  { id: 'recoveryBack', label: 'BACK GET-UP', steps: [], duration: 3_400 },
+  { id: 'recoveryFront', label: 'FRONT GET-UP', steps: [], duration: 3_400 },
+  { id: 'recoverySide', label: 'SIDE GET-UP', steps: [], duration: 3_400 },
   { id: 'inputRange', label: 'CLOSE-RANGE INPUT', steps: [], duration: 900 },
   { id: 'jab', label: 'CONTACT-TRUE JAB', steps: tap('KeyJ'), duration: 1_400 },
   { id: 'jabWhiff', label: 'JAB WHIFF', steps: tap('KeyJ'), duration: 1_200 },
@@ -89,7 +89,7 @@ export function PhysicsLab() {
     else if (scenario.id === 'apronReturn') useMatchStore.getState().prepareLabScenario({ x: 6.52, z: 0 }, { x: 0, z: 2.4 });
     else if (scenario.id === 'tableCollapse') useMatchStore.getState().prepareLabScenario({ x: 0, z: -5.25 }, { x: 0, z: -6.05 });
     else if (scenario.id === 'blockedJab') useMatchStore.getState().prepareLabScenario({ x: 0, z: -.27 }, { x: 0, z: .27 }, 'blocking');
-    else if (recoveryOrientation) useMatchStore.getState().prepareLabScenario({ x: 0, z: -.7 }, { x: 0, z: 3.4 }, 'downed', 100, recoveryOrientation, .38);
+    else if (recoveryOrientation) useMatchStore.getState().prepareLabScenario({ x: 0, z: -.7 }, { x: 0, z: 3.4 }, 'downed', 100, recoveryOrientation, .75);
     else if (scenario.id === 'kickup') useMatchStore.getState().prepareLabScenario({ x: 0, z: -.7 }, { x: 0, z: 3.4 }, 'downed');
     // Give the run enough in-ring distance to build a genuinely loaded entry.
     // Starting inside the rope engagement band only tested a slow shove into

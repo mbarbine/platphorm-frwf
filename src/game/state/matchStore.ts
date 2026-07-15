@@ -109,6 +109,7 @@ export const useMatchStore = create<MatchStore>((set) => ({
     player.facing = Math.atan2(opponentPosition.x - playerPosition.x, opponentPosition.z - playerPosition.z);
     opponent.facing = Math.atan2(playerPosition.x - opponentPosition.x, playerPosition.z - opponentPosition.z);
     player.state = playerState; player.downTimer = playerState === 'downed' ? downTimer : 0; player.recoveryOrientation = recoveryOrientation;
+    if (playerState === 'downed') bodyWorksRuntime.prepareLabFall('player', recoveryOrientation, player.facing);
     player.stamina = player.staminaCap * (playerStaminaPercent ?? state.model.player.stamina / Math.max(1, state.model.player.staminaCap) * 100) / 100;
     opponent.stamina = opponent.staminaCap * state.model.opponent.stamina / Math.max(1, state.model.opponent.staminaCap);
     opponent.health = Math.max(0, Math.min(100, opponentHealth));
