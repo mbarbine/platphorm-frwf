@@ -27,6 +27,7 @@ test('Battle Royale is the default and starts one real rig for all five wrestler
   await expect(roster.locator('[data-fighter-slot]')).toHaveCount(5);
   await expect.poll(async () => Number(await hud.getAttribute('data-physics-bodies')), { timeout: 20_000 }).toBe(80);
   await expect.poll(async () => Number(await hud.getAttribute('data-physics-joints')), { timeout: 20_000 }).toBe(75);
+  await expect.poll(async () => Number(await hud.locator('[data-landing-surfaces]').getAttribute('data-landing-surfaces')), { timeout: 20_000 }).toBeGreaterThanOrEqual(3);
   await expect.poll(async () => Number(await hud.getAttribute('data-match-seconds')), { timeout: 20_000 }).toBeGreaterThan(1);
   await expect.poll(async () => Number(await hud.getAttribute('data-total-damage')), { timeout: 35_000, intervals: [250, 500] }).toBeGreaterThan(0);
   await expect(page.locator('html')).toHaveAttribute('data-camera-shot', /wide|strike|grapple|slam|aerial|corner/);
@@ -89,6 +90,13 @@ test('controls remain live after the opening exchange and every active body stay
   await expect.poll(async () => Math.hypot(Number(await hud.getAttribute('data-player-x')) - startX, Number(await hud.getAttribute('data-player-z')) - startZ), { timeout: 60_000, intervals: [100, 200, 400, 1_000] }).toBeGreaterThan(.25);
   await page.keyboard.up('d');
   await expect.poll(async () => Number(await hud.getAttribute('data-active-min-pelvis-y')), { timeout: 15_000, intervals: [100, 200, 400] }).toBeGreaterThanOrEqual(1.22);
+  const staleFallStates = await page.getByTestId('battle-royale-roster').locator('[data-fighter-slot]').evaluateAll((rows) => rows.flatMap((row) => {
+    const state = row.getAttribute('data-fighter-state') ?? '';
+    const seconds = Number(row.getAttribute('data-fighter-state-seconds'));
+    const limit = state === 'airborne' ? 4.5 : state === 'recovering' ? 5 : state === 'downed' ? 8 : Number.POSITIVE_INFINITY;
+    return seconds > limit ? [`${row.getAttribute('data-fighter-slot')}:${state}:${seconds.toFixed(2)}`] : [];
+  }));
+  expect(staleFallStates, `active wrestlers stranded in fall/recovery states: ${staleFallStates.join(', ')}`).toEqual([]);
   await expect(hud).toHaveAttribute('data-physics-emergency-resets', '0');
   await expect(hud.locator('[data-last-numerical-fault]')).not.toHaveAttribute('data-last-numerical-fault', 'below-deck-safe-reset');
   expect(errors).toEqual([]);

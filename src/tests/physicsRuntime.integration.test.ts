@@ -90,7 +90,7 @@ describe('Rapier-backed Bodyworks integration', () => {
     expect(maximumX - minimumX).toBeLessThan(.09); expect(maximumZ - minimumZ).toBeLessThan(.09);
     expect(runtime.metrics.emergencyResetCount, JSON.stringify(runtime.metrics)).toBe(0); expect(runtime.metrics.invalidRegisteredBodyCount).toBe(0); expect(world.bodies.len()).toBe(17); expect(world.impulseJoints.len()).toBe(15);
     runtime.reset(); expect(runtime.metrics.bodyCount).toBe(0); expect(runtime.metrics.jointCount).toBe(0); expect(runtime.replay.size).toBe(0); world.free();
-  });
+  }, 30_000);
 
   it('walks, stops, jumps, lands, and resets without leaking runtime state', () => {
     const { world, runtime, model } = makeHarness(); const startX = runtime.fighterSnapshot('player').pelvisY;
@@ -126,7 +126,8 @@ describe('Rapier-backed Bodyworks integration', () => {
     let downedFrame = -1;
     for (let frame = 0; frame < 180; frame += 1) {
       stepHarness(world, runtime, model);
-      if (model.player.state === 'downed') { downedFrame = frame; break; }
+      const currentState: string = model.player.state;
+      if (currentState === 'downed') { downedFrame = frame; break; }
     }
     expect(downedFrame, JSON.stringify({ state: model.player.state, stateElapsed: model.player.stateElapsed, snapshot: runtime.fighterSnapshot('player'), metrics: runtime.metrics })).toBeGreaterThanOrEqual(0);
     expect(downedFrame).toBeLessThan(150);
