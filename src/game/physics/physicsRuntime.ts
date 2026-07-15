@@ -2,7 +2,7 @@ import type { RapierRigidBody } from '@react-three/rapier';
 import type { ImpulseJoint, JointData, World } from '@dimforge/rapier3d-compat';
 import type { FrameInput } from '../systems/combat';
 import { AI_FIGHTER_SLOTS, FALL_REASONS, FIGHTER_SLOTS } from '../types/game';
-import type { BodyRegion, FighterRuntime, FighterSlot, GameCommand, MatchModel, PropRuntime, RecoveryOrientation, Vec2 } from '../types/game';
+import type { AttackPhase, BodyRegion, FighterRuntime, FighterSlot, GameCommand, MatchModel, PropRuntime, RecoveryOrientation, Vec2 } from '../types/game';
 import { clamp } from '../utils/math';
 import type { BodySegmentId } from './bodySchema';
 import { chasePoseAngularVelocity, computeMotorTorque, strikePoseChain } from './motorController';
@@ -71,6 +71,7 @@ export interface BodyWorksContact {
   relativeSpeed: number;
   attackInstanceId: number | null;
   moveId: string | null;
+  attackPhaseAtContact: AttackPhase;
   sourceObjectId: string | null;
   targetSurface: string | null;
   isLanding: boolean;
@@ -1706,7 +1707,7 @@ export class BodyWorksRuntime {
               totalForce: totalImpulse / Math.max(1 / 240, this.currentFixedDt), maximumForce: maximumImpulse / Math.max(1 / 240, this.currentFixedDt),
               forceDirection: [direction.x, direction.y, direction.z], point: [position.x, position.y, position.z],
               relativeSpeed: Math.hypot(sourceVelocity.x - targetVelocity.x, sourceVelocity.y - targetVelocity.y, sourceVelocity.z - targetVelocity.z),
-              attackInstanceId: sourceRuntime.attackInstanceId, moveId, sourceObjectId: null, targetSurface: null, isLanding: false,
+              attackInstanceId: sourceRuntime.attackInstanceId, moveId, attackPhaseAtContact: 'active', sourceObjectId: null, targetSurface: null, isLanding: false,
             });
             recorded = true; break;
           }
@@ -1753,7 +1754,7 @@ export class BodyWorksRuntime {
               totalForce: totalImpulse / Math.max(1 / 240, this.currentFixedDt), maximumForce: maximumImpulse / Math.max(1 / 240, this.currentFixedDt),
               forceDirection: [direction.x, direction.y, direction.z], point: [position.x, position.y, position.z],
               relativeSpeed: Math.hypot(velocity.x - fixedVelocity.x, velocity.y - fixedVelocity.y, velocity.z - fixedVelocity.z),
-              attackInstanceId: null, moveId: null, sourceObjectId: null, targetSurface: surface.kind, isLanding: false,
+              attackInstanceId: null, moveId: null, attackPhaseAtContact: null, sourceObjectId: null, targetSurface: surface.kind, isLanding: false,
             });
             recorded = true; break;
           }

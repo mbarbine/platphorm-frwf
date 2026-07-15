@@ -39,6 +39,12 @@ export const commandsForInput = (input: FrameInput): readonly GameCommand[] => [
 const EMPTY_STATS = (): MatchStats => ({ damageDealt: 0, counters: 0, grapples: 0, finishers: 0, nearFalls: 0, propImpacts: 0 });
 const EMPTY_HIGHLIGHTS = (): MatchHighlights => ({ bestSpot: null, bestSlam: null, mostBrutalImpact: null, mostUnexpectedReversal: null });
 const BATTLE_ROYALE_OPENING_BELL_SECONDS = 4.2;
+const PHYSICAL_CONTACT_HANDOFF_SECONDS = .075;
+
+const contactCapturedDuringActiveWindow = (model: MatchModel, contact: BodyWorksContact): boolean => {
+  const contactAge = model.elapsed - contact.time;
+  return contact.attackPhaseAtContact === 'active' && contactAge >= -1e-6 && contactAge <= PHYSICAL_CONTACT_HANDOFF_SECONDS;
+};
 
 export const createFighterRuntime = (definitionId: FighterId, position: Vec2, beersDrunk = 0): FighterRuntime => {
   const definition = fighterById(definitionId);
@@ -191,7 +197,13 @@ export const applyMoveHit = (model: MatchModel, actorKey: FighterSlot, targetKey
   const impactPosition = contact?.point ? { x: contact.point[0], z: contact.point[2] } : target.position;
   const hitToken = contact ? `${targetKey}:${actor.attackInstanceId}` : targetKey;
   const isPhysicalLanding = contact?.isLanding === true && (move.category === 'grapple' || move.category === 'finisher');
-  if ((!isPhysicalLanding && actor.attackPhase !== 'active') || (!move.multiHit && actor.hitTargets.includes(hitToken))) return false;
+  // Physics and rules publish on adjacent fixed-step boundaries. Preserve the
+  // phase stamped by the solved manifold so a real last-active-frame contact
+  // is not discarded merely because the rules model entered recovery before
+  // React consumed it. The attack instance and bounded age are revalidated in
+  // applyPhysicalContact before this path can score.
+  const capturedActiveContact = contact ? contactCapturedDuringActiveWindow(model, contact) : false;
+  if ((!isPhysicalLanding && actor.attackPhase !== 'active' && !capturedActiveContact) || (!move.multiHit && actor.hitTargets.includes(hitToken))) return false;
   if (target.invulnerability > 0 || (!contact && distance(actor.position, target.position) > move.maximumRange + .4)) return false;
 
   const targetDefinition = fighterById(target.definitionId);
@@ -1026,7 +1038,8 @@ export const applyPhysicalContact = (model: MatchModel, contact: BodyWorksContac
   if (actor.attackInstanceId !== contact.attackInstanceId || !moveId) return false;
   const move = getMove(moveId);
   if ((move.category === 'grapple' || move.category === 'finisher') && !contact.isLanding) return false;
-  const legalContactPhase = actor.attackPhase === 'active' || (contact.isLanding && (move.category === 'grapple' || move.category === 'finisher'));
+  const capturedDuringActiveWindow = contactCapturedDuringActiveWindow(model, contact);
+  const legalContactPhase = capturedDuringActiveWindow || (contact.isLanding && (move.category === 'grapple' || move.category === 'finisher'));
   if (!legalContactPhase) return false;
   if (!expectedContactSegment(move, contact.sourceSegment) || contact.relativeSpeed < .28 && contact.maximumForce < 45) return false;
   const applied = applyMoveHit(model, contact.sourceFighter, contact.targetFighter, move, contact);

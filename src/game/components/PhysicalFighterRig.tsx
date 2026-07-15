@@ -174,6 +174,7 @@ export function PhysicalFighterRig({ runtime, side, showVisuals = true }: Props)
       relativeSpeed: Math.hypot(ownVelocity.x - otherVelocity.x, ownVelocity.y - otherVelocity.y, ownVelocity.z - otherVelocity.z),
       attackInstanceId: activeContactLimb ? sourceRuntime.attackInstanceId : null,
       moveId: activeContactLimb ? sourceRuntime.moveId : null,
+      attackPhaseAtContact: activeContactLimb ? 'active' : null,
       sourceObjectId: null,
       targetSurface: isSurfaceUserData(otherData) ? otherData.kind : null,
       isLanding: false,

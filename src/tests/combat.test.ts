@@ -522,7 +522,7 @@ describe('deterministic combat rules', () => {
   it('progressively fails the table only from a measured physical landing contact', () => {
     const model = createMatch('atlas', 'vex', 'chaos', 'normal'); model.physicsAuthority = true; model.player.position = { x: 0, z: -7.1 }; model.opponent.position = { x: .8, z: -7.1 };
     startMove(model.player, model.opponent, getMove('skyhook')); model.player.attackPhase = 'recovery';
-    const contact = { id: 1, time: 2, sourceFighter: 'player' as const, sourceSegment: 'chest' as const, targetFighter: 'opponent' as const, targetSegment: 'chest' as const, targetRegion: 'chest' as const, totalForce: 330, maximumForce: 250, forceDirection: [0, -1, 0] as const, relativeSpeed: 4.8, attackInstanceId: model.player.attackInstanceId, moveId: 'skyhook', sourceObjectId: null, targetSurface: 'table', isLanding: true };
+    const contact = { id: 1, time: model.elapsed, sourceFighter: 'player' as const, sourceSegment: 'chest' as const, targetFighter: 'opponent' as const, targetSegment: 'chest' as const, targetRegion: 'chest' as const, totalForce: 330, maximumForce: 250, forceDirection: [0, -1, 0] as const, relativeSpeed: 4.8, attackInstanceId: model.player.attackInstanceId, moveId: 'skyhook', attackPhaseAtContact: null, sourceObjectId: null, targetSurface: 'table', isLanding: true };
     expect(applyPhysicalContact(model, contact)).toBe(true);
     expect(model.props.find((prop) => prop.kind === 'table')).toMatchObject({ failureStage: 'failed', broken: true });
     expect(model.highlights.some((moment) => moment.kind === 'table')).toBe(true);
@@ -531,15 +531,30 @@ describe('deterministic combat rules', () => {
   it('does not score a grapple from incidental body contact before the landing', () => {
     const model = createMatch('atlas', 'vex', 'standard', 'normal'); model.physicsAuthority = true; model.player.position = { x: 0, z: 0 }; model.opponent.position = { x: 1, z: 0 };
     startMove(model.player, model.opponent, getMove('slam')); model.player.attackPhase = 'active'; const health = model.opponent.health;
-    const contact = { id: 1, time: 1, sourceFighter: 'player' as const, sourceSegment: 'chest' as const, targetFighter: 'opponent' as const, targetSegment: 'chest' as const, targetRegion: 'chest' as const, totalForce: 120, maximumForce: 90, forceDirection: [1, 0, 0] as const, relativeSpeed: 2, attackInstanceId: model.player.attackInstanceId, moveId: 'slam', sourceObjectId: null, targetSurface: null, isLanding: false };
+    const contact = { id: 1, time: model.elapsed, sourceFighter: 'player' as const, sourceSegment: 'chest' as const, targetFighter: 'opponent' as const, targetSegment: 'chest' as const, targetRegion: 'chest' as const, totalForce: 120, maximumForce: 90, forceDirection: [1, 0, 0] as const, relativeSpeed: 2, attackInstanceId: model.player.attackInstanceId, moveId: 'slam', attackPhaseAtContact: 'active' as const, sourceObjectId: null, targetSurface: null, isLanding: false };
     expect(applyPhysicalContact(model, contact)).toBe(false); expect(model.opponent.health).toBe(health);
   });
 
   it('accepts real upper-arm contact from the chest-led Domefall dive', () => {
     const model = createMatch('atlas', 'vex', 'standard', 'normal'); model.physicsAuthority = true; model.player.position = { x: 0, z: 0 }; model.opponent.position = { x: 1, z: 0 };
     startMove(model.player, model.opponent, getMove('aerial')); model.player.attackPhase = 'active'; const health = model.opponent.health;
-    const contact = { id: 1, time: 1, sourceFighter: 'player' as const, sourceSegment: 'leftUpperArm' as const, targetFighter: 'opponent' as const, targetSegment: 'chest' as const, targetRegion: 'chest' as const, totalForce: 120, maximumForce: 90, forceDirection: [1, 0, 0] as const, relativeSpeed: 2, attackInstanceId: model.player.attackInstanceId, moveId: 'aerial', sourceObjectId: null, targetSurface: null, isLanding: false };
+    const contact = { id: 1, time: model.elapsed, sourceFighter: 'player' as const, sourceSegment: 'leftUpperArm' as const, targetFighter: 'opponent' as const, targetSegment: 'chest' as const, targetRegion: 'chest' as const, totalForce: 120, maximumForce: 90, forceDirection: [1, 0, 0] as const, relativeSpeed: 2, attackInstanceId: model.player.attackInstanceId, moveId: 'aerial', attackPhaseAtContact: 'active' as const, sourceObjectId: null, targetSurface: null, isLanding: false };
     expect(applyPhysicalContact(model, contact)).toBe(true); expect(model.opponent.health).toBeLessThan(health);
+  });
+
+  it('honors a fresh active-window manifold consumed on the recovery boundary', () => {
+    const model = createMatch('atlas', 'vex', 'standard', 'normal'); model.physicsAuthority = true; model.player.position = { x: 0, z: 0 }; model.opponent.position = { x: 1, z: 0 };
+    startMove(model.player, model.opponent, getMove('jab')); model.player.attackPhase = 'recovery'; model.opponent.state = 'blocking'; const health = model.opponent.health;
+    const contact = { id: 1, time: model.elapsed, sourceFighter: 'player' as const, sourceSegment: 'rightHand' as const, targetFighter: 'opponent' as const, targetSegment: 'leftForearm' as const, targetRegion: 'leftArm' as const, totalForce: 120, maximumForce: 90, forceDirection: [0, 0, 1] as const, relativeSpeed: 2, attackInstanceId: model.player.attackInstanceId, moveId: 'jab', attackPhaseAtContact: 'active' as const, sourceObjectId: null, targetSurface: null, isLanding: false };
+    expect(applyPhysicalContact(model, contact)).toBe(true);
+    expect(model.lastImpact?.kind).toBe('blocked'); expect(model.opponent.health).toBeLessThan(health); expect(model.opponent.health).toBeGreaterThan(98);
+  });
+
+  it('rejects a stale contact even when it carries an old active-window stamp', () => {
+    const model = createMatch('atlas', 'vex', 'standard', 'normal'); model.physicsAuthority = true; model.player.position = { x: 0, z: 0 }; model.opponent.position = { x: 1, z: 0 }; model.elapsed = 1;
+    startMove(model.player, model.opponent, getMove('jab')); model.player.attackPhase = 'recovery'; const health = model.opponent.health;
+    const contact = { id: 1, time: .9, sourceFighter: 'player' as const, sourceSegment: 'rightHand' as const, targetFighter: 'opponent' as const, targetSegment: 'chest' as const, targetRegion: 'chest' as const, totalForce: 120, maximumForce: 90, forceDirection: [0, 0, 1] as const, relativeSpeed: 2, attackInstanceId: model.player.attackInstanceId, moveId: 'jab', attackPhaseAtContact: 'active' as const, sourceObjectId: null, targetSurface: null, isLanding: false };
+    expect(applyPhysicalContact(model, contact)).toBe(false); expect(model.opponent.health).toBe(health);
   });
 
   it('allows a grapple selection during the visible lock without duplicate base cost', () => {
