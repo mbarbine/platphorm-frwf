@@ -61,7 +61,10 @@ export const guardInterceptDriveProfile = (profile: StrikeDriveProfile, strikeDi
   const clearance = Math.max(0, strikeDistance - .2);
   return {
     ...profile,
-    speed: Math.min(profile.speed, 1.2 + clearance * 16),
+    // Articulated shoulders and elbows absorb part of the commanded hand
+    // speed. Keep enough near-field authority to close the final few
+    // centimetres into a real guard collider during a short jab window.
+    speed: Math.min(profile.speed, 2.1 + clearance * 16),
     response: Math.min(profile.response, 18 + clearance * 22),
     maximumAcceleration: Math.min(profile.maximumAcceleration, 180 + clearance * 520),
   };

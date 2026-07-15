@@ -40,7 +40,7 @@ describe('physical strike drive', () => {
     expect(guardInterceptDriveProfile(jab, .23)).toMatchObject({
       source: jab.source,
       target: jab.target,
-      speed: expect.closeTo(1.68),
+      speed: expect.closeTo(2.58),
       response: expect.closeTo(18.66),
       maximumAcceleration: expect.closeTo(195.6),
     });

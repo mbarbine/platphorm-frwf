@@ -21,7 +21,10 @@ test('a raised guard physically intercepts a jab before the torso', async ({ pag
         document.documentElement.dataset.guardContactSpeed = raw?.getAttribute('data-physics-last-contact-speed') ?? '0';
       }
     };
-    new MutationObserver(sample).observe(document.documentElement, { attributes: true, subtree: true }); sample();
+    // Observe shipping HUD mutations, not the <html> evidence attributes this
+    // sampler writes. Watching <html> made a successful contact recursively
+    // trigger its own observer until a throttled browser became unresponsive.
+    new MutationObserver(sample).observe(document.body, { attributes: true, subtree: true, childList: true }); sample();
   });
   await lab.getByRole('button', { name: 'JAB INTO GUARD' }).click();
   await expect(root).toHaveAttribute('data-lab-blocked-jab-diagnostics', /.+/, { timeout: 75_000 });
