@@ -25,10 +25,15 @@ const sanitizeVector = (vector: Vector3, fallbackX: number, fallbackY: number, f
   vector.z = safeNumber(vector.z, fallbackZ);
   return vector;
 };
+const lookAtSafe = (camera: PerspectiveCamera | Pick<{ lookAt: (target: Vector3) => void }, 'lookAt'>, target: Vector3): void => {
+  if (Number.isFinite(target.x) && Number.isFinite(target.y) && Number.isFinite(target.z)) {
+    camera.lookAt(target);
+  }
+};
 
 export function CameraRig() {
   const { camera, gl } = useThree();
-    const desired = useMemo(() => new Vector3(), []);
+  const desired = useMemo(() => new Vector3(), []);
   const desiredTarget = useMemo(() => new Vector3(), []);
   const smoothedTarget = useMemo(() => new Vector3(0, 2.2, 0), []);
   const impactId = useRef(0);
@@ -36,6 +41,8 @@ export function CameraRig() {
   const elapsed = useRef(0);
   const shot = useRef<CameraShot>('broadcast');
   const shotChangedAt = useRef(0);
+  const lastRuntimeId = useRef(-1);
+  const bootstrapFrames = useRef(0);
   const shotSide = useRef<1 | -1>(1);
   const shake = useSettings((state) => state.shake);
   const reduced = useSettings((state) => state.reducedMotion);
@@ -47,7 +54,17 @@ export function CameraRig() {
     const state = useMatchStore.getState();
     const model = state.model;
     const replayActive = state.replayActive;
+    const activeRuntimeId = model.runtimeId;
+    if (activeRuntimeId !== lastRuntimeId.current) {
+      lastRuntimeId.current = activeRuntimeId;
+      bootstrapFrames.current = 0;
+      shot.current = model.matchMode === 'battle_royale' ? 'battle-royale-steady' : 'broadcast';
+      shotChangedAt.current = 0;
+      impactId.current = 0;
+      impactImpulse.current = 0;
+    }
     sanitizeVector(camera.position, 0, 4.45, 0);
+    const isBootstrapping = bootstrapFrames.current < 6;
 
     const safeSlotState = (slot: FighterSlot, fallbackX = 0, fallbackZ = 0) => {
       const actor = model[slot];
@@ -65,6 +82,42 @@ export function CameraRig() {
     };
 
     const spectating = model.matchMode === 'battle_royale' && model.player.state === 'defeated' && !model.resolved;
+    const playerBootstrap = safeSlotState('player', 0, 0);
+    const opponentBootstrap = safeSlotState('opponent', playerBootstrap.x + 2.75, playerBootstrap.z + 0.42);
+    const bootstrapLookX = (playerBootstrap.x + opponentBootstrap.x) / 2;
+    const bootstrapLookZ = (playerBootstrap.z + opponentBootstrap.z) / 2;
+    const bootstrapDistance = model.matchMode === 'battle_royale' ? 17.5 : 8.6;
+    const bootstrapHeight = model.matchMode === 'battle_royale' ? 8.1 : 7.8;
+    if (isBootstrapping && !spectating) {
+      bootstrapFrames.current += 1;
+      const bootstrapFrame = model.matchMode === 'battle_royale'
+        ? BATTLE_ROYALE_CAMERA_FRAME
+        : null;
+      desired.set(
+        bootstrapFrame ? bootstrapFrame.position.x : bootstrapLookX - 0.62 * bootstrapDistance,
+        bootstrapFrame ? bootstrapFrame.position.y : bootstrapHeight,
+        bootstrapFrame ? bootstrapFrame.position.z : bootstrapLookZ + bootstrapDistance,
+      );
+      desiredTarget.set(
+        bootstrapFrame ? bootstrapFrame.target.x : bootstrapLookX,
+        bootstrapFrame ? bootstrapFrame.target.y : 2.25,
+        bootstrapFrame ? bootstrapFrame.target.z : bootstrapLookZ,
+      );
+      sanitizeVector(desired, 0, bootstrapHeight, 12.6);
+      sanitizeVector(desiredTarget, bootstrapLookX, 2.25, bootstrapLookZ);
+      camera.position.lerp(desired, 1 - Math.exp(-dt * 12));
+      smoothedTarget.lerp(desiredTarget, 1 - Math.exp(-dt * 12));
+      lookAtSafe(camera as PerspectiveCamera, smoothedTarget);
+      if ('fov' in camera) {
+        const perspective = camera as PerspectiveCamera;
+        const targetFov = bootstrapFrame ? bootstrapFrame.fov : 48;
+        perspective.fov += (targetFov - perspective.fov) * (1 - Math.exp(-dt * 10));
+        perspective.updateProjectionMatrix();
+        document.documentElement.dataset.cameraFov = perspective.fov.toFixed(2);
+      }
+      return;
+    }
+
     if (spectating) {
       const spectator = useSpectatorStore.getState();
       const targetSlot = resolvedSpectatorTarget(model, spectator.target);
@@ -91,7 +144,7 @@ export function CameraRig() {
       }
       camera.position.lerp(desired, 1 - Math.exp(-dt * (spectator.cameraMode === 'first_person' ? 12 : 5.8)));
       smoothedTarget.lerp(desiredTarget, 1 - Math.exp(-dt * 8.5));
-      camera.lookAt(smoothedTarget);
+      lookAtSafe(camera as PerspectiveCamera, smoothedTarget);
       if ('fov' in camera) {
         const perspective = camera as PerspectiveCamera;
         const targetFov = spectator.cameraMode === 'first_person' ? 64 : 52;
@@ -109,7 +162,7 @@ export function CameraRig() {
       desiredTarget.set(frame.target.x, frame.target.y, frame.target.z);
       camera.position.lerp(desired, 1 - Math.exp(-dt * 5.2));
       smoothedTarget.lerp(desiredTarget, 1 - Math.exp(-dt * 6.4));
-      camera.lookAt(smoothedTarget);
+      lookAtSafe(camera as PerspectiveCamera, smoothedTarget);
       if ('fov' in camera) {
         const perspective = camera as PerspectiveCamera;
         perspective.fov += (frame.fov - perspective.fov) * (1 - Math.exp(-dt * 6.4));
@@ -396,7 +449,7 @@ export function CameraRig() {
     sanitizeVector(desiredTarget, middleX, fallbackTargetY, middleZ);
     sanitizeVector(smoothedTarget, middleX, fallbackTargetY, middleZ);
     smoothedTarget.lerp(desiredTarget, 1 - Math.exp(-dt * (reduced ? 4 : 7.2)));
-    camera.lookAt(smoothedTarget);
+    lookAtSafe(camera as PerspectiveCamera, smoothedTarget);
 
     if ('fov' in camera) {
       const perspective = camera as PerspectiveCamera;
