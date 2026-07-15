@@ -4,7 +4,8 @@ import { mobileInput } from '../game/input/mobileInput';
 import { useMatchStore } from '../game/state/matchStore';
 import type { GameAction } from '../game/input/actionLayer';
 import { getMove } from '../game/data/moves';
-import { canTransitionThroughRopes, selectDirectionalGrapple, selectDirectionalStrike } from '../game/systems/combat';
+import { selectDirectionalGrapple, selectDirectionalStrike } from '../game/systems/combat';
+import { resolveContextAction, resolvePropAction } from '../game/systems/contextResolver';
 
 interface MobileControlsProps { onPause: () => void; paused: boolean }
 
@@ -33,17 +34,12 @@ export function MobileControls({ onPause, paused }: MobileControlsProps) {
   const pad = useRef<HTMLDivElement | null>(null);
   const pointer = useRef<number | null>(null);
   const [stick, setStick] = useState({ x: 0, z: 0 });
-  const player = useMatchStore((state) => state.model.player);
-  const opponent = useMatchStore((state) => state.model[state.model.targets.player]);
-  const distance = Math.hypot(player.position.x - opponent.position.x, player.position.z - opponent.position.z);
-  const nearCorner = Math.abs(player.position.x) > 4.35 && Math.abs(player.position.z) > 2.95;
-  const ringside = Math.abs(player.position.x) > 5.82 || Math.abs(player.position.z) > 4.32;
-  const contextLabel = player.state === 'climbing'
-    ? player.climbStage === 1 ? 'CLIMB II' : player.climbStage === 2 ? 'CLIMB TOP' : 'DIVE'
-    : player.state === 'grappling' && Math.hypot(opponent.position.x - Math.sign(opponent.position.x || player.position.x || 1) * 5.35, opponent.position.z - Math.sign(opponent.position.z || player.position.z || 1) * 3.85) <= 3.15 ? 'RAIL SHOT'
-      : player.momentum >= 100 && ['staggered', 'downed'].includes(opponent.state) && distance < 2.2 ? 'FINISH'
-      : opponent.state === 'downed' && distance < 1.7 ? 'PIN' : nearCorner ? 'CLIMB I'
-        : canTransitionThroughRopes(player.position) ? ringside ? 'ENTER RING' : 'EXIT RING' : 'ACTION';
+  const model = useMatchStore((state) => state.model);
+  const player = model.player;
+  const opponent = model[model.targets.player];
+  const contextResolution = resolveContextAction(model, 'player', stick);
+  const propResolution = resolvePropAction(model, 'player', stick);
+  const contextLabel = contextResolution.displayName;
   const quickMove = player.state === 'grappling' ? selectDirectionalGrapple(stick, 'quick')
     : player.state === 'climbing' && player.climbStage === 3 ? 'aerial_elbow'
       : opponent.state === 'downed' ? 'ground' : selectDirectionalStrike(stick, 'quick', player.comboStep);
@@ -102,7 +98,7 @@ export function MobileControls({ onPause, paused }: MobileControlsProps) {
     <div className="mobile-modifiers">
       <HoldButton activeLabel="RUN" className="mobile-hold mobile-hold--run" onChange={(pressed) => mobileInput.setRun(pressed)} />
       <HoldButton activeLabel="GUARD" className="mobile-hold mobile-hold--guard" onChange={(pressed) => mobileInput.setBlock(pressed)} />
-      <button type="button" className="mobile-hold mobile-hold--prop" aria-label="Pick up, drop, or throw prop" onPointerDown={queuePointer('propAction')} onClick={queueKeyboard('propAction')}>PROP</button>
+      <button type="button" className="mobile-hold mobile-hold--prop" aria-label="Pick up, drop, or throw prop" title={propResolution.displayName} data-action-id={propResolution.actionId} data-action-legal={propResolution.legalState ? 'true' : 'false'} onPointerDown={queuePointer('propAction')} onClick={queueKeyboard('propAction')}>PROP</button>
       <button type="button" className="mobile-hold mobile-hold--taunt" aria-label="Taunt" onPointerDown={queuePointer('taunt')} onClick={queueKeyboard('taunt')}>TAUNT</button>
     </div>
     <div className="mobile-actions" aria-label="Wrestling actions">
@@ -110,7 +106,7 @@ export function MobileControls({ onPause, paused }: MobileControlsProps) {
       <button type="button" disabled={strikeLocked} className={`mobile-action mobile-action--power${player.moveId === heavyMove ? ' is-pressed' : ''}`} aria-label={powerLabel} data-move-label={powerLabel} onPointerDown={queuePointer('heavyStrike')} onClick={queueKeyboard('heavyStrike')}><b>{powerLabel}</b><small>{player.ropeRebound > 0 ? 'STIFF-ARM' : 'POWER'}</small></button>
       <button type="button" disabled={grappleLocked} className={`mobile-action mobile-action--grapple${player.state === 'grappling' ? ' is-pressed' : ''}`} aria-label={grappleLabel} data-move-label={grappleLabel} onPointerDown={queuePointer('grapple')} onClick={queueKeyboard('grapple')}><b>{grappleLabel}</b><small>GRAPPLE</small></button>
       <button type="button" className={`mobile-action mobile-action--jump${player.state === 'jumping' ? ' is-pressed' : ''}`} aria-label="Jump" onPointerDown={queuePointer('jump')} onClick={queueKeyboard('jump')}><b>↑</b><small>JUMP</small></button>
-      <button type="button" className={`mobile-action mobile-action--context${player.state === 'pinning' || player.moveId === 'finisher' || player.moveId === 'aerial' ? ' is-pressed' : ''}`} aria-label={contextLabel} onPointerDown={queuePointer('contextAction')} onClick={queueKeyboard('contextAction')}><b>{contextLabel}</b><small>ACTION</small></button>
+      <button type="button" className={`mobile-action mobile-action--context${player.state === 'pinning' || player.moveId === 'finisher' || player.moveId === 'aerial' ? ' is-pressed' : ''}`} aria-label={contextLabel} data-action-id={contextResolution.actionId} data-action-legal={contextResolution.legalState ? 'true' : 'false'} onPointerDown={queuePointer('contextAction')} onClick={queueKeyboard('contextAction')}><b>{contextLabel}</b><small>ACTION</small></button>
       <button type="button" className={`mobile-action mobile-action--counter${player.moveId === 'kick_up' ? ' is-pressed' : ''}`} aria-label={player.state === 'downed' ? 'Kick up' : 'Dodge or counter'} onPointerDown={queuePointer('dodgeCounter')} onClick={queueKeyboard('dodgeCounter')}><b>↯</b><small>{player.state === 'downed' || player.moveId === 'kick_up' ? 'KICK-UP' : 'COUNTER'}</small></button>
     </div>
   </div>;

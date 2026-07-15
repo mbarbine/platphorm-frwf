@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { colyseusClient } from './ColyseusClient';
 import type { ConnectionStatus } from './ColyseusClient';
 import type { ClientRoomState } from './ColyseusClient';
-import type { FighterId } from '@frwf/game-protocol';
+import type { ActionEvent, FighterId } from '@frwf/game-protocol';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // MultiplayerStore — Zustand store for multiplayer connection state.
@@ -33,7 +33,7 @@ export interface MultiplayerState {
   joinByRoomId: (roomId: string, options?: { fighterId?: FighterId }) => Promise<void>;
   selectFighter: (fighterId: FighterId) => void;
   ready: () => void;
-  sendCommand: (command: string, direction: { x: number; z: number }, running: boolean, block: boolean) => void;
+  sendAction: (event: ActionEvent) => void;
   voteRematch: () => void;
 }
 
@@ -81,8 +81,8 @@ export const useMultiplayerStore = create<MultiplayerState>((set) => {
     selectFighter(fighterId) { colyseusClient.selectFighter(fighterId); },
     ready() { colyseusClient.ready(); },
 
-    sendCommand(command, direction, running, block) {
-      const seq = colyseusClient.sendCommand(command as never, direction, running, block);
+    sendAction(event) {
+      const seq = colyseusClient.sendAction(event);
       set({ lastCommandSeq: seq });
     },
 

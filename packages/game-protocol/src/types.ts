@@ -16,6 +16,19 @@ export type FighterState =
 export type AttackPhase = 'anticipation' | 'active' | 'recovery' | null;
 export type MoveCategory = 'quick' | 'heavy' | 'grapple' | 'ground' | 'aerial' | 'prop' | 'finisher' | 'utility';
 export type GameCommand = 'quick' | 'heavy' | 'grapple' | 'block' | 'dodge' | 'jump' | 'interact' | 'context' | 'taunt';
+export type GameAction = 'move' | 'run' | 'quickStrike' | 'heavyStrike' | 'grapple' | 'guard' | 'dodgeCounter' | 'jump' | 'propAction' | 'contextAction' | 'taunt' | 'pause';
+export type ActionPhase = 'started' | 'held' | 'released';
+export type ActionSource = 'keyboard' | 'gamepad' | 'touch' | 'xr' | 'ai' | 'replay' | 'network';
+
+/** Canonical semantic input contract shared by browser, server, replay, and tests. */
+export interface ActionEvent {
+  action: GameAction;
+  phase: ActionPhase;
+  sequence: number;
+  timestamp: number;
+  direction: { x: number; y: number };
+  source: ActionSource;
+}
 export type RoomPhase = 'lobby' | 'selection' | 'countdown' | 'active' | 'result';
 export type MatchEndMethod = 'PINFALL' | 'KNOCKOUT' | 'TIMEOUT';
 

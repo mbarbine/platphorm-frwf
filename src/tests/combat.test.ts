@@ -152,17 +152,18 @@ describe('deterministic combat rules', () => {
   it('buffers commands FIFO and releases at most one legal action per fixed step', () => {
     const runtime = new BodyWorksRuntime(); const accepted: string[] = [];
     runtime.captureInput('player', { ...none, commands: ['grapple', 'heavy'] }, 0);
+    expect(runtime.metrics.actionBuffered).toBe(2); expect(runtime.actionFeedback()?.status).toBe('buffered');
     runtime.resolveCommands('player', .01, (command) => { accepted.push(command.command); return true; });
-    expect(accepted).toEqual(['grapple']); expect(runtime.pendingCommandCount()).toBe(1);
+    expect(accepted).toEqual(['grapple']); expect(runtime.pendingCommandCount()).toBe(1); expect(runtime.actionFeedback()).toMatchObject({ status: 'executed', event: { action: 'grapple' } });
     runtime.resolveCommands('player', .02, (command) => { accepted.push(command.command); return true; });
-    expect(accepted).toEqual(['grapple', 'heavy']); expect(runtime.pendingCommandCount()).toBe(0);
+    expect(accepted).toEqual(['grapple', 'heavy']); expect(runtime.pendingCommandCount()).toBe(0); expect(runtime.metrics.actionExecuted).toBe(2); expect(runtime.metrics.actionMaximumWaitMs).toBe(20);
   });
 
   it('expires stale buffered commands instead of executing them later', () => {
     const runtime = new BodyWorksRuntime(); const expired: string[] = []; let executed = false;
     runtime.captureInput('player', { ...none, commands: ['heavy'] }, 1);
     runtime.resolveCommands('player', 1.17, () => { executed = true; return true; }, (command) => expired.push(command.command));
-    expect(executed).toBe(false); expect(expired).toEqual(['heavy']); expect(runtime.pendingCommandCount()).toBe(0);
+    expect(executed).toBe(false); expect(expired).toEqual(['heavy']); expect(runtime.pendingCommandCount()).toBe(0); expect(runtime.metrics.actionExpired).toBe(1); expect(runtime.actionFeedback()?.status).toBe('expired');
   });
 
   it('successful counter interrupts the incoming move', () => {
@@ -526,7 +527,7 @@ describe('deterministic combat rules', () => {
     if (!chair) throw new Error('Chaos match must provide a chair');
     model.player.position = { ...chair.position }; expect(requestCommand(model, 'player', 'interact')).toBe(true);
     model.opponent.position = { x: 1, z: 0 }; model.player.position = { x: -2, z: 0 };
-    expect(requestCommand(model, 'player', 'interact')).toBe(true);
+    expect(requestCommand(model, 'player', 'interact', { x: 1, z: 0 })).toBe(true);
     expect(model.player).toMatchObject({ heldPropId: null, moveId: 'prop_throw', attackPhase: 'anticipation' });
     expect(chair.heldBy).toBeNull();
   });

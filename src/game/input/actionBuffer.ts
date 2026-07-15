@@ -19,6 +19,7 @@ interface BufferedAction<T> {
   queuedAt: number;
   expiresAt: number;
   priority: number;
+  dedupeKey: string;
 }
 
 export interface ActionBufferOptions {
@@ -55,18 +56,16 @@ export class ActionBuffer<T> {
     this.duplicateWindowMs = options.duplicateWindowMs ?? 48;
   }
 
-  push(payload: T, event: ActionEvent, nowMs: number): boolean {
+  push(payload: T, event: ActionEvent, nowMs: number, dedupeKey = `${event.source}:${event.action}:${event.phase}`): boolean {
     this.prune(nowMs);
-    const duplicate = this.entries.some((entry) => entry.event.action === event.action
-      && entry.event.source === event.source
-      && entry.event.phase === event.phase
+    const duplicate = this.entries.some((entry) => entry.dedupeKey === dedupeKey
       && Math.abs(entry.queuedAt - nowMs) <= this.duplicateWindowMs);
     if (duplicate) {
       this.state.duplicate += 1;
       return false;
     }
     const ttlMs = event.action === 'contextAction' || event.action === 'propAction' ? this.contextTtlMs : this.defaultTtlMs;
-    this.entries.push({ payload, event, queuedAt: nowMs, expiresAt: nowMs + ttlMs, priority: actionPriority(event.action) });
+    this.entries.push({ payload, event, queuedAt: nowMs, expiresAt: nowMs + ttlMs, priority: actionPriority(event.action), dedupeKey });
     this.state.buffered += 1;
     if (this.entries.length > this.capacity) {
       this.entries.sort(ActionBuffer.compare);

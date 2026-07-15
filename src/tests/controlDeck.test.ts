@@ -66,8 +66,8 @@ describe('live wrestling control deck', () => {
     expect(labels.grapple).toBe('BODY SLAM');
     expect(labels.context).toBe('SPECIAL / PIN');
     expect(controlPrompt('keyboard', 'context')).toBe('F');
-    expect(controlPrompt('keyboard', 'jump')).toBe('SPACE');
-    expect(controlPrompt('keyboard', 'counter')).toBe('U');
+    expect(controlPrompt('keyboard', 'jump')).toBe('C');
+    expect(controlPrompt('keyboard', 'counter')).toBe('SPACE');
   });
 
   it('switches the whole action deck for grapple, turnbuckle, rope exit, and kick-up states', () => {

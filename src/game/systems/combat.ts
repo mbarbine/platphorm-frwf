@@ -9,8 +9,9 @@ import { AI_FIGHTER_SLOTS, FIGHTER_SLOTS } from '../types/game';
 import type { Difficulty, FighterId, FighterRuntime, FighterSlot, GameCommand, HighlightMoment, ImpactEvent, MatchHighlights, MatchMode, MatchModel, MatchResult, MatchStats, MoveDefinition, PropRuntime, ReplayFighterFrame, Ruleset, Vec2 } from '../types/game';
 import type { BodyWorksContact } from '../physics/physicsRuntime';
 import { VOLT_DOME } from '../data/arena';
-import { actionToGameCommand } from '../input/actionLayer';
+import { actionDirectionToVec2, actionToGameCommand, createActionEvent, gameCommandToAction } from '../input/actionLayer';
 import type { ActionEvent } from '../input/actionLayer';
+import { canTraverseRopes, resolveContextAction, resolvePropAction } from './contextResolver';
 
 export interface FrameInput {
   move: Vec2;
@@ -391,30 +392,35 @@ const startPin = (actor: FighterRuntime, target: FighterRuntime): boolean => {
   return true;
 };
 
-const useProp = (model: MatchModel, actorKey: FighterSlot): boolean => {
+const useProp = (model: MatchModel, actorKey: FighterSlot, direction: Vec2): boolean => {
   const actor = model[actorKey];
   const target = model[targetSlotFor(model, actorKey)];
-  if (actor.heldPropId) {
-    if (distance(actor.position, target.position) <= 2.3) return startMove(actor, target, getMove('prop'));
+  const resolution = resolvePropAction(model, actorKey, direction);
+  if (!resolution.legalState) return false;
+  if (resolution.actionId === 'swing_held_prop') return startMove(actor, target, getMove('prop'));
+  if (resolution.actionId === 'throw_held_prop' && actor.heldPropId) {
     const prop = model.props.find((candidate) => candidate.id === actor.heldPropId);
     const started = startMove(actor, target, getMove('prop_throw')); if (!started) return false;
-    if (prop) { prop.heldBy = null; prop.position = { x: actor.position.x + Math.sin(actor.facing) * 2.5, z: actor.position.z + Math.cos(actor.facing) * 2.5 }; }
+    const throwDirection = normalize(direction);
+    if (prop) { prop.heldBy = null; prop.position = { x: actor.position.x + throwDirection.x * 2.5, z: actor.position.z + throwDirection.z * 2.5 }; }
     actor.heldPropId = null;
     model.announcement = 'AIR MAIL — PROP THROWN!'; model.announcementTimer = .9;
     return true;
   }
-  const prop = model.props.filter((candidate) => !candidate.broken && !candidate.heldBy && candidate.kind !== 'table').sort((a, b) => distance(actor.position, a.position) - distance(actor.position, b.position))[0];
-  if (!prop || distance(actor.position, prop.position) > 2.2) return false;
-  actor.heldPropId = prop.id; prop.heldBy = actorKey;
-  return true;
+  if (resolution.actionId === 'drop_held_prop' && actor.heldPropId) {
+    const prop = model.props.find((candidate) => candidate.id === actor.heldPropId);
+    if (prop) { prop.heldBy = null; prop.position = { x: actor.position.x + Math.sin(actor.facing) * .75, z: actor.position.z + Math.cos(actor.facing) * .75 }; }
+    actor.heldPropId = null; model.announcement = 'PROP DROPPED'; model.announcementTimer = .65; return true;
+  }
+  if (resolution.actionId === 'pick_up_prop' && resolution.target) {
+    const prop = model.props.find((candidate) => candidate.id === resolution.target);
+    if (!prop) return false;
+    actor.heldPropId = prop.id; prop.heldBy = actorKey; model.announcement = `${prop.kind.toUpperCase()} READY`; model.announcementTimer = .65; return true;
+  }
+  return false;
 };
 
-export const canTransitionThroughRopes = (position: Vec2): boolean => {
-  const x = Math.abs(position.x); const z = Math.abs(position.z);
-  const nearSideRope = x > 4.62 && x < 6.9 && z < 3.55;
-  const nearEndRope = z > 3.05 && z < 5.6 && x < 5.15;
-  return nearSideRope || nearEndRope;
-};
+export const canTransitionThroughRopes = canTraverseRopes;
 
 const startKickUp = (actor: FighterRuntime, target: FighterRuntime): boolean => {
   const move = getMove('kick_up');
@@ -483,15 +489,51 @@ export const requestCommand = (model: MatchModel, actorKey: FighterSlot, command
     if (model.grapple?.attacker === actorKey) retargetGrapple(model.grapple, moveId);
     return true;
   }
-  if (actor.state === 'grappling' && actor.attackPhase === 'anticipation' && command === 'context') {
-    if (!isActionLegal(model, command, actorKey)) return false;
-    const selected = getMove('corner_smash'); const current = actor.moveId ? getMove(actor.moveId) : selected;
-    const extraCost = Math.max(0, selected.staminaCost - current.staminaCost); if (actor.stamina < extraCost) return false;
-    actor.stamina = clamp(actor.stamina - extraCost, 0, actor.staminaCap); actor.moveId = selected.id;
-    actor.phaseElapsed = Math.min(actor.phaseElapsed, selected.anticipationDuration * .42);
-    if (model.grapple?.attacker === actorKey) retargetGrapple(model.grapple, selected.id);
-    model.announcement = 'CORNER CALL — RAIL SHOT!'; model.announcementTimer = 1.05;
-    return true;
+  if (command === 'interact') return useProp(model, actorKey, direction);
+  if (command === 'context') {
+    const resolution = resolveContextAction(model, actorKey, direction);
+    if (!resolution.legalState) return false;
+    if (resolution.actionId === 'kickout') { actor.pinEscape += 18 + actor.stamina * .04; return true; }
+    if (resolution.actionId === 'corner_move' || resolution.actionId === 'environmental_wrestling_move') {
+      const selected = getMove('corner_smash'); const current = actor.moveId ? getMove(actor.moveId) : selected;
+      const extraCost = Math.max(0, selected.staminaCost - current.staminaCost); if (actor.stamina < extraCost) return false;
+      actor.stamina = clamp(actor.stamina - extraCost, 0, actor.staminaCap); actor.moveId = selected.id;
+      actor.phaseElapsed = Math.min(actor.phaseElapsed, selected.anticipationDuration * .42);
+      if (model.grapple?.attacker === actorKey) retargetGrapple(model.grapple, selected.id);
+      model.announcement = resolution.actionId === 'corner_move' ? 'CORNER CALL — RAIL SHOT!' : 'DESK SPOT CALLED!'; model.announcementTimer = 1.05;
+      return true;
+    }
+    if (resolution.actionId === 'finisher') {
+      const started = startMove(actor, target, getMove('finisher'));
+      if (started) {
+        target.state = model.physicsAuthority ? 'staggered' : 'grabbed'; target.stateElapsed = 0; target.velocity = scale(target.velocity, .25);
+        target.moveId = null; target.attackPhase = null;
+        model.grapple = createGrappleRuntime(actorKey, targetKey, 'finisher');
+      }
+      return started;
+    }
+    if (resolution.actionId === 'pin') return startPin(actor, target);
+    if (resolution.actionId === 'top_rope_aerial') return launchAerial(model, actor, target, 'aerial');
+    if (resolution.actionId === 'turnbuckle_climb') {
+      if (actor.state === 'climbing') {
+        actor.climbStage = (actor.climbStage + 1) as 2 | 3; actor.stateElapsed = 0; return true;
+      }
+      actor.state = 'climbing'; actor.climbStage = 1; actor.stateElapsed = 0; actor.velocity = { x: 0, z: 0 };
+      if (!model.physicsAuthority) actor.position = { x: Math.sign(actor.position.x) * 5.25, z: Math.sign(actor.position.z) * 3.7 };
+      return true;
+    }
+    if (resolution.actionId === 'ring_traversal') {
+      const nearXApron = Math.abs(actor.position.x) > 4.62 && Math.abs(actor.position.x) < 6.9 && Math.abs(actor.position.z) < 3.55;
+      const inside = Math.abs(actor.position.x) <= 5.8 && Math.abs(actor.position.z) <= 4.3;
+      if (!model.physicsAuthority) {
+        if (nearXApron) actor.position.x = Math.sign(actor.position.x) * (inside ? 6.45 : 5.05);
+        else actor.position.z = Math.sign(actor.position.z) * (inside ? 5.05 : 3.55);
+      }
+      actor.velocity = { x: 0, z: 0 }; actor.state = 'locomotion'; actor.invulnerability = .35;
+      model.announcement = inside ? 'THROUGH THE ROPES — RINGSIDE!' : 'BACK BETWEEN THE ROPES!'; model.announcementTimer = 1.15;
+      return true;
+    }
+    return false;
   }
   if (!isActionLegal(model, command, actorKey)) return false;
   if (command === 'block') {
@@ -516,47 +558,7 @@ export const requestCommand = (model: MatchModel, actorKey: FighterSlot, command
     actor.body.verticalVelocity = Math.max(actor.body.verticalVelocity, 5.8);
     return true;
   }
-  if (command === 'interact') return useProp(model, actorKey);
   if (command === 'taunt') return startMove(actor, target, getMove('taunt'));
-  if (command === 'context') {
-    if (actor.state === 'climbing') {
-      if (actor.climbStage < 3) {
-        actor.climbStage = (actor.climbStage + 1) as 2 | 3;
-        actor.stateElapsed = 0;
-        return true;
-      }
-      return launchAerial(model, actor, target, 'aerial');
-    }
-    if (actor.momentum >= 100 && !model.grapple && ['staggered', 'downed'].includes(target.state)) {
-      const started = startMove(actor, target, getMove('finisher'));
-      if (started) {
-        target.state = model.physicsAuthority ? 'staggered' : 'grabbed'; target.stateElapsed = 0; target.velocity = scale(target.velocity, .25);
-        target.moveId = null; target.attackPhase = null;
-        model.grapple = createGrappleRuntime(actorKey, targetKey, 'finisher');
-      }
-      return started;
-    }
-    if (target.state === 'downed' && distance(actor.position, target.position) <= 1.7) return startPin(actor, target);
-    const nearCorner = Math.abs(actor.position.x) > 4.35 && Math.abs(actor.position.z) > 2.95;
-    if (nearCorner) {
-      actor.state = 'climbing'; actor.climbStage = 1; actor.stateElapsed = 0; actor.velocity = { x: 0, z: 0 };
-      if (!model.physicsAuthority) actor.position = { x: Math.sign(actor.position.x) * 5.25, z: Math.sign(actor.position.z) * 3.7 };
-      return true;
-    }
-    const nearXApron = Math.abs(actor.position.x) > 4.62 && Math.abs(actor.position.x) < 6.9 && Math.abs(actor.position.z) < 3.55;
-    const nearZApron = Math.abs(actor.position.z) > 3.05 && Math.abs(actor.position.z) < 5.6 && Math.abs(actor.position.x) < 5.15;
-    if (nearXApron || nearZApron) {
-      const inside = Math.abs(actor.position.x) <= 5.8 && Math.abs(actor.position.z) <= 4.3;
-      if (!model.physicsAuthority) {
-        if (nearXApron) actor.position.x = Math.sign(actor.position.x) * (inside ? 6.45 : 5.05);
-        else actor.position.z = Math.sign(actor.position.z) * (inside ? 5.05 : 3.55);
-      }
-      actor.velocity = { x: 0, z: 0 }; actor.state = 'locomotion'; actor.invulnerability = .35;
-      model.announcement = inside ? 'THROUGH THE ROPES — RINGSIDE!' : 'BACK BETWEEN THE ROPES!'; model.announcementTimer = 1.15;
-      return true;
-    }
-    return false;
-  }
   if (command === 'quick') {
     const moveId = target.state === 'downed' ? 'ground' : selectDirectionalStrike(direction, 'quick', actor.comboStep);
     const started = startMove(actor, target, getMove(moveId));
@@ -590,6 +592,14 @@ export const requestCommand = (model: MatchModel, actorKey: FighterSlot, command
     model.grapple = createGrappleRuntime(actorKey, targetKey, moveId);
   }
   return started;
+};
+
+/** All non-legacy callers cross this semantic boundary before combat resolution. */
+export const requestAction = (model: MatchModel, actorKey: FighterSlot, event: ActionEvent, running = false): boolean => {
+  if (event.phase === 'released' || event.action === 'move' || event.action === 'run' || event.action === 'pause') return false;
+  const command = actionToGameCommand(event.action);
+  if (!command) return false;
+  return requestCommand(model, actorKey, command, actionDirectionToVec2(event.direction), running);
 };
 
 const scoreGrade = (hype: number): MatchResult['grade'] => hype >= 90 ? 'S' : hype >= 72 ? 'A' : hype >= 52 ? 'B' : hype >= 32 ? 'C' : 'D';
@@ -641,11 +651,12 @@ const updatePin = (model: MatchModel, dt: number, playerInput: FrameInput): void
   const pinning = model[pinningKey]; const pinned = model[pinnedKey];
   pinning.stateElapsed += dt; pinned.stateElapsed += dt;
   if (pinnedKey === 'player') {
-    // Any button contributes — U (dodge), J (quick), K (heavy) all help
+    // Any recovery action contributes — Space (dodge), J (quick), K (heavy) all help.
     const inputCommands = commandsForInput(playerInput);
     if (inputCommands.includes('dodge')) pinned.pinEscape += 16 + pinned.stamina * .04;
     if (inputCommands.includes('quick')) pinned.pinEscape += 10 + pinned.stamina * .022;
     if (inputCommands.includes('heavy')) pinned.pinEscape += 7 + pinned.stamina * .016;
+    if (inputCommands.includes('context')) pinned.pinEscape += 18 + pinned.stamina * .04;
     // PIN REVERSAL: press F (context) in the first second with 38+ stamina
     if (inputCommands.includes('context') && pinned.stamina > 38 && pinning.stateElapsed < 1.05 && Math.floor(pinning.stateElapsed) === 0) {
       pinned.stamina = clamp(pinned.stamina - 30, 0, pinned.staminaCap);
@@ -920,7 +931,8 @@ export const advanceMatch = (model: MatchModel, dt: number, playerInput: FrameIn
   if (activeFighterSlots(model).some((slot) => model[slot].state === 'pinned')) return model;
 
   if (playerInput.block) requestCommand(model, 'player', 'block', playerInput.move, playerInput.run);
-  for (const command of commandsForInput(playerInput)) requestCommand(model, 'player', command, playerInput.move, playerInput.run);
+  for (const event of playerInput.actions ?? []) if (event.phase === 'started') requestAction(model, 'player', event, playerInput.run);
+  for (const command of playerInput.commands ?? []) requestCommand(model, 'player', command, playerInput.move, playerInput.run);
   const active = activeFighterSlots(model);
   const openingBell = model.matchMode === 'battle_royale' && model.elapsed < BATTLE_ROYALE_OPENING_BELL_SECONDS;
   for (const slot of AI_FIGHTER_SLOTS) {
@@ -935,7 +947,7 @@ export const advanceMatch = (model: MatchModel, dt: number, playerInput: FrameIn
       model.seed = decision.nextSeed; controller.intent = decision.command; controller.movement = decision.move; controller.running = decision.run;
       controller.thinkTimer = (model.difficulty === 'hard' ? .13 : .22) + (slot === 'opponent' ? 0 : .025 * Number(slot.slice(-1)));
       if (decision.command) {
-        requestCommand(model, slot, decision.command, decision.move, controller.running);
+        requestAction(model, slot, createActionEvent(gameCommandToAction(decision.command), { source: 'ai', timestamp: model.elapsed * 1_000, direction: decision.move }), controller.running);
         if (decision.command === 'block') controller.blockTimer = model.difficulty === 'hard' ? .72 : .48;
       }
     }

@@ -151,12 +151,12 @@ export function buildControlReadout(player: FighterRuntime, opponent: FighterRun
   return { active, callout, labels, state };
 }
 
-export function ControlDeck({ device, player, opponent, speed, distance, paused, direction = { x: 0, z: 0 }, runHeld = false }: { device: ControlDevice; player: FighterRuntime; opponent: FighterRuntime; speed: number; distance: number; paused: boolean; direction?: Vec2; runHeld?: boolean }) {
+export function ControlDeck({ device, player, opponent, speed, distance, paused, direction = { x: 0, z: 0 }, runHeld = false, contextPreview, propPreview }: { device: ControlDevice; player: FighterRuntime; opponent: FighterRuntime; speed: number; distance: number; paused: boolean; direction?: Vec2; runHeld?: boolean; contextPreview?: string; propPreview?: string }) {
   const readout = buildControlReadout(player, opponent, speed, distance, paused, device, direction, runHeld);
   const controls: readonly ControlDefinition[] = (Object.keys(BASE_LABELS) as ControlId[]).map((id) => ({ id, key: DEVICE_KEYS[device][id], label: readout.labels[id] }));
 
-  return <aside className={`control-deck${paused ? ' control-deck--paused' : ''}`} aria-label="Live wrestling controls" data-testid="control-deck" data-control-state={readout.state} data-control-direction={combatDirection(direction)}>
-    <header><span>LIVE WRESTLING CONTROLS · {device.toUpperCase()}</span><b>{readout.state}</b><strong>{readout.callout}</strong></header>
+  return <aside className={`control-deck${paused ? ' control-deck--paused' : ''}`} aria-label="Live wrestling controls" data-testid="control-deck" data-control-state={readout.state} data-control-direction={combatDirection(direction)} data-context-preview={contextPreview ?? ''} data-prop-preview={propPreview ?? ''}>
+    <header><span>LIVE WRESTLING CONTROLS · {device.toUpperCase()}</span><b>{readout.state}</b><strong>{contextPreview || propPreview ? `F ${contextPreview ?? 'NO ACTION'} · E ${propPreview ?? 'NO ACTION'}` : readout.callout}</strong></header>
     <ul>{controls.map((control) => <li className={readout.active.has(control.id) ? 'is-active' : ''} data-control={control.id} data-move-label={control.label} key={control.id}><kbd>{control.key}</kbd><span>{control.label}</span></li>)}</ul>
   </aside>;
 }

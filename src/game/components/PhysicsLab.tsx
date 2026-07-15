@@ -27,9 +27,9 @@ const SCENARIOS: readonly LabScenario[] = [
   { id: 'ropes', label: 'RUN INTO ROPES', steps: [...hold('KeyD', 0, 2_050), ...hold('ShiftLeft', 0, 2_050)], duration: 2_800 },
   { id: 'ropeStrike', label: 'ROPE LOAD + STIFF-ARM', steps: [...hold('KeyD', 0, 2_200), ...hold('ShiftLeft', 0, 2_200)], duration: 3_600 },
   { id: 'apronReturn', label: 'APRON RETURN', steps: tap('KeyF', 900, 180), duration: 3_400 },
-  { id: 'jump', label: 'STANDING JUMP', steps: tap('Space', 220, 480), duration: 2_200 },
-  { id: 'landing', label: 'JUMP + LANDING', steps: tap('Space', 220, 480), duration: 2_600 },
-  { id: 'kickup', label: 'KICK-UP RECOVERY', steps: tap('KeyU', 620, 180), duration: 2_100 },
+  { id: 'jump', label: 'STANDING JUMP', steps: tap('KeyC', 220, 480), duration: 2_200 },
+  { id: 'landing', label: 'JUMP + LANDING', steps: tap('KeyC', 220, 480), duration: 2_600 },
+  { id: 'kickup', label: 'KICK-UP RECOVERY', steps: tap('Space', 620, 180), duration: 2_100 },
   { id: 'recoveryBack', label: 'BACK GET-UP', steps: [], duration: 2_100 },
   { id: 'recoveryFront', label: 'FRONT GET-UP', steps: [], duration: 2_100 },
   { id: 'recoverySide', label: 'SIDE GET-UP', steps: [], duration: 2_100 },
@@ -70,7 +70,7 @@ export function PhysicsLab() {
   const clearTimers = (): void => { for (const timer of timers.current) { window.clearTimeout(timer); window.clearInterval(timer); } timers.current = []; };
   useEffect(() => {
     let frame = 0; const tick = (): void => { frames.current += 1; frame = requestAnimationFrame(tick); }; frame = requestAnimationFrame(tick);
-    const interval = window.setInterval(() => { const now = performance.now(); setFps(Math.round(frames.current * 1_000 / Math.max(1, now - lastFpsAt.current))); frames.current = 0; lastFpsAt.current = now; }, 500);
+    const interval = window.setInterval(() => { const now = performance.now(); const nextFps = Math.round(frames.current * 1_000 / Math.max(1, now - lastFpsAt.current)); setFps((current) => current === nextFps ? current : nextFps); frames.current = 0; lastFpsAt.current = now; }, 1_000);
     return () => { cancelAnimationFrame(frame); window.clearInterval(interval); clearTimers(); useMatchStore.getState().pause(false); };
   }, []);
 
@@ -93,7 +93,7 @@ export function PhysicsLab() {
     // Give the run enough in-ring distance to build a genuinely loaded entry.
     // Starting inside the rope engagement band only tested a slow shove into
     // the spring and could never satisfy the production rebound threshold.
-    else if (scenario.id === 'ropeStrike') useMatchStore.getState().prepareLabScenario({ x: 4.25, z: .08 }, { x: 0, z: .58 });
+    else if (scenario.id === 'ropeStrike') useMatchStore.getState().prepareLabScenario({ x: -4.25, z: .08 }, { x: 0, z: .58 });
     else if (closeRange) useMatchStore.getState().prepareLabScenario({ x: 0, z: -.4 }, { x: 0, z: .4 }, 'idle', scenario.id === 'soakRound' ? 1 : 100, 'back', 5, scenario.id === 'failedLift' ? 34 : undefined);
     else if (scenario.id === 'miss' || scenario.id === 'jabWhiff') useMatchStore.getState().prepareLabScenario({ x: 0, z: -2.6 }, { x: 0, z: 2.6 });
     else useMatchStore.getState().prepareLabScenario({ x: -1.4, z: 0 }, { x: 2.2, z: 0 });

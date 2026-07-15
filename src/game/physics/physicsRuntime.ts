@@ -25,17 +25,28 @@ import type { MotorProfile } from './motorProfiles';
 import { inspectNumericalBody, jointSeparationFault } from './numericalHealth';
 import type { NumericalFault } from './numericalHealth';
 import { MotionTaskRunner } from './motionTaskRunner';
+import { ActionBuffer } from '../input/actionBuffer';
+import { actionDirectionToVec2, actionToGameCommand, createActionEvent, gameCommandToAction, isBufferedAction } from '../input/actionLayer';
+import type { ActionEvent } from '../input/actionLayer';
 
 export type FighterKey = FighterSlot;
 
 export interface BufferedPhysicsCommand {
   id: number;
   fighter: FighterKey;
+  event: ActionEvent;
   command: GameCommand;
   direction: Vec2;
   running: boolean;
   issuedAt: number;
   expiresAt: number;
+}
+
+export type ActionFeedbackStatus = 'buffered' | 'executed' | 'expired' | 'rejected' | 'duplicate';
+export interface ActionFeedback {
+  event: ActionEvent;
+  status: ActionFeedbackStatus;
+  updatedAt: number;
 }
 
 export interface BodyWorksContact {
@@ -98,6 +109,13 @@ export interface BodyWorksMetrics {
   taskCount: number;
   taskTimeoutCount: number;
   lastTaskPhase: string;
+  actionBuffered: number;
+  actionExecuted: number;
+  actionExpired: number;
+  actionRejected: number;
+  actionDuplicate: number;
+  actionAverageWaitMs: number;
+  actionMaximumWaitMs: number;
 }
 
 export interface FighterPhysicsSnapshot { pelvisY: number; headY: number; footY: number; upright: number; speed: number; supportFeet: number }
@@ -169,9 +187,7 @@ interface PendingLanding { attacker: FighterKey; defender: FighterKey; attackIns
 interface ReleasedPropAttack { owner: FighterKey; attackInstanceId: number; moveId: 'prop_throw'; expiresAt: number }
 
 const EMPTY_INTENT = (): IntentState => ({ move: { x: 0, z: 0 }, run: false, block: false });
-const MAX_COMMANDS = 32;
 const MAX_CONTACTS = 128;
-const COMMAND_BUFFER_SECONDS = .16;
 const JOINT_LINKS: readonly (readonly [BodySegmentId, BodySegmentId])[] = [
   ['pelvis', 'abdomen'], ['abdomen', 'chest'], ['chest', 'head'],
   ['chest', 'leftUpperArm'], ['chest', 'rightUpperArm'],
@@ -223,9 +239,9 @@ export class BodyWorksRuntime {
   private jointData: typeof JointData | null = null;
   private readonly rigs = new Map<FighterKey, FighterRigRegistration>();
   private readonly intents: Record<FighterKey, IntentState> = { player: EMPTY_INTENT(), opponent: EMPTY_INTENT(), rival1: EMPTY_INTENT(), rival2: EMPTY_INTENT(), rival3: EMPTY_INTENT() };
-  private readonly commands: BufferedPhysicsCommand[] = [];
+  private readonly actions = new ActionBuffer<BufferedPhysicsCommand>({ capacity: 32, defaultTtlMs: 150, contextTtlMs: 110, duplicateWindowMs: 48 });
+  private playerActionFeedback: ActionFeedback | null = null;
   private readonly contacts: BodyWorksContact[] = [];
-  private commandId = 0;
   private contactId = 0;
   private generation = 0;
   private world: World | null = null;
@@ -251,7 +267,7 @@ export class BodyWorksRuntime {
   private stepSampleCount = 0;
   private stepSampleTotal = 0;
   readonly replay = new PhysicsReplayBuffer(300);
-  readonly metrics: BodyWorksMetrics = { fixedSteps: 0, bodyCount: 0, jointCount: 0, gripCount: 0, nearestGripDistance: 0, maximumGripError: 0, maximumGripLoad: 0, lastGripBreakReason: 'none', worldJointCount: 0, gripCreateCount: 0, gripInvalidCount: 0, propBodyCount: 0, propGripCount: 0, worldBodyCount: 0, invalidRegisteredBodyCount: 0, worldRemoveCount: 0, contactCount: 0, lastContactPair: 'none', emergencyResetCount: 0, containmentCount: 0, lastStepMs: 0, averageStepMs: 0, p95StepMs: 0, maximumStepMs: 0, replayEstimatedBytes: 0, currentJointSeparation: 0, maximumJointSeparation: 0, motorSaturationCount: 0, currentMotorSaturations: 0, lastStrikeDistance: 0, minimumStrikeDistance: 0, minimumStrikePlanarDistance: 0, minimumStrikeVerticalDistance: 0, numericalFaultCount: 0, lastNumericalFault: 'none', supportScore: 0, taskCount: 0, taskTimeoutCount: 0, lastTaskPhase: 'none' };
+  readonly metrics: BodyWorksMetrics = { fixedSteps: 0, bodyCount: 0, jointCount: 0, gripCount: 0, nearestGripDistance: 0, maximumGripError: 0, maximumGripLoad: 0, lastGripBreakReason: 'none', worldJointCount: 0, gripCreateCount: 0, gripInvalidCount: 0, propBodyCount: 0, propGripCount: 0, worldBodyCount: 0, invalidRegisteredBodyCount: 0, worldRemoveCount: 0, contactCount: 0, lastContactPair: 'none', emergencyResetCount: 0, containmentCount: 0, lastStepMs: 0, averageStepMs: 0, p95StepMs: 0, maximumStepMs: 0, replayEstimatedBytes: 0, currentJointSeparation: 0, maximumJointSeparation: 0, motorSaturationCount: 0, currentMotorSaturations: 0, lastStrikeDistance: 0, minimumStrikeDistance: 0, minimumStrikePlanarDistance: 0, minimumStrikeVerticalDistance: 0, numericalFaultCount: 0, lastNumericalFault: 'none', supportScore: 0, taskCount: 0, taskTimeoutCount: 0, lastTaskPhase: 'none', actionBuffered: 0, actionExecuted: 0, actionExpired: 0, actionRejected: 0, actionDuplicate: 0, actionAverageWaitMs: 0, actionMaximumWaitMs: 0 };
 
   registerFighter(fighter: FighterKey, bodies: Partial<Record<BodySegmentId, RapierRigidBody>>, jointCount: number): () => void {
     const pelvisPosition = bodies.pelvis?.translation() ?? { x: 0, y: 3.02, z: 0 };
@@ -338,21 +354,43 @@ export class BodyWorksRuntime {
   captureInput(fighter: FighterKey, input: FrameInput, now: number): void {
     const intent = this.intents[fighter];
     intent.move.x = input.move.x; intent.move.z = input.move.z; intent.run = input.run; intent.block = input.block;
-    for (const command of input.commands) {
-      this.commandId += 1;
-      this.commands.push({ id: this.commandId, fighter, command, direction: { ...input.move }, running: input.run, issuedAt: now, expiresAt: now + COMMAND_BUFFER_SECONDS });
+    const nowMs = now * 1_000;
+    const legacyEvents = (input.commands ?? []).map((command) => createActionEvent(gameCommandToAction(command), { source: 'replay', timestamp: nowMs, direction: input.move }));
+    for (const event of [...(input.actions ?? []), ...legacyEvents]) {
+      if (event.phase !== 'started' || !isBufferedAction(event.action)) continue;
+      const command = actionToGameCommand(event.action);
+      if (!command) continue;
+      const ttlSeconds = event.action === 'contextAction' || event.action === 'propAction' ? .11 : .15;
+      const buffered = { id: event.sequence, fighter, event, command, direction: actionDirectionToVec2(event.direction), running: input.run, issuedAt: now, expiresAt: now + ttlSeconds };
+      const bufferedEvent = this.actions.push(buffered, event, nowMs, `${fighter}:${event.source}:${event.action}:${event.phase}`);
+      if (fighter === 'player') this.playerActionFeedback = { event, status: bufferedEvent ? 'buffered' : 'duplicate', updatedAt: now };
     }
-    if (this.commands.length > MAX_COMMANDS) this.commands.splice(0, this.commands.length - MAX_COMMANDS);
+    this.syncActionMetrics();
   }
 
   resolveCommands(fighter: FighterKey, now: number, attempt: (command: BufferedPhysicsCommand) => boolean, expired?: (command: BufferedPhysicsCommand) => void): void {
-    for (let index = 0; index < this.commands.length;) {
-      const command = this.commands[index];
-      if (!command) { index += 1; continue; }
-      if (command.expiresAt < now) { this.commands.splice(index, 1); if (command.fighter === fighter) expired?.(command); continue; }
-      if (command.fighter === fighter && attempt(command)) { this.commands.splice(index, 1); return; }
-      index += 1;
-    }
+    this.actions.resolveNext(now * 1_000, (command) => command.fighter === fighter, (command) => {
+      const executed = attempt(command);
+      if (executed && fighter === 'player') this.playerActionFeedback = { event: command.event, status: 'executed', updatedAt: now };
+      return executed ? 'executed' : 'defer';
+    }, (command) => {
+      if (command.fighter === fighter) {
+        if (fighter === 'player') this.playerActionFeedback = { event: command.event, status: 'expired', updatedAt: now };
+        expired?.(command);
+      }
+    });
+    this.syncActionMetrics();
+  }
+
+  private syncActionMetrics(): void {
+    const metrics = this.actions.metrics;
+    this.metrics.actionBuffered = metrics.buffered;
+    this.metrics.actionExecuted = metrics.executed;
+    this.metrics.actionExpired = metrics.expired;
+    this.metrics.actionRejected = metrics.rejected;
+    this.metrics.actionDuplicate = metrics.duplicate;
+    this.metrics.actionAverageWaitMs = metrics.averageWaitMs;
+    this.metrics.actionMaximumWaitMs = metrics.maximumWaitMs;
   }
 
   setAiIntent(move: Vec2, run: boolean, block: boolean): void {
@@ -409,7 +447,7 @@ export class BodyWorksRuntime {
     // Every lab scenario is an isolated deterministic trial. Buffered input,
     // an opponent task from the prior trial, or a stale contact must never be
     // allowed to time out during the next scenario and falsify its evidence.
-    this.tasks.clear(); this.commands.length = 0; this.pendingLandings.clear(); this.landingDeflections.clear(); this.grappleEnvironmentTarget = null; this.contacts.length = 0;
+    this.tasks.clear(); this.actions.clear(); this.playerActionFeedback = null; this.pendingLandings.clear(); this.landingDeflections.clear(); this.grappleEnvironmentTarget = null; this.contacts.length = 0;
     this.metrics.contactCount = 0; this.metrics.lastContactPair = 'none';
     this.metrics.lastStrikeDistance = 0; this.metrics.minimumStrikeDistance = 0; this.metrics.minimumStrikePlanarDistance = 0; this.metrics.minimumStrikeVerticalDistance = 0;
     this.metrics.gripCreateCount = 0; this.metrics.maximumGripError = 0; this.metrics.maximumGripLoad = 0; this.metrics.lastGripBreakReason = 'none';
@@ -1717,14 +1755,18 @@ export class BodyWorksRuntime {
     if (this.world) this.releaseAllGrips(this.world);
     if (this.world) for (const grip of [...this.propGrips.values()]) this.releasePropGrip(this.world, grip, null);
     if (this.instrumentedWorld && this.originalRemoveImpulseJoint) this.instrumentedWorld.removeImpulseJoint = this.originalRemoveImpulseJoint;
-    this.generation += 1; this.rigs.clear(); this.commands.length = 0; this.contacts.length = 0; this.replay.clear(); this.tasks.clear();
+    this.generation += 1; this.rigs.clear(); this.actions.clear(true); this.playerActionFeedback = null; this.contacts.length = 0; this.replay.clear(); this.tasks.clear();
     this.pendingLandings.clear(); this.landingDeflections.clear(); this.grappleEnvironmentTarget = null; this.props.clear(); this.landingSurfaces.clear(); this.propGrips.clear(); this.releasedPropAttacks.clear(); this.replayAccumulator = 0; this.world = null; this.instrumentedWorld = null; this.originalRemoveImpulseJoint = null; this.stepStartedAt = -1; this.lastStrikeMetricKey = '';
     this.stepSamples.fill(0); this.stepSampleCursor = 0; this.stepSampleCount = 0; this.stepSampleTotal = 0;
     for (const key of FIGHTER_SLOTS) { this.intents[key] = EMPTY_INTENT(); this.presentationPoints[key] = {}; this.labAdditionalMass[key] = 0; }
-    this.metrics.fixedSteps = 0; this.metrics.bodyCount = 0; this.metrics.jointCount = 0; this.metrics.gripCount = 0; this.metrics.nearestGripDistance = 0; this.metrics.maximumGripError = 0; this.metrics.maximumGripLoad = 0; this.metrics.lastGripBreakReason = 'none'; this.metrics.worldJointCount = 0; this.metrics.gripCreateCount = 0; this.metrics.gripInvalidCount = 0; this.metrics.propBodyCount = 0; this.metrics.propGripCount = 0; this.metrics.worldBodyCount = 0; this.metrics.invalidRegisteredBodyCount = 0; this.metrics.worldRemoveCount = 0; this.metrics.contactCount = 0; this.metrics.lastContactPair = 'none'; this.metrics.emergencyResetCount = 0; this.metrics.containmentCount = 0; this.metrics.lastStepMs = 0; this.metrics.averageStepMs = 0; this.metrics.p95StepMs = 0; this.metrics.maximumStepMs = 0; this.metrics.replayEstimatedBytes = 0; this.metrics.currentJointSeparation = 0; this.metrics.maximumJointSeparation = 0; this.metrics.motorSaturationCount = 0; this.metrics.currentMotorSaturations = 0; this.metrics.lastStrikeDistance = 0; this.metrics.minimumStrikeDistance = 0; this.metrics.minimumStrikePlanarDistance = 0; this.metrics.minimumStrikeVerticalDistance = 0; this.metrics.numericalFaultCount = 0; this.metrics.lastNumericalFault = 'none'; this.metrics.supportScore = 0; this.metrics.taskCount = 0; this.metrics.taskTimeoutCount = 0; this.metrics.lastTaskPhase = 'none';
+    this.metrics.fixedSteps = 0; this.metrics.bodyCount = 0; this.metrics.jointCount = 0; this.metrics.gripCount = 0; this.metrics.nearestGripDistance = 0; this.metrics.maximumGripError = 0; this.metrics.maximumGripLoad = 0; this.metrics.lastGripBreakReason = 'none'; this.metrics.worldJointCount = 0; this.metrics.gripCreateCount = 0; this.metrics.gripInvalidCount = 0; this.metrics.propBodyCount = 0; this.metrics.propGripCount = 0; this.metrics.worldBodyCount = 0; this.metrics.invalidRegisteredBodyCount = 0; this.metrics.worldRemoveCount = 0; this.metrics.contactCount = 0; this.metrics.lastContactPair = 'none'; this.metrics.emergencyResetCount = 0; this.metrics.containmentCount = 0; this.metrics.lastStepMs = 0; this.metrics.averageStepMs = 0; this.metrics.p95StepMs = 0; this.metrics.maximumStepMs = 0; this.metrics.replayEstimatedBytes = 0; this.metrics.currentJointSeparation = 0; this.metrics.maximumJointSeparation = 0; this.metrics.motorSaturationCount = 0; this.metrics.currentMotorSaturations = 0; this.metrics.lastStrikeDistance = 0; this.metrics.minimumStrikeDistance = 0; this.metrics.minimumStrikePlanarDistance = 0; this.metrics.minimumStrikeVerticalDistance = 0; this.metrics.numericalFaultCount = 0; this.metrics.lastNumericalFault = 'none'; this.metrics.supportScore = 0; this.metrics.taskCount = 0; this.metrics.taskTimeoutCount = 0; this.metrics.lastTaskPhase = 'none'; this.metrics.actionBuffered = 0; this.metrics.actionExecuted = 0; this.metrics.actionExpired = 0; this.metrics.actionRejected = 0; this.metrics.actionDuplicate = 0; this.metrics.actionAverageWaitMs = 0; this.metrics.actionMaximumWaitMs = 0;
   }
 
-  pendingCommandCount(): number { return this.commands.length; }
+  pendingCommandCount(): number { return this.actions.size; }
+
+  actionFeedback(): Readonly<ActionFeedback> | null {
+    return this.playerActionFeedback ? { ...this.playerActionFeedback, event: { ...this.playerActionFeedback.event, direction: { ...this.playerActionFeedback.event.direction } } } : null;
+  }
 
   registeredLandingSurfaceCount(): number { return this.landingSurfaces.size; }
 

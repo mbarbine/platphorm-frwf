@@ -47,6 +47,10 @@ test('standard gamepad axes, run trigger, and quick attack drive the live match'
   await page.waitForTimeout(220);
   await page.evaluate(() => { const button = (window as Window & { __ringfallPad?: { buttons: Array<{ pressed: boolean; value: number }> } }).__ringfallPad?.buttons[2]; if (button) { button.pressed = false; button.value = 0; } });
   await expect(page.locator('html')).toHaveAttribute('data-saw-gamepad-attack', 'true', { timeout: 4_000 });
+  await expect(hud.locator('[data-last-action]')).toHaveAttribute('data-last-action', 'quickStrike');
+  await expect(hud.locator('[data-last-action]')).toHaveAttribute('data-last-action-source', 'gamepad');
+  await expect(hud.locator('[data-last-action]')).toHaveAttribute('data-last-action-status', 'executed');
+  await expect(hud.locator('[data-action-executed]')).not.toHaveAttribute('data-action-executed', '0');
 });
 
 test('WebXR-capable browsers expose the arena entry without loading XR before the match', async ({ page }) => {

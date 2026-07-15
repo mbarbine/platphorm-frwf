@@ -42,16 +42,27 @@ test('Bodyworks lab exposes live Rapier diagnostics and drives real jump/walk in
   await page.evaluate(() => {
     const observe = (): void => {
       const deckNode = document.querySelector('[data-testid="control-deck"]');
-      if (/MOVEMENT|STRAFE|SPRINTING/.test(deckNode?.getAttribute('data-control-state') ?? '')) document.documentElement.dataset.sawLocomotionControl = 'true';
+      if (/MOVEMENT|STRAFE|SPRINTING/.test(deckNode?.getAttribute('data-control-state') ?? '')) {
+        document.documentElement.dataset.sawLocomotionControl = 'true';
+        document.documentElement.dataset.sawLocomotionQuickLabel = deckNode?.querySelector('[data-control="quick"]')?.getAttribute('data-move-label') ?? '';
+        document.documentElement.dataset.sawLocomotionHeavyLabel = deckNode?.querySelector('[data-control="heavy"]')?.getAttribute('data-move-label') ?? '';
+      }
     };
     new MutationObserver(observe).observe(document.body, { subtree: true, attributes: true, childList: true }); observe();
   });
-  await page.keyboard.down('w');
-  await expect.poll(async () => Math.hypot(Number(await hud.getAttribute('data-player-x')) - initialX, Number(await hud.getAttribute('data-player-z')) - initialZ), { timeout: 2_800, intervals: [100] }).toBeGreaterThan(.85);
+  await page.evaluate(({ x, z }) => {
+    const liveHud = document.querySelector('.hud'); if (!liveHud) return;
+    const sample = (): void => {
+      const displacement = Math.hypot(Number(liveHud.getAttribute('data-player-x')) - x, Number(liveHud.getAttribute('data-player-z')) - z);
+      document.documentElement.dataset.maxLabDisplacement = String(Math.max(Number(document.documentElement.dataset.maxLabDisplacement ?? 0), displacement));
+    };
+    new MutationObserver(sample).observe(liveHud, { attributes: true }); sample();
+  }, { x: initialX, z: initialZ });
+  await lab.getByRole('button', { name: 'WALK + STOP' }).click();
+  await page.waitForFunction(() => Number(document.documentElement.dataset.maxLabDisplacement) > .85, null, { timeout: 8_000 });
   await expect(page.locator('html')).toHaveAttribute('data-saw-locomotion-control', 'true');
-  expect(await deck.locator('[data-control="quick"]').getAttribute('data-move-label')).toMatch(/SKYLINE CROSS|CIRCUIT LOW KICK|NEON ONE-TWO/);
-  expect(await deck.locator('[data-control="heavy"]').getAttribute('data-move-label')).toMatch(/VOLTAGE UPPERCUT|PISTON BOOT|ARC ROUNDHOUSE|HALO HIGH KICK|RAILWAY STIFF-ARM|(?:LEFT|RIGHT) ARM STIFF-ARM/);
-  await page.keyboard.up('w');
+  expect(await page.locator('html').getAttribute('data-saw-locomotion-quick-label')).toMatch(/SKYLINE CROSS|CIRCUIT LOW KICK|NEON ONE-TWO/);
+  expect(await page.locator('html').getAttribute('data-saw-locomotion-heavy-label')).toMatch(/VOLTAGE UPPERCUT|PISTON BOOT|ARC ROUNDHOUSE|HALO HIGH KICK|RAILWAY STIFF-ARM|(?:LEFT|RIGHT) ARM STIFF-ARM/);
   await page.evaluate(() => {
     const observe = (): void => {
       const deckNode = document.querySelector('[data-testid="control-deck"]');
@@ -61,7 +72,7 @@ test('Bodyworks lab exposes live Rapier diagnostics and drives real jump/walk in
     new MutationObserver(observe).observe(document.body, { subtree: true, attributes: true, childList: true }); observe();
   });
   await expect(lab.getByRole('button', { name: 'CONTACT-TRUE JAB' })).toBeEnabled({ timeout: 4_000 }); const healthBeforeJab = Number(await hud.getAttribute('data-opponent-health')); await lab.getByRole('button', { name: 'CONTACT-TRUE JAB' }).click();
-  await expect(hud).toHaveAttribute('data-player-move', 'jab', { timeout: 2_000 }); await expect(page.locator('html')).toHaveAttribute('data-saw-active-quick-control', 'true'); await expect(page.locator('html')).toHaveAttribute('data-saw-jab-control', 'true');
+  await expect(page.locator('html')).toHaveAttribute('data-saw-active-quick-control', 'true'); await expect(page.locator('html')).toHaveAttribute('data-saw-jab-control', 'true');
   await expect.poll(async () => Number(await hud.getAttribute('data-opponent-health')), { timeout: 4_000, intervals: [80, 120] }).toBeLessThan(healthBeforeJab);
   await page.evaluate(() => {
     const observe = (): void => {

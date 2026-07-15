@@ -55,6 +55,9 @@ test('mobile player can enter a match, move, guard, and attack', async ({ page }
     if (distance < 1.9 && (state === 'idle' || state === 'locomotion')) await quick.dispatchEvent('pointerdown', { pointerId: 7, pointerType: 'touch', isPrimary: true, button: 0 });
     return page.locator('html').getAttribute('data-saw-touch-attack');
   }, { timeout: 15_000, intervals: [120, 180, 240, 320] }).toBe('true');
+  await expect(hud.locator('[data-last-action]')).toHaveAttribute('data-last-action', 'quickStrike');
+  await expect(hud.locator('[data-last-action]')).toHaveAttribute('data-last-action-source', 'touch');
+  await expect(hud.locator('[data-last-action]')).toHaveAttribute('data-last-action-status', 'executed');
   await page.mouse.up();
   await expect(page.locator('.context-hint')).toContainText('TOUCH ACTIVE');
   await expect.poll(async () => await hud.getAttribute('data-player-state'), { timeout: 20_000, intervals: [100, 200] }).toMatch(/idle|locomotion/);

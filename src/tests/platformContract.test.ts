@@ -23,7 +23,7 @@ describe('PlatPhorm static game contract', () => {
 
   it('reports real game capabilities and honest static limitations', () => {
     const index = JSON.parse(read('public/llms-index.json')) as { data: { capabilities: string[] } };
-    expect(index.data.capabilities).toEqual(expect.arrayContaining(['physical_grapple_and_slam', 'rope_rebound_and_ring_traversal', 'turnbuckle_aerials', 'webxr_arena_mode', 'spatial_audio']));
+    expect(index.data.capabilities).toEqual(expect.arrayContaining(['default_five_wrestler_battle_royale', 'battle_royale_target_cycle', 'battle_royale_spectator_controls', 'physical_grapple_and_slam', 'rope_rebound_and_ring_traversal', 'turnbuckle_aerials', 'webxr_arena_mode', 'spatial_audio']));
     const health = JSON.parse(read('public/api/health')) as { data: Record<string, unknown> };
     expect(health.data).toMatchObject({ status: 'operational', routeComplianceScore: 100, traceEnabled: false, vercelMetadataCaptured: false });
     expect(health.data.releaseIdentity).toMatchObject({ fighterCount: 5, moveCount: 34, criticalAssetCount: 1 });

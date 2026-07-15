@@ -70,6 +70,8 @@ Every fighter receives five optional pre-match beers. Drinking one adds five poi
 
 ## Match structure
 
+- **Battle Royale (default)** — all five wrestlers enter the ring together for a total free-for-all. Cycle the player's live target during play; after player elimination, spectator controls follow the wrestlers still fighting. The last wrestler standing wins.
+- **Singles** — the original one-on-one match for focused move practice and matchup play.
 - **Standard** — no starting weapons, normal Momentum, pinfall or knockout.
 - **Chaos Circuit** — stable props, stronger environmental interaction, faster Momentum, and one bounded arena event every 35–55 seconds.
 - **Normal AI** — readable reactions and occasional strategic mistakes.

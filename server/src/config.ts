@@ -4,6 +4,8 @@
 // Production values are injected through environment variables.
 // ──────────────────────────────────────────────────────────────────────────────
 
+import { PROTOCOL_VERSION } from '@frwf/game-protocol';
+
 export const SERVER_CONFIG = {
   PORT: Number(process.env.PORT) || 2567,
   HOSTNAME: process.env.HOSTNAME || '0.0.0.0',
@@ -34,5 +36,5 @@ export const SERVER_CONFIG = {
     ? process.env.NODE_ENV !== 'production'
     : process.env.MONITOR_ENABLED === 'true',
 
-  PROTOCOL_VERSION: '1.0.0',
+  PROTOCOL_VERSION,
 } as const;

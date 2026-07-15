@@ -3,8 +3,8 @@ import type { Client, Delayed } from 'colyseus';
 import { MatchRoomStateSchema, FighterStateSchema } from './WrestlingRoomState';
 import { SERVER_CONFIG } from '../config';
 import { PROTOCOL_VERSION } from '@frwf/game-protocol';
-import type { FighterId, GameCommand, PlayerRole } from '@frwf/game-protocol';
-// Future: import { createMatch, advanceMatch, requestCommand } from '@frwf/game-core';
+import type { ActionEvent, FighterId, PlayerRole } from '@frwf/game-protocol';
+// Future: import { createMatch, advanceMatch, requestAction } from '@frwf/game-core';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Internal session record — not part of the synchronized state.
@@ -25,7 +25,7 @@ interface PlayerSession {
 // ──────────────────────────────────────────────────────────────────────────────
 
 interface SelectFighterMsg { fighterId: FighterId }
-interface CommandMsg { command: GameCommand; direction: { x: number; z: number }; running: boolean; block: boolean; seq: number }
+interface CommandMsg { event: ActionEvent; seq: number }
 interface VersionMsg { clientVersion: string }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -180,7 +180,7 @@ export class WrestlingRoom extends Room<MatchRoomStateSchema> {
 
     // Apply to deterministic simulation (game-core integration point)
     // const actorKey = session.role === 'player1' ? 'player' : 'opponent';
-    // if (this.matchModel) requestCommand(this.matchModel, actorKey, msg.command, msg.direction, msg.running);
+    // if (this.matchModel) requestAction(this.matchModel, actorKey, msg.event);
   }
 
   private handleRematch(client: Client): void {

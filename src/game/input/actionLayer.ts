@@ -1,30 +1,6 @@
 import type { GameCommand, Vec2 } from '../types/game';
-
-export type GameAction =
-  | 'move'
-  | 'run'
-  | 'quickStrike'
-  | 'heavyStrike'
-  | 'grapple'
-  | 'guard'
-  | 'dodgeCounter'
-  | 'jump'
-  | 'propAction'
-  | 'contextAction'
-  | 'taunt'
-  | 'pause';
-
-export type ActionPhase = 'started' | 'held' | 'released';
-export type ActionSource = 'keyboard' | 'gamepad' | 'touch' | 'xr' | 'ai' | 'replay' | 'network';
-
-export interface ActionEvent {
-  action: GameAction;
-  phase: ActionPhase;
-  sequence: number;
-  timestamp: number;
-  direction: { x: number; y: number };
-  source: ActionSource;
-}
+import type { ActionEvent, ActionPhase, ActionSource, GameAction } from '@frwf/game-protocol';
+export type { ActionEvent, ActionPhase, ActionSource, GameAction } from '@frwf/game-protocol';
 
 export interface CreateActionEventOptions {
   phase?: ActionPhase;

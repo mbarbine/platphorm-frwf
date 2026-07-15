@@ -2,6 +2,7 @@ import { FIGHTERS } from '../data/fighters';
 import { advanceMatch, createMatch } from '../systems/combat';
 import type { FrameInput } from '../systems/combat';
 import type { FighterId, FighterSlot, GameCommand, MatchMode, MatchModel, Vec2 } from '../types/game';
+import { createActionEvent, gameCommandToAction } from '../input/actionLayer';
 
 export interface AiSoakMatch {
   seed: number;
@@ -52,7 +53,7 @@ const playerBotInput = (model: MatchModel, step: number): FrameInput => {
   else if (target.state === 'downed' && separation < 1.65) command = cadence ? (model.elapsed > 12 ? 'context' : 'quick') : null;
   else if (separation < 1.72 && cadence) command = step % 44 === 0 ? 'grapple' : step % 33 === 0 ? 'heavy' : 'quick';
   const canAdvance = ['idle', 'locomotion'].includes(actor.state) && separation > 1.28;
-  return { move: canAdvance ? direction : { x: 0, z: 0 }, run: canAdvance && separation > 3.4, block: false, commands: command ? [command] : [] };
+  return { move: canAdvance ? direction : { x: 0, z: 0 }, run: canAdvance && separation > 3.4, block: false, actions: command ? [createActionEvent(gameCommandToAction(command), { source: 'ai', timestamp: model.elapsed * 1_000, direction })] : [] };
 };
 
 export const runAiSoak = (count = 50, seedBase = 41_000, maximumMatchSeconds = 240, matchMode: MatchMode = 'singles'): AiSoakReport => {

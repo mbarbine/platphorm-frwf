@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { advanceMatch, applyPhysicalContact, createFighterRuntime, createMatch, cyclePlayerTarget, requestCommand, resetTransientState, resolveMatch } from '../systems/combat';
+import { advanceMatch, applyPhysicalContact, createFighterRuntime, createMatch, cyclePlayerTarget, requestAction, requestCommand, resetTransientState, resolveMatch } from '../systems/combat';
 import type { FrameInput } from '../systems/combat';
 import { bodyWorksRuntime } from '../physics/physicsRuntime';
 import { getMove } from '../data/moves';
@@ -7,6 +7,7 @@ import type { BodyWorksContact } from '../physics/physicsRuntime';
 import type { Difficulty, FighterId, FighterState, GameCommand, MatchMode, MatchModel, RecoveryOrientation, Ruleset, Vec2 } from '../types/game';
 import { AI_FIGHTER_SLOTS } from '../types/game';
 import { useSpectatorStore } from './spectatorStore';
+import { createActionEvent, gameCommandToAction } from '../input/actionLayer';
 
 interface MatchStore {
   model: MatchModel;
@@ -38,13 +39,16 @@ export const useMatchStore = create<MatchStore>((set) => ({
     return { model: createMatch(player, opponent, rules, difficulty, 1337, playerBeers, opponentBeers, matchMode), revision: state.revision + 1, replayActive: false };
   }),
   advance: (dt, input) => set((state) => {
-    const model = state.model; const previousImpact = model.impactSequence; const wasResolved = model.resolved; let commandAccepted = false;
+    const model = state.model; const previousImpact = model.impactSequence; const wasResolved = model.resolved; let commandAccepted = false; const pinRecoveryActions = [] as NonNullable<FrameInput['actions']>[number][];
     bodyWorksRuntime.captureInput('player', input, model.elapsed);
     bodyWorksRuntime.resolveCommands('player', model.elapsed, (buffered) => {
       const wasClimbing = model.player.state === 'climbing';
       const wasDowned = model.player.state === 'downed';
       const wasNearApron = ((Math.abs(model.player.position.x) > 4.62 && Math.abs(model.player.position.x) < 6.9 && Math.abs(model.player.position.z) < 3.55)
         || (Math.abs(model.player.position.z) > 3.05 && Math.abs(model.player.position.z) < 5.6 && Math.abs(model.player.position.x) < 5.15));
+      if (wasDowned === false && model.player.state === 'pinned' && ['context', 'dodge', 'quick', 'heavy'].includes(buffered.command)) {
+        pinRecoveryActions.push(buffered.event); commandAccepted = true; return true;
+      }
       const accepted = requestCommand(model, 'player', buffered.command, buffered.direction, buffered.running);
       commandAccepted ||= accepted;
       if (accepted && buffered.command === 'jump') bodyWorksRuntime.requestJump('player');
@@ -56,7 +60,7 @@ export const useMatchStore = create<MatchStore>((set) => ({
       if (accepted && buffered.command === 'context' && !wasClimbing && wasNearApron && model.player.state === 'locomotion') bodyWorksRuntime.requestApronTransition('player', model.player.position);
       return accepted;
     });
-    advanceMatch(model, dt, { ...input, commands: [] });
+    advanceMatch(model, dt, { ...input, actions: pinRecoveryActions, commands: [] });
     for (const slot of AI_FIGHTER_SLOTS) {
       const fighter = model[slot];
       if (model.aiControllers[slot].intent === 'context' && ['idle', 'locomotion'].includes(fighter.state) && fighter.invulnerability > .3) {
@@ -86,7 +90,8 @@ export const useMatchStore = create<MatchStore>((set) => ({
     return { model, revision: state.revision + 1, replayActive: false };
   }),
   requestLabCommand: (fighter, command, direction = { x: 0, z: 0 }, running = false) => set((state) => {
-    if (!state.model.labMode || !requestCommand(state.model, fighter, command, direction, running)) return state;
+    const event = createActionEvent(gameCommandToAction(command), { source: 'replay', timestamp: state.model.elapsed * 1_000, direction });
+    if (!state.model.labMode || !requestAction(state.model, fighter, event, running)) return state;
     return { model: { ...state.model }, revision: state.revision + 1 };
   }),
   resolveLabKnockout: () => set((state) => {

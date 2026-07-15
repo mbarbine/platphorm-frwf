@@ -20,7 +20,7 @@ export function SettingsPanel({ onBack }: { onBack: () => void }) {
       <label className="toggle-row"><span><b>Low flash</b><small>Fewer, dimmer impact strobes while keeping hit silhouettes</small></span><input type="checkbox" checked={settings.lowFlash} onChange={(event) => settings.update({ lowFlash: event.target.checked })} /></label>
       <label className="toggle-row"><span><b>High contrast</b><small>Brighter prompts, meter labels, and focus outlines</small></span><input type="checkbox" checked={settings.highContrast} onChange={(event) => settings.update({ highContrast: event.target.checked })} /></label>
     </div>
-    <div className="control-card"><b>CONTROL REFERENCE</b><span>WASD/D-pad move · Shift/RT sprint · Space/L3 jump · J/X punch · K/Y kick · L/B body slam (+ direction for chain) · I/LT guard (hold) · U/A dodge · E/LB prop · F/R3 pin/finisher/climb · Q/RB taunt · Esc pause</span></div>
+    <div className="control-card"><b>CONTROL REFERENCE</b><span>WASD/D-pad move · Shift/RT sprint · C/L3 jump · J/X punch · K/Y kick · L/B body slam (+ direction for chain) · I/LT guard (hold) · Space/A dodge or counter · E/LB prop · F/R3 pin/finisher/climb · Q/RB taunt · Esc pause</span></div>
     <div className="button-row"><button className="button button--quiet" onClick={settings.reset}>RESET SAVED SETTINGS</button><button className="button" onClick={onBack}>DONE</button></div>
   </section>;
 }

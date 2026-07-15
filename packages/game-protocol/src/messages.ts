@@ -4,7 +4,7 @@
 // can detect duplicates, reorders, and stale commands.
 // ──────────────────────────────────────────────────────────────────────────────
 
-import type { FighterId, GameCommand } from './types.js';
+import type { ActionEvent, FighterId } from './types.js';
 
 /** Every message from the client includes a protocol version for rejection. */
 interface BaseClientMessage {
@@ -22,13 +22,10 @@ export interface ReadyMessage extends BaseClientMessage {
   type: 'ready';
 }
 
-/** Player input command — buffered, sequenced, deduplicated on server. */
+/** Player action — semantically resolved, buffered, sequenced, and deduplicated on the server. */
 export interface CommandMessage extends BaseClientMessage {
   type: 'command';
-  command: GameCommand;
-  direction: { x: number; z: number };
-  running: boolean;
-  block: boolean;
+  event: ActionEvent;
   /** Monotonically increasing client-side sequence number. */
   seq: number;
   /** Client-local timestamp for RTT measurement. */

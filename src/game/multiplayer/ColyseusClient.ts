@@ -1,6 +1,6 @@
 import { Client } from 'colyseus.js';
 import type { Room } from 'colyseus.js';
-import type { CommandMessage, SelectFighterMessage } from '@frwf/game-protocol';
+import type { ActionEvent, CommandMessage, SelectFighterMessage } from '@frwf/game-protocol';
 import { PROTOCOL_VERSION } from '@frwf/game-protocol';
 
 // Client-side view of the server room state.
@@ -141,15 +141,12 @@ export class ColyseusClient {
     this.room?.send('ready', { protocolVersion: PROTOCOL_VERSION });
   }
 
-  /** Send a buffered input command. Returns the sequence number for reconciliation. */
-  sendCommand(command: CommandMessage['command'], direction: { x: number; z: number }, running: boolean, block: boolean): number {
+  /** Send one semantic action. Returns the network sequence used for reconciliation. */
+  sendAction(event: ActionEvent): number {
     this.commandSeq += 1;
     const msg: CommandMessage = {
       type: 'command',
-      command,
-      direction,
-      running,
-      block,
+      event: { ...event, sequence: this.commandSeq, source: 'network' },
       seq: this.commandSeq,
       clientTimestamp: performance.now(),
       protocolVersion: PROTOCOL_VERSION,
