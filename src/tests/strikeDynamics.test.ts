@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { computeStrikeForce, strikeDriveProfile, sweptPlanarPathHitsTarget } from '../game/physics/strikeDynamics';
+import { selectDirectionalStrike } from '../game/systems/combat';
 
 describe('physical strike drive', () => {
   it('drives a jab hand toward its target without exceeding muscle acceleration', () => {
@@ -15,6 +16,17 @@ describe('physical strike drive', () => {
   it('does not create a physical strike task for grapples or taunts', () => {
     expect(strikeDriveProfile('slam')).toBeNull();
     expect(strikeDriveProfile('taunt')).toBeNull();
+  });
+
+  it('maps neutral punch and kick controls to distinct physical limb drives', () => {
+    const neutral = { x: 0, z: 0 };
+    const punch = strikeDriveProfile(selectDirectionalStrike(neutral, 'quick', 0));
+    const followUp = strikeDriveProfile(selectDirectionalStrike(neutral, 'quick', 1));
+    const kick = strikeDriveProfile(selectDirectionalStrike(neutral, 'heavy'));
+
+    expect(punch).toMatchObject({ source: 'rightHand', target: 'chest' });
+    expect(followUp).toMatchObject({ source: 'leftHand', target: 'chest' });
+    expect(kick).toMatchObject({ source: 'rightFoot', target: 'chest' });
   });
 
   it('commits the full torso to a domefall dive', () => {
