@@ -1601,7 +1601,10 @@ export class BodyWorksRuntime {
     this.inspectNumericalHealth();
     this.containRigsToArena(model);
     const slots = model.matchMode === 'battle_royale' ? FIGHTER_SLOTS : FIGHTER_SLOTS.slice(0, 2);
-    for (const key of slots) this.syncFighter(key, model[key], model.labMode);
+    for (const key of slots) {
+      this.syncFighter(key, model[key], model.labMode);
+      this.settleSupportedAirborneFighter(key, model);
+    }
     this.replayAccumulator += this.currentFixedDt;
     if (this.replayAccumulator >= 1 / 30) {
       this.replayAccumulator %= 1 / 30;
@@ -1675,41 +1678,79 @@ export class BodyWorksRuntime {
    * Read the solved Rapier manifold for committed environmental landings.
    * React contact-force callbacks remain useful for ordinary strikes, but a
    * short fixed-body impact may begin and settle between rendered commits.
-   * The narrow phase is the authoritative source for table/turnbuckle truth.
+   * The narrow phase is the authoritative source for ring, floor, table, and
+   * turnbuckle truth.
    */
   private refreshPendingLandingContacts(model: MatchModel): void {
     const world = this.world; if (!world || this.pendingLandings.size === 0) return;
     for (const [defender, landing] of [...this.pendingLandings]) {
-      if (!landing.targetSurface) continue;
-      const rig = this.rigs.get(defender); const surface = [...this.landingSurfaces.values()].find((candidate) => candidate.kind === landing.targetSurface);
-      if (!rig || !surface?.body.isValid()) continue;
+      const rig = this.rigs.get(defender);
+      const surfaces = [...this.landingSurfaces.values()].filter((candidate) => landing.targetSurface
+        ? candidate.kind === landing.targetSurface
+        : candidate.kind === 'ring' || candidate.kind === 'floor');
+      if (!rig || surfaces.length === 0) continue;
       let recorded = false;
-      for (const segment of ['chest', 'abdomen', 'pelvis', 'head'] as const) {
-        const body = rig.bodies[segment]; if (!body?.isValid() || body.numColliders() === 0) continue;
-        const sourceCollider = body.collider(0);
-        for (let index = 0; index < surface.body.numColliders(); index += 1) {
-          const targetCollider = surface.body.collider(index); let totalImpulse = 0; let maximumImpulse = 0; let point: Vector3Value | null = null; let direction: Vector3Value = { x: 0, y: 1, z: 0 };
-          world.contactPair(sourceCollider, targetCollider, (manifold, flipped) => {
-            const normal = manifold.normal(); direction = flipped ? { x: -normal.x, y: -normal.y, z: -normal.z } : { x: normal.x, y: normal.y, z: normal.z };
-            for (let contact = 0; contact < manifold.numContacts(); contact += 1) {
-              const impulse = Math.abs(manifold.contactImpulse(contact)); totalImpulse += impulse; maximumImpulse = Math.max(maximumImpulse, impulse);
-            }
-            if (manifold.numSolverContacts() > 0) point = manifold.solverContactPoint(0);
-          });
-          if (totalImpulse <= .0001) continue;
-          const position = point ?? body.translation(); const velocity = body.linvel(); const fixedVelocity = surface.body.linvel();
-          this.recordContact({
-            time: model.elapsed, sourceFighter: defender, sourceSegment: segment, targetFighter: null, targetSegment: null, targetRegion: segment === 'abdomen' ? 'ribs' : segment,
-            totalForce: totalImpulse / Math.max(1 / 240, this.currentFixedDt), maximumForce: maximumImpulse / Math.max(1 / 240, this.currentFixedDt),
-            forceDirection: [direction.x, direction.y, direction.z], point: [position.x, position.y, position.z],
-            relativeSpeed: Math.hypot(velocity.x - fixedVelocity.x, velocity.y - fixedVelocity.y, velocity.z - fixedVelocity.z),
-            attackInstanceId: null, moveId: null, sourceObjectId: null, targetSurface: surface.kind, isLanding: false,
-          });
-          recorded = true; break;
+      for (const surface of surfaces) {
+        if (!surface.body.isValid()) continue;
+        for (const segment of ['chest', 'abdomen', 'pelvis', 'head'] as const) {
+          const body = rig.bodies[segment]; if (!body?.isValid() || body.numColliders() === 0) continue;
+          const sourceCollider = body.collider(0);
+          for (let index = 0; index < surface.body.numColliders(); index += 1) {
+            const targetCollider = surface.body.collider(index); let totalImpulse = 0; let maximumImpulse = 0; let point: Vector3Value | null = null; let direction: Vector3Value = { x: 0, y: 1, z: 0 };
+            world.contactPair(sourceCollider, targetCollider, (manifold, flipped) => {
+              const normal = manifold.normal(); direction = flipped ? { x: -normal.x, y: -normal.y, z: -normal.z } : { x: normal.x, y: normal.y, z: normal.z };
+              for (let contact = 0; contact < manifold.numContacts(); contact += 1) {
+                const impulse = Math.abs(manifold.contactImpulse(contact)); totalImpulse += impulse; maximumImpulse = Math.max(maximumImpulse, impulse);
+              }
+              if (manifold.numSolverContacts() > 0) point = manifold.solverContactPoint(0);
+            });
+            if (totalImpulse <= .0001) continue;
+            const position = point ?? body.translation(); const velocity = body.linvel(); const fixedVelocity = surface.body.linvel();
+            this.recordContact({
+              time: model.elapsed, sourceFighter: defender, sourceSegment: segment, targetFighter: null, targetSegment: null, targetRegion: segment === 'abdomen' ? 'ribs' : segment,
+              totalForce: totalImpulse / Math.max(1 / 240, this.currentFixedDt), maximumForce: maximumImpulse / Math.max(1 / 240, this.currentFixedDt),
+              forceDirection: [direction.x, direction.y, direction.z], point: [position.x, position.y, position.z],
+              relativeSpeed: Math.hypot(velocity.x - fixedVelocity.x, velocity.y - fixedVelocity.y, velocity.z - fixedVelocity.z),
+              attackInstanceId: null, moveId: null, sourceObjectId: null, targetSurface: surface.kind, isLanding: false,
+            });
+            recorded = true; break;
+          }
+          if (recorded) break;
         }
         if (recorded) break;
       }
     }
+  }
+
+  /**
+   * A missed presentation callback must never leave an active wrestler in an
+   * input-locked airborne state forever. This fallback requires several solved
+   * support frames near the real deck/floor and bounded centre-of-mass vertical
+   * speed. It changes only rules state; Rapier remains the sole owner of every
+   * body transform and high-speed landing still needs a physical contact event
+   * to score damage.
+   */
+  private settleSupportedAirborneFighter(key: FighterKey, model: MatchModel): void {
+    const fighter = model[key]; const rig = this.rigs.get(key);
+    if (!rig || fighter.state !== 'airborne' || this.pendingLandings.has(key) || fighter.stateElapsed < .2) {
+      if (rig) rig.landingSupportFrames = 0;
+      return;
+    }
+    let mass = 0; let weightedVerticalVelocity = 0; let lowestCenterY = Number.POSITIVE_INFINITY;
+    for (const body of Object.values(rig.bodies)) {
+      if (!body?.isValid()) continue;
+      const bodyMass = body.mass(); mass += bodyMass; weightedVerticalVelocity += body.linvel().y * bodyMass;
+      lowestCenterY = Math.min(lowestCenterY, body.translation().y);
+    }
+    const surfaceY = isRingside(fighter.position) ? .4 : VOLT_DOME.ring.deckY;
+    const nearGround = lowestCenterY <= surfaceY + .44;
+    const settledVertically = mass > 0 && Math.abs(weightedVerticalVelocity / mass) <= 1.05;
+    rig.landingSupportFrames = this.hasExternalSupport(rig) && nearGround && settledVertically ? rig.landingSupportFrames + 1 : 0;
+    if (rig.landingSupportFrames < 5) return;
+    fighter.state = 'downed'; fighter.stateElapsed = 0;
+    fighter.downTimer = Math.max(fighter.downTimer, 1.25 + (100 - fighter.health) / 90);
+    fighter.moveId = null; fighter.attackPhase = null;
+    rig.landingSupportFrames = 0;
   }
 
   /**

@@ -115,6 +115,25 @@ describe('Rapier-backed Bodyworks integration', () => {
     world.free();
   });
 
+  it('settles a physically supported airborne wrestler into the downed recovery path', () => {
+    const { world, runtime, model, rig } = makeHarness();
+    for (let frame = 0; frame < 30; frame += 1) stepHarness(world, runtime, model);
+    model.player.state = 'airborne'; model.player.stateElapsed = 0; model.player.downTimer = 1.4;
+    for (const body of Object.values(rig.bodies)) {
+      const position = body.translation(); body.setTranslation({ x: position.x, y: position.y + .72, z: position.z }, true);
+      body.setLinvel({ x: 0, y: -3.2, z: 0 }, true);
+    }
+    let downedFrame = -1;
+    for (let frame = 0; frame < 180; frame += 1) {
+      stepHarness(world, runtime, model);
+      if (model.player.state === 'downed') { downedFrame = frame; break; }
+    }
+    expect(downedFrame, JSON.stringify({ state: model.player.state, stateElapsed: model.player.stateElapsed, snapshot: runtime.fighterSnapshot('player'), metrics: runtime.metrics })).toBeGreaterThanOrEqual(0);
+    expect(downedFrame).toBeLessThan(150);
+    expect(runtime.metrics.emergencyResetCount, JSON.stringify(runtime.metrics)).toBe(0);
+    world.free();
+  });
+
   it('answers directional input promptly without destabilizing the articulated rig', () => {
     const { world, runtime, model } = makeHarness(); const initialX = model.player.position.x;
     for (let frame = 0; frame < 33; frame += 1) stepHarness(world, runtime, model, { x: 1, z: 0 });
