@@ -46,8 +46,21 @@ function Simulation({ onPause, onDevice, onFinished }: Props) {
   useEffect(() => onDevice(input.device), [input.device, onDevice]);
   useEffect(() => { useMatchStore.getState().setPhysicsAuthority(true); return () => useMatchStore.getState().setPhysicsAuthority(false); }, []);
   useEffect(() => () => { if (finishTimer.current !== null) window.clearTimeout(finishTimer.current); }, []);
+  useEffect(() => {
+    const onTargetCycle = (event: KeyboardEvent): void => {
+      if (event.code !== 'Tab') return;
+      const model = useMatchStore.getState().model;
+      if (model.matchMode !== 'battle_royale' || model.resolved || ['defeated', 'victorious'].includes(model.player.state)) return;
+      event.preventDefault();
+      useMatchStore.getState().cyclePlayerTarget(event.shiftKey ? -1 : 1);
+    };
+    window.addEventListener('keydown', onTargetCycle);
+    return () => window.removeEventListener('keydown', onTargetCycle);
+  }, []);
   useBeforePhysicsStep((world) => {
-    const session = gl.xr.getSession(); const raw = input.read(session ? Array.from(session.inputSources) : []); const model = useMatchStore.getState().model;
+    const session = gl.xr.getSession(); const raw = input.read(session ? Array.from(session.inputSources) : []);
+    if (raw.targetCycle) useMatchStore.getState().cyclePlayerTarget(raw.targetCycle);
+    const model = useMatchStore.getState().model;
     const fixedStep = model.labMode ? usePhysicsLabStore.getState().rate / 60 : 1 / 60;
     const activeSlots = model.matchMode === 'battle_royale' ? FIGHTER_SLOTS.filter((slot) => model[slot].state !== 'defeated') : FIGHTER_SLOTS.slice(0, 2);
     const middleX = activeSlots.reduce((sum, slot) => sum + model[slot].position.x, 0) / Math.max(1, activeSlots.length);
@@ -55,7 +68,8 @@ function Simulation({ onPause, onDevice, onFinished }: Props) {
     const candidate = cameraInputBasis({ x: camera.position.x, z: camera.position.z }, { x: middleX, z: middleZ });
     if (!inputBasis.current) inputBasis.current = candidate;
     const inputHeld = Math.hypot(raw.move.x, raw.move.z) > .08;
-    const cinematic = useMatchStore.getState().replayActive || activeSlots.some((slot) => !['idle', 'locomotion', 'blocking'].includes(model[slot].state) || model[slot].moveId !== null);
+    const playerInGrapple = Boolean(model.grapple && (model.grapple.attacker === 'player' || model.grapple.defender === 'player'));
+    const cinematic = useMatchStore.getState().replayActive || playerInGrapple || model.player.moveId !== null || ['grappling', 'grabbed', 'climbing', 'airborne', 'jumping', 'pinning', 'pinned'].includes(model.player.state);
     inputBasis.current = updateStableBasis(inputBasis.current, candidate, inputHeld, cinematic, fixedStep);
     raw.move = transformCameraRelative(raw.move, inputBasis.current);
     useMatchStore.getState().advance(fixedStep, raw);
@@ -130,19 +144,24 @@ function Fighters({ detail, showPhysical }: { detail: FighterDetail; showPhysica
 
 function PlayerControlBeacon() {
   const beacon = useRef<Group | null>(null);
+  const direction = useRef<Group | null>(null);
   useFrame(({ clock }) => {
     const group = beacon.current; if (!group) return;
     const intent = bodyWorksRuntime.intentSnapshot('player'); const model = useMatchStore.getState().model;
     const magnitude = Math.hypot(intent.move.x, intent.move.z); const controllable = ['idle', 'locomotion'].includes(model.player.state) && !model.paused && !model.resolved;
-    group.visible = controllable && magnitude > .08;
+    const battleIdentity = model.matchMode === 'battle_royale' && !['defeated', 'victorious'].includes(model.player.state) && !model.resolved;
+    group.visible = battleIdentity || controllable && magnitude > .08;
     if (!group.visible) return;
     group.position.set(model.player.position.x, Math.abs(model.player.position.x) <= 5.82 && Math.abs(model.player.position.z) <= 4.32 ? 1.94 : .08, model.player.position.z);
     group.rotation.y = Math.atan2(intent.move.x, intent.move.z);
-    const pulse = 1 + Math.sin(clock.elapsedTime * 10) * .055; group.scale.setScalar(intent.run ? pulse * 1.16 : pulse);
+    if (direction.current) direction.current.visible = controllable && magnitude > .08;
+    const pulse = 1 + Math.sin(clock.elapsedTime * 8) * .045; group.scale.setScalar(intent.run && magnitude > .08 ? pulse * 1.1 : pulse);
   });
   return <group ref={beacon} visible={false}>
-    <mesh rotation={[-Math.PI / 2, 0, 0]}><torusGeometry args={[.4, .025, 5, 28]} /><meshBasicMaterial color="#dfff38" transparent opacity={.72} depthWrite={false} /></mesh>
-    <mesh position={[0, .028, .5]} rotation={[Math.PI / 2, 0, 0]}><coneGeometry args={[.14, .36, 3]} /><meshBasicMaterial color="#49efff" transparent opacity={.92} depthWrite={false} /></mesh>
+    <mesh rotation={[-Math.PI / 2, 0, 0]}><torusGeometry args={[.43, .035, 5, 32]} /><meshBasicMaterial color="#49efff" transparent opacity={.86} depthWrite={false} /></mesh>
+    <group ref={direction}><mesh position={[0, .028, .5]} rotation={[Math.PI / 2, 0, 0]}><coneGeometry args={[.15, .4, 3]} /><meshBasicMaterial color="#dfff38" transparent opacity={.96} depthWrite={false} /></mesh></group>
+    <mesh position={[0, 2.62, 0]} rotation={[0, 0, Math.PI]}><coneGeometry args={[.22, .62, 4]} /><meshBasicMaterial color="#dfff38" transparent opacity={.94} depthWrite={false} /></mesh>
+    <mesh position={[0, 2.95, 0]} rotation={[-Math.PI / 2, 0, 0]}><torusGeometry args={[.3, .045, 5, 28]} /><meshBasicMaterial color="#49efff" transparent opacity={.92} depthWrite={false} /></mesh>
   </group>;
 }
 

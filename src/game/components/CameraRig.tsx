@@ -71,7 +71,9 @@ export function CameraRig() {
       playerAttackPhase: model.player.attackPhase, opponentAttackPhase: playerTarget.attackPhase, grapplePhase: model.grapple?.phase ?? null,
       tablePosition: table?.position ?? null, lastImpactKind: model.lastImpact?.kind ?? null,
     });
-    const battleShot = model.matchMode === 'battle_royale' && directedShot === 'broadcast' ? 'wide' : directedShot;
+    const playerInGrapple = Boolean(model.grapple && (model.grapple.attacker === 'player' || model.grapple.defender === 'player'));
+    const playerEngaged = replayActive || playerInGrapple || model.player.moveId !== null || ['grappling', 'grabbed', 'climbing', 'airborne', 'jumping', 'pinning', 'pinned'].includes(model.player.state);
+    const battleShot = model.matchMode === 'battle_royale' && !playerEngaged ? 'wide' : model.matchMode === 'battle_royale' && directedShot === 'broadcast' ? 'wide' : directedShot;
     const requestedShot = cameraCuts === 'off' && battleShot !== 'replay' ? model.matchMode === 'battle_royale' ? 'wide' : 'broadcast' : battleShot;
     const cutInterval = cameraCuts === 'reduced' ? 1.8 : .72;
     const urgent = (cameraCuts === 'full' && cameraShotIsUrgent(requestedShot)) || requestedShot === 'replay';
@@ -154,10 +156,11 @@ export function CameraRig() {
     if (impact && impact.id !== impactId.current) {
       impactId.current = impact.id;
       const hierarchy = impact.kind === 'finisher' || impact.kind === 'ko' ? 1.5 : impact.kind === 'grapple' || impact.kind === 'table' ? 1.22 : impact.kind === 'heavy' || impact.kind === 'weapon' ? 1.02 : impact.kind === 'light' || impact.kind === 'blocked' ? .5 : .85;
-      impactImpulse.current = impact.intensity * hierarchy;
+      const battleImpactRelevant = model.matchMode !== 'battle_royale' || playerEngaged || Math.hypot(impact.position.x - model.player.position.x, impact.position.z - model.player.position.z) < 2.4;
+      impactImpulse.current = battleImpactRelevant ? impact.intensity * hierarchy : 0;
       // Force cut to strike camera on major heavy or counter impacts
       const isMajorStrike = (impact.kind === 'heavy' || impact.kind === 'counter' || impact.kind === 'weapon') && impact.intensity >= 1.3;
-      if (isMajorStrike && !['slam', 'aerial', 'grapple', 'replay'].includes(shot.current) && cameraCuts === 'full') {
+      if (battleImpactRelevant && isMajorStrike && !['slam', 'aerial', 'grapple', 'replay'].includes(shot.current) && cameraCuts === 'full') {
         shot.current = 'strike'; shotChangedAt.current = elapsed.current;
         document.documentElement.dataset.cameraShot = 'strike';
       }
