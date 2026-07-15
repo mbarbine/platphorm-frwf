@@ -166,6 +166,7 @@ describe('deterministic combat rules', () => {
     expect(requestCommand(left, 'player', 'heavy', { x: -1, z: 0 }, true)).toBe(true); expect(left.player.moveId).toBe('rebound');
     const right = createMatch('atlas', 'vex', 'standard', 'normal'); right.player.position = { x: 4.8, z: 0 }; right.opponent.position = { x: 3.4, z: 0 }; right.player.ropeRebound = 1.1;
     expect(requestCommand(right, 'player', 'heavy', { x: 1, z: 0 }, true)).toBe(true); expect(right.player.moveId).toBe('stiff_arm');
+    expect(getMove('stiff_arm').anticipationDuration).toBeLessThanOrEqual(.08); expect(getMove('stiff_arm').counterWindow?.[1]).toBeLessThanOrEqual(.08);
   });
 
   it('catches a blocked aerial attack and turns it into a countered slam', () => {

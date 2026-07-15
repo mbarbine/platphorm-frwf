@@ -112,7 +112,7 @@ export function PhysicsLab() {
     // timeouts made the same input sequence behave differently on a throttled
     // headless GPU because key-up could arrive after only a handful of ticks.
     const startedAt = useMatchStore.getState().model.elapsed; const wallStartedAt = performance.now();
-    const dispatched = new Set<number>(); let blockedJabQueued = false; let blockedJabNextAttemptAt = SCENARIO_SETTLE_MS + 2_100; let gripStressComplete = scenario.stressGripAt === undefined; let labKnockoutResolved = false;
+    const dispatched = new Set<number>(); let blockedJabQueued = false; let blockedJabNextAttemptAt = SCENARIO_SETTLE_MS + 360; let gripStressComplete = scenario.stressGripAt === undefined; let labKnockoutResolved = false;
     let blockedJabAttempts = 0;
     let reboundPressAt: number | null = null; let reboundReleased = false; let slamPressAt: number | null = null; let slamReleased = false;
     let stagedKey: 'KeyF' | 'KeyQ' | null = null; let stagedReleaseAt = 0; let stagedNextAttemptAt = SCENARIO_SETTLE_MS + 80;
@@ -164,10 +164,10 @@ export function PhysicsLab() {
       }
       if (scenario.id === 'ropeStrike' && reboundPressAt === null) {
         const player = current.player; const opponent = current.opponent;
-        // At rebound speed the 160 ms stiff-arm wind-up covers roughly one
-        // metre. Queue inside legal move range, before the chest has already
+        // At rebound speed even the compact wind-up covers roughly one metre.
+        // Queue near the outer edge of legal move range, before the chest has
         // crossed the opponent, so the real arm collider reaches on active.
-        if (player.ropeRebound > 0 && Math.hypot(player.position.x - opponent.position.x, player.position.z - opponent.position.z) <= 2) {
+        if (player.ropeRebound > 0 && Math.hypot(player.position.x - opponent.position.x, player.position.z - opponent.position.z) <= 2.25) {
           reboundPressAt = elapsedMs; dispatchKey('KeyK', true);
         }
       } else if (reboundPressAt !== null && !reboundReleased && elapsedMs >= reboundPressAt + 180) {
