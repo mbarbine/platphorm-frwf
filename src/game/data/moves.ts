@@ -41,8 +41,47 @@ export const MOVES: Readonly<Record<string, MoveDefinition>> = {
   taunt: { id: 'taunt', displayName: 'Signature Taunt', category: 'utility', requiredActorStates: [...active, 'climbing'], minimumRange: 0, maximumRange: 99, staminaCost: 0, momentumGain: 13, damage: 0, anticipationDuration: .2, activeDuration: .45, recoveryDuration: .35, knockback: 0, knockdownStrength: 0, counterWindow: null, hypeValue: 7, animationKey: 'taunt' },
 };
 
-export const getMove = (id: string): MoveDefinition => {
+const UNKNOWN_MOVE_ID = 'jab';
+const unknownMoveIds = new Set<string>();
+const isDev = (import.meta as ImportMeta & { env?: { DEV: boolean } }).env?.DEV === true;
+const safeGetMove = (id: string): MoveDefinition => {
   const move = MOVES[id];
-  if (!move) throw new Error(`Unknown move: ${id}`);
-  return move;
+  if (move) return move;
+  if (!unknownMoveIds.has(id)) {
+    unknownMoveIds.add(id);
+    if (isDev) console.warn(`[moves] Unknown move id: ${id}. Falling back to ${UNKNOWN_MOVE_ID}.`);
+  }
+  return MOVES[UNKNOWN_MOVE_ID] ?? {
+    id: UNKNOWN_MOVE_ID,
+    displayName: 'Circuit Jab',
+    category: 'quick',
+    requiredActorStates: ['idle', 'locomotion'],
+    minimumRange: 0,
+    maximumRange: 1.35,
+    staminaCost: 5,
+    momentumGain: 7,
+    damage: 5,
+    anticipationDuration: 0.14,
+    activeDuration: 0.30,
+    recoveryDuration: 0.2,
+    knockback: 0.55,
+    knockdownStrength: 0,
+    counterWindow: null,
+    hypeValue: 3,
+    animationKey: 'jab',
+  };
+};
+
+export const getMove = (id: string): MoveDefinition => {
+  return safeGetMove(id);
+};
+
+export const getSafeMove = (id: string | null | undefined): MoveDefinition | null => {
+  if (id === null || id === undefined || id === '') return null;
+  return MOVES[id] ?? null;
+};
+
+export const sanitizeMoveId = (id: string | null | undefined): string | null => {
+  if (typeof id !== 'string') return null;
+  return MOVES[id] ? id : null;
 };

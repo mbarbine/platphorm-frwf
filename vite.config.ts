@@ -60,7 +60,7 @@ export default defineConfig(({ mode }) => {
   define: { __RINGFALL_RELEASE__: JSON.stringify(releaseIdentity) },
   server: { allowedHosts: ['host.docker.internal'], watch: { ignored: ['**/.vercel/**'] } },
   build: {
-    target: 'es2022', sourcemap: true, chunkSizeWarningLimit: 900,
+    target: 'es2022', sourcemap: true, chunkSizeWarningLimit: 3000,
     rolldownOptions: { output: { codeSplitting: {
       includeDependenciesRecursively: false,
       groups: [
