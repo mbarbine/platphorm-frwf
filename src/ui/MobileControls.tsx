@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from 'react';
 import { mobileInput } from '../game/input/mobileInput';
 import { useMatchStore } from '../game/state/matchStore';
-import type { GameCommand } from '../game/types/game';
+import type { GameAction } from '../game/input/actionLayer';
 import { getMove } from '../game/data/moves';
 import { canTransitionThroughRopes, selectDirectionalGrapple, selectDirectionalStrike } from '../game/systems/combat';
 
@@ -90,8 +90,8 @@ export function MobileControls({ onPause, paused }: MobileControlsProps) {
     setStick({ x: 0, z: 0 });
     mobileInput.setMove({ x: 0, z: 0 });
   };
-  const queuePointer = (command: GameCommand) => (event: ReactPointerEvent<HTMLButtonElement>): void => { event.preventDefault(); mobileInput.queue(command); };
-  const queueKeyboard = (command: GameCommand) => (event: ReactMouseEvent<HTMLButtonElement>): void => { if (event.detail === 0) mobileInput.queue(command); };
+  const queuePointer = (action: GameAction) => (event: ReactPointerEvent<HTMLButtonElement>): void => { event.preventDefault(); mobileInput.queue(action); };
+  const queueKeyboard = (action: GameAction) => (event: ReactMouseEvent<HTMLButtonElement>): void => { if (event.detail === 0) mobileInput.queue(action); };
 
   if (player.state === 'defeated') return null;
   return <div className={`mobile-controls${paused ? ' mobile-controls--paused' : ''}`} data-testid="mobile-controls">
@@ -102,16 +102,16 @@ export function MobileControls({ onPause, paused }: MobileControlsProps) {
     <div className="mobile-modifiers">
       <HoldButton activeLabel="RUN" className="mobile-hold mobile-hold--run" onChange={(pressed) => mobileInput.setRun(pressed)} />
       <HoldButton activeLabel="GUARD" className="mobile-hold mobile-hold--guard" onChange={(pressed) => mobileInput.setBlock(pressed)} />
-      <button type="button" className="mobile-hold mobile-hold--prop" aria-label="Pick up, drop, or throw prop" onPointerDown={queuePointer('interact')} onClick={queueKeyboard('interact')}>PROP</button>
+      <button type="button" className="mobile-hold mobile-hold--prop" aria-label="Pick up, drop, or throw prop" onPointerDown={queuePointer('propAction')} onClick={queueKeyboard('propAction')}>PROP</button>
       <button type="button" className="mobile-hold mobile-hold--taunt" aria-label="Taunt" onPointerDown={queuePointer('taunt')} onClick={queueKeyboard('taunt')}>TAUNT</button>
     </div>
     <div className="mobile-actions" aria-label="Wrestling actions">
-      <button type="button" disabled={strikeLocked} className={`mobile-action mobile-action--quick${player.moveId === quickMove ? ' is-pressed' : ''}`} aria-label={quickLabel} data-move-label={quickLabel} onPointerDown={queuePointer('quick')} onClick={queueKeyboard('quick')}><b>{quickLabel}</b><small>QUICK</small></button>
-      <button type="button" disabled={strikeLocked} className={`mobile-action mobile-action--power${player.moveId === heavyMove ? ' is-pressed' : ''}`} aria-label={powerLabel} data-move-label={powerLabel} onPointerDown={queuePointer('heavy')} onClick={queueKeyboard('heavy')}><b>{powerLabel}</b><small>{player.ropeRebound > 0 ? 'STIFF-ARM' : 'POWER'}</small></button>
+      <button type="button" disabled={strikeLocked} className={`mobile-action mobile-action--quick${player.moveId === quickMove ? ' is-pressed' : ''}`} aria-label={quickLabel} data-move-label={quickLabel} onPointerDown={queuePointer('quickStrike')} onClick={queueKeyboard('quickStrike')}><b>{quickLabel}</b><small>QUICK</small></button>
+      <button type="button" disabled={strikeLocked} className={`mobile-action mobile-action--power${player.moveId === heavyMove ? ' is-pressed' : ''}`} aria-label={powerLabel} data-move-label={powerLabel} onPointerDown={queuePointer('heavyStrike')} onClick={queueKeyboard('heavyStrike')}><b>{powerLabel}</b><small>{player.ropeRebound > 0 ? 'STIFF-ARM' : 'POWER'}</small></button>
       <button type="button" disabled={grappleLocked} className={`mobile-action mobile-action--grapple${player.state === 'grappling' ? ' is-pressed' : ''}`} aria-label={grappleLabel} data-move-label={grappleLabel} onPointerDown={queuePointer('grapple')} onClick={queueKeyboard('grapple')}><b>{grappleLabel}</b><small>GRAPPLE</small></button>
       <button type="button" className={`mobile-action mobile-action--jump${player.state === 'jumping' ? ' is-pressed' : ''}`} aria-label="Jump" onPointerDown={queuePointer('jump')} onClick={queueKeyboard('jump')}><b>↑</b><small>JUMP</small></button>
-      <button type="button" className={`mobile-action mobile-action--context${player.state === 'pinning' || player.moveId === 'finisher' || player.moveId === 'aerial' ? ' is-pressed' : ''}`} aria-label={contextLabel} onPointerDown={queuePointer('context')} onClick={queueKeyboard('context')}><b>{contextLabel}</b><small>ACTION</small></button>
-      <button type="button" className={`mobile-action mobile-action--counter${player.moveId === 'kick_up' ? ' is-pressed' : ''}`} aria-label={player.state === 'downed' ? 'Kick up' : 'Dodge or counter'} onPointerDown={queuePointer('dodge')} onClick={queueKeyboard('dodge')}><b>↯</b><small>{player.state === 'downed' || player.moveId === 'kick_up' ? 'KICK-UP' : 'COUNTER'}</small></button>
+      <button type="button" className={`mobile-action mobile-action--context${player.state === 'pinning' || player.moveId === 'finisher' || player.moveId === 'aerial' ? ' is-pressed' : ''}`} aria-label={contextLabel} onPointerDown={queuePointer('contextAction')} onClick={queueKeyboard('contextAction')}><b>{contextLabel}</b><small>ACTION</small></button>
+      <button type="button" className={`mobile-action mobile-action--counter${player.moveId === 'kick_up' ? ' is-pressed' : ''}`} aria-label={player.state === 'downed' ? 'Kick up' : 'Dodge or counter'} onPointerDown={queuePointer('dodgeCounter')} onClick={queueKeyboard('dodgeCounter')}><b>↯</b><small>{player.state === 'downed' || player.moveId === 'kick_up' ? 'KICK-UP' : 'COUNTER'}</small></button>
     </div>
   </div>;
 }

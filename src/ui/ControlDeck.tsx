@@ -18,7 +18,7 @@ export interface ControlReadout {
 }
 
 const DEVICE_KEYS: Readonly<Record<ControlDevice, Readonly<Record<ControlId, string>>>> = {
-  keyboard: { move: 'WASD', run: 'SHIFT', quick: 'J', heavy: 'K', grapple: 'L', block: 'I', counter: 'U', jump: 'SPACE', interact: 'E', context: 'F', taunt: 'Q' },
+  keyboard: { move: 'WASD', run: 'SHIFT', quick: 'J', heavy: 'K', grapple: 'L', block: 'I', counter: 'SPACE', jump: 'C', interact: 'E', context: 'F', taunt: 'Q' },
   gamepad: { move: 'L STICK', run: 'RT', quick: 'X / □', heavy: 'Y / △', grapple: 'B / ○', block: 'LT', counter: 'A / ×', jump: 'L3', interact: 'LB', context: 'R3', taunt: 'RB' },
   touch: { move: 'STICK', run: 'RUN', quick: 'QUICK', heavy: 'KICK', grapple: 'BODY SLAM', block: 'GUARD', counter: '↯', jump: 'JUMP', interact: 'PROP', context: 'SPECIAL / PIN', taunt: 'TAUNT' },
 };

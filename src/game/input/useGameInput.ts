@@ -1,21 +1,20 @@
 import { useEffect, useRef, useState } from 'react';
 import type { FrameInput } from '../systems/combat';
-import type { ControlDevice, GameCommand } from '../types/game';
-import { BoundedCommandBuffer } from './commandBuffer';
+import type { ControlDevice, Vec2 } from '../types/game';
+import {
+  ActionEventCollector,
+  GAMEPAD_BUTTON_ACTIONS,
+  HeldActionTracker,
+  KEYBOARD_ACTIONS,
+  XR_BUTTON_ACTIONS,
+  createActionEvent,
+  isBufferedAction,
+} from './actionLayer';
+import type { ActionEvent, ActionSource } from './actionLayer';
 import { mobileInput } from './mobileInput';
 
-// Arcade layout: WASD move · Shift sprint · J punch · K kick · L grapple
-//                Space jump · U dodge/counter · I block (hold) · F special/pin · Q taunt
-const COMMAND_KEYS: Readonly<Record<string, GameCommand>> = {
-  KeyJ: 'quick',
-  KeyK: 'heavy',
-  KeyL: 'grapple',
-  KeyU: 'dodge',   // dodge / counter / kick-up
-  Space: 'jump',   // natural jump key
-  KeyE: 'interact',
-  KeyF: 'context', // pin / finisher / climb / exit rope
-  KeyQ: 'taunt',
-};
+// Unified rescue grammar: WASD move · Shift sprint · J punch · K kick · L grapple
+//                         I guard · Space dodge/counter · C jump · E prop · F context · Q taunt
 const MOVEMENT_KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowLeft', 'ArrowDown', 'ArrowRight', 'ShiftLeft', 'ShiftRight', 'KeyI']);
 
 export interface InputController {
@@ -23,7 +22,12 @@ export interface InputController {
   device: ControlDevice;
 }
 
-export const readGamepadDirection = (gamepad: Gamepad): { x: number; z: number } => {
+const keyboardDirection = (keys: ReadonlySet<string>): Vec2 => ({
+  x: (keys.has('KeyD') || keys.has('ArrowRight') ? 1 : 0) - (keys.has('KeyA') || keys.has('ArrowLeft') ? 1 : 0),
+  z: (keys.has('KeyS') || keys.has('ArrowDown') ? 1 : 0) - (keys.has('KeyW') || keys.has('ArrowUp') ? 1 : 0),
+});
+
+export const readGamepadDirection = (gamepad: Gamepad): Vec2 => {
   const axes: readonly number[] = gamepad.axes ?? []; const buttons: readonly GamepadButton[] = gamepad.buttons ?? [];
   const first = { x: axes[0] ?? 0, z: axes[1] ?? 0 }; const second = { x: axes[2] ?? 0, z: axes[3] ?? 0 };
   const chosen = Math.hypot(second.x, second.z) > Math.hypot(first.x, first.z) ? second : first;
@@ -41,23 +45,30 @@ export const readGamepadDirection = (gamepad: Gamepad): { x: number; z: number }
 
 export const useGameInput = (onPause: () => void): InputController => {
   const keys = useRef(new Set<string>());
-  const queued = useRef<BoundedCommandBuffer | null>(null);
-  if (!queued.current) queued.current = new BoundedCommandBuffer(12, 220);
+  const edgeEvents = useRef<ActionEventCollector | null>(null);
+  const heldActions = useRef<HeldActionTracker | null>(null);
+  if (!edgeEvents.current) edgeEvents.current = new ActionEventCollector();
+  if (!heldActions.current) heldActions.current = new HeldActionTracker();
   const previousButtons = useRef<boolean[]>([]);
   const previousXRButtons = useRef(new Map<string, boolean>());
   const [device, setDevice] = useState<ControlDevice>('keyboard');
 
   useEffect(() => {
     const down = (event: KeyboardEvent): void => {
-      if (event.repeat && COMMAND_KEYS[event.code]) return;
-      keys.current.add(event.code); setDevice('keyboard');
-      const command = COMMAND_KEYS[event.code];
-      if (command) queued.current?.push(command);
-      if (command || MOVEMENT_KEYS.has(event.code)) event.preventDefault();
-      if (event.code === 'Escape') onPause();
+      const action = KEYBOARD_ACTIONS[event.code];
+      if (event.repeat && action) return;
+      keys.current.add(event.code);
+      setDevice('keyboard');
+      if (action && isBufferedAction(action)) {
+        edgeEvents.current?.push(createActionEvent(action, { source: 'keyboard', direction: keyboardDirection(keys.current) }));
+      } else if (action === 'pause') {
+        edgeEvents.current?.push(createActionEvent('pause', { source: 'keyboard' }));
+        onPause();
+      }
+      if (action || MOVEMENT_KEYS.has(event.code)) event.preventDefault();
     };
     const up = (event: KeyboardEvent): void => { keys.current.delete(event.code); };
-    const clear = (): void => { keys.current.clear(); queued.current?.clear(); mobileInput.reset(); };
+    const clear = (): void => { keys.current.clear(); edgeEvents.current?.clear(); heldActions.current?.reset(); mobileInput.reset(); };
     const visibility = (): void => { if (document.hidden) clear(); };
     const connected = (): void => setDevice('gamepad');
     const touchActivity = (): void => setDevice('touch');
@@ -68,54 +79,68 @@ export const useGameInput = (onPause: () => void): InputController => {
   }, [onPause]);
 
   const read = (xrSources: readonly XRInputSource[] = []): FrameInput => {
-    const commands = queued.current?.drain() ?? [];
+    const actions: ActionEvent[] = edgeEvents.current?.drain() ?? [];
     let targetCycle = 0;
-    let x = (keys.current.has('KeyD') || keys.current.has('ArrowRight') ? 1 : 0) - (keys.current.has('KeyA') || keys.current.has('ArrowLeft') ? 1 : 0);
-    let z = (keys.current.has('KeyS') || keys.current.has('ArrowDown') ? 1 : 0) - (keys.current.has('KeyW') || keys.current.has('ArrowUp') ? 1 : 0);
+    const keyboardMove = keyboardDirection(keys.current);
+    let x = keyboardMove.x; let z = keyboardMove.z;
     let run = keys.current.has('ShiftLeft') || keys.current.has('ShiftRight');
     let block = keys.current.has('KeyI');
+    let heldSource: ActionSource = 'keyboard';
     const gamepad = navigator.getGamepads?.()[0];
     if (gamepad) {
       const direction = readGamepadDirection(gamepad);
-      if (Math.hypot(direction.x, direction.z) > .18) { x = direction.x; z = direction.z; setDevice('gamepad'); }
-      run ||= (gamepad.buttons[7]?.value ?? 0) > .35;
-      block ||= (gamepad.buttons[6]?.value ?? 0) > .35;
-      const mappings: readonly [number, GameCommand][] = [[2, 'quick'], [3, 'heavy'], [1, 'grapple'], [0, 'dodge'], [10, 'jump'], [4, 'interact'], [5, 'taunt'], [11, 'context']];
-      for (const [index, command] of mappings) {
+      if (Math.hypot(direction.x, direction.z) > .18) { x = direction.x; z = direction.z; heldSource = 'gamepad'; setDevice('gamepad'); }
+      const gamepadRun = (gamepad.buttons[7]?.value ?? 0) > .35;
+      const gamepadBlock = (gamepad.buttons[6]?.value ?? 0) > .35;
+      if (gamepadRun || gamepadBlock) heldSource = 'gamepad';
+      run ||= gamepadRun; block ||= gamepadBlock;
+      for (const [index, action] of GAMEPAD_BUTTON_ACTIONS) {
         const pressed = gamepad.buttons[index]?.pressed ?? false;
-        if (pressed && !previousButtons.current[index]) commands.push(command);
+        if (pressed && !previousButtons.current[index]) actions.push(createActionEvent(action, { source: 'gamepad', direction: { x, z } }));
         previousButtons.current[index] = pressed;
       }
       const targetPressed = gamepad.buttons[8]?.pressed ?? false;
       if (targetPressed && !previousButtons.current[8]) targetCycle = 1;
       previousButtons.current[8] = targetPressed;
-      if ((gamepad.buttons[9]?.pressed ?? false) && !previousButtons.current[9]) onPause();
-      previousButtons.current[9] = gamepad.buttons[9]?.pressed ?? false;
+      const pausePressed = gamepad.buttons[9]?.pressed ?? false;
+      if (pausePressed && !previousButtons.current[9]) { actions.push(createActionEvent('pause', { source: 'gamepad' })); onPause(); }
+      previousButtons.current[9] = pausePressed;
     }
     if (xrSources.length > 0) {
       setDevice('gamepad');
-      const left = xrSources.find((source) => source.handedness === 'left')?.gamepad;
-      const right = xrSources.find((source) => source.handedness === 'right')?.gamepad;
-      if (left) {
-        const direction = readGamepadDirection(left); if (Math.hypot(direction.x, direction.z) > .12) { x = direction.x; z = direction.z; }
-        run ||= (left.buttons[0]?.value ?? 0) > .35; block ||= (left.buttons[1]?.value ?? 0) > .35;
-      }
-      const queueXR = (hand: 'left' | 'right', source: Gamepad | undefined, index: number, command: GameCommand): void => {
-        const key = `${hand}:${index}`; const pressed = source?.buttons[index]?.pressed ?? false; const previous = previousXRButtons.current.get(key) ?? false;
-        if (pressed && !previous) commands.push(command); previousXRButtons.current.set(key, pressed);
+      heldSource = 'xr';
+      const sources = {
+        left: xrSources.find((source) => source.handedness === 'left')?.gamepad,
+        right: xrSources.find((source) => source.handedness === 'right')?.gamepad,
       };
-      queueXR('right', right, 4, 'quick'); queueXR('right', right, 5, 'heavy'); queueXR('right', right, 1, 'grapple'); queueXR('right', right, 3, 'dodge'); queueXR('right', right, 0, 'context');
-      queueXR('left', left, 4, 'interact'); queueXR('left', left, 5, 'taunt');
+      if (sources.left) {
+        const direction = readGamepadDirection(sources.left); if (Math.hypot(direction.x, direction.z) > .12) { x = direction.x; z = direction.z; }
+        run ||= (sources.left.buttons[0]?.value ?? 0) > .35; block ||= (sources.left.buttons[1]?.value ?? 0) > .35;
+      }
+      for (const [hand, index, action] of XR_BUTTON_ACTIONS) {
+        const key = `${hand}:${index}`; const pressed = sources[hand]?.buttons[index]?.pressed ?? false; const previous = previousXRButtons.current.get(key) ?? false;
+        if (pressed && !previous) actions.push(createActionEvent(action, { source: 'xr', direction: { x, z } }));
+        previousXRButtons.current.set(key, pressed);
+      }
     }
     const touch = mobileInput.read();
     if (touch.active) {
       setDevice('touch');
       x = touch.move.x; z = touch.move.z; run = touch.run; block = touch.block;
+      heldActions.current?.reset();
+      actions.push(...(touch.actions ?? []));
+    } else {
+      const direction = { x, z };
+      const moveEvent = heldActions.current?.update('move', Math.hypot(x, z) > .08, heldSource, direction);
+      const runEvent = heldActions.current?.update('run', run, heldSource, direction);
+      const guardEvent = heldActions.current?.update('guard', block, heldSource, direction);
+      if (moveEvent) actions.push(moveEvent);
+      if (runEvent) actions.push(runEvent);
+      if (guardEvent) actions.push(guardEvent);
     }
-    commands.push(...touch.commands);
     const magnitude = Math.hypot(x, z);
     if (magnitude > 1) { x /= magnitude; z /= magnitude; }
-    return { move: { x, z }, run, block, commands, targetCycle };
+    return { move: { x, z }, run, block, actions, targetCycle };
   };
   return { read, device };
 };

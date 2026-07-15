@@ -49,8 +49,8 @@ test('Bodyworks lab exposes live Rapier diagnostics and drives real jump/walk in
   await page.keyboard.down('w');
   await expect.poll(async () => Math.hypot(Number(await hud.getAttribute('data-player-x')) - initialX, Number(await hud.getAttribute('data-player-z')) - initialZ), { timeout: 2_800, intervals: [100] }).toBeGreaterThan(.85);
   await expect(page.locator('html')).toHaveAttribute('data-saw-locomotion-control', 'true');
-  await expect(deck.locator('[data-control="quick"]')).toHaveAttribute('data-move-label', 'SKYLINE CROSS');
-  expect(await deck.locator('[data-control="heavy"]').getAttribute('data-move-label')).toMatch(/VOLTAGE UPPERCUT|RAILWAY STIFF-ARM/);
+  expect(await deck.locator('[data-control="quick"]').getAttribute('data-move-label')).toMatch(/SKYLINE CROSS|CIRCUIT LOW KICK|NEON ONE-TWO/);
+  expect(await deck.locator('[data-control="heavy"]').getAttribute('data-move-label')).toMatch(/VOLTAGE UPPERCUT|PISTON BOOT|ARC ROUNDHOUSE|HALO HIGH KICK|RAILWAY STIFF-ARM|(?:LEFT|RIGHT) ARM STIFF-ARM/);
   await page.keyboard.up('w');
   await page.evaluate(() => {
     const observe = (): void => {

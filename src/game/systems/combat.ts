@@ -9,8 +9,26 @@ import { AI_FIGHTER_SLOTS, FIGHTER_SLOTS } from '../types/game';
 import type { Difficulty, FighterId, FighterRuntime, FighterSlot, GameCommand, HighlightMoment, ImpactEvent, MatchHighlights, MatchMode, MatchModel, MatchResult, MatchStats, MoveDefinition, PropRuntime, ReplayFighterFrame, Ruleset, Vec2 } from '../types/game';
 import type { BodyWorksContact } from '../physics/physicsRuntime';
 import { VOLT_DOME } from '../data/arena';
+import { actionToGameCommand } from '../input/actionLayer';
+import type { ActionEvent } from '../input/actionLayer';
 
-export interface FrameInput { move: Vec2; run: boolean; block: boolean; commands: readonly GameCommand[]; targetCycle?: number }
+export interface FrameInput {
+  move: Vec2;
+  run: boolean;
+  block: boolean;
+  actions?: readonly ActionEvent[];
+  /** Temporary compatibility for deterministic legacy simulations while they migrate to ActionEvent. */
+  commands?: readonly GameCommand[];
+  targetCycle?: number;
+}
+
+export const commandsForInput = (input: FrameInput): readonly GameCommand[] => [
+  ...(input.commands ?? []),
+  ...(input.actions ?? [])
+    .filter((event) => event.phase === 'started')
+    .map((event) => actionToGameCommand(event.action))
+    .filter((command): command is GameCommand => command !== null),
+];
 const EMPTY_STATS = (): MatchStats => ({ damageDealt: 0, counters: 0, grapples: 0, finishers: 0, nearFalls: 0, propImpacts: 0 });
 const EMPTY_HIGHLIGHTS = (): MatchHighlights => ({ bestSpot: null, bestSlam: null, mostBrutalImpact: null, mostUnexpectedReversal: null });
 const BATTLE_ROYALE_OPENING_BELL_SECONDS = 4.2;
@@ -624,11 +642,12 @@ const updatePin = (model: MatchModel, dt: number, playerInput: FrameInput): void
   pinning.stateElapsed += dt; pinned.stateElapsed += dt;
   if (pinnedKey === 'player') {
     // Any button contributes — U (dodge), J (quick), K (heavy) all help
-    if (playerInput.commands.includes('dodge')) pinned.pinEscape += 16 + pinned.stamina * .04;
-    if (playerInput.commands.includes('quick')) pinned.pinEscape += 10 + pinned.stamina * .022;
-    if (playerInput.commands.includes('heavy')) pinned.pinEscape += 7 + pinned.stamina * .016;
+    const inputCommands = commandsForInput(playerInput);
+    if (inputCommands.includes('dodge')) pinned.pinEscape += 16 + pinned.stamina * .04;
+    if (inputCommands.includes('quick')) pinned.pinEscape += 10 + pinned.stamina * .022;
+    if (inputCommands.includes('heavy')) pinned.pinEscape += 7 + pinned.stamina * .016;
     // PIN REVERSAL: press F (context) in the first second with 38+ stamina
-    if (playerInput.commands.includes('context') && pinned.stamina > 38 && pinning.stateElapsed < 1.05 && Math.floor(pinning.stateElapsed) === 0) {
+    if (inputCommands.includes('context') && pinned.stamina > 38 && pinning.stateElapsed < 1.05 && Math.floor(pinning.stateElapsed) === 0) {
       pinned.stamina = clamp(pinned.stamina - 30, 0, pinned.staminaCap);
       // Swap pinner / pinned in place
       pinned.state = 'pinning'; pinned.stateElapsed = 0; pinned.pinCount = 0; pinned.pinEscape = 0;
@@ -901,7 +920,7 @@ export const advanceMatch = (model: MatchModel, dt: number, playerInput: FrameIn
   if (activeFighterSlots(model).some((slot) => model[slot].state === 'pinned')) return model;
 
   if (playerInput.block) requestCommand(model, 'player', 'block', playerInput.move, playerInput.run);
-  for (const command of playerInput.commands) requestCommand(model, 'player', command, playerInput.move, playerInput.run);
+  for (const command of commandsForInput(playerInput)) requestCommand(model, 'player', command, playerInput.move, playerInput.run);
   const active = activeFighterSlots(model);
   const openingBell = model.matchMode === 'battle_royale' && model.elapsed < BATTLE_ROYALE_OPENING_BELL_SECONDS;
   for (const slot of AI_FIGHTER_SLOTS) {

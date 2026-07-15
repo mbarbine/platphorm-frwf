@@ -1,14 +1,16 @@
 import type { FrameInput } from '../systems/combat';
-import type { GameCommand, Vec2 } from '../types/game';
-import { BoundedCommandBuffer } from './commandBuffer';
+import type { Vec2 } from '../types/game';
+import { ActionEventCollector, HeldActionTracker, createActionEvent } from './actionLayer';
+import type { GameAction } from './actionLayer';
 
 type ActivityListener = () => void;
 
-const state: { move: Vec2; run: boolean; block: boolean; commands: BoundedCommandBuffer; lastActiveAt: number } = {
+const state: { move: Vec2; run: boolean; block: boolean; actions: ActionEventCollector; held: HeldActionTracker; lastActiveAt: number } = {
   move: { x: 0, z: 0 },
   run: false,
   block: false,
-  commands: new BoundedCommandBuffer(12, 240),
+  actions: new ActionEventCollector(16),
+  held: new HeldActionTracker(),
   lastActiveAt: Number.NEGATIVE_INFINITY,
 };
 
@@ -32,17 +34,24 @@ export const mobileInput = {
     state.block = block;
     announceActivity();
   },
-  queue(command: GameCommand): void {
-    state.commands.push(command);
+  queue(action: GameAction): void {
+    state.actions.push(createActionEvent(action, { source: 'touch', direction: state.move }));
     announceActivity();
   },
   read(): FrameInput & { active: boolean } {
-    const commands = state.commands.drain();
+    const actions = state.actions.drain();
+    const timestamp = performance.now();
+    const moveEvent = state.held.update('move', Math.hypot(state.move.x, state.move.z) > .08, 'touch', state.move, timestamp);
+    const runEvent = state.held.update('run', state.run, 'touch', state.move, timestamp);
+    const guardEvent = state.held.update('guard', state.block, 'touch', state.move, timestamp);
+    if (moveEvent) actions.push(moveEvent);
+    if (runEvent) actions.push(runEvent);
+    if (guardEvent) actions.push(guardEvent);
     return {
       move: { ...state.move },
       run: state.run,
       block: state.block,
-      commands,
+      actions,
       active: performance.now() - state.lastActiveAt < 2_500,
     };
   },
@@ -54,7 +63,8 @@ export const mobileInput = {
     state.move.z = 0;
     state.run = false;
     state.block = false;
-    state.commands.clear();
+    state.actions.clear();
+    state.held.reset();
     state.lastActiveAt = Number.NEGATIVE_INFINITY;
   },
   subscribe(listener: ActivityListener): () => void {
