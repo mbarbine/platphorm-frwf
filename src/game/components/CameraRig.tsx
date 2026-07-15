@@ -47,6 +47,7 @@ export function CameraRig() {
     const state = useMatchStore.getState();
     const model = state.model;
     const replayActive = state.replayActive;
+    sanitizeVector(camera.position, 0, 4.45, 0);
 
     const safeSlotState = (slot: FighterSlot, fallbackX = 0, fallbackZ = 0) => {
       const actor = model[slot];
