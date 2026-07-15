@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { advanceMatch, applyPhysicalContact, createFighterRuntime, createMatch, cyclePlayerTarget, requestCommand, resetTransientState } from '../systems/combat';
+import { advanceMatch, applyPhysicalContact, createFighterRuntime, createMatch, cyclePlayerTarget, requestCommand, resetTransientState, resolveMatch } from '../systems/combat';
 import type { FrameInput } from '../systems/combat';
 import { bodyWorksRuntime } from '../physics/physicsRuntime';
 import { getMove } from '../data/moves';
@@ -18,6 +18,7 @@ interface MatchStore {
   setToyTestMode: (active: boolean) => void;
   configureLab: (player: FighterId, opponent: FighterId, seed: number, playerStaminaPercent: number, opponentStaminaPercent: number, playerAdditionalMass?: number, opponentAdditionalMass?: number) => void;
   requestLabCommand: (fighter: 'player' | 'opponent', command: GameCommand, direction?: Vec2, running?: boolean) => void;
+  resolveLabKnockout: () => void;
   prepareLabScenario: (playerPosition: Vec2, opponentPosition: Vec2, playerState?: Extract<FighterState, 'idle' | 'blocking' | 'downed'>, opponentHealth?: number, recoveryOrientation?: RecoveryOrientation, downTimer?: number, playerStaminaPercent?: number) => void;
   setPhysicsAuthority: (active: boolean) => void;
   resolvePhysicsContacts: (contacts: readonly BodyWorksContact[]) => void;
@@ -79,6 +80,11 @@ export const useMatchStore = create<MatchStore>((set) => ({
   }),
   requestLabCommand: (fighter, command, direction = { x: 0, z: 0 }, running = false) => set((state) => {
     if (!state.model.labMode || !requestCommand(state.model, fighter, command, direction, running)) return state;
+    return { model: { ...state.model }, revision: state.revision + 1 };
+  }),
+  resolveLabKnockout: () => set((state) => {
+    if (!state.model.labMode || state.model.resolved) return state;
+    resolveMatch(state.model, 'player', 'KNOCKOUT', 'opponent');
     return { model: { ...state.model }, revision: state.revision + 1 };
   }),
   prepareLabScenario: (playerPosition, opponentPosition, playerState = 'idle', opponentHealth = 100, recoveryOrientation = 'back', downTimer = 5, playerStaminaPercent) => set((state) => {

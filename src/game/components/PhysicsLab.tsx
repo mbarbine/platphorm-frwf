@@ -54,7 +54,7 @@ const SCENARIOS: readonly LabScenario[] = [
   { id: 'climb', label: 'CLIMB + TAUNT', steps: [...tap('KeyF', 80), ...tap('KeyF', 580), ...tap('KeyF', 1_080), ...tap('KeyQ', 1_580)], duration: 3_400 },
   { id: 'dive', label: 'TOP-ROPE DIVE', steps: [...tap('KeyF', 80), ...tap('KeyF', 580), ...tap('KeyF', 1_080), ...tap('KeyF', 1_580)], duration: 3_800 },
   { id: 'tableCollapse', label: 'TABLE COLLAPSE', steps: tap('KeyL', 600), duration: 4_800 },
-  { id: 'soakRound', label: 'LAB KNOCKOUT', steps: tap('KeyK', 450, 180), duration: 3_000 },
+  { id: 'soakRound', label: 'LAB KNOCKOUT', steps: [], duration: 3_000 },
   { id: 'reset', label: 'COMPLETE RUNTIME RESET', steps: [], duration: 1_200 },
 ] as const;
 
@@ -102,7 +102,7 @@ export function PhysicsLab() {
     // timeouts made the same input sequence behave differently on a throttled
     // headless GPU because key-up could arrive after only a handful of ticks.
     const startedAt = useMatchStore.getState().model.elapsed;
-    const dispatched = new Set<number>(); let blockedJabQueued = false; let gripStressComplete = scenario.stressGripAt === undefined;
+    const dispatched = new Set<number>(); let blockedJabQueued = false; let gripStressComplete = scenario.stressGripAt === undefined; let labKnockoutResolved = false;
     let reboundPressAt: number | null = null; let reboundReleased = false;
     const scheduler = window.setInterval(() => {
       const current = useMatchStore.getState().model; const elapsedMs = (current.elapsed - startedAt) * 1_000;
@@ -112,6 +112,11 @@ export function PhysicsLab() {
       });
       if (scenario.id === 'blockedJab' && !blockedJabQueued && elapsedMs >= SCENARIO_SETTLE_MS + 220) {
         blockedJabQueued = true; useMatchStore.getState().requestLabCommand('opponent', 'quick');
+      }
+      if (scenario.id === 'soakRound' && !labKnockoutResolved && elapsedMs >= SCENARIO_SETTLE_MS + 450) {
+        // Resource/rematch soak needs a deterministic lab-only match end. Real
+        // physical strike and knockout behavior is covered by dedicated cases.
+        labKnockoutResolved = true; useMatchStore.getState().resolveLabKnockout();
       }
       if (!gripStressComplete && scenario.stressGripAt !== undefined && elapsedMs >= SCENARIO_SETTLE_MS + scenario.stressGripAt) {
         gripStressComplete = bodyWorksRuntime.stressTestGrip('player');

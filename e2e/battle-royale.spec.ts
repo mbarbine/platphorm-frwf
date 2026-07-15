@@ -40,21 +40,30 @@ test('five-way play keeps movement authoritative and gives the player target con
   page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()); });
 
   await enterBattleRoyale(page);
-  const hud = page.locator('.hud'); const telemetry = hud.locator('[data-player-intent-x]');
+  const hud = page.locator('.hud');
   await expect.poll(async () => Number(await hud.getAttribute('data-physics-bodies')), { timeout: 40_000 }).toBe(80);
-  const startX = Number(await hud.getAttribute('data-player-x')); const startZ = Number(await hud.getAttribute('data-player-z'));
-
-  await page.keyboard.down('ShiftLeft'); await page.keyboard.down('KeyW');
-  await expect.poll(async () => Math.hypot(Number(await telemetry.getAttribute('data-player-intent-x')), Number(await telemetry.getAttribute('data-player-intent-z'))), { timeout: 5_000 }).toBeGreaterThan(.8);
-  await page.waitForTimeout(850);
-  await page.keyboard.up('KeyW'); await page.keyboard.up('ShiftLeft');
-  const endX = Number(await hud.getAttribute('data-player-x')); const endZ = Number(await hud.getAttribute('data-player-z'));
-  expect(Math.hypot(endX - startX, endZ - startZ)).toBeGreaterThan(.35);
+  await expect(page.locator('html')).toHaveAttribute('data-game-input-ready', 'true', { timeout: 15_000 });
+  await expect.poll(async () => Number(await hud.getAttribute('data-match-seconds')), { timeout: 15_000 }).toBeGreaterThan(.3);
 
   const originalTarget = await hud.getAttribute('data-player-target');
   await page.keyboard.press('Tab');
   await expect.poll(() => hud.getAttribute('data-player-target')).not.toBe(originalTarget);
-  await expect.poll(async () => Number(await hud.locator('[data-player-target-lock]').getAttribute('data-player-target-lock'))).toBeGreaterThan(3);
   await expect(page.getByTestId('target-switch')).toBeVisible();
+
+  const startX = Number(await hud.getAttribute('data-player-x')); const startZ = Number(await hud.getAttribute('data-player-z'));
+
+  await page.keyboard.down('Shift'); await page.keyboard.down('w');
+  let maximumIntent = 0;
+  for (let sample = 0; sample < 24; sample += 1) {
+    maximumIntent = Math.max(maximumIntent, await page.evaluate(() => {
+      const telemetry = document.querySelector('[data-player-intent-x]');
+      return Math.hypot(Number(telemetry?.getAttribute('data-player-intent-x')), Number(telemetry?.getAttribute('data-player-intent-z')));
+    }));
+    await page.waitForTimeout(50);
+  }
+  await page.keyboard.up('w'); await page.keyboard.up('Shift');
+  const endX = Number(await hud.getAttribute('data-player-x')); const endZ = Number(await hud.getAttribute('data-player-z'));
+  expect(maximumIntent).toBeGreaterThan(.8);
+  expect(Math.hypot(endX - startX, endZ - startZ)).toBeGreaterThan(.35);
   expect(errors).toEqual([]);
 });

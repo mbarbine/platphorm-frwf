@@ -8,6 +8,9 @@ export type BodySegmentId =
 export type SegmentSide = 'center' | 'left' | 'right';
 export type ColliderRole = 'body' | 'strike' | 'grip' | 'support';
 
+/** Every articulated wrestler must register this many rigid bodies before play begins. */
+export const BODY_SEGMENT_COUNT = 16;
+
 export interface BodySegmentSchema {
   id: BodySegmentId;
   side: SegmentSide;
@@ -54,7 +57,7 @@ export const buildBodySchema = (definition: FighterDefinition): readonly BodySeg
   const hip = p.hipWidthM * .42;
   const arm = p.armLength;
   const leg = p.legLength;
-  return [
+  const schema = [
     segment(definition, 'pelvis', 'center', 1.12 * heightScale, 0, .18 * p.torsoLength, .22),
     segment(definition, 'abdomen', 'center', 1.43 * heightScale, 0, .18 * p.torsoLength, .21),
     // The visible wrestling torso is wider than the original prototype
@@ -75,6 +78,7 @@ export const buildBodySchema = (definition: FighterDefinition): readonly BodySeg
     segment(definition, 'leftFoot', 'left', .1, -hip, .14, .105),
     segment(definition, 'rightFoot', 'right', .1, hip, .14, .105),
   ];
+  return schema;
 };
 
 export const segmentSchema = (definition: FighterDefinition, id: BodySegmentId): BodySegmentSchema => {
