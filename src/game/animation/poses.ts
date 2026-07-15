@@ -45,9 +45,10 @@ export const POSES: Readonly<Record<AnimationKey, Pose>> = {
   recovery: { ...base, rootY: -.55, rootTilt: -.7, leftArm: [-.9, 0, -.35], leftForearm: [-.8, 0, 0], leftLeg: [-.5, 0, 0], rightShin: [-.8, 0, 0] },
   dodge: { ...base, torso: [.35, 0, .35], leftArm: [-.3, 0, -.5], rightArm: [-.3, 0, .5], rootTilt: .25 },
   counter: { ...base, torso: [0, .2, 0], leftArm: [-.75, 0, -.6], rightArm: [-1.15, .2, .25], rightLeg: [-.55, 0, 0] },
-  // Roll the raised arms toward the centerline. The old signs flared both
-  // glove colliders away from the face and left an unobstructed chest lane.
-  block: { ...base, torso: [.14, 0, 0], leftArm: [-1.05, -.12, .28], rightArm: [-1.05, .12, -.28], leftForearm: [-1.25, 0, .18], rightForearm: [-1.25, 0, -.18], leftLeg: [.12, 0, 0], rightLeg: [-.12, 0, 0], rootTilt: .08 },
+  // Roll the arms toward the centerline while keeping the forearms across the
+  // chest-to-face strike lane. A higher fold put both physical guard colliders
+  // above an ordinary jab and made a visibly raised guard mechanically empty.
+  block: { ...base, torso: [.14, 0, 0], leftArm: [-.68, -.12, .28], rightArm: [-.68, .12, -.28], leftForearm: [-1.05, 0, .18], rightForearm: [-1.05, 0, -.18], leftLeg: [.12, 0, 0], rightLeg: [-.12, 0, 0], rootTilt: .08 },
   climb: { ...base, torso: [.55, 0, 0], leftArm: [-1.85, -.08, -.72], rightArm: [-1.85, .08, .72], leftForearm: [-1.28, 0, -.12], rightForearm: [-1.28, 0, .12], leftLeg: [-1.02, 0, 0], rightLeg: [-.52, 0, 0], leftShin: [-.72, 0, 0], rightShin: [-.58, 0, 0], rootY: 1.38, rootTilt: -.06 },
   aerial: { ...base, torso: [-.1, 0, .42], leftArm: [-2.15, 0, -.92], rightArm: [-.28, 0, .9], leftForearm: [-.85, 0, 0], rightForearm: [-1.4, 0, 0], leftLeg: [-1.08, 0, -.1], rightLeg: [.76, 0, .1], leftShin: [-.42, 0, 0], rightShin: [-1.32, 0, 0], rootY: 1.62, rootTilt: -.18, rootYaw: .72, rootRoll: .58 },
   taunt: { ...base, leftArm: [-2.65, 0, -.5], rightArm: [-2.65, 0, .5], rootY: .12 },

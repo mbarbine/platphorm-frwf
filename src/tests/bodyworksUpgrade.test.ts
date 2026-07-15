@@ -20,6 +20,11 @@ describe('Bodyworks playability upgrade', () => {
   });
 
   it('authors a raised guard that closes both arms across the centerline', () => {
+    expect(POSES.block.leftArm[0]).toBeLessThan(-.5);
+    expect(POSES.block.leftArm[0]).toBeGreaterThan(-.9);
+    expect(POSES.block.rightArm[0]).toBe(POSES.block.leftArm[0]);
+    expect(POSES.block.leftForearm[0]).toBeLessThan(POSES.block.leftArm[0]);
+    expect(POSES.block.rightForearm[0]).toBe(POSES.block.leftForearm[0]);
     expect(POSES.block.leftArm[2]).toBeGreaterThan(0);
     expect(POSES.block.rightArm[2]).toBeLessThan(0);
     expect(Math.abs(POSES.block.leftArm[2])).toBeLessThan(.35);
