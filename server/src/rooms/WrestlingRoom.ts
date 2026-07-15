@@ -1,4 +1,5 @@
-import { Room, Client, Delayed } from 'colyseus';
+import { Room } from 'colyseus';
+import type { Client, Delayed } from 'colyseus';
 import { MatchRoomStateSchema, FighterStateSchema } from './WrestlingRoomState';
 import { SERVER_CONFIG } from '../config';
 import { PROTOCOL_VERSION } from '@frwf/game-protocol';
@@ -200,8 +201,9 @@ export class WrestlingRoom extends Room<MatchRoomStateSchema> {
     const players = this.activePlayers();
     if (players.length < 2) return;
 
-    const p1 = players.find(s => s.role === 'player1')!;
-    const p2 = players.find(s => s.role === 'player2')!;
+    const p1 = players.find(s => s.role === 'player1');
+    const p2 = players.find(s => s.role === 'player2');
+    if (!p1 || !p2) return;
 
     // Initialize game-core model (integration hook)
     // this.matchModel = createMatch(p1.fighterId, p2.fighterId, this.state.ruleset, this.state.difficulty, this.state.seed);

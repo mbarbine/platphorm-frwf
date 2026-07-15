@@ -13,14 +13,14 @@ import { fighterVisual } from '../presentation/fighterVisuals';
 import type { FighterVisualProfile } from '../presentation/fighterVisuals';
 import type { FighterDetail } from '../presentation/presentationManifest';
 import { bodyWorksRuntime } from '../physics/physicsRuntime';
-import type { AnimationKey, FighterDefinition, FighterId, FighterRuntime } from '../types/game';
+import type { AnimationKey, FighterDefinition, FighterId, FighterRuntime, FighterSlot } from '../types/game';
 
 interface Props {
   runtime?: FighterRuntime;
   counterpart?: FighterRuntime;
   fighterId?: FighterId;
   preview?: boolean;
-  side?: 'player' | 'opponent';
+  side?: FighterSlot;
   reportAlignment?: boolean;
   detail?: FighterDetail;
 }

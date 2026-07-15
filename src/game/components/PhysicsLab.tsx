@@ -90,40 +90,50 @@ export function PhysicsLab() {
     else if (scenario.id === 'blockedJab') useMatchStore.getState().prepareLabScenario({ x: 0, z: -.27 }, { x: 0, z: .27 }, 'blocking');
     else if (recoveryOrientation) useMatchStore.getState().prepareLabScenario({ x: 0, z: -.7 }, { x: 0, z: 3.4 }, 'downed', 100, recoveryOrientation, .38);
     else if (scenario.id === 'kickup') useMatchStore.getState().prepareLabScenario({ x: 0, z: -.7 }, { x: 0, z: 3.4 }, 'downed');
-    // The production camera maps keyboard D onto a slightly diagonal arena
-    // lane. Place the deterministic defender on that measured rebound lane so
-    // this scenario verifies contact timing rather than a deliberate sidestep.
-    else if (scenario.id === 'ropeStrike') useMatchStore.getState().prepareLabScenario({ x: 5.12, z: .08 }, { x: 0, z: .58 });
+    // Give the run enough in-ring distance to build a genuinely loaded entry.
+    // Starting inside the rope engagement band only tested a slow shove into
+    // the spring and could never satisfy the production rebound threshold.
+    else if (scenario.id === 'ropeStrike') useMatchStore.getState().prepareLabScenario({ x: 4.25, z: .08 }, { x: 0, z: .58 });
     else if (closeRange) useMatchStore.getState().prepareLabScenario({ x: 0, z: -.4 }, { x: 0, z: .4 }, 'idle', scenario.id === 'soakRound' ? 1 : 100, 'back', 5, scenario.id === 'failedLift' ? 34 : undefined);
     else if (scenario.id === 'miss' || scenario.id === 'jabWhiff') useMatchStore.getState().prepareLabScenario({ x: 0, z: -2.6 }, { x: 0, z: 2.6 });
     else useMatchStore.getState().prepareLabScenario({ x: -1.4, z: 0 }, { x: 2.2, z: 0 });
     document.documentElement.dataset.labResetPelvisY = bodyWorksRuntime.fighterSnapshot('player').pelvisY.toFixed(3);
-    for (const step of scenario.steps) timers.current.push(window.setTimeout(() => dispatchKey(step.code, step.down), SCENARIO_SETTLE_MS + step.at));
-    if (scenario.id === 'blockedJab') timers.current.push(window.setTimeout(() => useMatchStore.getState().requestLabCommand('opponent', 'quick'), SCENARIO_SETTLE_MS + 220));
-    if (scenario.stressGripAt !== undefined) {
-      timers.current.push(window.setTimeout(() => {
-        const stress = window.setInterval(() => { if (bodyWorksRuntime.stressTestGrip('player')) window.clearInterval(stress); }, 40);
-        timers.current.push(stress);
-      }, SCENARIO_SETTLE_MS + scenario.stressGripAt));
-    }
-    let reboundWatcher: number | null = null;
-    if (scenario.id === 'ropeStrike') {
-      reboundWatcher = window.setInterval(() => {
-        const player = useMatchStore.getState().model.player; if (player.ropeRebound <= 0) return;
-        const opponent = useMatchStore.getState().model.opponent;
+    // Lab choreography is scheduled against fixed simulation time. Wall-clock
+    // timeouts made the same input sequence behave differently on a throttled
+    // headless GPU because key-up could arrive after only a handful of ticks.
+    const startedAt = useMatchStore.getState().model.elapsed;
+    const dispatched = new Set<number>(); let blockedJabQueued = false; let gripStressComplete = scenario.stressGripAt === undefined;
+    let reboundPressAt: number | null = null; let reboundReleased = false;
+    const scheduler = window.setInterval(() => {
+      const current = useMatchStore.getState().model; const elapsedMs = (current.elapsed - startedAt) * 1_000;
+      scenario.steps.forEach((step, index) => {
+        if (dispatched.has(index) || elapsedMs < SCENARIO_SETTLE_MS + step.at) return;
+        dispatchKey(step.code, step.down); dispatched.add(index);
+      });
+      if (scenario.id === 'blockedJab' && !blockedJabQueued && elapsedMs >= SCENARIO_SETTLE_MS + 220) {
+        blockedJabQueued = true; useMatchStore.getState().requestLabCommand('opponent', 'quick');
+      }
+      if (!gripStressComplete && scenario.stressGripAt !== undefined && elapsedMs >= SCENARIO_SETTLE_MS + scenario.stressGripAt) {
+        gripStressComplete = bodyWorksRuntime.stressTestGrip('player');
+      }
+      if (scenario.id === 'ropeStrike' && reboundPressAt === null) {
+        const player = current.player; const opponent = current.opponent;
         // At rebound speed the 160 ms stiff-arm wind-up covers roughly one
         // metre. Queue inside legal move range, before the chest has already
-        // crossed the opponent, so the real hand collider reaches on active.
-        if (Math.hypot(player.position.x - opponent.position.x, player.position.z - opponent.position.z) > 1.6) return;
-        if (reboundWatcher !== null) window.clearInterval(reboundWatcher); reboundWatcher = null;
-        dispatchKey('KeyK', true); timers.current.push(window.setTimeout(() => dispatchKey('KeyK', false), 180));
-      }, 8); timers.current.push(reboundWatcher);
-    }
-    timers.current.push(window.setTimeout(() => {
-      if (reboundWatcher !== null) window.clearInterval(reboundWatcher);
+        // crossed the opponent, so the real arm collider reaches on active.
+        if (player.ropeRebound > 0 && Math.hypot(player.position.x - opponent.position.x, player.position.z - opponent.position.z) <= 1.6) {
+          reboundPressAt = elapsedMs; dispatchKey('KeyK', true);
+        }
+      } else if (reboundPressAt !== null && !reboundReleased && elapsedMs >= reboundPressAt + 180) {
+        reboundReleased = true; dispatchKey('KeyK', false);
+      }
+      if (elapsedMs < scenario.duration) return;
+      window.clearInterval(scheduler);
       for (const step of scenario.steps) if (step.down) dispatchKey(step.code, false);
+      if (reboundPressAt !== null && !reboundReleased) dispatchKey('KeyK', false);
       setActive(null);
-    }, scenario.duration));
+    }, 8);
+    timers.current.push(scheduler);
   };
 
   const applyPair = (): void => { clearTimers(); setActive(null); useMatchStore.getState().configureLab(playerId, opponentId, seed, playerStamina, opponentStamina, playerMass, opponentMass); };

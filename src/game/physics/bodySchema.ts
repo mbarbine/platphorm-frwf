@@ -57,7 +57,10 @@ export const buildBodySchema = (definition: FighterDefinition): readonly BodySeg
   return [
     segment(definition, 'pelvis', 'center', 1.12 * heightScale, 0, .18 * p.torsoLength, .22),
     segment(definition, 'abdomen', 'center', 1.43 * heightScale, 0, .18 * p.torsoLength, .21),
-    segment(definition, 'chest', 'center', 1.72 * heightScale, 0, .21 * p.torsoLength, .27),
+    // The visible wrestling torso is wider than the original prototype
+    // collider. A 30 cm radius keeps committed chest-led dives and shoulder
+    // contact physical instead of allowing a few-centimetre visual pass-through.
+    segment(definition, 'chest', 'center', 1.72 * heightScale, 0, .21 * p.torsoLength, .3),
     segment(definition, 'head', 'center', 2.08 * heightScale, 0, .15, .18),
     segment(definition, 'leftUpperArm', 'left', 1.48 * heightScale, -shoulder, .19 * arm, .105),
     segment(definition, 'rightUpperArm', 'right', 1.48 * heightScale, shoulder, .19 * arm, .105),

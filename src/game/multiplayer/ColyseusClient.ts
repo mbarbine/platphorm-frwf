@@ -1,4 +1,5 @@
-import { Client, Room } from 'colyseus.js';
+import { Client } from 'colyseus.js';
+import type { Room } from 'colyseus.js';
 import type { CommandMessage, SelectFighterMessage } from '@frwf/game-protocol';
 import { PROTOCOL_VERSION } from '@frwf/game-protocol';
 

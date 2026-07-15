@@ -1,9 +1,7 @@
 import { fighterById } from '../data/fighters';
 import { getMove } from '../data/moves';
-import type { FighterRuntime, GrapplePosition, GrappleRuntime, MatchModel, Vec2 } from '../types/game';
+import type { FighterRuntime, FighterSlot as FighterKey, GrapplePosition, GrappleRuntime, MatchModel, Vec2 } from '../types/game';
 import { clamp, length, normalize } from '../utils/math';
-
-type FighterKey = 'player' | 'opponent';
 
 const MOVE_POSITIONS: Readonly<Record<string, GrapplePosition>> = {
   piledriver: 'frontFacelock',

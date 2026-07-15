@@ -16,6 +16,7 @@ test('fighter select through guarded combat, result, and rematch', async ({ page
   await page.getByRole('button', { name: /LOCK IN CHAD/ }).click();
   for (let beer = 0; beer < 5; beer += 1) await page.getByRole('button', { name: 'DRINK A BEER' }).click();
   await expect(page.getByText('5 / 5 DRUNK')).toBeVisible();
+  await page.getByRole('button', { name: /^SINGLES/ }).click();
   await page.getByRole('button', { name: /^STANDARD/ }).click();
   await page.getByRole('button', { name: /^NORMAL/ }).click();
   await page.getByRole('button', { name: 'START MATCH' }).click();

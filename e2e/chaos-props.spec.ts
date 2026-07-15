@@ -6,6 +6,7 @@ test('Chaos AI leaves the ring, physically grips a prop, and lands a prop impact
   await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
   await page.getByRole('button', { name: 'PLAY', exact: true }).click();
   await page.getByRole('button', { name: /LOCK IN ATLAS/ }).click();
+  await page.getByRole('button', { name: /^SINGLES/ }).click();
   await page.getByRole('button', { name: /CHAOS CIRCUIT/ }).click();
   await page.getByRole('button', { name: 'START MATCH' }).click();
   const hud = page.locator('.hud'); const telemetry = page.locator('[data-prop-bodies]');

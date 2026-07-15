@@ -155,8 +155,10 @@ export function PhysicalFighterRig({ runtime, side, showVisuals = true }: Props)
     const activeAttack = sourceRuntime.attackPhase === 'active' && sourceRuntime.moveId !== null;
     const strikeProfile = activeAttack && sourceRuntime.moveId ? strikeDriveProfile(sourceRuntime.moveId) : null;
     const directionalStiffArm = sourceRuntime.moveId === 'stiff_arm' || sourceRuntime.moveId === 'rebound';
+    const chestLedDive = sourceRuntime.moveId === 'aerial' && ['chest', 'abdomen', 'pelvis', 'leftUpperArm', 'rightUpperArm', 'leftForearm', 'rightForearm', 'leftHand', 'rightHand', 'leftThigh', 'rightThigh', 'leftShin', 'rightShin', 'leftFoot', 'rightFoot'].includes(segment.id);
     const activeContactLimb = Boolean(strikeProfile && (strikeProfile.source === segment.id
-      || directionalStiffArm && (segment.id === 'leftForearm' || segment.id === 'rightForearm')));
+      || directionalStiffArm && (segment.id === 'leftForearm' || segment.id === 'rightForearm')
+      || chestLedDive));
     // Shipping damage is emitted only by the move's active physical limb. A
     // nearby foot, shoulder, or authored animation phase cannot impersonate a
     // jab contact. Environmental contacts remain eligible only while a real

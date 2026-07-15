@@ -1,10 +1,11 @@
 import type { BodySegmentId } from './bodySchema';
 import type { QuaternionValue, Vector3Value } from './motorController';
+import type { FighterSlot } from '../types/game';
 
 export interface SegmentTransform { position: Vector3Value; rotation: QuaternionValue }
 export interface PhysicsReplayFrame {
   time: number;
-  fighters: Readonly<Record<'player' | 'opponent', Partial<Record<BodySegmentId, SegmentTransform>>>>;
+  fighters: Readonly<Partial<Record<FighterSlot, Partial<Record<BodySegmentId, SegmentTransform>>>>>;
   props: Readonly<Record<string, SegmentTransform>>;
 }
 

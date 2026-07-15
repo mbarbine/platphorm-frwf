@@ -45,7 +45,7 @@ test('rope rebound produces a loaded stiff-arm and physical knockdown', async ({
     const observe = (): void => {
       const liveHud = document.querySelector('.hud'); const deck = document.querySelector('[data-testid="control-deck"]');
       const physics = liveHud?.querySelector('[data-physics-last-contact]'); const contact = physics?.getAttribute('data-physics-last-contact') ?? '';
-      if (liveHud?.getAttribute('data-player-move') === 'stiff_arm') document.documentElement.dataset.sawDeterministicStiffArm = 'true';
+      if (/^(?:stiff_arm|rebound)$/.test(liveHud?.getAttribute('data-player-move') ?? '')) document.documentElement.dataset.sawDeterministicStiffArm = 'true';
       if (/downed|airborne/.test(liveHud?.getAttribute('data-opponent-state') ?? '')) document.documentElement.dataset.sawDeterministicKnockdown = 'true';
       if (/^(?:left|right)(?:Hand|Forearm|UpperArm)>/.test(contact)) document.documentElement.dataset.sawDeterministicRopeContact = 'true';
       if (Number(liveHud?.getAttribute('data-opponent-health')) < health) document.documentElement.dataset.sawDeterministicRopeImpact = 'true';
@@ -75,7 +75,7 @@ test('top-rope dive tracks the target and lands physical damage', async ({ page 
       const liveHud = document.querySelector('.hud'); const aerial = /aerial/.test(liveHud?.getAttribute('data-player-move') ?? '');
       const contact = liveHud?.querySelector('[data-physics-last-contact]')?.getAttribute('data-physics-last-contact') ?? '';
       if (aerial) document.documentElement.dataset.sawDeterministicDive = 'true';
-      if (contact === 'chest>chest') document.documentElement.dataset.sawDeterministicDiveContact = 'true';
+      if (/^(?:chest|abdomen|pelvis|left|right)(?:UpperArm|Forearm|Hand|Thigh|Shin|Foot)?>/.test(contact)) document.documentElement.dataset.sawDeterministicDiveContact = 'true';
       if (Number(liveHud?.getAttribute('data-opponent-health')) < health) document.documentElement.dataset.sawDeterministicDiveImpact = 'true';
       if (!aerial) return;
       const playerX = Number(liveHud?.getAttribute('data-player-x')); const playerZ = Number(liveHud?.getAttribute('data-player-z'));

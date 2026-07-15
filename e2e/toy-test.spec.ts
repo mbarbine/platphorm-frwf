@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 test('UI-free Toy Test preserves body control while removing score pressure', async ({ page }) => {
   const errors: string[] = []; page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()); }); page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('/?toyTest=1'); await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click(); await page.getByRole('button', { name: 'PLAY', exact: true }).click();
-  await page.getByRole('button', { name: /LOCK IN ATLAS/ }).click(); await page.getByRole('button', { name: /^STANDARD/ }).click(); await page.getByRole('button', { name: 'START MATCH' }).click();
+  await page.getByRole('button', { name: /LOCK IN ATLAS/ }).click(); await page.getByRole('button', { name: /^SINGLES/ }).click(); await page.getByRole('button', { name: /^STANDARD/ }).click(); await page.getByRole('button', { name: 'START MATCH' }).click();
   const canvas = page.getByTestId('game-canvas'); await expect(canvas).toBeVisible(); await expect(canvas).toHaveAttribute('data-toy-test', 'true');
   await expect(page.locator('html')).toHaveAttribute('data-game-input-ready', 'true');
   await expect(canvas).toHaveAttribute('data-physics-bodies', '32', { timeout: 30_000 });

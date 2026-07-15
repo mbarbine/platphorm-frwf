@@ -1,15 +1,22 @@
 import { FIGHTERS } from '../data/fighters';
 import { advanceMatch, createMatch } from '../systems/combat';
 import type { FrameInput } from '../systems/combat';
-import type { FighterId, GameCommand, MatchModel, Vec2 } from '../types/game';
+import type { FighterId, FighterSlot, GameCommand, MatchMode, MatchModel, Vec2 } from '../types/game';
 
 export interface AiSoakMatch {
   seed: number;
   player: FighterId;
   opponent: FighterId;
   completed: boolean;
-  winner: 'player' | 'opponent' | null;
+  winner: FighterSlot | null;
   method: 'PINFALL' | 'KNOCKOUT' | null;
+  matchMode: MatchMode;
+  eliminations: number;
+  remaining: readonly FighterSlot[];
+  finalStates: Readonly<Record<FighterSlot, string>>;
+  finalHealth: Readonly<Record<FighterSlot, number>>;
+  finalTargets: Readonly<Record<FighterSlot, FighterSlot>>;
+  finalPositions: Readonly<Record<FighterSlot, Vec2>>;
   simulatedSeconds: number;
   steps: number;
   wallMs: number;
@@ -35,7 +42,7 @@ const toward = (from: Vec2, to: Vec2): Vec2 => {
 };
 
 const playerBotInput = (model: MatchModel, step: number): FrameInput => {
-  const actor = model.player; const target = model.opponent; const direction = toward(actor.position, target.position);
+  const actor = model.player; const target = model[model.targets.player]; const direction = toward(actor.position, target.position);
   const separation = Math.hypot(target.position.x - actor.position.x, target.position.z - actor.position.z);
   const cadence = step % 11 === 0; let command: GameCommand | null = null;
   if (actor.state === 'pinned' || actor.state === 'downed') command = cadence ? 'dodge' : null;
@@ -48,19 +55,27 @@ const playerBotInput = (model: MatchModel, step: number): FrameInput => {
   return { move: canAdvance ? direction : { x: 0, z: 0 }, run: canAdvance && separation > 3.4, block: false, commands: command ? [command] : [] };
 };
 
-export const runAiSoak = (count = 50, seedBase = 41_000, maximumMatchSeconds = 240): AiSoakReport => {
+export const runAiSoak = (count = 50, seedBase = 41_000, maximumMatchSeconds = 240, matchMode: MatchMode = 'singles'): AiSoakReport => {
   const matches: AiSoakMatch[] = []; let maximumReplayFrames = 0; let maximumProps = 0; let totalSteps = 0; let totalWallMs = 0;
   const ids = FIGHTERS.map((fighter) => fighter.id);
   for (let index = 0; index < count; index += 1) {
     const seed = seedBase + index * 97; const player = ids[index % ids.length] ?? 'atlas'; const opponent = ids[(index * 3 + 1) % ids.length] ?? 'nova';
-    const model = createMatch(player, opponent, index % 3 === 0 ? 'chaos' : 'standard', index % 2 === 0 ? 'normal' : 'hard', seed, index % 3, (index + 1) % 3);
+    const model = createMatch(player, opponent, index % 3 === 0 ? 'chaos' : 'standard', index % 2 === 0 ? 'normal' : 'hard', seed, index % 3, (index + 1) % 3, matchMode);
     const started = performance.now(); let steps = 0; const maximumSteps = maximumMatchSeconds * 30;
     while (!model.resolved && steps < maximumSteps) {
       advanceMatch(model, 1 / 30, playerBotInput(model, steps)); steps += 1;
       maximumReplayFrames = Math.max(maximumReplayFrames, model.replayFrames.length); maximumProps = Math.max(maximumProps, model.props.length);
     }
     const wallMs = performance.now() - started; totalSteps += steps; totalWallMs += wallMs;
-    matches.push({ seed, player, opponent, completed: model.resolved, winner: model.result?.winner ?? null, method: model.result?.method ?? null, simulatedSeconds: model.elapsed, steps, wallMs });
+    matches.push({
+      seed, player, opponent: model.opponent.definitionId, completed: model.resolved, winner: model.result?.winner ?? null, method: model.result?.method ?? null, matchMode, eliminations: model.eliminations.length,
+      remaining: (['player', 'opponent', 'rival1', 'rival2', 'rival3'] as const).filter((slot) => model[slot].state !== 'defeated'),
+      finalStates: Object.fromEntries((['player', 'opponent', 'rival1', 'rival2', 'rival3'] as const).map((slot) => [slot, model[slot].state])) as Record<FighterSlot, string>,
+      finalHealth: Object.fromEntries((['player', 'opponent', 'rival1', 'rival2', 'rival3'] as const).map((slot) => [slot, model[slot].health])) as Record<FighterSlot, number>,
+      finalTargets: { ...model.targets },
+      finalPositions: Object.fromEntries((['player', 'opponent', 'rival1', 'rival2', 'rival3'] as const).map((slot) => [slot, { ...model[slot].position }])) as Record<FighterSlot, Vec2>,
+      simulatedSeconds: model.elapsed, steps, wallMs,
+    });
   }
   const completed = matches.filter((match) => match.completed); const wallSamples = matches.map((match) => match.wallMs).sort((a, b) => a - b);
   return {
@@ -77,4 +92,3 @@ export const runAiSoak = (count = 50, seedBase = 41_000, maximumMatchSeconds = 2
     matches,
   };
 };
-

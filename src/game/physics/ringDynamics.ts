@@ -3,6 +3,7 @@ import type { Vec2 } from '../types/game';
 export const RING_ROPE_LIMIT = { x: 5.2, z: 3.7 } as const;
 export const RING_HARD_LIMIT = { x: 5.72, z: 4.22 } as const;
 export const RINGSIDE_THRESHOLD = { x: 5.82, z: 4.32 } as const;
+export const ROPE_REBOUND_ENTRY_SPEED = 1 as const;
 
 export interface RopeResponse {
   engaged: boolean;
@@ -47,4 +48,44 @@ export const solveRopeResponse = (position: Vec2, velocity: Vec2, overdrive = fa
   const damping = (overdrive ? 330 : 390) * outwardSpeed;
   const magnitude = Math.min(overdrive ? 6_300 : 5_250, spring + damping);
   return { engaged: true, axis, side, compression, outwardSpeed, force: axis === 'x' ? { x: -side * magnitude, z: 0 } : { x: 0, z: -side * magnitude } };
+};
+
+/**
+ * A loaded rope must release even while the player is still holding outward
+ * input. Waiting exclusively for measured inward velocity can leave the body
+ * stalled against the hard travel band while the spring and locomotion motor
+ * cancel each other. A high-speed entry that has reached full compression is
+ * therefore released as soon as outward motion is arrested.
+ */
+export const shouldReleaseRopeRebound = (
+  response: Pick<RopeResponse, 'compression' | 'outwardSpeed'>,
+  peakCompression: number,
+  entrySpeed: number,
+  signedAxisVelocity: number,
+): boolean => {
+  const visiblyDecompressing = signedAxisVelocity < -.42 && response.compression < peakCompression - .025;
+  const loadedAtTravelLimit = entrySpeed > ROPE_REBOUND_ENTRY_SPEED && peakCompression >= .48 && response.compression >= .48;
+  const arrestedAtTravelLimit = loadedAtTravelLimit && response.outwardSpeed <= .18 && signedAxisVelocity <= .18;
+  return visiblyDecompressing || arrestedAtTravelLimit;
+};
+
+/**
+ * A wrestling rebound may steer toward an opponent only when that lane still
+ * points into the ring. Ringside or tangential targets fall back to the actual
+ * reflected velocity so aim assistance can never launch through the same rope.
+ */
+export const solveRopeReleaseDirection = (
+  reflected: Vec2,
+  targetDelta: Vec2,
+  axis: RopeResponse['axis'],
+  side: RopeResponse['side'],
+  targetIsRingside: boolean,
+): Vec2 => {
+  const reflectedMagnitude = Math.max(.001, Math.hypot(reflected.x, reflected.z));
+  const reflectedDirection = { x: reflected.x / reflectedMagnitude, z: reflected.z / reflectedMagnitude };
+  const targetDistance = Math.hypot(targetDelta.x, targetDelta.z);
+  if (targetIsRingside || targetDistance <= .001) return reflectedDirection;
+  const targetDirection = { x: targetDelta.x / targetDistance, z: targetDelta.z / targetDistance };
+  const inwardProjection = axis === 'x' ? targetDirection.x * -side : targetDirection.z * -side;
+  return inwardProjection >= .12 ? targetDirection : reflectedDirection;
 };

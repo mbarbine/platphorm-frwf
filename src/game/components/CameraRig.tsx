@@ -7,6 +7,10 @@ import type { CameraShot } from '../camera/cameraDirector';
 import { getMove } from '../data/moves';
 import { useMatchStore } from '../state/matchStore';
 import { useSettings } from '../state/settings';
+import { FIGHTER_SLOTS } from '../types/game';
+import type { FighterSlot } from '../types/game';
+import { bodyWorksRuntime } from '../physics/physicsRuntime';
+import { resolvedSpectatorTarget, useSpectatorStore } from '../state/spectatorStore';
 
 const boundedPrediction = (position: number, velocity: number, seconds: number): number => position + Math.max(-1.25, Math.min(1.25, velocity * seconds));
 
@@ -22,21 +26,53 @@ export function CameraRig() {
     if (gl.xr.isPresenting) return;
     elapsed.current += dt;
     const state = useMatchStore.getState(); const model = state.model; const replayActive = state.replayActive;
-    const prediction = reduced ? .06 : model.player.attackPhase === 'anticipation' || model.opponent.attackPhase === 'anticipation' ? .3 : .16;
-    const predictedA = { x: boundedPrediction(model.player.position.x, model.player.velocity.x, prediction), z: boundedPrediction(model.player.position.z, model.player.velocity.z, prediction) };
-    const predictedB = { x: boundedPrediction(model.opponent.position.x, model.opponent.velocity.x, prediction), z: boundedPrediction(model.opponent.position.z, model.opponent.velocity.z, prediction) };
-    const middleX = (predictedA.x + predictedB.x) / 2; const middleZ = (predictedA.z + predictedB.z) / 2;
-    const separation = Math.hypot(predictedA.x - predictedB.x, predictedA.z - predictedB.z);
-    const playerMove = model.player.moveId ? getMove(model.player.moveId) : null; const opponentMove = model.opponent.moveId ? getMove(model.opponent.moveId) : null;
+    const spectating = model.matchMode === 'battle_royale' && model.player.state === 'defeated' && !model.resolved;
+    if (spectating) {
+      const spectator = useSpectatorStore.getState(); const targetSlot = resolvedSpectatorTarget(model, spectator.target); const target = model[targetSlot];
+      document.documentElement.dataset.cameraShot = `spectator-${spectator.cameraMode}`;
+      if (spectator.cameraMode === 'free') return;
+      const head = bodyWorksRuntime.segmentSnapshot(targetSlot, 'head')?.position ?? { x: target.position.x, y: 3.58, z: target.position.z };
+      const forwardX = Math.sin(target.facing); const forwardZ = Math.cos(target.facing);
+      if (spectator.cameraMode === 'first_person') {
+        desired.set(head.x + forwardX * .3, head.y + .02, head.z + forwardZ * .3);
+        desiredTarget.set(head.x + forwardX * 5, head.y - .12, head.z + forwardZ * 5);
+      } else {
+        desired.set(head.x - forwardX * 5.2, head.y + 2.35, head.z - forwardZ * 5.2);
+        desiredTarget.set(head.x + forwardX * .55, head.y - .32, head.z + forwardZ * .55);
+      }
+      camera.position.lerp(desired, 1 - Math.exp(-dt * (spectator.cameraMode === 'first_person' ? 12 : 5.8)));
+      smoothedTarget.lerp(desiredTarget, 1 - Math.exp(-dt * 8.5)); camera.lookAt(smoothedTarget);
+      if ('fov' in camera) {
+        const perspective = camera as PerspectiveCamera; const targetFov = spectator.cameraMode === 'first_person' ? 64 : 52;
+        perspective.fov += (targetFov - perspective.fov) * (1 - Math.exp(-dt * 7)); perspective.updateProjectionMatrix();
+      }
+      return;
+    }
+    const activeSlots: FighterSlot[] = model.matchMode === 'battle_royale'
+      ? FIGHTER_SLOTS.filter((slot) => model[slot].state !== 'defeated')
+      : ['player', 'opponent'];
+    const playerTarget = model[model.targets.player];
+    const prediction = reduced ? .06 : activeSlots.some((slot) => model[slot].attackPhase === 'anticipation') ? .3 : .16;
+    const predicted = activeSlots.map((slot) => ({
+      slot,
+      x: boundedPrediction(model[slot].position.x, model[slot].velocity.x, prediction),
+      z: boundedPrediction(model[slot].position.z, model[slot].velocity.z, prediction),
+    }));
+    const minimumX = Math.min(...predicted.map(({ x }) => x)); const maximumX = Math.max(...predicted.map(({ x }) => x));
+    const minimumZ = Math.min(...predicted.map(({ z }) => z)); const maximumZ = Math.max(...predicted.map(({ z }) => z));
+    const middleX = (minimumX + maximumX) / 2; const middleZ = (minimumZ + maximumZ) / 2;
+    const separation = Math.hypot(maximumX - minimumX, maximumZ - minimumZ);
+    const playerMove = model.player.moveId ? getMove(model.player.moveId) : null; const opponentMove = playerTarget.moveId ? getMove(playerTarget.moveId) : null;
     const securedGrapple = Boolean(model.grapple && model.grapple.gripCount >= 2 && !['reach', 'acquire', 'failed'].includes(model.grapple.phase));
     const table = model.props.find((prop) => prop.kind === 'table' && !prop.broken) ?? null;
     const directedShot = selectCameraShot({
-      replayActive, middleX, middleZ, separation, playerState: model.player.state, opponentState: model.opponent.state,
+      replayActive, middleX, middleZ, separation, playerState: model.player.state, opponentState: playerTarget.state,
       playerMoveCategory: playerMove?.category ?? null, opponentMoveCategory: opponentMove?.category ?? null, securedGrapple,
-      playerAttackPhase: model.player.attackPhase, opponentAttackPhase: model.opponent.attackPhase, grapplePhase: model.grapple?.phase ?? null,
+      playerAttackPhase: model.player.attackPhase, opponentAttackPhase: playerTarget.attackPhase, grapplePhase: model.grapple?.phase ?? null,
       tablePosition: table?.position ?? null, lastImpactKind: model.lastImpact?.kind ?? null,
     });
-    const requestedShot = cameraCuts === 'off' && directedShot !== 'replay' ? 'broadcast' : directedShot;
+    const battleShot = model.matchMode === 'battle_royale' && directedShot === 'broadcast' ? 'wide' : directedShot;
+    const requestedShot = cameraCuts === 'off' && battleShot !== 'replay' ? model.matchMode === 'battle_royale' ? 'wide' : 'broadcast' : battleShot;
     const cutInterval = cameraCuts === 'reduced' ? 1.8 : .72;
     const urgent = (cameraCuts === 'full' && cameraShotIsUrgent(requestedShot)) || requestedShot === 'replay';
     if (requestedShot !== shot.current && (urgent || elapsed.current - shotChangedAt.current >= cutInterval)) {
@@ -46,7 +82,7 @@ export function CameraRig() {
 
     const grappleActorKey = model.grapple?.attacker ?? 'player'; const grappleActor = model[grappleActorKey];
     const grappleMove = grappleActor.moveId ? getMove(grappleActor.moveId) : null; const grapplePhase = model.grapple?.phase ?? null; const grappleLift = model.grapple?.lift ?? 0;
-    const maximumAir = Math.max(model.player.body.verticalOffset, model.opponent.body.verticalOffset);
+    const maximumAir = Math.max(...activeSlots.map((slot) => model[slot].body.verticalOffset));
     switch (shot.current) {
       case 'replay': {
         const angle = elapsed.current * .5; const radius = 9.2 + separation * .2;
@@ -71,20 +107,23 @@ export function CameraRig() {
         break;
       }
       case 'strike': {
-        const attacker = model.player.attackPhase === 'active' ? model.player : model.opponent;
+        const attackerSlot = activeSlots.find((slot) => model[slot].attackPhase === 'active') ?? 'player';
+        const attacker = model[attackerSlot];
         const forwardX = Math.sin(attacker.facing); const forwardZ = Math.cos(attacker.facing); const rightX = forwardZ; const rightZ = -forwardX;
         desired.set(middleX + rightX * 9.7 * shotSide.current - forwardX * 3.2, 5.35, middleZ + rightZ * 9.7 * shotSide.current - forwardZ * 3.2);
         break;
       }
       case 'corner': {
-        const climber = model.player.state === 'climbing' ? model.player : model.opponent;
+        const climberSlot = activeSlots.find((slot) => model[slot].state === 'climbing') ?? 'player';
+        const climber = model[climberSlot];
         const cornerX = Math.sign(climber.position.x || 1) * 5.45; const cornerZ = Math.sign(climber.position.z || 1) * 3.95;
         const inwardX = -Math.sign(cornerX); const inwardZ = -Math.sign(cornerZ);
         desired.set(cornerX - inwardZ * 8.8 * shotSide.current + inwardX * 4.2, 6.55 + climber.climbStage * .48, cornerZ + inwardX * 8.8 * shotSide.current + inwardZ * 4.2);
         break;
       }
       case 'aerial': {
-        const aerialActor = model.player.state === 'climbing' || model.player.state === 'airborne' || playerMove?.category === 'aerial' ? model.player : model.opponent;
+        const aerialSlot = activeSlots.find((slot) => model[slot].state === 'climbing' || model[slot].state === 'airborne' || (model[slot].moveId ? getMove(model[slot].moveId ?? '').category === 'aerial' : false)) ?? 'player';
+        const aerialActor = model[aerialSlot];
         const forwardX = Math.sin(aerialActor.facing); const forwardZ = Math.cos(aerialActor.facing); const rightX = forwardZ; const rightZ = -forwardX;
         desired.set(middleX + rightX * 8.8 * shotSide.current - forwardX * 5.3, 7.7 + maximumAir * .48, middleZ + rightZ * 8.8 * shotSide.current - forwardZ * 5.3);
         break;
@@ -105,7 +144,7 @@ export function CameraRig() {
         break;
       }
       case 'wide':
-        desired.set(middleX * .18, 9.8 + separation * .22, middleZ + 13.6 + separation * .55);
+        desired.set(middleX * .18, (model.matchMode === 'battle_royale' ? 11.1 : 9.8) + separation * .22, middleZ + (model.matchMode === 'battle_royale' ? 15.1 : 13.6) + separation * .55);
         break;
       default:
         desired.set(middleX * .3, 7.35 + separation * .2, middleZ + 11.7 + separation * .5);
@@ -135,7 +174,7 @@ export function CameraRig() {
       const perspective = camera as PerspectiveCamera;
       const baseFov = shot.current === 'replay' ? 39 : shot.current === 'grapple' ? grappleMove?.category === 'finisher' ? 40 : 43
         : shot.current === 'slam' ? (grappleActor?.moveId === 'piledriver' ? 32 : 40) : shot.current === 'strike' ? 43 : shot.current === 'corner' ? 46 : shot.current === 'aerial' ? 43 : shot.current === 'table' ? 41 : shot.current === 'wide' ? 50 : shot.current.startsWith('ringside') ? 46 : 44 + Math.min(9, separation * 1.15);
-      const desiredFov = baseFov + impactImpulse.current * 1.15 + (model.slowMotion > 0 ? -2.5 : 0);
+      const desiredFov = Math.max(model.matchMode === 'battle_royale' && shot.current === 'wide' ? 53 : 0, baseFov + impactImpulse.current * 1.15 + (model.slowMotion > 0 ? -2.5 : 0));
       perspective.fov += (desiredFov - perspective.fov) * (1 - Math.exp(-dt * 7.5)); perspective.updateProjectionMatrix();
     }
   });

@@ -1,4 +1,4 @@
-type FighterKey = 'player' | 'opponent';
+import type { FighterSlot as FighterKey } from '../types/game';
 
 export type MotionTaskStatus = 'starting' | 'running' | 'completed' | 'failed' | 'cancelled';
 
