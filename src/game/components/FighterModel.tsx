@@ -478,6 +478,8 @@ export function FighterModel({ runtime, counterpart, fighterId, preview = false,
   const phaseOffset = side === 'player' ? 0 : Math.PI;
   const width = fighter.proportions.width;
   const height = fighter.proportions.height;
+  const isFiniteNumber = (value: unknown): value is number => Number.isFinite(value as number);
+  const safeNumber = (value: unknown, fallback: number): number => isFiniteNumber(value) ? value : fallback;
 
   useFrame((_, delta) => {
     elapsed.current += delta;
@@ -515,9 +517,11 @@ export function FighterModel({ runtime, counterpart, fighterId, preview = false,
       animatedPose = pairedPose ?? getStrikeReactionPose(holdingMove, counterpart.attackPhase, counterpart.phaseElapsed) ?? animatedPose;
     }
 
-    const fatigue = runtime ? Math.max(0, 1 - runtime.stamina / Math.max(1, runtime.staminaCap)) : 0;
+    const runtimeStamina = runtime ? safeNumber(runtime.stamina, 0) : 0;
+    const runtimeStaminaCap = runtime ? safeNumber(runtime.staminaCap, 1) : 1;
+    const fatigue = runtime ? Math.max(0, 1 - runtimeStamina / Math.max(1, runtimeStaminaCap)) : 0;
     const tempo = profile.motionTempo * (key === 'run' ? 1.18 : 1);
-    const movementSpeed = runtime ? Math.hypot(runtime.velocity.x, runtime.velocity.z) : 0;
+    const movementSpeed = runtime ? Math.hypot(safeNumber(runtime.velocity?.x, 0), safeNumber(runtime.velocity?.z, 0)) : 0;
     const speedScale = key === 'run' ? Math.min(1.35, .85 + movementSpeed * .07) : 1;
     const poseResponse = runtime?.attackPhase === 'active' ? 38 : runtime?.attackPhase === 'anticipation' ? 21 : runtime?.attackPhase === 'recovery' ? 11 : 14 * profile.motionTempo;
     const smooth = 1 - Math.exp(-delta * poseResponse);
@@ -527,15 +531,16 @@ export function FighterModel({ runtime, counterpart, fighterId, preview = false,
       : Math.abs(Math.sin(t * 6.8 * tempo * speedScale + phaseOffset)) * .035 * profile.stepWeight;
     const breath = Math.sin(t * 2.05 * tempo + phaseOffset) * (.012 + fatigue * .02);
     const personalityRoll = idle ? Math.sin(t * 1.4 * tempo + phaseOffset) * .018 * (id === 'vex' ? 1.5 : 1) : 0;
-    const muscle = runtime?.body.muscle ?? 1;
-    const pelvisDrop = runtime?.body.pelvisDrop ?? 0;
+    const muscle = safeNumber(runtime?.body?.muscle, 1);
+    const pelvisDrop = safeNumber(runtime?.body?.pelvisDrop, 0);
     const authoredRootY = pairedVictim ? animatedPose.rootY * .28 : animatedPose.rootY;
 
     root.current.position.x += (animatedPose.rootX - root.current.position.x) * smooth;
     root.current.position.y += ((authoredRootY + groundedBob - pelvisDrop) - root.current.position.y) * smooth;
     root.current.position.z += (animatedPose.rootZ - root.current.position.z) * smooth;
     const locomotionLean = movement && ['idle', 'forward', 'backward', 'strafe-left', 'strafe-right', 'diagonal', 'run', 'braking'].includes(movement.state);
-    const physicalForwardLean = runtime?.body.leanForward ?? 0; const physicalSideLean = runtime?.body.leanSide ?? 0;
+    const physicalForwardLean = safeNumber(runtime?.body?.leanForward, 0);
+    const physicalSideLean = safeNumber(runtime?.body?.leanSide, 0);
     const visibleForwardLean = locomotionLean ? Math.max(-.18, Math.min(.24, physicalForwardLean)) : physicalForwardLean;
     const visibleSideLean = locomotionLean ? Math.max(-.14, Math.min(.14, physicalSideLean)) : physicalSideLean;
     root.current.rotation.x += (animatedPose.rootTilt + visibleForwardLean + fatigue * profile.fatigueDroop * .09 - root.current.rotation.x) * smooth;
@@ -547,22 +552,32 @@ export function FighterModel({ runtime, counterpart, fighterId, preview = false,
       group.rotation.y += (rotation[1] - group.rotation.y) * smooth;
       group.rotation.z += (rotation[2] - group.rotation.z) * smooth;
     };
-    apply(torso.current, [animatedPose.torso[0] + breath + fatigue * .06, animatedPose.torso[1] + (runtime?.body.twist ?? 0) * .34 + (combatOrientation?.torsoYaw ?? 0), animatedPose.torso[2]]);
-    apply(head.current, [(runtime?.body.headSnap ?? 0) * .55 + fatigue * .06, -(runtime?.body.twist ?? 0) * .18 + (combatOrientation?.headYaw ?? 0), (runtime?.body.headSnap ?? 0) * .24]);
+    apply(
+      torso.current,
+      [animatedPose.torso[0] + breath + fatigue * .06, animatedPose.torso[1] + safeNumber(runtime?.body?.twist, 0) * .34 + (combatOrientation?.torsoYaw ?? 0), animatedPose.torso[2]],
+    );
+    apply(
+      head.current,
+      [safeNumber(runtime?.body?.headSnap, 0) * .55 + fatigue * .06, -safeNumber(runtime?.body?.twist, 0) * .18 + (combatOrientation?.headYaw ?? 0), safeNumber(runtime?.body?.headSnap, 0) * .24],
+    );
     const armDroop = idle ? fatigue * profile.fatigueDroop * .34 : 0;
-    const gaitCycle = runtime?.body.gaitPhase ?? t * 3;
-    const armSwing = movement && movement.state === 'run' ? Math.sin(gaitCycle) * movement.gaitStrength * .68
-      : movement && movement.forward > .35 ? Math.sin(gaitCycle) * movement.gaitStrength * .18 : 0;
+    const gaitCycle = runtime ? safeNumber(runtime.body?.gaitPhase, t * 3) : t * 3;
+    const gaitStrength = movement ? safeNumber(movement.gaitStrength, 0) : 0;
+    const gaitForward = movement ? safeNumber(movement.forward, 0) : 0;
+    const armSwing = movement && movement.state === 'run' ? Math.sin(gaitCycle) * gaitStrength * .68
+      : movement && gaitForward > .35 ? Math.sin(gaitCycle) * gaitStrength * .18 : 0;
     apply(leftArm.current, [animatedPose.leftArm[0] + armSwing, animatedPose.leftArm[1], animatedPose.leftArm[2]], armDroop);
     apply(rightArm.current, [animatedPose.rightArm[0] - armSwing, animatedPose.rightArm[1], animatedPose.rightArm[2]], armDroop);
     apply(leftForearm.current, [animatedPose.leftForearm[0] + (1 - muscle) * .34, animatedPose.leftForearm[1], animatedPose.leftForearm[2]]);
     apply(rightForearm.current, [animatedPose.rightForearm[0] + (1 - muscle) * .34, animatedPose.rightForearm[1], animatedPose.rightForearm[2]]);
 
-    const stride = runtime?.body.stride ?? 0;
+    const stride = safeNumber(runtime?.body?.stride, 0);
     const gaitBoost = key === 'run' ? 1.15 : key === 'walk' ? .82 : 1;
     const forwardFactor = movement ? Math.abs(movement.forward) < .16 ? 0 : Math.sign(movement.forward) * Math.max(.35, Math.abs(movement.forward)) : 1;
     const lateralFactor = movement?.lateral ?? 0;
-    const leftCycle = runtime ? Math.sin(runtime.body.leftFoot.phase) : 0; const rightCycle = runtime ? Math.sin(runtime.body.rightFoot.phase) : 0;
+    const leftFootPhase = safeNumber(runtime?.body?.leftFoot?.phase, 0);
+    const rightFootPhase = safeNumber(runtime?.body?.rightFoot?.phase, Math.PI);
+    const leftCycle = runtime ? Math.sin(leftFootPhase) : 0; const rightCycle = runtime ? Math.sin(rightFootPhase) : 0;
     const leftSwing = leftCycle * stride * .48 * gaitBoost * forwardFactor;
     const rightSwing = rightCycle * stride * .48 * gaitBoost * forwardFactor;
     const leftStrafe = leftCycle * stride * .28 * lateralFactor; const rightStrafe = rightCycle * stride * .28 * lateralFactor;
@@ -572,30 +587,42 @@ export function FighterModel({ runtime, counterpart, fighterId, preview = false,
     apply(rightShin.current, [animatedPose.rightShin[0] + Math.max(0, rightSwing) * .7 + (1 - muscle) * .22, animatedPose.rightShin[1], animatedPose.rightShin[2]]);
 
     if (runtime) {
-      leftLeg.current.position.y = .86 * height + runtime.body.leftFoot.lift;
-      rightLeg.current.position.y = .86 * height + runtime.body.rightFoot.lift;
-      const forwardX = Math.sin(runtime.facing); const forwardZ = Math.cos(runtime.facing); const rightX = Math.cos(runtime.facing); const rightZ = -Math.sin(runtime.facing);
-      const leftLocalX = runtime.body.leftFoot.offset.x * rightX + runtime.body.leftFoot.offset.z * rightZ;
-      const leftLocalZ = runtime.body.leftFoot.offset.x * forwardX + runtime.body.leftFoot.offset.z * forwardZ;
-      const rightLocalX = runtime.body.rightFoot.offset.x * rightX + runtime.body.rightFoot.offset.z * rightZ;
-      const rightLocalZ = runtime.body.rightFoot.offset.x * forwardX + runtime.body.rightFoot.offset.z * forwardZ;
+      const leftFootLift = safeNumber(runtime.body.leftFoot.lift, 0);
+      const rightFootLift = safeNumber(runtime.body.rightFoot.lift, 0);
+      const leftFootOffsetX = safeNumber(runtime.body.leftFoot.offset?.x, 0);
+      const leftFootOffsetZ = safeNumber(runtime.body.leftFoot.offset?.z, 0);
+      const rightFootOffsetX = safeNumber(runtime.body.rightFoot.offset?.x, 0);
+      const rightFootOffsetZ = safeNumber(runtime.body.rightFoot.offset?.z, 0);
+      const facing = safeNumber(runtime?.facing, 0);
+      leftLeg.current.position.y = .86 * height + leftFootLift;
+      rightLeg.current.position.y = .86 * height + rightFootLift;
+      const forwardX = Math.sin(facing); const forwardZ = Math.cos(facing); const rightX = Math.cos(facing); const rightZ = -Math.sin(facing);
+      const leftLocalX = leftFootOffsetX * rightX + leftFootOffsetZ * rightZ;
+      const leftLocalZ = leftFootOffsetX * forwardX + leftFootOffsetZ * forwardZ;
+      const rightLocalX = rightFootOffsetX * rightX + rightFootOffsetZ * rightZ;
+      const rightLocalZ = rightFootOffsetX * forwardX + rightFootOffsetZ * forwardZ;
       leftLeg.current.position.x = -.27 * width * profile.stanceWidth + leftLocalX * .28; leftLeg.current.position.z = leftLocalZ * .2;
       rightLeg.current.position.x = .27 * width * profile.stanceWidth + rightLocalX * .28; rightLeg.current.position.z = rightLocalZ * .2;
       // The authored hierarchy is intentionally richer than the compact hidden
       // collision skeleton. Scale and floor it from the boot sole so its pelvis,
       // head, hands, and feet stay within a few centimetres of physical authority
       // instead of rendering a giant visual body around a smaller Rapier rig.
-      const targetY = 3.0775 - .645 * height + runtime.body.verticalOffset;
-      const planarError = Math.hypot(runtime.position.x - shell.current.position.x, runtime.position.z - shell.current.position.z);
+      const runtimeX = safeNumber(runtime.position?.x, shell.current.position.x);
+      const runtimeZ = safeNumber(runtime.position?.z, shell.current.position.z);
+      const targetY = safeNumber(3.0775 - .645 * height + safeNumber(runtime.body?.verticalOffset, 0), 3.0775 - .645 * height);
+      const planarError = Number.isFinite(runtimeX) && Number.isFinite(runtimeZ)
+        ? Math.hypot(runtimeX - shell.current.position.x, runtimeZ - shell.current.position.z)
+        : Number.POSITIVE_INFINITY;
       if (!presentationInitialized.current || planarError > 2.2) {
-        shell.current.position.set(runtime.position.x, targetY, runtime.position.z); shell.current.rotation.y = runtime.facing; presentationInitialized.current = true;
+        shell.current.position.set(runtimeX, targetY, runtimeZ); shell.current.rotation.y = safeNumber(runtime.facing, 0); presentationInitialized.current = true;
       } else {
         const correctionRate = runtime.attackPhase === 'active' || planarError > .7 ? 34 : movement?.state === 'run' ? 28 : 22;
         const correction = 1 - Math.exp(-delta * correctionRate);
-        shell.current.position.x += (runtime.position.x - shell.current.position.x) * correction;
+        shell.current.position.x += (runtimeX - shell.current.position.x) * correction;
         shell.current.position.y += (targetY - shell.current.position.y) * (1 - Math.exp(-delta * 30));
-        shell.current.position.z += (runtime.position.z - shell.current.position.z) * correction;
-        const facingError = Math.atan2(Math.sin(runtime.facing - shell.current.rotation.y), Math.cos(runtime.facing - shell.current.rotation.y));
+        shell.current.position.z += (runtimeZ - shell.current.position.z) * correction;
+        const safeFacing = safeNumber(runtime.facing, 0);
+        const facingError = Math.atan2(Math.sin(safeFacing - shell.current.rotation.y), Math.cos(safeFacing - shell.current.rotation.y));
         shell.current.rotation.y += facingError * (1 - Math.exp(-delta * 24));
       }
       root.current.updateWorldMatrix(true, true);
