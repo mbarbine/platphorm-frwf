@@ -36,7 +36,9 @@ const SCENARIOS: readonly LabScenario[] = [
   { id: 'inputRange', label: 'CLOSE-RANGE INPUT', steps: [], duration: 900 },
   { id: 'jab', label: 'CONTACT-TRUE JAB', steps: tap('KeyJ'), duration: 1_400 },
   { id: 'jabWhiff', label: 'JAB WHIFF', steps: tap('KeyJ'), duration: 1_200 },
-  { id: 'blockedJab', label: 'JAB INTO GUARD', steps: hold('KeyI', 0, 1_250), duration: 1_700 },
+  // Guard is live from the scenario's first scheduler tick and the generic
+  // cleanup releases it only after the incoming jab has finished.
+  { id: 'blockedJab', label: 'JAB INTO GUARD', steps: [{ at: -SCENARIO_SETTLE_MS, code: 'KeyI', down: true }], duration: 1_700 },
   { id: 'hook', label: 'TORSO POWER', steps: tap('KeyK'), duration: 1_400 },
   { id: 'frontKick', label: 'FRONT KICK', steps: [...hold('KeyS', 0, 620), ...tap('KeyK', 0, 360)], duration: 1_700 },
   { id: 'guard', label: 'BLOCK WINDOW', steps: hold('KeyI', 0, 1_250), duration: 1_700 },
@@ -111,8 +113,11 @@ export function PhysicsLab() {
         if (dispatched.has(index) || elapsedMs < SCENARIO_SETTLE_MS + step.at) return;
         dispatchKey(step.code, step.down); dispatched.add(index);
       });
-      if (scenario.id === 'blockedJab' && !blockedJabQueued && elapsedMs >= SCENARIO_SETTLE_MS + 220) {
-        blockedJabQueued = true; useMatchStore.getState().requestLabCommand('opponent', 'quick');
+      if (scenario.id === 'blockedJab' && !blockedJabQueued && current.player.state === 'blocking' && elapsedMs >= SCENARIO_SETTLE_MS + 220) {
+        blockedJabQueued = true;
+        const before = current.opponent.attackInstanceId;
+        useMatchStore.getState().requestLabCommand('opponent', 'quick');
+        document.documentElement.dataset.labBlockedJabAccepted = useMatchStore.getState().model.opponent.attackInstanceId > before ? 'true' : 'false';
       }
       if (scenario.id === 'soakRound' && !labKnockoutResolved && elapsedMs >= SCENARIO_SETTLE_MS + 450) {
         // Resource/rematch soak needs a deterministic lab-only match end. Real
