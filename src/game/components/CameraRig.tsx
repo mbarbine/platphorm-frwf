@@ -2,7 +2,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { useMemo, useRef } from 'react';
 import { Vector3 } from 'three';
 import type { PerspectiveCamera } from 'three';
-import { BATTLE_ROYALE_CAMERA_FRAME, cameraShotIsUrgent, selectCameraShot } from '../camera/cameraDirector';
+import { BATTLE_ROYALE_CAMERA_FRAME, cameraShotIsUrgent, selectCameraShot, usesSteadyBattleRoyaleCamera } from '../camera/cameraDirector';
 import type { CameraShot } from '../camera/cameraDirector';
 import { getMove } from '../data/moves';
 import { useMatchStore } from '../state/matchStore';
@@ -13,8 +13,6 @@ import { bodyWorksRuntime } from '../physics/physicsRuntime';
 import { resolvedSpectatorTarget, useSpectatorStore } from '../state/spectatorStore';
 
 const boundedPrediction = (position: number, velocity: number, seconds: number): number => position + Math.max(-1.25, Math.min(1.25, velocity * seconds));
-const usesSteadyBattleRoyaleCamera = (matchMode: string): boolean => matchMode === 'battle_royale';
-
 export function CameraRig() {
   const { camera, gl } = useThree();
   const desired = useMemo(() => new Vector3(), []); const desiredTarget = useMemo(() => new Vector3(), []); const smoothedTarget = useMemo(() => new Vector3(0, 2.2, 0), []);

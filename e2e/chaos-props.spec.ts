@@ -11,6 +11,7 @@ test('Chaos AI leaves the ring, physically grips a prop, and lands a prop impact
   await page.getByRole('button', { name: 'START MATCH' }).click();
   const hud = page.locator('.hud'); const telemetry = page.locator('[data-prop-bodies]');
   await expect(hud).toHaveAttribute('data-physics-bodies', '32', { timeout: 30_000 });
+  await expect(page.locator('html')).toHaveAttribute('data-camera-shot', /broadcast|wide|ringside-x|ringside-z|table|strike|grapple|slam|corner|aerial|replay/);
   await expect(telemetry).toHaveAttribute('data-prop-bodies', '4');
   await page.evaluate(() => {
     const sample = (): void => {

@@ -1,4 +1,4 @@
-import type { AttackPhase, FighterState } from '../types/game';
+import type { AttackPhase, FighterState, MatchMode } from '../types/game';
 
 export type CameraShot = 'battle-royale-steady' | 'broadcast' | 'wide' | 'ringside-x' | 'ringside-z' | 'table' | 'strike' | 'grapple' | 'slam' | 'corner' | 'aerial' | 'replay';
 
@@ -8,6 +8,8 @@ export const BATTLE_ROYALE_CAMERA_FRAME = Object.freeze({
   target: Object.freeze({ x: 0, y: 2.25, z: 0 }),
   fov: 55,
 });
+
+export const usesSteadyBattleRoyaleCamera = (matchMode: MatchMode): boolean => matchMode === 'battle_royale';
 
 export interface CameraDirectorContext {
   replayActive: boolean;

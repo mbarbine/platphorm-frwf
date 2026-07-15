@@ -23,6 +23,7 @@ test('fighter select through guarded combat, deterministic lab result, and remat
   const hud = page.locator('.hud');
   await expect(page.getByTestId('game-canvas')).toBeVisible();
   await expect(page.locator('html')).toHaveAttribute('data-game-input-ready', 'true');
+  await expect(page.locator('html')).toHaveAttribute('data-camera-shot', /broadcast|wide|ringside-x|ringside-z|table|strike|grapple|slam|corner|aerial|replay/);
   await expect(hud).toHaveAttribute('data-player-stamina', /^98\./);
   await page.keyboard.down('i');
   await expect(hud).toHaveAttribute('data-player-state', 'blocking');
