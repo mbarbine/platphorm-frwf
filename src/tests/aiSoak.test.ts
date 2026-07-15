@@ -15,7 +15,7 @@ describe('bounded AI match soak', () => {
 
   it('completes Battle Royale bot matches with four real eliminations each', () => {
     const report = runAiSoak(10, 73_000, 480, 'battle_royale');
-    expect(report.completed).toBe(10);
+    expect(report.completed, JSON.stringify(report.matches.filter((match) => !match.completed))).toBe(10);
     expect(report.timedOut).toBe(0);
     expect(report.matches.every((match) => match.matchMode === 'battle_royale' && match.eliminations === 4)).toBe(true);
     expect(report.maximumReplayFrames).toBeLessThanOrEqual(75);

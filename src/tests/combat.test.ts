@@ -70,6 +70,28 @@ describe('deterministic combat rules', () => {
     expect(model.rival2.state).toBe('downed');
   });
 
+  it('eliminates a zero-health guard after blocked major-impact chip', () => {
+    const model = createMatch('atlas', 'vex', 'standard', 'normal', 1337, 0, 0, 'battle_royale');
+    model.player.position = { x: 0, z: 0 }; model.opponent.position = { x: 1, z: 0 }; model.opponent.state = 'blocking'; model.opponent.health = .1;
+    expect(startMove(model.player, model.opponent, getMove('heavy'))).toBe(true); model.player.attackPhase = 'active';
+    expect(applyMoveHit(model, 'player', 'opponent', getMove('heavy'))).toBe(true);
+    expect(model.opponent.state).toBe('defeated'); expect(model.eliminations[0]?.fighter).toBe('opponent'); expect(model.resolved).toBe(false);
+  });
+
+  it('releases both sides of a Battle Royale pin after an elimination', () => {
+    const model = createMatch('atlas', 'vex', 'standard', 'normal', 1337, 0, 0, 'battle_royale');
+    model.opponent.state = 'pinning'; model.player.state = 'pinned';
+    resolveMatch(model, 'opponent', 'PINFALL', 'player');
+    expect(model.resolved).toBe(false); expect(model.player.state).toBe('defeated'); expect(model.opponent.state).toBe('idle');
+    expect(activeFighterSlots(model).some((slot) => model[slot].state === 'pinning' || model[slot].state === 'pinned')).toBe(false);
+  });
+
+  it('recovers an orphaned pinned wrestler instead of freezing the ring', () => {
+    const model = createMatch('atlas', 'vex', 'standard', 'normal', 1337, 0, 0, 'battle_royale'); model.rival3.state = 'pinned';
+    advanceMatch(model, 1 / 30, none);
+    expect(model.rival3.state).toBe('downed'); expect(model.elapsed).toBeGreaterThan(0);
+  });
+
   it('eliminates the rival actually struck when a Battle Royale attack catches a bystander', () => {
     const model = createMatch('atlas', 'vex', 'standard', 'normal', 1337, 0, 0, 'battle_royale');
     model.player.position = { x: 0, z: 0 }; model.opponent.position = { x: 1, z: 0 }; model.rival1.position = { x: .8, z: 0 }; model.rival1.health = 1;
@@ -79,6 +101,14 @@ describe('deterministic combat rules', () => {
     expect(model.rival1.state).toBe('defeated');
     expect(model.opponent.state).not.toBe('defeated');
     expect(model.eliminations[0]?.fighter).toBe('rival1');
+  });
+
+  it('eliminates a zero-health Battle Royale wrestler without waiting for another major move', () => {
+    const model = createMatch('atlas', 'vex', 'standard', 'normal', 1337, 0, 0, 'battle_royale');
+    model.player.position = { x: 0, z: 0 }; model.opponent.position = { x: .8, z: 0 }; model.opponent.health = 1;
+    expect(startMove(model.player, model.opponent, getMove('jab'))).toBe(true); model.player.attackPhase = 'active';
+    expect(applyMoveHit(model, 'player', 'opponent', getMove('jab'))).toBe(true);
+    expect(model.opponent.state).toBe('defeated'); expect(model.eliminations[0]?.fighter).toBe('opponent');
   });
 
   it('applies damage only during a move active phase', () => {
@@ -207,6 +237,14 @@ describe('deterministic combat rules', () => {
     const model = createMatch('atlas', 'nova', 'standard', 'normal'); model.opponent.stamina = 4; model.opponent.position = { x: 0, z: 0 }; model.player.position = { x: 1, z: 0 };
     const decision = chooseAiDecision(model, fighterById('nova'));
     expect(decision.command).toBeNull(); expect(decision.move.x).toBeLessThan(0);
+  });
+
+  it('uses a legal point-blank strike to prevent a Battle Royale overtime deadlock', () => {
+    const model = createMatch('atlas', 'nova', 'standard', 'normal', 1337, 0, 0, 'battle_royale'); model.elapsed = 120;
+    model.targets.opponent = 'player'; model.opponent.position = { x: 0, z: 0 }; model.player.position = { x: .2, z: 0 }; model.opponent.stamina = 90;
+    const decision = chooseAiDecision(model, fighterById('nova'));
+    const diagnostics = { decision, separation: Math.hypot(model.opponent.position.x - model.player.position.x, model.opponent.position.z - model.player.position.z), minimum: getMove('front_kick').minimumRange, target: model.targets.opponent, ropeRebound: model.opponent.ropeRebound, heldProp: model.opponent.heldPropId };
+    expect(decision.command, JSON.stringify(diagnostics)).toBe('quick'); expect(decision.move).toEqual({ x: 0, z: 0 });
   });
 
   it('AI pursues and interacts with a real ringside prop in Chaos Circuit', () => {

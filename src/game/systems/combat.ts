@@ -196,6 +196,7 @@ export const applyMoveHit = (model: MatchModel, actorKey: FighterSlot, targetKey
 
   const targetDefinition = fighterById(target.definitionId);
   const actorDefinition = fighterById(actor.definitionId);
+  const majorImpactMove = move.category === 'finisher' || move.category === 'heavy' || move.category === 'grapple' || move.category === 'prop' || move.category === 'aerial';
   const contactQuality = contact ? clamp(contact.relativeSpeed * .22 + contact.maximumForce / 950, .28, 1.35) : 1;
   const scaledDamage = move.damage * BALANCE.damageScale * (.78 + actorDefinition.stats.power / 250) * (1.08 - targetDefinition.stats.stamina / 900) * contactQuality;
   const damage = Math.round(scaledDamage * 10) / 10;
@@ -236,6 +237,7 @@ export const applyMoveHit = (model: MatchModel, actorKey: FighterSlot, targetKey
     } else {
       addImpact(model, impactPosition, 'blocked', .72, { region: calculatedImpact.region, force: guardedImpact.force, torque: guardedImpact.torque, outcome: 'absorbed', moveId: move.id });
     }
+    if (!model.toyTestMode && target.health <= 0 && (majorImpactMove || model.matchMode === 'battle_royale')) resolveMatch(model, actorKey, 'KNOCKOUT', targetKey);
     return true;
   }
   if (!model.toyTestMode) target.health = clamp(target.health - damage, 0, 100);
@@ -339,12 +341,11 @@ export const applyMoveHit = (model: MatchModel, actorKey: FighterSlot, targetKey
     else if (actor.comboStep === 4) { model.announcement = '4× COMBO!'; model.announcementTimer = .68; model.hype = clamp(model.hype + 4, 0, 100); }
     else if (actor.comboStep >= 5) { model.announcement = 'UNSTOPPABLE!'; model.announcementTimer = .88; model.hype = clamp(model.hype + 9, 0, 100); }
   }
-  const majorImpact = move.category === 'finisher' || move.category === 'heavy' || move.category === 'grapple' || move.category === 'prop' || move.category === 'aerial';
   const exhaustionKnockout = model.elapsed >= BALANCE.knockout.earliestSeconds
     && target.health <= BALANCE.knockout.healthThreshold
     && target.stamina <= BALANCE.knockout.staminaThreshold
     && move.damage >= BALANCE.knockout.minimumMoveDamage;
-  if (!model.toyTestMode && ((target.health <= 0 && majorImpact) || (majorImpact && exhaustionKnockout))) resolveMatch(model, actorKey, 'KNOCKOUT', targetKey);
+  if (!model.toyTestMode && ((target.health <= 0 && (majorImpactMove || model.matchMode === 'battle_royale')) || (majorImpactMove && exhaustionKnockout))) resolveMatch(model, actorKey, 'KNOCKOUT', targetKey);
   return true;
 };
 
@@ -598,8 +599,28 @@ const summarizeHighlights = (moments: readonly HighlightMoment[]): MatchHighligh
   mostUnexpectedReversal: strongestHighlight(moments, (moment) => moment.kind === 'reversal'),
 });
 
+const unwindPinState = (model: MatchModel, eliminated: FighterSlot | null): void => {
+  for (const slot of activeFighterSlots(model)) {
+    const fighter = model[slot];
+    const wasPinning = fighter.state === 'pinning'; const wasPinned = fighter.state === 'pinned';
+    if (wasPinning && slot !== eliminated) {
+      fighter.state = 'idle'; fighter.stateElapsed = 0;
+    } else if (wasPinned && slot !== eliminated) {
+      fighter.state = 'downed'; fighter.stateElapsed = 0; fighter.downTimer = Math.max(fighter.downTimer, .8);
+      beginFall(model, slot, FALL_REASONS.KnockdownMove);
+    }
+    if (wasPinning || wasPinned || slot === eliminated) {
+      fighter.pinCount = 0; fighter.pinEscape = 0;
+    }
+  }
+};
+
 export const resolveMatch = (model: MatchModel, winner: FighterSlot, method: MatchResult['method'], loser = targetSlotFor(model, winner)): void => {
   if (model.resolved || model.toyTestMode) return;
+  // A Battle Royale elimination must release both sides of the global pin
+  // pair. Leaving the winner in `pinning` or a third-party target in `pinned`
+  // freezes advanceMatch even though the rest of the ring should stay live.
+  unwindPinState(model, loser);
   if (model.matchMode === 'battle_royale') {
     if (model[loser].state === 'defeated') return;
     model[loser].state = 'defeated'; model[loser].moveId = null; model[loser].attackPhase = null; model[loser].health = 0;
@@ -628,8 +649,11 @@ export const resolveMatch = (model: MatchModel, winner: FighterSlot, method: Mat
 
 const updatePin = (model: MatchModel, dt: number, playerInput: FrameInput): void => {
   const slots = activeFighterSlots(model); const pinningKey = slots.find((slot) => model[slot].state === 'pinning') ?? null;
-  if (!pinningKey) return;
-  const pinnedKey = slots.find((slot) => model[slot].state === 'pinned') ?? null; if (!pinnedKey) return;
+  const pinnedKey = slots.find((slot) => model[slot].state === 'pinned') ?? null;
+  if (!pinningKey || !pinnedKey) {
+    if (pinningKey || pinnedKey) unwindPinState(model, null);
+    return;
+  }
   const pinning = model[pinningKey]; const pinned = model[pinnedKey];
   pinning.stateElapsed += dt; pinned.stateElapsed += dt;
   if (pinnedKey === 'player') {

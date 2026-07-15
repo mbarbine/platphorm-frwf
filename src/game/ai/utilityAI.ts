@@ -114,7 +114,10 @@ export const chooseAiDecision = (model: MatchModel, definition: FighterDefinitio
   if (battleOvertime) {
     if (target.state === 'downed' && isActionLegal(model, 'context', actorKey)) return { command: 'context', move: toward, run: false, nextSeed };
     if (separation > strikingRange) return { command: null, move: toward, run: separation > 4 && actor.stamina > 30, nextSeed };
-    const overtimeCommand: GameCommand | null = actor.stamina >= 16 && isActionLegal(model, 'heavy', actorKey) ? 'heavy'
+    // Neutral heavy resolves to the front kick, which has a real minimum
+    // range. At point-blank distance prefer the jab so the last two wrestlers
+    // cannot deadlock while repeatedly requesting an impossible kick.
+    const overtimeCommand: GameCommand | null = separation >= getMove('front_kick').minimumRange && actor.stamina >= 16 && isActionLegal(model, 'heavy', actorKey) ? 'heavy'
       : isActionLegal(model, 'quick', actorKey) ? 'quick'
         : isActionLegal(model, 'grapple', actorKey) ? 'grapple' : null;
     return { command: overtimeCommand, move: { x: 0, z: 0 }, run: false, nextSeed };
