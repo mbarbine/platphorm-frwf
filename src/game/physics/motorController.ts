@@ -23,6 +23,29 @@ export const shortestQuaternionError = (current: QuaternionValue, target: Quater
 
 export const availableMotorStrength = (strength: number, fatigue: number, damageMultiplier = 1): number => clamp(strength * (1 - clamp(fatigue, 0, 1) * .78) * damageMultiplier, 0, 1);
 
+/**
+ * Velocity-level pose chase for time-critical active-ragdoll transitions.
+ * Rapier still integrates the body and resolves every joint/contact; this only
+ * supplies a bounded target velocity when a torque servo would respond too
+ * slowly for guard or get-up input.
+ */
+export const chasePoseAngularVelocity = (
+  current: QuaternionValue,
+  target: QuaternionValue,
+  angularVelocity: Vector3Value,
+  gain: number,
+  maximumSpeed: number,
+  response: number,
+): Vector3Value => {
+  const error = shortestQuaternionError(current, target);
+  const blend = clamp(response, 0, 1);
+  return {
+    x: angularVelocity.x + (clamp(error.x * gain, -maximumSpeed, maximumSpeed) - angularVelocity.x) * blend,
+    y: angularVelocity.y + (clamp(error.y * gain, -maximumSpeed, maximumSpeed) - angularVelocity.y) * blend,
+    z: angularVelocity.z + (clamp(error.z * gain, -maximumSpeed, maximumSpeed) - angularVelocity.z) * blend,
+  };
+};
+
 export const computeMotorTorque = (current: QuaternionValue, target: QuaternionValue, angularVelocity: Vector3Value, targetAngularVelocity: Vector3Value, parameters: MotorParameters): Vector3Value => {
   const error = shortestQuaternionError(current, target);
   const velocityError = { x: targetAngularVelocity.x - angularVelocity.x, y: targetAngularVelocity.y - angularVelocity.y, z: targetAngularVelocity.z - angularVelocity.z };

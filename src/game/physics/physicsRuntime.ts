@@ -5,7 +5,7 @@ import { AI_FIGHTER_SLOTS, FALL_REASONS, FIGHTER_SLOTS } from '../types/game';
 import type { BodyRegion, FighterRuntime, FighterSlot, GameCommand, MatchModel, PropRuntime, RecoveryOrientation, Vec2 } from '../types/game';
 import { clamp } from '../utils/math';
 import type { BodySegmentId } from './bodySchema';
-import { computeMotorTorque, shortestQuaternionError } from './motorController';
+import { chasePoseAngularVelocity, computeMotorTorque } from './motorController';
 import { PhysicsReplayBuffer } from './replayBuffer';
 import { getMove } from '../data/moves';
 import { fighterById } from '../data/fighters';
@@ -1598,14 +1598,16 @@ export class BodyWorksRuntime {
         // forever. This bounded angular target still moves through Rapier and
         // respects contacts/joints—it does not write a rotation or teleport a
         // body—but it gives the recovery chain enough authority to escape.
-        const error = shortestQuaternionError(body.rotation(), targets[segment]);
         const current = body.angvel(); const maximumSpeed = segment === 'pelvis' ? 2.8 : segment.includes('Leg') || segment.includes('Shin') || segment.includes('Foot') ? 4.2 : 3.4;
         const response = .14 + fighter.body.muscle * .08;
-        body.setAngvel({
-          x: current.x + (clamp(error.x * 5.2, -maximumSpeed, maximumSpeed) - current.x) * response,
-          y: current.y + (clamp(error.y * 5.2, -maximumSpeed, maximumSpeed) - current.y) * response,
-          z: current.z + (clamp(error.z * 5.2, -maximumSpeed, maximumSpeed) - current.z) * response,
-        }, true);
+        body.setAngvel(chasePoseAngularVelocity(body.rotation(), targets[segment], current, 5.2, maximumSpeed, response), true);
+      } else if (fighter.state === 'blocking' && (segment.includes('Arm') || segment.includes('Forearm') || segment.includes('Hand'))) {
+        // Guard is an input, not a two-second animation request. Rapidly bring
+        // the real glove/forearm colliders into the strike lane, then let the
+        // ordinary torque servo hold them against contact. The speed remains
+        // fatigue-scaled and bounded, so the joints and opponent can resist it.
+        const authority = .62 + fighter.body.muscle * .38;
+        body.setAngvel(chasePoseAngularVelocity(body.rotation(), targets[segment], body.angvel(), 7.2, 6.4 * authority, .24 * authority), true);
       }
       const torque = computeMotorTorque(body.rotation(), targets[segment], body.angvel(), { x: 0, y: 0, z: 0 }, {
         stiffness: chain.stiffness * stiffnessScale,

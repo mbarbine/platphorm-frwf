@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeMotorTorque } from '../game/physics/motorController';
+import { chasePoseAngularVelocity, computeMotorTorque } from '../game/physics/motorController';
 
 const parameters = { stiffness: 300, damping: 48, maxTorque: 340, strength: 1, fatigue: 0 } as const;
 
@@ -19,5 +19,15 @@ describe('articulated pose motor stability', () => {
     );
     expect(torque.x).toBeGreaterThan(0);
     expect(Math.hypot(torque.x, torque.y, torque.z)).toBeLessThanOrEqual(parameters.maxTorque);
+  });
+
+  it('chases a time-critical pose through bounded physical angular velocity', () => {
+    const velocity = chasePoseAngularVelocity(
+      { x: 0, y: 0, z: 0, w: 1 }, { x: -.5, y: 0, z: 0, w: Math.sqrt(.75) },
+      { x: 0, y: 0, z: 0 }, 7.2, 6.4, .24,
+    );
+    expect(velocity.x).toBeLessThan(0);
+    expect(Math.abs(velocity.x)).toBeLessThanOrEqual(6.4);
+    expect(velocity.y).toBe(0); expect(velocity.z).toBe(0);
   });
 });
