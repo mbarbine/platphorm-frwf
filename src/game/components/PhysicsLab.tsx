@@ -92,13 +92,12 @@ export function PhysicsLab() {
     else if (scenario.id === 'cornerSmash') useMatchStore.getState().prepareLabScenario({ x: 3.72, z: 2.45 }, { x: 4.45, z: 3.02 });
     else if (scenario.id === 'apronReturn') useMatchStore.getState().prepareLabScenario({ x: 6.52, z: 0 }, { x: 0, z: 2.4 });
     else if (scenario.id === 'tableCollapse') useMatchStore.getState().prepareLabScenario({ x: 0, z: -5.25 }, { x: 0, z: -6.05 });
-    // Guard certification needs a real glove-engagement lane. The previous
-    // 0.54 m centre spacing deeply interpenetrated both articulated rigs and
-    // reduced two simulated seconds to minutes of solver churn before a jab
-    // could be classified. At .9 m the torsos remain separated, while the
-    // raised glove is inside the independently driven jab's articulated reach.
-    // Its near-field force profile now prevents the old through-guard tunnel.
-    else if (scenario.id === 'blockedJab') useMatchStore.getState().prepareLabScenario({ x: 0, z: -.45 }, { x: 0, z: .45 });
+    // Guard certification starts outside body overlap with guard authority
+    // already active. The scheduled held input still exercises the shipping
+    // input path, while this state prevents a throttled runner from spending
+    // the whole scenario waiting to raise its arms. The straightened physical
+    // forearms now bridge this 1.15 m lane before the jab can reach the chest.
+    else if (scenario.id === 'blockedJab') useMatchStore.getState().prepareLabScenario({ x: 0, z: -.575 }, { x: 0, z: .575 }, 'blocking');
     else if (recoveryOrientation) useMatchStore.getState().prepareLabScenario({ x: 0, z: -.7 }, { x: 0, z: 3.4 }, 'downed', 100, recoveryOrientation, .75);
     else if (scenario.id === 'kickup') useMatchStore.getState().prepareLabScenario({ x: 0, z: -.7 }, { x: 0, z: 3.4 }, 'downed');
     // Give the run enough in-ring distance to build a genuinely loaded entry.

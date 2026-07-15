@@ -26,6 +26,10 @@ describe('Bodyworks playability upgrade', () => {
     expect(Math.abs(POSES.block.rightArm[2])).toBeLessThan(.35);
     expect(Math.abs(POSES.block.leftForearm[2])).toBeLessThan(.25);
     expect(Math.abs(POSES.block.rightForearm[2])).toBeLessThan(.25);
+    // The elbow chain must finish near horizontal so both glove colliders sit
+    // ahead of the chest instead of folding back into the torso hitbox.
+    expect(POSES.block.leftArm[0] + POSES.block.leftForearm[0]).toBeCloseTo(-Math.PI / 2, 1);
+    expect(POSES.block.rightArm[0] + POSES.block.rightForearm[0]).toBeCloseTo(-Math.PI / 2, 1);
   });
 
   it('puts a real trash can in Chaos and exposes a nearby secured corner rail shot', () => {
