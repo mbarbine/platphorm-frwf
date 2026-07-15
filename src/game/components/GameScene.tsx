@@ -66,37 +66,49 @@ function Simulation({ onPause, onDevice, onFinished, inputEnabled = true }: Prop
     window.addEventListener('keydown', onTargetCycle);
     return () => window.removeEventListener('keydown', onTargetCycle);
   }, []);
+  const lab = physicsLabEnabled();
+  const labDebug = usePhysicsLabStore((state) => state.debug);
+  const requiresPhysicalRig = lab && labDebug;
+
   useBeforePhysicsStep((world) => {
     const model = useMatchStore.getState().model;
     const fixedStep = model.labMode ? usePhysicsLabStore.getState().rate / 60 : 1 / 60;
     const activeSlots = model.matchMode === 'battle_royale' ? FIGHTER_SLOTS.filter((slot) => model[slot].state !== 'defeated') : FIGHTER_SLOTS.slice(0, 2);
     const expectedBodies = activeSlots.length * BODY_SEGMENT_COUNT;
-    if (rosterReadiness.current.runtimeId !== model.runtimeId) rosterReadiness.current = { runtimeId: model.runtimeId, ready: false };
-    if (!rosterReadiness.current.ready && bodyWorksRuntime.metrics.bodyCount >= expectedBodies) rosterReadiness.current.ready = true;
-    if (!rosterReadiness.current.ready) {
-      // Let registered bodies settle under their motors, but do not let AI,
-      // combat, or the match clock run against a partially mounted roster.
-      bodyWorksRuntime.beforeFixedStep(fixedStep, model, world);
-      return;
+    if (requiresPhysicalRig) {
+      if (rosterReadiness.current.runtimeId !== model.runtimeId) rosterReadiness.current = { runtimeId: model.runtimeId, ready: false };
+      if (!rosterReadiness.current.ready && bodyWorksRuntime.metrics.bodyCount >= expectedBodies) rosterReadiness.current.ready = true;
+      if (!rosterReadiness.current.ready) {
+        // Let registered bodies settle under their motors. In non-lab modes we no
+        // longer block match progression if the rig count is low, because the
+        // presentation model should stay interactive and visible even when body
+        // registration is delayed.
+        bodyWorksRuntime.beforeFixedStep(fixedStep, model, world);
+        return;
+      }
+    } else if (rosterReadiness.current.runtimeId !== model.runtimeId) {
+      rosterReadiness.current = { runtimeId: model.runtimeId, ready: true };
     }
-    const session = gl.xr.getSession(); const raw = input.read(session ? Array.from(session.inputSources) : []);
-    if (raw.actions?.length) {
-      storeActionCount.current += raw.actions.length;
-      document.documentElement.dataset.storeActionCount = String(storeActionCount.current);
-      document.documentElement.dataset.storeLastAction = raw.actions[raw.actions.length - 1]?.action ?? '';
+    bodyWorksRuntime.beforeFixedStep(fixedStep, model, world);
+    if (!requiresPhysicalRig || rosterReadiness.current.ready) {
+      const session = gl.xr.getSession(); const raw = input.read(session ? Array.from(session.inputSources) : []);
+      if (raw.actions?.length) {
+        storeActionCount.current += raw.actions.length;
+        document.documentElement.dataset.storeActionCount = String(storeActionCount.current);
+        document.documentElement.dataset.storeLastAction = raw.actions[raw.actions.length - 1]?.action ?? '';
+      }
+      if (raw.targetCycle) useMatchStore.getState().cyclePlayerTarget(raw.targetCycle);
+      const middleX = activeSlots.reduce((sum, slot) => sum + model[slot].position.x, 0) / Math.max(1, activeSlots.length);
+      const middleZ = activeSlots.reduce((sum, slot) => sum + model[slot].position.z, 0) / Math.max(1, activeSlots.length);
+      const candidate = cameraInputBasis({ x: camera.position.x, z: camera.position.z }, { x: middleX, z: middleZ });
+      if (!inputBasis.current) inputBasis.current = candidate;
+      const inputHeld = Math.hypot(raw.move.x, raw.move.z) > .08;
+      const playerInGrapple = Boolean(model.grapple && (model.grapple.attacker === 'player' || model.grapple.defender === 'player'));
+      const cinematic = useMatchStore.getState().replayActive || playerInGrapple || model.player.moveId !== null || ['grappling', 'grabbed', 'climbing', 'airborne', 'jumping', 'pinning', 'pinned'].includes(model.player.state);
+      inputBasis.current = updateStableBasis(inputBasis.current, candidate, inputHeld, cinematic, fixedStep);
+      raw.move = transformCameraRelative(raw.move, inputBasis.current);
+      useMatchStore.getState().advance(fixedStep, raw);
     }
-    if (raw.targetCycle) useMatchStore.getState().cyclePlayerTarget(raw.targetCycle);
-    const middleX = activeSlots.reduce((sum, slot) => sum + model[slot].position.x, 0) / Math.max(1, activeSlots.length);
-    const middleZ = activeSlots.reduce((sum, slot) => sum + model[slot].position.z, 0) / Math.max(1, activeSlots.length);
-    const candidate = cameraInputBasis({ x: camera.position.x, z: camera.position.z }, { x: middleX, z: middleZ });
-    if (!inputBasis.current) inputBasis.current = candidate;
-    const inputHeld = Math.hypot(raw.move.x, raw.move.z) > .08;
-    const playerInGrapple = Boolean(model.grapple && (model.grapple.attacker === 'player' || model.grapple.defender === 'player'));
-    const cinematic = useMatchStore.getState().replayActive || playerInGrapple || model.player.moveId !== null || ['grappling', 'grabbed', 'climbing', 'airborne', 'jumping', 'pinning', 'pinned'].includes(model.player.state);
-    inputBasis.current = updateStableBasis(inputBasis.current, candidate, inputHeld, cinematic, fixedStep);
-    raw.move = transformCameraRelative(raw.move, inputBasis.current);
-    useMatchStore.getState().advance(fixedStep, raw);
-    bodyWorksRuntime.beforeFixedStep(fixedStep, useMatchStore.getState().model, world);
   });
   useAfterPhysicsStep(() => {
     bodyWorksRuntime.afterFixedStep(useMatchStore.getState().model);
@@ -194,6 +206,7 @@ export function GameScene(props: Props) {
   const diagnosticModel = useMatchStore((state) => state.model); const toyTestMode = diagnosticModel.toyTestMode; const playerMove = diagnosticModel.player.moveId; const playerPosition = diagnosticModel.player.position; const opponentHealth = diagnosticModel[diagnosticModel.targets.player].health;
   const lab = physicsLabEnabled();
   const labRate = usePhysicsLabStore((state) => state.rate); const labDebug = usePhysicsLabStore((state) => state.debug);
+  const requiresPhysicalRig = lab && labDebug;
   const graphicsQuality = useSettings((state) => state.graphicsQuality); const reducedMotion = useSettings((state) => state.reducedMotion);
   // Five articulated rigs, five presentation shells, ropes, props, and a full
   // crowd are a materially different render budget from singles. Auto quality
@@ -214,17 +227,76 @@ export function GameScene(props: Props) {
   };
   const exitXR = async (): Promise<void> => { await renderer.current?.xr.getSession()?.end(); };
   const expectedBodies = (diagnosticModel.matchMode === 'battle_royale' ? 5 : 2) * BODY_SEGMENT_COUNT;
-  return <SceneBoundary><div className="game-canvas" data-testid="game-canvas" data-match-mode={diagnosticModel.matchMode} data-player-state={diagnosticModel.player.state} data-active-wrestlers={FIGHTER_SLOTS.filter((slot) => (diagnosticModel.matchMode === 'battle_royale' && diagnosticModel[slot].state !== 'defeated') || (diagnosticModel.matchMode === 'singles' && (slot === 'player' || slot === 'opponent'))).length} data-simulation-ready={bodyWorksRuntime.metrics.bodyCount >= expectedBodies ? 'true' : 'false'} data-toy-test={toyTestMode ? 'true' : 'false'} data-graphics-tier={quality.tier} data-physics-bodies={bodyWorksRuntime.metrics.bodyCount} data-physics-steps={bodyWorksRuntime.metrics.fixedSteps} data-physics-emergency-resets={bodyWorksRuntime.metrics.emergencyResetCount} data-unknown-falls={fallCount(diagnosticModel, FALL_REASONS.Unknown)} data-unstable-without-cause-seconds={diagnosticModel.unstableWithoutCauseSeconds.toFixed(3)} data-draw-calls={renderDiagnostics.drawCalls} data-triangles={renderDiagnostics.triangles} data-geometries={renderDiagnostics.geometries} data-textures={renderDiagnostics.textures} data-shader-programs={renderDiagnostics.shaderPrograms} data-frame-p95-ms={renderDiagnostics.frameP95Ms.toFixed(2)} data-frame-p99-ms={renderDiagnostics.frameP99Ms.toFixed(2)} data-frames-over-100-ms={renderDiagnostics.framesOver100Ms} data-player-move={playerMove ?? ''} data-player-x={playerPosition.x.toFixed(3)} data-player-z={playerPosition.z.toFixed(3)} data-opponent-health={opponentHealth.toFixed(1)}>
-    <Canvas shadows={quality.shadows ? 'basic' : false} dpr={quality.dpr} gl={{ antialias: quality.antialias, alpha: false, powerPreference: 'high-performance' }} camera={{ position: [8, 7, 11], fov: 48, near: .1, far: 72 }} onCreated={({ gl }) => {
-      renderer.current = gl; gl.xr.enabled = true;
-      if (navigator.xr) void navigator.xr.isSessionSupported('immersive-vr').then(setXrAvailable).catch(() => setXrAvailable(false));
-    }}>
-      <Physics gravity={[0, -18, 0]} timeStep={(lab ? labRate : 1) / 60} paused={paused || replayActive} debug={lab && labDebug} interpolate numSolverIterations={8} numInternalPgsIterations={2} maxCcdSubsteps={2}><Arena crowdCount={quality.crowdCount} /><Fighters detail={fighterDetail} showPhysical={lab && labDebug} /><ReplayDirector /><PlayerControlBeacon /><ImpactEffects /><Simulation {...props} inputEnabled={!paused && !replayActive && !diagnosticModel.resolved && !['defeated', 'victorious'].includes(diagnosticModel.player.state)} /></Physics>
-      {lab && labDebug ? <Suspense fallback={null}><BodyWorksDebugOverlay /></Suspense> : null}<CameraRig /><SpectatorFreeCamera /><RuntimeDiagnosticsSampler /><AdaptiveDpr pixelated />{quality.bakeShadows && <BakeShadows />}
-    </Canvas>
-    {xrAvailable && <button type="button" className="xr-entry" data-testid="xr-entry" onClick={() => void (xrPresenting ? exitXR() : enterXR())}>{xrPresenting ? 'EXIT ARENA XR' : 'ENTER ARENA XR'}<small>QUEST · STEAM FRAME · OPENXR</small></button>}
-    {xrError && <div className="xr-error" role="status">XR UNAVAILABLE · {xrError}</div>}
-  </div></SceneBoundary>;
+  const simulationReady = requiresPhysicalRig ? bodyWorksRuntime.metrics.bodyCount >= expectedBodies : true;
+  return (
+    <SceneBoundary>
+      <div
+        className="game-canvas"
+        data-testid="game-canvas"
+        data-match-mode={diagnosticModel.matchMode}
+        data-player-state={diagnosticModel.player.state}
+        data-active-wrestlers={FIGHTER_SLOTS.filter((slot) => (diagnosticModel.matchMode === 'battle_royale' && diagnosticModel[slot].state !== 'defeated') || (diagnosticModel.matchMode === 'singles' && (slot === 'player' || slot === 'opponent'))).length}
+        data-simulation-ready={simulationReady ? 'true' : 'false'}
+        data-toy-test={toyTestMode ? 'true' : 'false'}
+        data-graphics-tier={quality.tier}
+        data-physics-bodies={bodyWorksRuntime.metrics.bodyCount}
+        data-physics-steps={bodyWorksRuntime.metrics.fixedSteps}
+        data-physics-emergency-resets={bodyWorksRuntime.metrics.emergencyResetCount}
+        data-unknown-falls={fallCount(diagnosticModel, FALL_REASONS.Unknown)}
+        data-unstable-without-cause-seconds={diagnosticModel.unstableWithoutCauseSeconds.toFixed(3)}
+        data-draw-calls={renderDiagnostics.drawCalls}
+        data-triangles={renderDiagnostics.triangles}
+        data-geometries={renderDiagnostics.geometries}
+        data-textures={renderDiagnostics.textures}
+        data-shader-programs={renderDiagnostics.shaderPrograms}
+        data-frame-p95-ms={renderDiagnostics.frameP95Ms.toFixed(2)}
+        data-frame-p99-ms={renderDiagnostics.frameP99Ms.toFixed(2)}
+        data-frames-over-100-ms={renderDiagnostics.framesOver100Ms}
+        data-player-move={playerMove ?? ''}
+        data-player-x={playerPosition.x.toFixed(3)}
+        data-player-z={playerPosition.z.toFixed(3)}
+        data-opponent-health={opponentHealth.toFixed(1)}
+      >
+        <Canvas
+          shadows={quality.shadows ? 'basic' : false}
+          dpr={quality.dpr}
+          gl={{ antialias: quality.antialias, alpha: false, powerPreference: 'high-performance' }}
+          camera={{ position: [8, 7, 11], fov: 48, near: .1, far: 72 }}
+          onCreated={({ gl }) => {
+            renderer.current = gl;
+            gl.xr.enabled = true;
+            if (navigator.xr) void navigator.xr.isSessionSupported('immersive-vr').then(setXrAvailable).catch(() => setXrAvailable(false));
+          }}
+        >
+          <Physics
+            gravity={[0, -18, 0]}
+            timeStep={(lab ? labRate : 1) / 60}
+            paused={paused || replayActive}
+            debug={lab && labDebug}
+            interpolate
+            numSolverIterations={8}
+            numInternalPgsIterations={2}
+            maxCcdSubsteps={2}
+          >
+            <Arena crowdCount={quality.crowdCount} />
+            <Fighters detail={fighterDetail} showPhysical={lab && labDebug} />
+            <ReplayDirector />
+            <PlayerControlBeacon />
+            <ImpactEffects />
+            <Simulation {...props} inputEnabled={!paused && !replayActive && !diagnosticModel.resolved && !['defeated', 'victorious'].includes(diagnosticModel.player.state)} />
+          </Physics>
+          {lab && labDebug ? <Suspense fallback={null}><BodyWorksDebugOverlay /></Suspense> : null}
+          <CameraRig />
+          <SpectatorFreeCamera />
+          <RuntimeDiagnosticsSampler />
+          <AdaptiveDpr pixelated />
+          {quality.bakeShadows && <BakeShadows />}
+        </Canvas>
+        {xrAvailable && <button type="button" className="xr-entry" data-testid="xr-entry" onClick={() => void (xrPresenting ? exitXR() : enterXR())}>{xrPresenting ? 'EXIT ARENA XR' : 'ENTER ARENA XR'}<small>QUEST · STEAM FRAME · OPENXR</small></button>}
+        {xrError && <div className="xr-error" role="status">XR UNAVAILABLE · {xrError}</div>}
+      </div>
+    </SceneBoundary>
+  );
 }
 
 interface BoundaryState { failed: boolean }
