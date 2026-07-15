@@ -149,6 +149,9 @@ test('Physics Lab exposes deterministic recovery orientations and a complete run
       verticalVelocity: Number(await hud.getAttribute('data-player-vertical')),
       pelvisY: Number(await hud.getAttribute('data-player-pelvis-y')),
       footY: Number(await hud.getAttribute('data-player-foot-y')),
+      leftFootY: Number(await hud.getAttribute('data-player-left-foot-y')),
+      rightFootY: Number(await hud.getAttribute('data-player-right-foot-y')),
+      restFootOffsetY: Number(await hud.getAttribute('data-player-rest-foot-offset-y')),
     }), { timeout: 30_000, intervals: [80, 160, 320, 640] }).toContain('"state":"idle"');
     await expect(hud.locator('[data-motion-tasks]')).toHaveAttribute('data-motion-tasks', '0');
     await expect(hud.locator('[data-unknown-falls]')).toHaveAttribute('data-unknown-falls', '0');

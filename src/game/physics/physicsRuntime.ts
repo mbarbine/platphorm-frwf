@@ -119,7 +119,7 @@ export interface BodyWorksMetrics {
   actionMaximumWaitMs: number;
 }
 
-export interface FighterPhysicsSnapshot { pelvisY: number; headY: number; footY: number; upright: number; speed: number; supportFeet: number }
+export interface FighterPhysicsSnapshot { pelvisY: number; headY: number; footY: number; leftFootY: number; rightFootY: number; restFootOffsetY: number; upright: number; speed: number; supportFeet: number }
 export interface SegmentTransformSnapshot { position: Vector3Value; rotation: QuaternionValue }
 export interface PresentationAlignmentSnapshot { sampleCount: number; averageError: number; maximumError: number; maximumSegment: BodySegmentId | null }
 
@@ -752,7 +752,10 @@ export class BodyWorksRuntime {
       // complete ragdoll at pelvis height with both feet in the air.
       const contactMultiplier = rig.supportContacts.size > 0 ? 1
         : fighter.state === 'recovering' ? 0
-          : pelvis.translation().y < recoveryTargetY + .2 ? 1 : 0;
+          // Bootstrap only while a newly mounted rig is settling. Re-enabling
+          // this root lift after a get-up can suspend a tilted wrestler above
+          // the mat with no physical foot contact.
+          : rig.settlingFrames <= 90 && pelvis.translation().y < recoveryTargetY + .2 ? 1 : 0;
       const supportAcceleration = clamp((recoveryTargetY - pelvis.translation().y) * 30 - velocity.y * 10.5 + 18, -18, 38) * fighter.body.muscle * contactMultiplier * (.42 + recoveryBlend * .58);
       this.applyRigAcceleration(rig, { x: 0, y: supportAcceleration, z: 0 });
       if (fighter.state === 'recovering') this.applyRecoveryStanceDrive(rig, fighter, targetPelvisY, recoveryBlend);
@@ -764,11 +767,12 @@ export class BodyWorksRuntime {
       const rotation = pelvis.rotation(); const angular = pelvis.angvel();
       const upX = 2 * (rotation.x * rotation.y - rotation.w * rotation.z);
       const upZ = 2 * (rotation.y * rotation.z + rotation.w * rotation.x);
-      const strength = fighter.state === 'recovering' ? .095 : .055;
+      const strength = fighter.state === 'recovering' ? .16 : .055;
+      const torqueLimit = fighter.state === 'recovering' ? 2.25 : 1.35;
       pelvis.applyTorqueImpulse({
-        x: clamp(-upZ * fighter.body.inertia * strength - angular.x * .075, -1.35, 1.35),
+        x: clamp(-upZ * fighter.body.inertia * strength - angular.x * .11, -torqueLimit, torqueLimit),
         y: 0,
-        z: clamp(upX * fighter.body.inertia * strength - angular.z * .075, -1.35, 1.35),
+        z: clamp(upX * fighter.body.inertia * strength - angular.z * .11, -torqueLimit, torqueLimit),
       }, true);
     }
     const isCarrying = fighter.state === 'grappling' && (model.grapple?.phase === 'lift' || model.grapple?.phase === 'load') && model.grapple?.attacker === key;
@@ -867,6 +871,15 @@ export class BodyWorksRuntime {
       // four tiny distal bodies was the last visible idle buzz source.
       for (const segment of ['leftUpperArm', 'rightUpperArm', 'leftForearm', 'rightForearm'] as const) dynamic.add(segment);
     }
+    const recoveredSupportScore = fighter.state === 'idle' && fighter.lastFallReason !== null ? this.supportScore(rig) : 1;
+    const settlingRecoveredStance = fighter.state === 'idle' && fighter.lastFallReason !== null
+      && (fighter.stateElapsed < 1.5 || rig.supportContacts.size === 0 || recoveredSupportScore < .55);
+    if (settlingRecoveredStance) {
+      // The first supported get-up frame is not yet a settled stance. Keep the
+      // load-bearing chains motorized briefly so they can finish extending
+      // against the mat before neutral mode locks their solved orientation.
+      for (const segment of ['leftThigh', 'rightThigh', 'leftShin', 'rightShin', 'leftFoot', 'rightFoot'] as const) dynamic.add(segment);
+    }
     if (fighter.state === 'blocking') for (const segment of ['leftUpperArm', 'rightUpperArm', 'leftForearm', 'rightForearm', 'leftHand', 'rightHand'] as const) dynamic.add(segment);
     if (fighter.state === 'grappling' || profile.id === 'clinch' || profile.id === 'lift' || profile.id === 'throw') for (const segment of ['leftUpperArm', 'rightUpperArm', 'leftForearm', 'rightForearm', 'leftHand', 'rightHand', 'chest', 'abdomen'] as const) dynamic.add(segment);
     const strike = fighter.moveId ? strikeDriveProfile(fighter.moveId) : null;
@@ -942,31 +955,68 @@ export class BodyWorksRuntime {
   }
 
   private applyRecoveryStanceDrive(rig: FighterRigRegistration, fighter: FighterRuntime, targetPelvisY: number, progress: number): void {
-    const pelvis = rig.bodies.pelvis; if (!pelvis || progress <= .18) return;
+    const pelvis = rig.bodies.pelvis; if (!pelvis || progress <= .2) return;
     const pelvisPosition = pelvis.translation(); const pelvisVelocity = pelvis.linvel();
-    const activation = clamp((progress - .18) / .42, 0, 1) * fighter.body.muscle;
+    const externalSupport = this.hasExternalSupport(rig);
+    const activation = clamp((progress - .2) / .5, 0, 1) * fighter.body.muscle;
     const cosine = Math.cos(fighter.facing); const sine = Math.sin(fighter.facing);
-    for (const footId of ['leftFoot', 'rightFoot'] as const) {
-      const foot = rig.bodies[footId]; const offset = rig.restOffsets[footId];
-      if (!foot?.isValid() || !offset) continue;
-      const footPosition = foot.translation(); const footVelocity = foot.linvel();
+    for (const [segment, body] of Object.entries(rig.bodies) as [BodySegmentId, RapierRigidBody][]) {
+      const offset = rig.restOffsets[segment];
+      if (!body?.isValid() || !offset) continue;
+      const bodyPosition = body.translation(); const bodyVelocity = body.linvel();
       const target = {
         x: pelvisPosition.x + offset.x * cosine + offset.z * sine,
-        y: targetPelvisY + offset.y,
+        y: pelvisPosition.y + offset.y,
         z: pelvisPosition.z - offset.x * sine + offset.z * cosine,
       };
+      const loadBearing = segment.includes('Thigh') || segment.includes('Shin') || segment.includes('Foot');
+      const stiffness = loadBearing ? 62 : segment === 'abdomen' || segment === 'chest' || segment === 'head' ? 38 : 28;
+      const damping = loadBearing ? 12 : 9;
       const acceleration = {
-        x: clamp((target.x - footPosition.x) * 30 - (footVelocity.x - pelvisVelocity.x) * 8, -24, 24) * activation,
-        y: clamp((target.y - footPosition.y) * 42 - (footVelocity.y - pelvisVelocity.y) * 9, -42, 32) * activation,
-        z: clamp((target.z - footPosition.z) * 30 - (footVelocity.z - pelvisVelocity.z) * 8, -24, 24) * activation,
+        x: clamp((target.x - bodyPosition.x) * stiffness - (bodyVelocity.x - pelvisVelocity.x) * damping, -58, 58) * activation,
+        y: clamp((target.y - bodyPosition.y) * stiffness - (bodyVelocity.y - pelvisVelocity.y) * damping, -92, 72) * activation,
+        z: clamp((target.z - bodyPosition.z) * stiffness - (bodyVelocity.z - pelvisVelocity.z) * damping, -58, 58) * activation,
       };
-      // Equal-and-opposite internal forces extend the legs toward a real mat
-      // stance without adding net lift. Rapier contact supplies the external
-      // reaction force only after a foot reaches the deck.
-      const force = { x: acceleration.x * foot.mass(), y: acceleration.y * foot.mass(), z: acceleration.z * foot.mass() };
-      foot.addForce(force, true);
+      // Internal equal-and-opposite forces rebuild the articulated rest tree
+      // around the live pelvis. They cannot levitate the wrestler because the
+      // complete body's net force remains zero.
+      const force = { x: acceleration.x * body.mass(), y: acceleration.y * body.mass(), z: acceleration.z * body.mass() };
+      body.addForce(force, true);
       pelvis.addForce({ x: -force.x, y: -force.y, z: -force.z }, true);
     }
+    if (externalSupport && rig.supportContacts.size === 0) {
+      // A hand, knee, or torso contact can provide the first bounded ground
+      // reaction. Once a foot reaches the mat the ordinary foot-support motor
+      // takes over, avoiding two competing lift controllers.
+      const braceAcceleration = clamp((targetPelvisY - pelvisPosition.y) * 16 - pelvisVelocity.y * 9 + 12, -10, 18) * activation;
+      this.applyRigAcceleration(rig, { x: 0, y: braceAcceleration, z: 0 });
+    }
+    if (rig.supportContacts.size > 0) {
+      const support = [...rig.supportContacts].map((segment) => rig.bodies[segment]?.translation()).filter((position): position is Vector3Value => Boolean(position));
+      if (support.length > 0) {
+        const supportX = support.reduce((sum, position) => sum + position.x, 0) / support.length;
+        const supportZ = support.reduce((sum, position) => sum + position.z, 0) / support.length;
+        const center = this.rigPlanarCenter(rig);
+        const accelerationX = clamp((supportX - center.x) * 32 - center.velocityX * 7, -24, 24) * activation;
+        const accelerationZ = clamp((supportZ - center.z) * 32 - center.velocityZ * 7, -24, 24) * activation;
+        pelvis.addForce({ x: accelerationX * pelvis.mass(), y: 0, z: accelerationZ * pelvis.mass() }, true);
+      }
+    }
+  }
+
+  private hasExternalSupport(rig: FighterRigRegistration): boolean {
+    const world = this.world; if (!world) return false;
+    const ownHandles = new Set(Object.values(rig.bodies).filter((body): body is RapierRigidBody => Boolean(body?.isValid())).map((body) => body.handle));
+    for (const body of Object.values(rig.bodies)) {
+      if (!body?.isValid() || body.numColliders() === 0) continue;
+      const collider = body.collider(0); let touching = false;
+      world.contactPairsWith(collider, (other) => {
+        if (touching || ownHandles.has(other.parent()?.handle ?? -1)) return;
+        world.contactPair(collider, other, (manifold) => { if (manifold.numSolverContacts() > 0 || manifold.numContacts() > 0) touching = true; });
+      });
+      if (touching) return true;
+    }
+    return false;
   }
 
   private applyPhysicalStrike(key: FighterKey, rig: FighterRigRegistration, fighter: FighterRuntime, model: MatchModel): void {
@@ -1854,12 +1904,15 @@ export class BodyWorksRuntime {
 
   fighterSnapshot(key: FighterKey): FighterPhysicsSnapshot {
     const rig = this.rigs.get(key); const pelvis = rig?.bodies.pelvis; const head = rig?.bodies.head; const leftFoot = rig?.bodies.leftFoot; const rightFoot = rig?.bodies.rightFoot;
-    if (!rig || !pelvis || !head || !leftFoot || !rightFoot) return { pelvisY: 0, headY: 0, footY: 0, upright: 0, speed: 0, supportFeet: 0 };
+    if (!rig || !pelvis || !head || !leftFoot || !rightFoot) return { pelvisY: 0, headY: 0, footY: 0, leftFootY: 0, rightFootY: 0, restFootOffsetY: 0, upright: 0, speed: 0, supportFeet: 0 };
     const rotation = pelvis.rotation(); const velocity = pelvis.linvel(); const center = this.rigPlanarCenter(rig);
     return {
       pelvisY: pelvis.translation().y,
       headY: head.translation().y,
       footY: Math.min(leftFoot.translation().y, rightFoot.translation().y),
+      leftFootY: leftFoot.translation().y,
+      rightFootY: rightFoot.translation().y,
+      restFootOffsetY: Math.min(rig.restOffsets.leftFoot?.y ?? 0, rig.restOffsets.rightFoot?.y ?? 0),
       upright: clamp(1 - (Math.abs(rotation.x) + Math.abs(rotation.z)) * 1.7, 0, 1),
       speed: Math.hypot(center.velocityX, velocity.y, center.velocityZ),
       supportFeet: rig.supportContacts.size,

@@ -33,8 +33,18 @@ test('standard gamepad axes, run trigger, and quick attack drive the live match'
     const pad = (window as Window & { __ringfallPad?: { axes: number[]; buttons: Array<{ pressed: boolean; touched: boolean; value: number }> } }).__ringfallPad;
     if (!pad) return; pad.axes[0] = 0; const trigger = pad.buttons[7]; if (trigger) { trigger.pressed = false; trigger.value = 0; }
   });
+  // Movement is proven above. Put both articulated bodies into a known legal
+  // strike context before proving that the independent gamepad edge reaches
+  // the authoritative action buffer.
+  const lab = page.getByTestId('physics-lab'); const rangeSetup = lab.getByRole('button', { name: 'CLOSE-RANGE INPUT' }); await rangeSetup.click();
+  await expect(rangeSetup).toBeEnabled({ timeout: 30_000 });
   await expect.poll(async () => hud.getAttribute('data-player-state'), { timeout: 20_000, intervals: [100, 200] }).toMatch(/idle|locomotion/);
   await expect(hud).toHaveAttribute('data-player-move', '', { timeout: 10_000 });
+  await expect.poll(async () => {
+    const playerX = Number(await hud.getAttribute('data-player-x')); const playerZ = Number(await hud.getAttribute('data-player-z'));
+    const opponentX = Number(await hud.getAttribute('data-opponent-x')); const opponentZ = Number(await hud.getAttribute('data-opponent-z'));
+    return Math.hypot(opponentX - playerX, opponentZ - playerZ);
+  }, { timeout: 10_000, intervals: [100, 200] }).toBeLessThan(1.48);
   await page.evaluate(() => { const button = (window as Window & { __ringfallPad?: { buttons: Array<{ pressed: boolean; value: number }> } }).__ringfallPad?.buttons[2]; if (button) { button.pressed = true; button.value = 1; } });
   await expect(hud.locator('[data-last-action]')).toHaveAttribute('data-last-action', 'quickStrike', { timeout: 15_000 });
   await expect(hud.locator('[data-last-action]')).toHaveAttribute('data-last-action-source', 'gamepad', { timeout: 15_000 });

@@ -33,6 +33,7 @@ const SCENARIOS: readonly LabScenario[] = [
   { id: 'recoveryBack', label: 'BACK GET-UP', steps: [], duration: 2_100 },
   { id: 'recoveryFront', label: 'FRONT GET-UP', steps: [], duration: 2_100 },
   { id: 'recoverySide', label: 'SIDE GET-UP', steps: [], duration: 2_100 },
+  { id: 'inputRange', label: 'CLOSE-RANGE INPUT', steps: [], duration: 900 },
   { id: 'jab', label: 'CONTACT-TRUE JAB', steps: tap('KeyJ'), duration: 1_400 },
   { id: 'jabWhiff', label: 'JAB WHIFF', steps: tap('KeyJ'), duration: 1_200 },
   { id: 'blockedJab', label: 'JAB INTO GUARD', steps: hold('KeyI', 0, 1_250), duration: 1_700 },
@@ -81,7 +82,7 @@ export function PhysicsLab() {
       timers.current.push(window.setTimeout(() => setActive(null), scenario.duration));
       return;
     }
-    const closeRange = ['jab', 'blockedJab', 'hook', 'frontKick', 'guard', 'kick', 'lock', 'slam', 'failedLift', 'gripBreak', 'suplex', 'german', 'powerbomb', 'clothesline', 'spear', 'soakRound'].includes(scenario.id);
+    const closeRange = ['inputRange', 'jab', 'blockedJab', 'hook', 'frontKick', 'guard', 'kick', 'lock', 'slam', 'failedLift', 'gripBreak', 'suplex', 'german', 'powerbomb', 'clothesline', 'spear', 'soakRound'].includes(scenario.id);
     const recoveryOrientation: RecoveryOrientation | null = scenario.id === 'recoveryFront' ? 'front' : scenario.id === 'recoverySide' ? 'left' : scenario.id === 'recoveryBack' ? 'back' : null;
     if (scenario.id === 'climb' || scenario.id === 'dive') useMatchStore.getState().prepareLabScenario({ x: -4.52, z: -3.08 }, { x: -1.6, z: -.8 });
     else if (scenario.id === 'cornerSmash') useMatchStore.getState().prepareLabScenario({ x: 3.72, z: 2.45 }, { x: 4.45, z: 3.02 });

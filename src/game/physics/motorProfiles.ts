@@ -56,7 +56,7 @@ export const MOTOR_PROFILES: Readonly<Record<MotorProfileId, MotorProfile>> = {
   stagger: profile('stagger', 'physical', .5, { feet: { strength: .74 }, core: { strength: .52 } }),
   protectedFall: profile('protectedFall', 'physical', .22, { head: { strength: .72 }, core: { strength: .3 }, hands: { strength: .42 } }),
   downed: profile('downed', 'physical', .12, { head: { strength: .55 } }),
-  getUp: profile('getUp', 'physical', .62, { core: { strength: 1.16 }, hands: { strength: 1.12 }, feet: { strength: 1.12 } }),
+  getUp: profile('getUp', 'physical', .82, { core: { strength: 1.18 }, leftLeg: { strength: 1.22 }, rightLeg: { strength: 1.22 }, hands: { strength: 1.08 }, feet: { strength: 1.24 } }),
   knockout: profile('knockout', 'physical', .035, { head: { strength: .2 } }),
   victory: profile('victory', 'planted', .82),
 };
