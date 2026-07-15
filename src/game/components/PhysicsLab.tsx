@@ -42,7 +42,7 @@ const SCENARIOS: readonly LabScenario[] = [
   { id: 'kick', label: 'DIRECTIONAL KICK', steps: [...hold('KeyS', 0, 1_250), ...tap('KeyK', 0, 420)], duration: 1_700 },
   { id: 'miss', label: 'MISSED KICK', steps: [...hold('KeyS', 0, 650), ...tap('KeyK', 430)], duration: 1_600 },
   { id: 'lock', label: 'GRAPPLE ACQUIRE', steps: tap('KeyL'), duration: 2_200 },
-  { id: 'slam', label: 'BODY SLAM', steps: [...tap('KeyL'), ...tap('KeyK', 260)], duration: 3_600 },
+  { id: 'slam', label: 'BODY SLAM', steps: tap('KeyL'), duration: 3_600 },
   { id: 'failedLift', label: 'FATIGUED HEAVY LIFT', steps: [...tap('KeyL'), ...hold('KeyW', 180, 240), ...tap('KeyL', 230)], duration: 3_400, stressGripAt: 1_180 },
   { id: 'gripBreak', label: 'PHYSICAL GRIP BREAK', steps: tap('KeyL'), duration: 3_100, stressGripAt: 1_180 },
   { id: 'suplex', label: 'ARC SUPLEX', steps: [...tap('KeyL'), ...tap('KeyL', 260)], duration: 3_100 },
@@ -103,7 +103,7 @@ export function PhysicsLab() {
     // headless GPU because key-up could arrive after only a handful of ticks.
     const startedAt = useMatchStore.getState().model.elapsed;
     const dispatched = new Set<number>(); let blockedJabQueued = false; let gripStressComplete = scenario.stressGripAt === undefined; let labKnockoutResolved = false;
-    let reboundPressAt: number | null = null; let reboundReleased = false;
+    let reboundPressAt: number | null = null; let reboundReleased = false; let slamPressAt: number | null = null; let slamReleased = false;
     const scheduler = window.setInterval(() => {
       const current = useMatchStore.getState().model; const elapsedMs = (current.elapsed - startedAt) * 1_000;
       scenario.steps.forEach((step, index) => {
@@ -132,10 +132,16 @@ export function PhysicsLab() {
       } else if (reboundPressAt !== null && !reboundReleased && elapsedMs >= reboundPressAt + 180) {
         reboundReleased = true; dispatchKey('KeyK', false);
       }
+      if (scenario.id === 'slam' && slamPressAt === null && current.grapple?.gripCount === 2) {
+        slamPressAt = elapsedMs; dispatchKey('KeyK', true);
+      } else if (slamPressAt !== null && !slamReleased && elapsedMs >= slamPressAt + 180) {
+        slamReleased = true; dispatchKey('KeyK', false);
+      }
       if (elapsedMs < scenario.duration) return;
       window.clearInterval(scheduler);
       for (const step of scenario.steps) if (step.down) dispatchKey(step.code, false);
       if (reboundPressAt !== null && !reboundReleased) dispatchKey('KeyK', false);
+      if (slamPressAt !== null && !slamReleased) dispatchKey('KeyK', false);
       setActive(null);
     }, 8);
     timers.current.push(scheduler);
