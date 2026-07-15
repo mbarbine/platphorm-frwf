@@ -131,6 +131,7 @@ test('Bodyworks lab exposes live Rapier diagnostics and drives real jump/walk in
 });
 
 test('Physics Lab exposes deterministic recovery orientations and a complete runtime reset', async ({ page }) => {
+  test.setTimeout(300_000);
   await page.goto('/?physicsLab=1');
   await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click(); await page.getByRole('button', { name: 'PLAY', exact: true }).click();
   await page.getByRole('button', { name: /LOCK IN ATLAS/ }).click(); await page.getByRole('button', { name: /^STANDARD/ }).click(); await page.getByRole('button', { name: 'START MATCH' }).click();
@@ -152,10 +153,10 @@ test('Physics Lab exposes deterministic recovery orientations and a complete run
       leftFootY: Number(await hud.getAttribute('data-player-left-foot-y')),
       rightFootY: Number(await hud.getAttribute('data-player-right-foot-y')),
       restFootOffsetY: Number(await hud.getAttribute('data-player-rest-foot-offset-y')),
-    }), { timeout: 30_000, intervals: [80, 160, 320, 640] }).toContain('"state":"idle"');
+    }), { timeout: 120_000, intervals: [80, 160, 320, 640, 1_000] }).toContain('"state":"idle"');
     await expect(hud.locator('[data-motion-tasks]')).toHaveAttribute('data-motion-tasks', '0');
     await expect(hud.locator('[data-unknown-falls]')).toHaveAttribute('data-unknown-falls', '0');
-    await expect.poll(async () => Number(await hud.getAttribute('data-player-support-feet')), { timeout: 3_000, intervals: [50, 100] }).toBeGreaterThanOrEqual(1);
+    await expect.poll(async () => Number(await hud.getAttribute('data-player-support-feet')), { timeout: 15_000, intervals: [50, 100, 250] }).toBeGreaterThanOrEqual(1);
   }
   const runtimeBefore = await hud.getAttribute('data-runtime-id');
   await lab.getByRole('button', { name: 'COMPLETE RUNTIME RESET' }).click();

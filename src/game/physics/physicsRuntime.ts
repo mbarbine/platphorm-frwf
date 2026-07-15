@@ -5,7 +5,7 @@ import { AI_FIGHTER_SLOTS, FALL_REASONS, FIGHTER_SLOTS } from '../types/game';
 import type { BodyRegion, FighterRuntime, FighterSlot, GameCommand, MatchModel, PropRuntime, RecoveryOrientation, Vec2 } from '../types/game';
 import { clamp } from '../utils/math';
 import type { BodySegmentId } from './bodySchema';
-import { computeMotorTorque } from './motorController';
+import { computeMotorTorque, shortestQuaternionError } from './motorController';
 import { PhysicsReplayBuffer } from './replayBuffer';
 import { getMove } from '../data/moves';
 import { fighterById } from '../data/fighters';
@@ -978,7 +978,11 @@ export class BodyWorksRuntime {
       const bodyPosition = body.translation(); const bodyVelocity = body.linvel();
       const target = {
         x: pelvisPosition.x + offset.x * cosine + offset.z * sine,
-        y: pelvisPosition.y + offset.y,
+        // Recovery targets the legal standing frame, not the wrestler's
+        // current fallen pelvis. The latter put the intended boot position
+        // below the canvas and made the joint solver fold a knee over the
+        // torso instead of building a stance.
+        y: targetPelvisY + offset.y,
         z: pelvisPosition.z - offset.x * sine + offset.z * cosine,
       };
       const isFoot = segment.includes('Foot');
@@ -995,6 +999,26 @@ export class BodyWorksRuntime {
       const force = { x: acceleration.x * body.mass(), y: acceleration.y * body.mass(), z: acceleration.z * body.mass() };
       body.addForce(force, true);
       pelvis.addForce({ x: -force.x, y: -force.y, z: -force.z }, true);
+      if (progress > .62) {
+        // The torque motors own pose, while this bounded velocity-level motor
+        // helps a folded load-bearing chain escape a static solver basin. It
+        // never writes a position: Rapier still resolves every intermediate
+        // joint and mat contact before either foot can become support.
+        const desiredX = clamp((target.x - bodyPosition.x) * 5.2, -3.2, 3.2);
+        const desiredY = clamp((targetPelvisY + offset.y - bodyPosition.y) * 6.4, -4.2, 3.6);
+        const desiredZ = clamp((target.z - bodyPosition.z) * 5.2, -3.2, 3.2);
+        const response = .1 + fighter.body.muscle * .08;
+        body.setLinvel({
+          x: bodyVelocity.x + (desiredX - bodyVelocity.x) * response,
+          y: bodyVelocity.y + (desiredY - bodyVelocity.y) * response,
+          z: bodyVelocity.z + (desiredZ - bodyVelocity.z) * response,
+        }, true);
+      }
+    }
+    if (externalSupport && progress > .62) {
+      const desiredPelvisY = clamp((targetPelvisY - pelvisPosition.y) * 4.8, -2.6, 3.2);
+      const response = .08 + fighter.body.muscle * .06;
+      pelvis.setLinvel({ x: pelvisVelocity.x * .94, y: pelvisVelocity.y + (desiredPelvisY - pelvisVelocity.y) * response, z: pelvisVelocity.z * .94 }, true);
     }
     if (externalSupport && rig.supportContacts.size === 0) {
       // A hand, knee, or torso contact can provide the first bounded ground
@@ -1530,6 +1554,22 @@ export class BodyWorksRuntime {
         : 6.5;
       const massTorqueCap = body.mass() * torquePerKg;
       const maximumTorque = Math.min(chain.maximumTorque * stiffnessScale, massTorqueCap);
+      if (fighter.state === 'recovering') {
+        // A get-up needs a reliable velocity-level active-ragdoll motor. The
+        // ordinary torque servo is intentionally soft for impact reactions;
+        // at that strength a folded knee can remain in a stable solver basin
+        // forever. This bounded angular target still moves through Rapier and
+        // respects contacts/joints—it does not write a rotation or teleport a
+        // body—but it gives the recovery chain enough authority to escape.
+        const error = shortestQuaternionError(body.rotation(), targets[segment]);
+        const current = body.angvel(); const maximumSpeed = segment === 'pelvis' ? 2.8 : segment.includes('Leg') || segment.includes('Shin') || segment.includes('Foot') ? 4.2 : 3.4;
+        const response = .14 + fighter.body.muscle * .08;
+        body.setAngvel({
+          x: current.x + (clamp(error.x * 5.2, -maximumSpeed, maximumSpeed) - current.x) * response,
+          y: current.y + (clamp(error.y * 5.2, -maximumSpeed, maximumSpeed) - current.y) * response,
+          z: current.z + (clamp(error.z * 5.2, -maximumSpeed, maximumSpeed) - current.z) * response,
+        }, true);
+      }
       const torque = computeMotorTorque(body.rotation(), targets[segment], body.angvel(), { x: 0, y: 0, z: 0 }, {
         stiffness: chain.stiffness * stiffnessScale,
         damping: chain.damping * stiffnessScale,

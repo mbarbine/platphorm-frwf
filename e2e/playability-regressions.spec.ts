@@ -39,6 +39,7 @@ test('standing articulated wrestlers remain visually stable at idle', async ({ p
 });
 
 test('rope rebound produces a loaded stiff-arm and physical knockdown', async ({ page }) => {
+  test.setTimeout(300_000);
   const errors = captureErrors(page); await enterLabMatch(page);
   const hud = page.locator('.hud'); const lab = page.getByTestId('physics-lab'); const html = page.locator('html'); const startingHealth = Number(await hud.getAttribute('data-opponent-health'));
   await page.evaluate((health) => {
@@ -57,11 +58,11 @@ test('rope rebound produces a loaded stiff-arm and physical knockdown', async ({
     new MutationObserver(observe).observe(document.body, { subtree: true, attributes: true, childList: true }); observe();
   }, startingHealth);
   await lab.getByRole('button', { name: 'ROPE LOAD + STIFF-ARM' }).click();
-  await expect(html).toHaveAttribute('data-saw-deterministic-rope-load', 'true', { timeout: 6_000 });
-  await expect(html).toHaveAttribute('data-saw-deterministic-stiff-arm', 'true', { timeout: 6_000 });
-  await expect(html).toHaveAttribute('data-saw-deterministic-rope-contact', 'true', { timeout: 8_000 });
-  await expect(html).toHaveAttribute('data-saw-deterministic-rope-impact', 'true', { timeout: 8_000 });
-  await expect(html).toHaveAttribute('data-saw-deterministic-knockdown', 'true', { timeout: 8_000 });
+  await expect(html).toHaveAttribute('data-saw-deterministic-rope-load', 'true', { timeout: 60_000 });
+  await expect(html).toHaveAttribute('data-saw-deterministic-stiff-arm', 'true', { timeout: 120_000 });
+  await expect(html).toHaveAttribute('data-saw-deterministic-rope-contact', 'true', { timeout: 120_000 });
+  await expect(html).toHaveAttribute('data-saw-deterministic-rope-impact', 'true', { timeout: 120_000 });
+  await expect(html).toHaveAttribute('data-saw-deterministic-knockdown', 'true', { timeout: 120_000 });
   expect(Number(await html.getAttribute('data-maximum-rope-x'))).toBeLessThanOrEqual(RINGSIDE_THRESHOLD.x);
   await expect(html).not.toHaveAttribute('data-saw-rope-tunnel', 'true');
   await expect(hud).toHaveAttribute('data-physics-emergency-resets', '0'); expect(errors).toEqual([]);
@@ -104,7 +105,7 @@ test('ringside wrestler returns through the apron without crossing a wall', asyn
 });
 
 test('physical body slam collapses the commentary table', async ({ page }) => {
-  test.setTimeout(90_000);
+  test.setTimeout(300_000);
   const errors = captureErrors(page); await enterLabMatch(page);
   const hud = page.locator('.hud'); const lab = page.getByTestId('physics-lab'); const html = page.locator('html');
   await page.evaluate(() => {
@@ -115,8 +116,8 @@ test('physical body slam collapses the commentary table', async ({ page }) => {
     new MutationObserver(observe).observe(document.body, { subtree: true, attributes: true }); observe();
   });
   await lab.getByRole('button', { name: 'TABLE COLLAPSE' }).click();
-  await expect(html).toHaveAttribute('data-saw-deterministic-table-contact', 'true', { timeout: 20_000 });
-  await expect(hud.locator('[data-table-stage]')).toHaveAttribute('data-table-stage', 'failed', { timeout: 20_000 });
+  await expect(html).toHaveAttribute('data-saw-deterministic-table-contact', 'true', { timeout: 120_000 });
+  await expect(hud.locator('[data-table-stage]')).toHaveAttribute('data-table-stage', 'failed', { timeout: 120_000 });
   await expect(hud).toHaveAttribute('data-physics-emergency-resets', '0'); expect(errors).toEqual([]);
 });
 

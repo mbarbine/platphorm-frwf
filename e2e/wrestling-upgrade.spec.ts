@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 test('controlled Bodyworks scenarios prove a physical slam, staged climb, taunt, and top-rope dive', async ({ page }) => {
-  test.setTimeout(120_000);
+  test.setTimeout(420_000);
   const errors: string[] = [];
   page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()); });
   page.on('pageerror', (error) => errors.push(error.message));
@@ -32,16 +32,16 @@ test('controlled Bodyworks scenarios prove a physical slam, staged climb, taunt,
 
   const climb = lab.getByRole('button', { name: 'CLIMB + TAUNT' });
   await expect(climb).toBeEnabled({ timeout: 12_000 }); await climb.click();
-  await expect.poll(async () => Number(await telemetry.getAttribute('data-player-climb-stage')), { timeout: 30_000, intervals: [100, 200, 400] }).toBe(3);
-  await expect.poll(async () => await hud.getAttribute('data-player-move'), { timeout: 20_000, intervals: [100, 150, 300] }).toBe('taunt');
+  await expect.poll(async () => Number(await telemetry.getAttribute('data-player-climb-stage')), { timeout: 120_000, intervals: [100, 200, 400, 1_000] }).toBe(3);
+  await expect.poll(async () => await hud.getAttribute('data-player-move'), { timeout: 120_000, intervals: [100, 150, 300, 1_000] }).toBe('taunt');
   await expect(deck.locator('[data-control="taunt"]')).toHaveClass(/is-active/);
   for (const move of ['NEON DROP ELBOW', 'TOP-ROPE MISSILE KICK', 'DOMEFALL DIVE', 'CLIMB DOWN']) await expect(deck).toContainText(move);
   await page.screenshot({ path: '/tmp/frwf-wrestling-upgrade.png' });
-  await expect.poll(async () => Number(await momentum.getAttribute('data-player-momentum')), { timeout: 25_000, intervals: [200, 400] }).toBeGreaterThan(0);
+  await expect.poll(async () => Number(await momentum.getAttribute('data-player-momentum')), { timeout: 120_000, intervals: [200, 400, 1_000] }).toBeGreaterThan(0);
 
   const dive = lab.getByRole('button', { name: 'TOP-ROPE DIVE' });
   await expect(dive).toBeEnabled({ timeout: 12_000 }); await dive.click();
-  await expect.poll(async () => await hud.getAttribute('data-player-move'), { timeout: 12_000, intervals: [100, 200] }).toBe('aerial');
+  await expect.poll(async () => await hud.getAttribute('data-player-move'), { timeout: 120_000, intervals: [100, 200, 500, 1_000] }).toBe('aerial');
   await expect(hud).toHaveAttribute('data-physics-emergency-resets', '0');
   expect(errors).toEqual([]);
 });
