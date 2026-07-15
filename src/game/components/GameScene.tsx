@@ -33,10 +33,10 @@ import { FALL_REASONS, FIGHTER_SLOTS } from '../types/game';
 import { resolvedSpectatorTarget, useSpectatorStore } from '../state/spectatorStore';
 import { BODY_SEGMENT_COUNT } from '../physics/bodySchema';
 import { fallCount } from '../systems/falls';
+import { ReplayDirector } from './ReplayFighter';
 
 interface Props { onPause: () => void; onDevice: (device: ControlDevice) => void; onFinished: () => void; inputEnabled?: boolean }
 
-const ReplayDirector = lazy(async () => ({ default: (await import('./ReplayFighter')).ReplayDirector }));
 const BodyWorksDebugOverlay = lazy(async () => ({ default: (await import('./BodyWorksDebugOverlay')).BodyWorksDebugOverlay }));
 
 bodyWorksRuntime.setJointData(JointData);
@@ -219,7 +219,8 @@ export function GameScene(props: Props) {
       renderer.current = gl; gl.xr.enabled = true;
       if (navigator.xr) void navigator.xr.isSessionSupported('immersive-vr').then(setXrAvailable).catch(() => setXrAvailable(false));
     }}>
-      <Suspense fallback={null}><Physics gravity={[0, -18, 0]} timeStep={(lab ? labRate : 1) / 60} paused={paused || replayActive} debug={lab && labDebug} interpolate numSolverIterations={8} numInternalPgsIterations={2} maxCcdSubsteps={2}><Arena crowdCount={quality.crowdCount} /><Fighters detail={fighterDetail} showPhysical={lab && labDebug} />{lab && labDebug && <BodyWorksDebugOverlay />}<PlayerControlBeacon /><ImpactEffects /><Simulation {...props} inputEnabled={!paused && !replayActive && !diagnosticModel.resolved && !['defeated', 'victorious'].includes(diagnosticModel.player.state)} /></Physics><ReplayDirector /><CameraRig /><SpectatorFreeCamera /><RuntimeDiagnosticsSampler /><AdaptiveDpr pixelated />{quality.bakeShadows && <BakeShadows />}</Suspense>
+      <Physics gravity={[0, -18, 0]} timeStep={(lab ? labRate : 1) / 60} paused={paused || replayActive} debug={lab && labDebug} interpolate numSolverIterations={8} numInternalPgsIterations={2} maxCcdSubsteps={2}><Arena crowdCount={quality.crowdCount} /><Fighters detail={fighterDetail} showPhysical={lab && labDebug} /><ReplayDirector /><PlayerControlBeacon /><ImpactEffects /><Simulation {...props} inputEnabled={!paused && !replayActive && !diagnosticModel.resolved && !['defeated', 'victorious'].includes(diagnosticModel.player.state)} /></Physics>
+      {lab && labDebug ? <Suspense fallback={null}><BodyWorksDebugOverlay /></Suspense> : null}<CameraRig /><SpectatorFreeCamera /><RuntimeDiagnosticsSampler /><AdaptiveDpr pixelated />{quality.bakeShadows && <BakeShadows />}
     </Canvas>
     {xrAvailable && <button type="button" className="xr-entry" data-testid="xr-entry" onClick={() => void (xrPresenting ? exitXR() : enterXR())}>{xrPresenting ? 'EXIT ARENA XR' : 'ENTER ARENA XR'}<small>QUEST · STEAM FRAME · OPENXR</small></button>}
     {xrError && <div className="xr-error" role="status">XR UNAVAILABLE · {xrError}</div>}
