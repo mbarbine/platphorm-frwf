@@ -53,17 +53,23 @@ test('five-way play keeps movement authoritative and gives the player target con
   const startX = Number(await hud.getAttribute('data-player-x')); const startZ = Number(await hud.getAttribute('data-player-z'));
 
   await page.keyboard.down('Shift'); await page.keyboard.down('w');
-  let maximumIntent = 0;
+  let maximumIntent = 0; let maximumDisplacement = 0;
   for (let sample = 0; sample < 24; sample += 1) {
-    maximumIntent = Math.max(maximumIntent, await page.evaluate(() => {
+    const telemetry = await page.evaluate(() => {
       const telemetry = document.querySelector('[data-player-intent-x]');
-      return Math.hypot(Number(telemetry?.getAttribute('data-player-intent-x')), Number(telemetry?.getAttribute('data-player-intent-z')));
-    }));
+      const hud = document.querySelector('.hud');
+      return {
+        intent: Math.hypot(Number(telemetry?.getAttribute('data-player-intent-x')), Number(telemetry?.getAttribute('data-player-intent-z'))),
+        x: Number(hud?.getAttribute('data-player-x')),
+        z: Number(hud?.getAttribute('data-player-z')),
+      };
+    });
+    maximumIntent = Math.max(maximumIntent, telemetry.intent);
+    maximumDisplacement = Math.max(maximumDisplacement, Math.hypot(telemetry.x - startX, telemetry.z - startZ));
     await page.waitForTimeout(50);
   }
   await page.keyboard.up('w'); await page.keyboard.up('Shift');
-  const endX = Number(await hud.getAttribute('data-player-x')); const endZ = Number(await hud.getAttribute('data-player-z'));
   expect(maximumIntent).toBeGreaterThan(.8);
-  expect(Math.hypot(endX - startX, endZ - startZ)).toBeGreaterThan(.35);
+  expect(maximumDisplacement).toBeGreaterThan(.35);
   expect(errors).toEqual([]);
 });

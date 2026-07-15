@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { chooseAiDecision, isActionLegal } from '../game/ai/utilityAI';
-import { cinematicProgress, getPairedPose, getStrikePose, getStrikeReactionPose, getTauntPose } from '../game/animation/choreography';
+import { cinematicProgress, getPairedPose, getStrikePose, getStrikeReactionPose, getTauntPose, strikePresentationProgress } from '../game/animation/choreography';
 import { FIGHTERS, fighterById } from '../game/data/fighters';
 import { getMove } from '../game/data/moves';
 import { activeFighterSlots, advanceMatch, applyMoveHit, applyPhysicalContact, createMatch, getAttackPhase, requestCommand, resetTransientState, resolveMatch, selectDirectionalGrapple, selectDirectionalStrike, startMove } from '../game/systems/combat';
@@ -252,6 +252,18 @@ describe('deterministic combat rules', () => {
     expect(windup).not.toBeNull(); expect(contact).not.toBeNull();
     expect(contact?.rightArm[0]).toBeLessThan(windup?.rightArm[0] ?? 0);
     expect(contact?.rightForearm).not.toEqual(windup?.rightForearm);
+  });
+
+  it('holds a strike contact silhouette without slowing combat authority', () => {
+    const jab = getMove('jab');
+    const earlyContact = strikePresentationProgress(jab, 'active', jab.anticipationDuration + jab.activeDuration * .55);
+    const lateContact = strikePresentationProgress(jab, 'active', jab.anticipationDuration + jab.activeDuration * .95);
+    const earlyRecovery = strikePresentationProgress(jab, 'recovery', jab.anticipationDuration + jab.activeDuration + jab.recoveryDuration * .2);
+    const lateRecovery = strikePresentationProgress(jab, 'recovery', jab.anticipationDuration + jab.activeDuration + jab.recoveryDuration * .8);
+    expect(earlyContact).toBeGreaterThanOrEqual(.72);
+    expect(lateContact - earlyContact).toBeLessThan(.04);
+    expect(earlyRecovery).toBe(.76);
+    expect(lateRecovery).toBeGreaterThan(earlyRecovery);
   });
 
   it('snaps the victim into distinct light and heavy contact reactions', () => {

@@ -51,9 +51,15 @@ export function CameraRig() {
     const activeSlots: FighterSlot[] = model.matchMode === 'battle_royale'
       ? FIGHTER_SLOTS.filter((slot) => model[slot].state !== 'defeated')
       : ['player', 'opponent'];
-    const playerTarget = model[model.targets.player];
-    const prediction = reduced ? .06 : activeSlots.some((slot) => model[slot].attackPhase === 'anticipation') ? .3 : .16;
-    const predicted = activeSlots.map((slot) => ({
+    const playerTargetSlot = model.targets.player; const playerTarget = model[playerTargetSlot];
+    // Battle Royale stays a five-body simulation, while the playable camera
+    // frames the human and selected target. Framing every AI made the player
+    // tiny and hid ordinary move silhouettes.
+    const framingSlots: FighterSlot[] = model.matchMode === 'battle_royale' && model.player.state !== 'defeated'
+      ? ['player', playerTargetSlot]
+      : activeSlots;
+    const prediction = reduced ? .06 : framingSlots.some((slot) => model[slot].attackPhase === 'anticipation') ? .3 : .16;
+    const predicted = framingSlots.map((slot) => ({
       slot,
       x: boundedPrediction(model[slot].position.x, model[slot].velocity.x, prediction),
       z: boundedPrediction(model[slot].position.z, model[slot].velocity.z, prediction),
@@ -62,18 +68,20 @@ export function CameraRig() {
     const minimumZ = Math.min(...predicted.map(({ z }) => z)); const maximumZ = Math.max(...predicted.map(({ z }) => z));
     const middleX = (minimumX + maximumX) / 2; const middleZ = (minimumZ + maximumZ) / 2;
     const separation = Math.hypot(maximumX - minimumX, maximumZ - minimumZ);
-    const playerMove = model.player.moveId ? getMove(model.player.moveId) : null; const opponentMove = playerTarget.moveId ? getMove(playerTarget.moveId) : null;
-    const securedGrapple = Boolean(model.grapple && model.grapple.gripCount >= 2 && !['reach', 'acquire', 'failed'].includes(model.grapple.phase));
+    const playerMove = model.player.moveId ? getMove(model.player.moveId) : null;
+    const targetEngagingPlayer = model.targets[playerTargetSlot] === 'player' || Boolean(model.grapple && [model.grapple.attacker, model.grapple.defender].includes('player') && [model.grapple.attacker, model.grapple.defender].includes(playerTargetSlot));
+    const opponentMove = targetEngagingPlayer && playerTarget.moveId ? getMove(playerTarget.moveId) : null;
+    const playerInGrapple = Boolean(model.grapple && (model.grapple.attacker === 'player' || model.grapple.defender === 'player'));
+    const securedGrapple = Boolean(playerInGrapple && model.grapple && model.grapple.gripCount >= 2 && !['reach', 'acquire', 'failed'].includes(model.grapple.phase));
     const table = model.props.find((prop) => prop.kind === 'table' && !prop.broken) ?? null;
     const directedShot = selectCameraShot({
       replayActive, middleX, middleZ, separation, playerState: model.player.state, opponentState: playerTarget.state,
       playerMoveCategory: playerMove?.category ?? null, opponentMoveCategory: opponentMove?.category ?? null, securedGrapple,
-      playerAttackPhase: model.player.attackPhase, opponentAttackPhase: playerTarget.attackPhase, grapplePhase: model.grapple?.phase ?? null,
+      playerAttackPhase: model.player.attackPhase, opponentAttackPhase: targetEngagingPlayer ? playerTarget.attackPhase : null, grapplePhase: playerInGrapple ? model.grapple?.phase ?? null : null,
       tablePosition: table?.position ?? null, lastImpactKind: model.lastImpact?.kind ?? null,
     });
-    const playerInGrapple = Boolean(model.grapple && (model.grapple.attacker === 'player' || model.grapple.defender === 'player'));
     const playerEngaged = replayActive || playerInGrapple || model.player.moveId !== null || ['grappling', 'grabbed', 'climbing', 'airborne', 'jumping', 'pinning', 'pinned'].includes(model.player.state);
-    const battleShot = model.matchMode === 'battle_royale' && !playerEngaged ? 'wide' : model.matchMode === 'battle_royale' && directedShot === 'broadcast' ? 'wide' : directedShot;
+    const battleShot = directedShot;
     const requestedShot = cameraCuts === 'off' && battleShot !== 'replay' ? model.matchMode === 'battle_royale' ? 'wide' : 'broadcast' : battleShot;
     const cutInterval = cameraCuts === 'reduced' ? 1.8 : .72;
     const urgent = (cameraCuts === 'full' && cameraShotIsUrgent(requestedShot)) || requestedShot === 'replay';
@@ -83,8 +91,10 @@ export function CameraRig() {
     }
 
     const grappleActorKey = model.grapple?.attacker ?? 'player'; const grappleActor = model[grappleActorKey];
+    const grappleDefender = model[model.grapple?.defender ?? model.targets[grappleActorKey]];
     const grappleMove = grappleActor.moveId ? getMove(grappleActor.moveId) : null; const grapplePhase = model.grapple?.phase ?? null; const grappleLift = model.grapple?.lift ?? 0;
     const maximumAir = Math.max(...activeSlots.map((slot) => model[slot].body.verticalOffset));
+    let focusX = middleX; let focusZ = middleZ;
     switch (shot.current) {
       case 'replay': {
         const angle = elapsed.current * .5; const radius = 9.2 + separation * .2;
@@ -95,7 +105,8 @@ export function CameraRig() {
         const forwardX = Math.sin(grappleActor.facing); const forwardZ = Math.cos(grappleActor.facing); const rightX = forwardZ; const rightZ = -forwardX;
         const distance = grappleMove?.category === 'finisher' ? 8.4 : 7.8;
         const height = grappleMove?.category === 'finisher' ? 5.2 : 4.5;
-        desired.set(middleX + rightX * distance * shotSide.current - forwardX * 2.8, height, middleZ + rightZ * distance * shotSide.current - forwardZ * 2.8);
+        focusX = (grappleActor.position.x + grappleDefender.position.x) * .5; focusZ = (grappleActor.position.z + grappleDefender.position.z) * .5;
+        desired.set(focusX + rightX * distance * shotSide.current - forwardX * 1.2, height, focusZ + rightZ * distance * shotSide.current - forwardZ * 1.2);
         break;
       }
       case 'slam': {
@@ -105,14 +116,20 @@ export function CameraRig() {
         const distance = isPiledriver ? 7.0 : 9.2;
         // Piledriver: camera near ground looking UP at the inversion — the most dramatic shot
         const baseHeight = isPiledriver ? 2.2 : 3.8;
-        desired.set(middleX + rightX * distance * shotSide.current - forwardX * (isPiledriver ? .6 : 1.15), baseHeight + peakLift, middleZ + rightZ * distance * shotSide.current - forwardZ * (isPiledriver ? .6 : 1.15));
+        focusX = (grappleActor.position.x + grappleDefender.position.x) * .5; focusZ = (grappleActor.position.z + grappleDefender.position.z) * .5;
+        desired.set(focusX + rightX * distance * shotSide.current - forwardX * (isPiledriver ? .3 : .65), baseHeight + peakLift, focusZ + rightZ * distance * shotSide.current - forwardZ * (isPiledriver ? .3 : .65));
         break;
       }
       case 'strike': {
-        const attackerSlot = activeSlots.find((slot) => model[slot].attackPhase === 'active') ?? 'player';
-        const attacker = model[attackerSlot];
+        const attackerSlot = model.player.moveId ? 'player' : targetEngagingPlayer && playerTarget.moveId ? playerTargetSlot : activeSlots.find((slot) => model[slot].attackPhase === 'active') ?? 'player';
+        const attacker = model[attackerSlot]; const strikeTarget = model[model.targets[attackerSlot]];
         const forwardX = Math.sin(attacker.facing); const forwardZ = Math.cos(attacker.facing); const rightX = forwardZ; const rightZ = -forwardX;
-        desired.set(middleX + rightX * 9.7 * shotSide.current - forwardX * 3.2, 5.35, middleZ + rightZ * 9.7 * shotSide.current - forwardZ * 3.2);
+        focusX = (attacker.position.x + strikeTarget.position.x) * .5; focusZ = (attacker.position.z + strikeTarget.position.z) * .5;
+        const strikeSeparation = Math.hypot(strikeTarget.position.x - attacker.position.x, strikeTarget.position.z - attacker.position.z);
+        const distance = Math.max(7.4, Math.min(9.1, 7.2 + strikeSeparation * .75));
+        // A clean side-on two-shot keeps the attacking limb and target visible.
+        // The old rear three-quarter angle let the attacker occlude contact.
+        desired.set(focusX + rightX * distance * shotSide.current - forwardX * .35, 4.65, focusZ + rightZ * distance * shotSide.current - forwardZ * .35);
         break;
       }
       case 'corner': {
@@ -171,7 +188,7 @@ export function CameraRig() {
 
     const positionDamping = reduced ? 2.8 : shot.current === 'replay' ? 3.1 : shot.current === 'wide' ? 3.4 : shot.current === 'aerial' || shot.current === 'corner' ? 4.2 : shot.current === 'grapple' || shot.current === 'slam' || shot.current === 'table' ? 4.8 : 4.6;
     camera.position.lerp(desired, 1 - Math.exp(-dt * positionDamping));
-    desiredTarget.set(middleX, (shot.current === 'grapple' ? 2.7 : shot.current === 'slam' ? 2.45 : shot.current === 'corner' ? 3.05 : shot.current === 'aerial' ? 2.7 : 2.2) + maximumAir * .34 + grappleLift * (shot.current === 'slam' ? .3 : .14), middleZ);
+    desiredTarget.set(focusX, (shot.current === 'grapple' ? 2.7 : shot.current === 'slam' ? 2.45 : shot.current === 'corner' ? 3.05 : shot.current === 'aerial' ? 2.7 : shot.current === 'strike' ? 2.75 : 2.2) + maximumAir * .34 + grappleLift * (shot.current === 'slam' ? .3 : .14), focusZ);
     smoothedTarget.lerp(desiredTarget, 1 - Math.exp(-dt * (reduced ? 4 : 7.2))); camera.lookAt(smoothedTarget);
     if ('fov' in camera) {
       const perspective = camera as PerspectiveCamera;

@@ -1405,7 +1405,7 @@ export class BodyWorksRuntime {
     this.inspectNumericalHealth();
     this.containRigsToArena(model);
     const slots = model.matchMode === 'battle_royale' ? FIGHTER_SLOTS : FIGHTER_SLOTS.slice(0, 2);
-    for (const key of slots) this.syncFighter(key, model[key]);
+    for (const key of slots) this.syncFighter(key, model[key], model.labMode);
     this.replayAccumulator += this.currentFixedDt;
     if (this.replayAccumulator >= 1 / 30) {
       this.replayAccumulator %= 1 / 30;
@@ -1681,7 +1681,7 @@ export class BodyWorksRuntime {
     return clamp(1 - Math.hypot(centerX - closestX, centerZ - closestZ) / .82, 0, 1);
   }
 
-  private syncFighter(key: FighterKey, fighter: FighterRuntime): void {
+  private syncFighter(key: FighterKey, fighter: FighterRuntime, preserveRecoveryOrientation: boolean): void {
     const rig = this.rigs.get(key); const pelvis = rig?.bodies.pelvis; if (!rig || !pelvis) return;
     const position = pelvis.translation(); const velocity = pelvis.linvel(); const rotation = pelvis.rotation();
     if (![position.x, position.y, position.z, velocity.x, velocity.y, velocity.z].every(Number.isFinite)) { this.metrics.emergencyResetCount += 1; return; }
@@ -1694,7 +1694,7 @@ export class BodyWorksRuntime {
     const groundedPelvisY = rig.restPelvisY - (isRingside(fighter.position) ? 1.46 : 0);
     fighter.body.verticalOffset = Math.max(0, position.y - groundedPelvisY);
     fighter.body.verticalVelocity = velocity.y;
-    if (fighter.state === 'downed' && Math.hypot(velocity.x, velocity.y, velocity.z) < 1.6) {
+    if (!preserveRecoveryOrientation && fighter.state === 'downed' && Math.hypot(velocity.x, velocity.y, velocity.z) < 1.6) {
       const chestRotation = rig.bodies.chest?.rotation() ?? rotation;
       const frontUp = 2 * (chestRotation.y * chestRotation.z - chestRotation.w * chestRotation.x);
       const rightUp = 2 * (chestRotation.x * chestRotation.y + chestRotation.w * chestRotation.z);

@@ -46,6 +46,29 @@ export const cinematicProgress = (move: MoveDefinition, phase: AttackPhase, elap
   return 1;
 };
 
+/**
+ * Holds the authored contact silhouette long enough to read at gameplay speed.
+ * Combat still uses the unmodified phase clock; this only remaps presentation.
+ */
+export const strikePresentationProgress = (move: MoveDefinition, phase: AttackPhase, elapsed: number): number => {
+  if (phase === 'anticipation') {
+    const progress = Math.max(0, Math.min(1, elapsed / Math.max(.001, move.anticipationDuration)));
+    return .6 * (1 - (1 - progress) ** 2);
+  }
+  if (phase === 'active') {
+    const progress = Math.max(0, Math.min(1, (elapsed - move.anticipationDuration) / Math.max(.001, move.activeDuration)));
+    if (progress < .42) return .6 + progress / .42 * .12;
+    return .72 + (progress - .42) / .58 * .04;
+  }
+  if (phase === 'recovery') {
+    const progress = Math.max(0, Math.min(1, (elapsed - move.anticipationDuration - move.activeDuration) / Math.max(.001, move.recoveryDuration)));
+    if (progress < .24) return .76;
+    const release = (progress - .24) / .76;
+    return .76 + (release * release * (3 - 2 * release)) * .24;
+  }
+  return 1;
+};
+
 const lockActor = pose({
   torso: [.2, 0, 0], leftArm: [-.92, 0, -.38], rightArm: [-.92, 0, .38],
   leftForearm: [-1.05, 0, -.32], rightForearm: [-1.05, 0, .32], rootTilt: .12,
@@ -361,7 +384,7 @@ const strikeFrames = (moveId: string): readonly PoseKeyframe[] => {
 
 export const getStrikePose = (move: MoveDefinition, phase: AttackPhase, elapsed: number): Pose | null => {
   const frames = strikeFrames(move.id);
-  return frames.length > 0 ? sample(frames, cinematicProgress(move, phase, elapsed)) : null;
+  return frames.length > 0 ? sample(frames, strikePresentationProgress(move, phase, elapsed)) : null;
 };
 
 const LIGHT_REACTION: readonly PoseKeyframe[] = [
@@ -384,5 +407,5 @@ export const getStrikeReactionPose = (move: MoveDefinition, phase: AttackPhase, 
   if (phase !== 'active' && phase !== 'recovery') return null;
   const frames = move.id === 'stiff_arm' || move.id === 'rebound' || move.category === 'aerial' ? STIFF_REACTION
     : move.category === 'heavy' || move.category === 'prop' || move.id === 'ground' ? HEAVY_REACTION : LIGHT_REACTION;
-  return sample(frames, cinematicProgress(move, phase, elapsed));
+  return sample(frames, strikePresentationProgress(move, phase, elapsed));
 };

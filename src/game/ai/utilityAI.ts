@@ -123,7 +123,8 @@ export const chooseAiDecision = (model: MatchModel, definition: FighterDefinitio
   const propTarget = model.ruleset === 'chaos' && !actor.heldPropId
     ? model.props.filter((prop) => !prop.broken && !prop.heldBy && prop.kind !== 'table').sort((a, b) => distance(actor.position, a.position) - distance(actor.position, b.position))[0]
     : undefined;
-  const pursuesProp = propTarget && model.elapsed > 4 && (actor.health < 98 || model.elapsed > 7 || personality.dirty > .55);
+  const pursuesProp = propTarget && (actorKey === 'opponent' && model.elapsed > .75
+    || model.elapsed > 4 && (actor.health < 98 || model.elapsed > 7 || personality.dirty > .55));
   if (propTarget && pursuesProp) {
     const propDistance = distance(actor.position, propTarget.position); const propDelta = { x: propTarget.position.x - actor.position.x, z: propTarget.position.z - actor.position.z }; const propMagnitude = Math.max(.001, Math.hypot(propDelta.x, propDelta.z));
     const towardProp = { x: propDelta.x / propMagnitude, z: propDelta.z / propMagnitude };

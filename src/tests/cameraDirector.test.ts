@@ -26,7 +26,8 @@ describe('camera director', () => {
     expect(selectCameraShot({ ...base, playerState: 'airborne' })).toBe('aerial');
   });
 
-  it('uses a concise contact shot only during a close active strike', () => {
+  it('uses a concise contact shot throughout a close strike', () => {
+    expect(selectCameraShot({ ...base, playerMoveCategory: 'heavy', playerAttackPhase: 'anticipation' })).toBe('strike');
     expect(selectCameraShot({ ...base, playerMoveCategory: 'heavy', playerAttackPhase: 'active' })).toBe('strike');
     expect(selectCameraShot({ ...base, separation: 4, playerMoveCategory: 'heavy', playerAttackPhase: 'active' })).toBe('broadcast');
   });
