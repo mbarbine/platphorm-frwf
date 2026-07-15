@@ -7,6 +7,7 @@ import { activeFighterSlots, advanceMatch, applyMoveHit, applyPhysicalContact, c
 import { canTransition } from '../game/systems/stateMachine';
 import type { FrameInput } from '../game/systems/combat';
 import { BodyWorksRuntime } from '../game/physics/physicsRuntime';
+import { createActionEvent } from '../game/input/actionLayer';
 
 const none: FrameInput = { move: { x: 0, z: 0 }, run: false, block: false, commands: [] };
 
@@ -157,6 +158,18 @@ describe('deterministic combat rules', () => {
     expect(accepted).toEqual(['grapple']); expect(runtime.pendingCommandCount()).toBe(1); expect(runtime.actionFeedback()).toMatchObject({ status: 'executed', event: { action: 'grapple' } });
     runtime.resolveCommands('player', .02, (command) => { accepted.push(command.command); return true; });
     expect(accepted).toEqual(['grapple', 'heavy']); expect(runtime.pendingCommandCount()).toBe(0); expect(runtime.metrics.actionExecuted).toBe(2); expect(runtime.metrics.actionMaximumWaitMs).toBe(20);
+  });
+
+  it('captures and executes a semantic action through the authoritative runtime buffer', () => {
+    const runtime = new BodyWorksRuntime(); const accepted: string[] = [];
+    const action = createActionEvent('quickStrike', { source: 'gamepad', timestamp: 50, sequence: 41, direction: { x: .25, z: -.5 } });
+    runtime.captureInput('player', { ...none, commands: [], actions: [action] }, .05);
+    expect(runtime.metrics.actionBuffered).toBe(1);
+    expect(runtime.actionFeedback()).toMatchObject({ status: 'buffered', event: { action: 'quickStrike', source: 'gamepad', sequence: 41 } });
+    runtime.resolveCommands('player', .06, (command) => { accepted.push(command.command); return true; });
+    expect(accepted).toEqual(['quick']);
+    expect(runtime.metrics.actionExecuted).toBe(1);
+    expect(runtime.actionFeedback()?.status).toBe('executed');
   });
 
   it('expires stale buffered commands instead of executing them later', () => {

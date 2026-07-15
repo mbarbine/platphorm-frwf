@@ -43,6 +43,7 @@ bodyWorksRuntime.setJointData(JointData);
 function Simulation({ onPause, onDevice, onFinished }: Props) {
   const pause = useCallback(onPause, [onPause]); const input = useGameInput(pause); const lastImpactId = useRef(0); const lastActionAudio = useRef(''); const finishNotified = useRef(false); const finishTimer = useRef<number | null>(null); const { camera, gl } = useThree();
   const inputBasis = useRef<CameraInputBasis | null>(null);
+  const storeActionCount = useRef(0);
   const listenerPosition = useRef(new Vector3()); const listenerForward = useRef(new Vector3()); const footstepTimer = useRef(0);
   useEffect(() => onDevice(input.device), [input.device, onDevice]);
   useEffect(() => { useMatchStore.getState().setPhysicsAuthority(true); return () => useMatchStore.getState().setPhysicsAuthority(false); }, []);
@@ -70,6 +71,11 @@ function Simulation({ onPause, onDevice, onFinished }: Props) {
       return;
     }
     const session = gl.xr.getSession(); const raw = input.read(session ? Array.from(session.inputSources) : []);
+    if (raw.actions?.length) {
+      storeActionCount.current += raw.actions.length;
+      document.documentElement.dataset.storeActionCount = String(storeActionCount.current);
+      document.documentElement.dataset.storeLastAction = raw.actions[raw.actions.length - 1]?.action ?? '';
+    }
     if (raw.targetCycle) useMatchStore.getState().cyclePlayerTarget(raw.targetCycle);
     const middleX = activeSlots.reduce((sum, slot) => sum + model[slot].position.x, 0) / Math.max(1, activeSlots.length);
     const middleZ = activeSlots.reduce((sum, slot) => sum + model[slot].position.z, 0) / Math.max(1, activeSlots.length);

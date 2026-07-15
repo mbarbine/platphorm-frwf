@@ -51,6 +51,7 @@ export const useGameInput = (onPause: () => void): InputController => {
   if (!heldActions.current) heldActions.current = new HeldActionTracker();
   const previousButtons = useRef<boolean[]>([]);
   const previousXRButtons = useRef(new Map<string, boolean>());
+  const actionReadCount = useRef(0);
   const [device, setDevice] = useState<ControlDevice>('keyboard');
 
   useEffect(() => {
@@ -96,7 +97,10 @@ export const useGameInput = (onPause: () => void): InputController => {
       run ||= gamepadRun; block ||= gamepadBlock;
       for (const [index, action] of GAMEPAD_BUTTON_ACTIONS) {
         const pressed = gamepad.buttons[index]?.pressed ?? false;
-        if (pressed && !previousButtons.current[index]) actions.push(createActionEvent(action, { source: 'gamepad', direction: { x, z } }));
+        if (pressed && !previousButtons.current[index]) {
+          actions.push(createActionEvent(action, { source: 'gamepad', direction: { x, z } }));
+          setDevice('gamepad');
+        }
         previousButtons.current[index] = pressed;
       }
       const targetPressed = gamepad.buttons[8]?.pressed ?? false;
@@ -140,6 +144,14 @@ export const useGameInput = (onPause: () => void): InputController => {
     }
     const magnitude = Math.hypot(x, z);
     if (magnitude > 1) { x /= magnitude; z /= magnitude; }
+    if (actions.length > 0) {
+      actionReadCount.current += actions.length;
+      const latest = actions[actions.length - 1];
+      document.documentElement.dataset.inputActionCount = String(actionReadCount.current);
+      document.documentElement.dataset.inputLastAction = latest?.action ?? '';
+      document.documentElement.dataset.inputLastActionSource = latest?.source ?? '';
+      document.documentElement.dataset.inputLastActionPhase = latest?.phase ?? '';
+    }
     return { move: { x, z }, run, block, actions, targetCycle };
   };
   return { read, device };
