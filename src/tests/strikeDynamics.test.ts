@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { computeStrikeForce, strikeDriveProfile, sweptPlanarPathHitsTarget } from '../game/physics/strikeDynamics';
-import { selectDirectionalStrike } from '../game/systems/combat';
+import { selectDirectionalStrike } from '../game/systems/moveSelection';
 
 describe('physical strike drive', () => {
   it('drives a jab hand toward its target without exceeding muscle acceleration', () => {

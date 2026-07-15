@@ -4,7 +4,7 @@ import { mobileInput } from '../game/input/mobileInput';
 import { useMatchStore } from '../game/state/matchStore';
 import type { GameAction } from '../game/input/actionLayer';
 import { getMove } from '../game/data/moves';
-import { selectDirectionalGrapple, selectDirectionalStrike } from '../game/systems/combat';
+import { selectDirectionalGrapple, selectDirectionalStrike } from '../game/systems/moveSelection';
 import { resolveContextAction, resolvePropAction } from '../game/systems/contextResolver';
 
 interface MobileControlsProps { onPause: () => void; paused: boolean }

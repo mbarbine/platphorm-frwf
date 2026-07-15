@@ -10,7 +10,7 @@ import { announcementTier } from './announcementTier';
 import { isRingside } from '../game/physics/ringDynamics';
 import { FIGHTER_SLOTS } from '../game/types/game';
 import { useSettings } from '../game/state/settings';
-import { combatDirection } from '../game/systems/combat';
+import { combatDirection } from '../game/systems/moveSelection';
 import type { GameAction } from '../game/input/actionLayer';
 import { resolveContextAction, resolvePropAction } from '../game/systems/contextResolver';
 import { fallCount } from '../game/systems/falls';
