@@ -49,7 +49,7 @@ export const useMultiplayerStore = create<MultiplayerState>((set) => {
         roomPhase: state.phase ?? '',
         fighters: state.fighters ? new Map(state.fighters) : new Map(),
         roles: state.roles ? new Map(state.roles) : new Map(),
-        myRole: (state.roles && colyseusClient.sessionId) ? (state.roles.get(colyseusClient.sessionId) as any) : null,
+        myRole: (state.roles && colyseusClient.sessionId) ? (state.roles.get(colyseusClient.sessionId) as 'player1' | 'player2' | 'spectator') : null,
       });
     },
   });
