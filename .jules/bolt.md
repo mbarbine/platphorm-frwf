@@ -16,3 +16,7 @@
 ## 2026-07-17 - [Optimized Visual Trail Width Scaling and Stabilized Multi-Agent Targeting]
 **Learning:** In Battle Royale mode, constant target flicking caused characters to rotate and execute physics commands erratically, creating huge frame drops and coordinate jitter. Applying target persistence and preventing retargeting mid-move stabilized the physics solver. Furthermore, scaling visual motion trails dynamically by referencing existing move properties avoids hot-path array allocations in Three.js and preserves zero GC churn.
 **Action:** Prevent AIs from target switching during mid-move active states, implement stable target buffers (1.35m) for active brawls, and scale motion trail widths directly within the layout solver instead of instantiating new geometries.
+
+## 2026-07-18 - [Stabilized Fighter Presentation Interpolation via Clamped Delta Time]
+**Learning:** Using raw, unclamped frame delta times (`delta` / `dt`) in React Three Fiber `useFrame` render loops for exponential decay calculations (`Math.exp(-delta * rate)`) can cause extreme visual spikes, teleportation, skipping, and jitter on sudden frame drops, tab suspensions, or garbage collection pauses.
+**Action:** Always pre-clamp frame delta times (`clampedDelta = Math.min(delta, 0.1)`) inside presentation-layer loops (such as the `useFrame` loop in `FighterModel.tsx`) before performing exponential decay or interpolation calculations, preserving perfect smoothness and interpolation stability under all framerate conditions.
