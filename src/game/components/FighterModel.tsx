@@ -663,7 +663,10 @@ export function FighterModel({ runtime, counterpart, fighterId, preview = false,
           vectors.direction.multiplyScalar(1 / distance);
           trail.position.copy(vectors.midpoint);
           trail.quaternion.setFromUnitVectors(vectors.up, vectors.direction);
-          trail.scale.set(1, Math.max(.08, distance), 1);
+          const thickness = runtime.moveId === 'uppercut' ? 2.45
+            : ['aerial', 'aerial_kick', 'aerial_elbow'].includes(runtime.moveId ?? '') ? 2.8
+            : 1.0;
+          trail.scale.set(thickness, Math.max(.08, distance), thickness);
           trail.visible = true;
           (trail.material as MeshBasicMaterial).opacity = Math.min(.72, .2 + distance * 2.4);
         }
