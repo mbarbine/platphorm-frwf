@@ -64,7 +64,7 @@ export const isActionLegal = (model: MatchModel, command: GameCommand, actorKey:
     return nearApron && ['idle', 'locomotion'].includes(actor.state);
   }
   if (command === 'grapple' && model.grapple) return false;
-  let move = MOVES.jab;
+  let move;
   if (command === 'quick') {
     move = target.state === 'downed' ? MOVES.ground : (MOVES[selectDirectionalStrike(delta, 'quick', actor.comboStep)] || MOVES.jab);
   } else if (command === 'heavy') {
