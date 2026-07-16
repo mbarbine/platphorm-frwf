@@ -1,7 +1,25 @@
+import { useEffect, useState } from 'react';
 import { useSettings } from '../game/state/settings';
 
 export function SettingsPanel({ onBack }: { onBack: () => void }) {
   const settings = useSettings();
+  const [confirmReset, setConfirmReset] = useState(false);
+
+  useEffect(() => {
+    if (!confirmReset) return;
+    const timer = setTimeout(() => setConfirmReset(false), 3000);
+    return () => clearTimeout(timer);
+  }, [confirmReset]);
+
+  const handleReset = () => {
+    if (confirmReset) {
+      settings.reset();
+      setConfirmReset(false);
+    } else {
+      setConfirmReset(true);
+    }
+  };
+
   const range = (label: string, value: number, key: 'masterVolume' | 'effectsVolume' | 'crowdVolume' | 'shake' | 'uiScale', min = 0, max = 1, step = .05) => <label className="setting-row">
     <span>{label}<b>{Math.round(value * 100)}%</b></span>
     <input type="range" min={min} max={max} step={step} value={value} onChange={(event) => settings.update({ [key]: Number(event.target.value) })} />
@@ -22,6 +40,15 @@ export function SettingsPanel({ onBack }: { onBack: () => void }) {
       <label className="toggle-row"><span><b>High contrast</b><small>Brighter prompts, meter labels, and focus outlines</small></span><input type="checkbox" checked={settings.highContrast} onChange={(event) => settings.update({ highContrast: event.target.checked })} /></label>
     </div>
     <div className="control-card"><b>CONTROL REFERENCE</b><span>WASD/D-pad move · Shift/RT sprint · C/L3 jump · J/X Circuit Jab · K/Y Piston Boot · L/B Collar Lock (Voltage Slam default, direction for depth) · I/LT guard (hold) · Space/A dodge or counter · E/LB resolver-named prop action · F/R3 resolver-named context action · Q/RB signature taunt · Esc pause</span></div>
-    <div className="button-row"><button className="button button--quiet" onClick={settings.reset}>RESET SAVED SETTINGS</button><button className="button" onClick={onBack}>DONE</button></div>
+    <div className="button-row">
+      <button
+        className={`button button--quiet ${confirmReset ? 'button--confirm-active' : ''}`}
+        onClick={handleReset}
+        aria-label={confirmReset ? 'Confirm reset of all settings to defaults' : 'Reset all saved settings to defaults'}
+      >
+        {confirmReset ? 'CONFIRM RESET?' : 'RESET SAVED SETTINGS'}
+      </button>
+      <button className="button" onClick={onBack}>DONE</button>
+    </div>
   </section>;
 }
