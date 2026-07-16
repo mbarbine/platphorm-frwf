@@ -765,9 +765,9 @@ export class BodyWorksRuntime {
       const transitionVelocity = pelvis.linvel(); const dx = anchor.target.x - position.x; const dz = anchor.target.z - position.z;
       const planarDistance = Math.hypot(dx, dz);
       this.applyRigAcceleration(rig, {
-        x: clamp(dx * 34 - transitionVelocity.x * 7.5, -48, 48),
-        y: clamp((targetY - position.y) * 31 - transitionVelocity.y * 7.2, -48, 54),
-        z: clamp(dz * 34 - transitionVelocity.z * 7.5, -48, 48),
+        x: clamp(dx * 65 - transitionVelocity.x * 7.5, -65, 65),
+        y: clamp((targetY - position.y) * 75 - transitionVelocity.y * 7.2, -75, 75),
+        z: clamp(dz * 65 - transitionVelocity.z * 7.5, -65, 65),
       });
       this.applyPoseDrive(rig, fighter, motorProfile, CENTER_ROPE_POSE);
       if ((planarDistance < .24 && Math.abs(targetY - position.y) < .4) || anchor.age > 3.2) rig.apronAnchor = null;
@@ -864,12 +864,13 @@ export class BodyWorksRuntime {
         body.applyImpulse({ x: body.mass() * deltaX, y: 0, z: body.mass() * deltaZ }, true);
       }
     }
-    if (inputLength > .08 || Math.hypot(fighter.position.x - opponent.position.x, fighter.position.z - opponent.position.z) < 4.8) {
+    if (inputLength > .08 || Math.hypot(fighter.position.x - opponent.position.x, fighter.position.z - opponent.position.z) < 4.8 || fighter.ropeRebound > 0) {
       const desiredFacing = fighter.facing;
       const rotation = pelvis.rotation();
       const currentFacing = Math.atan2(2 * (rotation.w * rotation.y + rotation.x * rotation.z), 1 - 2 * (rotation.y * rotation.y + rotation.x * rotation.x));
       const error = Math.atan2(Math.sin(desiredFacing - currentFacing), Math.cos(desiredFacing - currentFacing));
-      pelvis.applyTorqueImpulse({ x: 0, y: clamp(error * fighter.body.inertia * .022 - pelvis.angvel().y * .055, -1.1, 1.1), z: 0 }, true);
+      const torqueFactor = fighter.ropeRebound > 0 ? 2.0 : 1.0;
+      pelvis.applyTorqueImpulse({ x: 0, y: clamp((error * fighter.body.inertia * .022 - pelvis.angvel().y * .055) * torqueFactor, -1.1 * torqueFactor, 1.1 * torqueFactor), z: 0 }, true);
     }
     if (rig.jumpQueued) {
       const grounded = rig.supportContacts.size > 0 || pelvis.translation().y <= targetPelvisY + .16;
@@ -1150,7 +1151,7 @@ export class BodyWorksRuntime {
 
   private applyRopeController(rig: FighterRigRegistration, fighter: FighterRuntime, model: MatchModel): void {
     const pelvis = rig.bodies.pelvis;
-    const battleContained = model.matchMode === 'battle_royale' && !['defeated', 'victorious'].includes(fighter.state);
+    const battleContained = model.matchMode === 'battle_royale' && !model.labMode && !['defeated', 'victorious'].includes(fighter.state);
     const ignoresRopes = ['defeated', 'climbing'].includes(fighter.state) || (!battleContained && ['airborne', 'downed'].includes(fighter.state));
     if (!pelvis || ignoresRopes) { rig.ropeContact = null; return; }
     const position = pelvis.translation(); const velocity = pelvis.linvel();
@@ -1881,7 +1882,7 @@ export class BodyWorksRuntime {
     const slots = model.matchMode === 'battle_royale' ? FIGHTER_SLOTS : FIGHTER_SLOTS.slice(0, 2);
     for (const key of slots) {
       const rig = this.rigs.get(key); const pelvis = rig?.bodies.pelvis; if (!rig || !pelvis?.isValid()) continue;
-      const battleContained = model.matchMode === 'battle_royale' && !['defeated', 'victorious'].includes(model[key].state);
+      const battleContained = model.matchMode === 'battle_royale' && !model.labMode && !['defeated', 'victorious'].includes(model[key].state);
       const maximumX = battleContained ? RING_HARD_LIMIT.x - .08 : VOLT_DOME.playable.halfWidth - .34;
       const maximumZ = battleContained ? RING_HARD_LIMIT.z - .08 : VOLT_DOME.playable.halfDepth - .34;
       const pelvisPosition = pelvis.translation();
