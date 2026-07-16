@@ -13,3 +13,6 @@
 ## 2026-07-17 - [Optimized CameraRig Allocation in High-Frequency Frames]
 **Learning:** Instantiating objects (such as `safeSlotState` returned objects and camera context objects) and allocating temporary arrays (such as `activeSlots` and `framingSlots` via filter/map) inside high-frequency `useFrame` loops causes severe Garbage Collection (GC) pressure and micro-stutter.
 **Action:** Pre-allocate cache objects/arrays in `useRef` and perform in-place mutation/lookup during hot paths. Consolidate math operations like min/max boundaries into single-pass loops without temporary wrapper arrays.
+## 2026-07-17 - [Optimized Visual Trail Width Scaling and Stabilized Multi-Agent Targeting]
+**Learning:** In Battle Royale mode, constant target flicking caused characters to rotate and execute physics commands erratically, creating huge frame drops and coordinate jitter. Applying target persistence and preventing retargeting mid-move stabilized the physics solver. Furthermore, scaling visual motion trails dynamically by referencing existing move properties avoids hot-path array allocations in Three.js and preserves zero GC churn.
+**Action:** Prevent AIs from target switching during mid-move active states, implement stable target buffers (1.35m) for active brawls, and scale motion trail widths directly within the layout solver instead of instantiating new geometries.

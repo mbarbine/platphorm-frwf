@@ -17,10 +17,10 @@ export function ImpactEffects() {
     if (!impact) return;
     const color = impact.kind === 'counter' || impact.kind === 'blocked' ? '#58f5ff' : impact.kind === 'finisher' || impact.kind === 'ko' ? '#fff13b' : impact.kind === 'weapon' ? '#ff4a88' : impact.kind === 'grapple' || impact.kind === 'table' ? '#dcff46' : '#ff8b3d';
     const kind = ['grapple', 'finisher', 'table', 'nearfall', 'ko'].includes(impact.kind) ? 'mat' : 'body';
-    const tier = impact.kind === 'finisher' || impact.kind === 'ko' ? 'finisher' : impact.kind === 'grapple' || impact.kind === 'table' ? 'major' : impact.kind === 'heavy' || impact.kind === 'weapon' || impact.kind === 'counter' ? 'heavy' : 'light';
-    // BLOCKBUSTER: Boost particle count for strikes and slams (max cap increased to 64)
-    const baseCount = tier === 'light' ? 12 : tier === 'heavy' ? 24 : tier === 'major' ? 38 : 48;
-    const count = Math.min(64, Math.round(baseCount + impact.intensity * 10));
+    const isAerial = impact.moveId && ['aerial', 'aerial_kick', 'aerial_elbow'].includes(impact.moveId);
+    const tier = impact.kind === 'finisher' || impact.kind === 'ko' ? 'finisher' : impact.kind === 'grapple' || impact.kind === 'table' || isAerial ? 'major' : impact.kind === 'heavy' || impact.kind === 'weapon' || impact.kind === 'counter' ? 'heavy' : 'light';
+    const baseCount = tier === 'light' ? 6 : tier === 'heavy' ? 14 : tier === 'major' ? 24 : 32;
+    const count = Math.min(38, Math.round(baseCount + impact.intensity * 5.5));
     setBursts((current) => current.some((burst) => burst.id === impact.id) ? current : [...current.slice(-5), { id: impact.id, x: impact.position.x, z: impact.position.z, color, kind, tier, intensity: impact.intensity, lowFlash, count: lowFlash ? Math.max(4, Math.ceil(count * .58)) : count }]);
     // Contact flash sphere at the impact body region
     if (!lowFlash && ['light', 'heavy', 'counter', 'weapon'].includes(impact.kind)) {
