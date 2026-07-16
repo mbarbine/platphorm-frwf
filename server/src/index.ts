@@ -20,6 +20,22 @@ import { WrestlingRoom } from './rooms/WrestlingRoom';
 
 async function bootstrap(): Promise<void> {
   const app = express();
+
+  // ── Defensive Security Hardening ──────────────────────────────────────────
+  app.disable('x-powered-by'); // Avoid disclosing server technology stack
+
+  app.use((_req, res, next) => {
+    // Prevent MIME-sniffing vulnerability
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    // Prevent Clickjacking/frame-embedding attacks
+    res.setHeader('X-Frame-Options', 'DENY');
+    // Enable XSS protection header for older browsers
+    res.setHeader('X-XSS-Protection', '1; mode=block');
+    // Restrict Content Security Policy
+    res.setHeader('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'");
+    next();
+  });
+
   app.use(cors({ origin: SERVER_CONFIG.CORS_ORIGIN }));
   app.use(express.json({ limit: '64kb' }));
 

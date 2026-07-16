@@ -60,6 +60,11 @@ export class WrestlingRoom extends Room<MatchRoomStateSchema> {
     this.registerHandlers();
 
     this.onMessage('version', (client, msg: VersionMsg) => {
+      // Defensively check that payload is a valid object
+      if (!msg || typeof msg !== 'object' || typeof msg.clientVersion !== 'string') {
+        client.leave(4001); // Invalid message payload
+        return;
+      }
       if (msg.clientVersion !== PROTOCOL_VERSION) {
         client.send('versionRejected', { serverVersion: PROTOCOL_VERSION, minClientVersion: PROTOCOL_VERSION });
         client.leave(4000);
@@ -134,6 +139,8 @@ export class WrestlingRoom extends Room<MatchRoomStateSchema> {
     this.onMessage('pause', (client, msg: { paused: boolean }) => {
       // Pause is only respected in single-player practice mode
       if (this.singlePlayerMode()) {
+        // Defensively check that payload is a valid object with boolean property
+        if (!msg || typeof msg !== 'object' || typeof msg.paused !== 'boolean') return;
         this.state.phase = msg.paused ? 'lobby' : 'active'; // simple toggle, full impl TBD
       }
     });
@@ -143,6 +150,8 @@ export class WrestlingRoom extends Room<MatchRoomStateSchema> {
     if (this.state.phase !== 'lobby' && this.state.phase !== 'selection') return;
     const session = this.sessions.get(client.sessionId);
     if (!session || session.role === 'spectator') return;
+    // Defensively check that payload is a valid object
+    if (!msg || typeof msg !== 'object') return;
 
     session.fighterId = this.validatedFighterId(msg.fighterId);
     const fighter = this.state.fighters.get(client.sessionId);
@@ -166,6 +175,8 @@ export class WrestlingRoom extends Room<MatchRoomStateSchema> {
     if (this.state.phase !== 'active') return;
     const session = this.sessions.get(client.sessionId);
     if (!session || session.role === 'spectator') return;
+    // Defensively check that payload is a valid object with expected seq
+    if (!msg || typeof msg !== 'object' || typeof msg.seq !== 'number') return;
 
     // Reject duplicate or out-of-order commands
     if (msg.seq <= session.lastCommandSeq) return;
