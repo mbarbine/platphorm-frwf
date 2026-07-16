@@ -15,18 +15,40 @@ import { VOLT_DOME } from '../data/arena';
 
 function Crowd({ count }: { count: number }) {
   const bodies = useRef<InstancedMesh>(null); const heads = useRef<InstancedMesh>(null); const dummy = useMemo(() => new Object3D(), []); const elapsed = useRef(0);
+  // Precalculate static layout properties for the crowd instanced mesh
+  const crowdLayout = useMemo(() => {
+    const layout = [];
+    for (let index = 0; index < count; index += 1) {
+      const row = Math.floor(index / 42); const col = index % 42; const angle = (col / 42) * Math.PI * 2 + row * .055;
+      const radius = 13.9 + row * 1.28;
+      const baseY = 1.15 + row * .62;
+      const cosAngle = Math.cos(angle);
+      const sinAngle = Math.sin(angle);
+      layout.push({
+        baseY,
+        cosAngleRadius: cosAngle * radius,
+        sinAngleRadius: sinAngle * radius,
+        yaw: -angle + Math.PI / 2,
+        scaleX: .38 + (index % 4) * .025,
+        scaleY: .62 + (index % 3) * .1,
+        headScaleY: .82 + (index % 3) * .1,
+      });
+    }
+    return layout;
+  }, [count]);
+
   useFrame((_, dt) => {
     elapsed.current += dt;
     if (!bodies.current || !heads.current) return;
     const hype = useMatchStore.getState().model.hype;
     for (let index = 0; index < count; index += 1) {
-      const row = Math.floor(index / 42); const col = index % 42; const angle = (col / 42) * Math.PI * 2 + row * .055;
-      const radius = 13.9 + row * 1.28; const wave = Math.sin(elapsed.current * (2 + hype / 30) + index * .71); const bounce = wave * (.035 + hype / 680);
-      const baseY = 1.15 + row * .62;
-      dummy.position.set(Math.cos(angle) * radius, baseY + bounce, Math.sin(angle) * radius);
-      dummy.rotation.set(wave * .025, -angle + Math.PI / 2, wave * .035); dummy.scale.set(.38 + (index % 4) * .025, .62 + (index % 3) * .1, .29); dummy.updateMatrix(); bodies.current.setMatrixAt(index, dummy.matrix);
-      dummy.position.set(Math.cos(angle) * radius, baseY + .82 + (index % 3) * .1 + bounce, Math.sin(angle) * radius);
-      dummy.rotation.set(0, -angle + Math.PI / 2, wave * .03); dummy.scale.set(.22, .22, .21); dummy.updateMatrix(); heads.current.setMatrixAt(index, dummy.matrix);
+      const item = crowdLayout[index];
+      if (!item) continue;
+      const wave = Math.sin(elapsed.current * (2 + hype / 30) + index * .71); const bounce = wave * (.035 + hype / 680);
+      dummy.position.set(item.cosAngleRadius, item.baseY + bounce, item.sinAngleRadius);
+      dummy.rotation.set(wave * .025, item.yaw, wave * .035); dummy.scale.set(item.scaleX, item.scaleY, .29); dummy.updateMatrix(); bodies.current.setMatrixAt(index, dummy.matrix);
+      dummy.position.set(item.cosAngleRadius, item.baseY + item.headScaleY + bounce, item.sinAngleRadius);
+      dummy.rotation.set(0, item.yaw, wave * .03); dummy.scale.set(.22, .22, .21); dummy.updateMatrix(); heads.current.setMatrixAt(index, dummy.matrix);
     }
     bodies.current.instanceMatrix.needsUpdate = true; heads.current.instanceMatrix.needsUpdate = true;
   });
@@ -94,6 +116,20 @@ function Ropes() {
 function ReactiveMat() {
   const mat = useRef<InstancedMesh>(null); const dummy = useMemo(() => new Object3D(), []); const lastImpactId = useRef(0); const impactAge = useRef(10); const amplitude = useRef(0); const epicenter = useRef({ x: 0, z: 0 });
   const reducedMotion = useSettings((state) => state.reducedMotion); const lab = useMemo(() => new URLSearchParams(window.location.search).get('physicsLab') === '1', []); const columns = lab ? 6 : 12; const rows = lab ? 5 : 9; const count = columns * rows; const width = 11.3; const depth = 8.3; const tileWidth = width / columns; const tileDepth = depth / rows;
+
+  // Precalculate static layout grid coordinates (x and z offsets) for the ReactiveMat tiles
+  const matLayout = useMemo(() => {
+    const layout = [];
+    for (let row = 0; row < rows; row += 1) {
+      for (let column = 0; column < columns; column += 1) {
+        const x = -width / 2 + tileWidth * (column + .5);
+        const z = -depth / 2 + tileDepth * (row + .5);
+        layout.push({ x, z });
+      }
+    }
+    return layout;
+  }, [rows, columns, tileWidth, tileDepth]);
+
   useFrame((_, dt) => {
     const mesh = mat.current; if (!mesh) return;
     const impact = useMatchStore.getState().model.lastImpact;
@@ -104,8 +140,10 @@ function ReactiveMat() {
     }
     impactAge.current += dt;
     const decay = Math.exp(-impactAge.current * 4.8); const waveFront = impactAge.current * 8.5;
-    for (let row = 0; row < rows; row += 1) for (let column = 0; column < columns; column += 1) {
-      const index = row * columns + column; const x = -width / 2 + tileWidth * (column + .5); const z = -depth / 2 + tileDepth * (row + .5);
+    for (let index = 0; index < count; index += 1) {
+      const tile = matLayout[index];
+      if (!tile) continue;
+      const { x, z } = tile;
       const distance = Math.hypot(x - epicenter.current.x, z - epicenter.current.z);
       const contactDimple = -amplitude.current * Math.exp(-distance * distance * 1.15) * Math.exp(-impactAge.current * 8);
       const travellingWave = amplitude.current * .38 * Math.sin((waveFront - distance) * 2.1) * Math.exp(-Math.abs(waveFront - distance) * .48) * decay;
