@@ -336,11 +336,21 @@ export const applyMoveHit = (model: MatchModel, actorKey: FighterSlot, targetKey
     model.announcement = `${actorDefinition.signature}!`;
     model.announcementTimer = 2.1;
   }
+  if (move.category === 'aerial') {
+    model.slowMotion = Math.max(model.slowMotion, .45);
+    model.announcement = move.displayName.toUpperCase() + '!';
+    model.announcementTimer = 1.8;
+    model.hitStop = Math.max(model.hitStop, .15);
+  }
   if (move.category === 'grapple') {
     if (move.id === 'piledriver') {
       model.slowMotion = Math.max(model.slowMotion, .52);
       model.announcement = 'VOLTAGE PILEDRIVER!'; model.announcementTimer = 2.1;
       model.hitStop = Math.max(model.hitStop, .18);
+    } else if (move.id === 'slam') {
+      model.slowMotion = Math.max(model.slowMotion, .42);
+      model.announcement = 'VOLTAGE SLAM!'; model.announcementTimer = 1.6;
+      model.hitStop = Math.max(model.hitStop, .14);
     } else if (move.damage >= 18) {
       model.slowMotion = Math.max(model.slowMotion, .24);
       model.announcement = move.displayName.toUpperCase(); model.announcementTimer = 1.2;
@@ -927,14 +937,32 @@ const retargetFighters = (model: MatchModel): void => {
   const active = activeFighterSlots(model).filter((slot) => !['defeated', 'victorious'].includes(model[slot].state));
   for (const slot of active) {
     if (slot === 'player' && model.playerTargetLock > 0) continue;
+    // Prevent AIs from retargeting mid-move (when attacking, grappling, grabbed, pinning, or pinned)
+    if (slot !== 'player' && ['attacking', 'grappling', 'grabbed', 'pinning', 'pinned'].includes(model[slot].state)) continue;
+
     const candidates = active.filter((candidate) => candidate !== slot);
     if (candidates.length === 0) continue;
+
+    // Prioritize targeting opponents who are currently pinning someone, creating dramatic pin breaks!
+    if (slot !== 'player') {
+      const pinners = candidates.filter((candidate) => model[candidate].state === 'pinning');
+      if (pinners.length > 0) {
+        const nearestPinner = pinners.sort((a, b) => distance(model[slot].position, model[a].position) - distance(model[slot].position, model[b].position))[0];
+        if (nearestPinner) {
+          model.targets[slot] = nearestPinner;
+          continue;
+        }
+      }
+    }
+
     const nearest = candidates.sort((a, b) => distance(model[slot].position, model[a].position) - distance(model[slot].position, model[b].position))[0];
     if (!nearest) continue;
     const current = model.targets[slot]; const currentValid = candidates.includes(current);
     const currentDistance = currentValid ? distance(model[slot].position, model[current].position) : Number.POSITIVE_INFINITY;
     const nearestDistance = distance(model[slot].position, model[nearest].position);
-    if (!currentValid || nearestDistance + .72 < currentDistance) model.targets[slot] = nearest;
+    // Use target persistence buffer (1.35m) for AI to reduce target flicking, while player gets 0.72m
+    const buffer = slot === 'player' ? 0.72 : 1.35;
+    if (!currentValid || nearestDistance + buffer < currentDistance) model.targets[slot] = nearest;
   }
 };
 
