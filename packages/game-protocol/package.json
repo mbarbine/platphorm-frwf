@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "RINGFALL shared protocol types — browser, server, and tests all import from here",
   "private": true,
-  "type": "commonjs",
+  "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
