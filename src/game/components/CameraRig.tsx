@@ -3,12 +3,12 @@ import { useMemo, useRef } from 'react';
 import { Vector3 } from 'three';
 import type { PerspectiveCamera } from 'three';
 import { BATTLE_ROYALE_CAMERA_FRAME, cameraShotIsUrgent, selectCameraShot, usesSteadyBattleRoyaleCamera } from '../camera/cameraDirector';
-import type { CameraShot } from '../camera/cameraDirector';
+import type { CameraShot, CameraDirectorContext } from '../camera/cameraDirector';
 import { getMove } from '../data/moves';
 import { useMatchStore } from '../state/matchStore';
 import { useSettings } from '../state/settings';
 import { FIGHTER_SLOTS } from '../types/game';
-import type { FighterSlot } from '../types/game';
+import type { FighterSlot, FighterState, MatchModel } from '../types/game';
 import { bodyWorksRuntime } from '../physics/physicsRuntime';
 import { resolvedSpectatorTarget, useSpectatorStore } from '../state/spectatorStore';
 
@@ -31,6 +31,39 @@ const lookAtSafe = (camera: PerspectiveCamera | Pick<{ lookAt: (target: Vector3)
   }
 };
 
+interface CachedSlotState {
+  x: number;
+  z: number;
+  facing: number;
+  velocityX: number;
+  velocityZ: number;
+  climbStage: number;
+  state: FighterState;
+  moveId: string | null;
+  attackPhase: string | null;
+}
+
+const updateSlotState = (
+  cache: Record<FighterSlot, CachedSlotState>,
+  model: MatchModel,
+  slot: FighterSlot,
+  fallbackX = 0,
+  fallbackZ = 0
+): CachedSlotState => {
+  const actor = model[slot];
+  const cached = cache[slot];
+  cached.x = safeNumber(actor?.position?.x, fallbackX);
+  cached.z = safeNumber(actor?.position?.z, fallbackZ);
+  cached.facing = safeNumber(actor?.facing, 0);
+  cached.velocityX = safeNumber(actor?.velocity?.x, 0);
+  cached.velocityZ = safeNumber(actor?.velocity?.z, 0);
+  cached.climbStage = safeNumber(actor?.climbStage, 0);
+  cached.state = actor?.state ?? 'idle';
+  cached.moveId = actor?.moveId ?? null;
+  cached.attackPhase = actor?.attackPhase ?? null;
+  return cached;
+};
+
 export function CameraRig() {
   const { camera, gl } = useThree();
   const desired = useMemo(() => new Vector3(), []);
@@ -48,6 +81,35 @@ export function CameraRig() {
   const reduced = useSettings((state) => state.reducedMotion);
   const cameraCuts = useSettings((state) => state.cameraCuts);
 
+  // Pre-allocated states/caches to eliminate high-frequency GC allocations inside useFrame
+  const slotStateCache = useRef<Record<FighterSlot, CachedSlotState>>({
+    player: { x: 0, z: 0, facing: 0, velocityX: 0, velocityZ: 0, climbStage: 0, state: 'idle', moveId: null, attackPhase: null },
+    opponent: { x: 0, z: 0, facing: 0, velocityX: 0, velocityZ: 0, climbStage: 0, state: 'idle', moveId: null, attackPhase: null },
+    rival1: { x: 0, z: 0, facing: 0, velocityX: 0, velocityZ: 0, climbStage: 0, state: 'idle', moveId: null, attackPhase: null },
+    rival2: { x: 0, z: 0, facing: 0, velocityX: 0, velocityZ: 0, climbStage: 0, state: 'idle', moveId: null, attackPhase: null },
+    rival3: { x: 0, z: 0, facing: 0, velocityX: 0, velocityZ: 0, climbStage: 0, state: 'idle', moveId: null, attackPhase: null },
+  });
+
+  const activeSlotsRef = useRef<FighterSlot[]>(['player', 'opponent', 'rival1', 'rival2', 'rival3']);
+  const framingSlotsRef = useRef<FighterSlot[]>(['player', 'opponent', 'rival1', 'rival2', 'rival3']);
+
+  const cameraDirectorContextRef = useRef<CameraDirectorContext>({
+    replayActive: false,
+    middleX: 0,
+    middleZ: 0,
+    separation: 0,
+    playerState: 'idle',
+    opponentState: 'idle',
+    playerMoveCategory: null,
+    opponentMoveCategory: null,
+    playerAttackPhase: null,
+    opponentAttackPhase: null,
+    securedGrapple: false,
+    grapplePhase: null,
+    tablePosition: null,
+    lastImpactKind: null,
+  });
+
   useFrame((_, dt) => {
     if (gl.xr.isPresenting) return;
     elapsed.current += dt;
@@ -55,6 +117,10 @@ export function CameraRig() {
     const model = state.model;
     const replayActive = state.replayActive;
     const activeRuntimeId = model.runtimeId;
+
+    // Stable interpolation: clamp frame delta to guard against sudden framerate drops or lag spikes
+    const clampedDt = Math.min(dt, 0.1);
+
     if (activeRuntimeId !== lastRuntimeId.current) {
       lastRuntimeId.current = activeRuntimeId;
       bootstrapFrames.current = 0;
@@ -66,28 +132,14 @@ export function CameraRig() {
     sanitizeVector(camera.position, 0, 4.45, 0);
     const isBootstrapping = bootstrapFrames.current < 6;
 
-    const safeSlotState = (slot: FighterSlot, fallbackX = 0, fallbackZ = 0) => {
-      const actor = model[slot];
-      return {
-        x: safeNumber(actor?.position?.x, fallbackX),
-        z: safeNumber(actor?.position?.z, fallbackZ),
-        facing: safeNumber(actor?.facing, 0),
-        velocityX: safeNumber(actor?.velocity?.x, 0),
-        velocityZ: safeNumber(actor?.velocity?.z, 0),
-        climbStage: safeNumber(actor?.climbStage, 0),
-        state: actor?.state ?? 'idle',
-        moveId: actor?.moveId ?? null,
-        attackPhase: actor?.attackPhase ?? null,
-      };
-    };
-
     const spectating = model.matchMode === 'battle_royale' && model.player.state === 'defeated' && !model.resolved;
-    const playerBootstrap = safeSlotState('player', 0, 0);
-    const opponentBootstrap = safeSlotState('opponent', playerBootstrap.x + 2.75, playerBootstrap.z + 0.42);
+    const playerBootstrap = updateSlotState(slotStateCache.current, model, 'player', 0, 0);
+    const opponentBootstrap = updateSlotState(slotStateCache.current, model, 'opponent', playerBootstrap.x + 2.75, playerBootstrap.z + 0.42);
     const bootstrapLookX = (playerBootstrap.x + opponentBootstrap.x) / 2;
     const bootstrapLookZ = (playerBootstrap.z + opponentBootstrap.z) / 2;
     const bootstrapDistance = model.matchMode === 'battle_royale' ? 17.5 : 8.6;
     const bootstrapHeight = model.matchMode === 'battle_royale' ? 8.1 : 7.8;
+
     if (isBootstrapping && !spectating) {
       bootstrapFrames.current += 1;
       const bootstrapFrame = model.matchMode === 'battle_royale'
@@ -105,13 +157,13 @@ export function CameraRig() {
       );
       sanitizeVector(desired, 0, bootstrapHeight, 12.6);
       sanitizeVector(desiredTarget, bootstrapLookX, 2.25, bootstrapLookZ);
-      camera.position.lerp(desired, 1 - Math.exp(-dt * 12));
-      smoothedTarget.lerp(desiredTarget, 1 - Math.exp(-dt * 12));
+      camera.position.lerp(desired, 1 - Math.exp(-clampedDt * 12));
+      smoothedTarget.lerp(desiredTarget, 1 - Math.exp(-clampedDt * 12));
       lookAtSafe(camera as PerspectiveCamera, smoothedTarget);
       if ('fov' in camera) {
         const perspective = camera as PerspectiveCamera;
         const targetFov = bootstrapFrame ? bootstrapFrame.fov : 48;
-        perspective.fov += (targetFov - perspective.fov) * (1 - Math.exp(-dt * 10));
+        perspective.fov += (targetFov - perspective.fov) * (1 - Math.exp(-clampedDt * 10));
         perspective.updateProjectionMatrix();
         document.documentElement.dataset.cameraFov = perspective.fov.toFixed(2);
       }
@@ -125,30 +177,28 @@ export function CameraRig() {
       document.documentElement.dataset.cameraShot = `spectator-${spectator.cameraMode}`;
       if (spectator.cameraMode === 'free') return;
 
-      const targetState = safeSlotState(targetSlot, safeNumber(target?.position?.x, 0), safeNumber(target?.position?.z, 0));
+      const targetState = updateSlotState(slotStateCache.current, model, targetSlot, safeNumber(target?.position?.x, 0), safeNumber(target?.position?.z, 0));
       const resolvedHead = bodyWorksRuntime.segmentSnapshot(targetSlot, 'head')?.position;
-      const head = {
-        x: safeNumber(resolvedHead?.x, targetState.x),
-        y: safeNumber(resolvedHead?.y, 3.58),
-        z: safeNumber(resolvedHead?.z, targetState.z),
-      };
+      const headX = safeNumber(resolvedHead?.x, targetState.x);
+      const headY = safeNumber(resolvedHead?.y, 3.58);
+      const headZ = safeNumber(resolvedHead?.z, targetState.z);
 
       const forwardX = Math.sin(targetState.facing);
       const forwardZ = Math.cos(targetState.facing);
       if (spectator.cameraMode === 'first_person') {
-        desired.set(head.x + forwardX * 0.3, head.y + 0.02, head.z + forwardZ * 0.3);
-        desiredTarget.set(head.x + forwardX * 5, head.y - 0.12, head.z + forwardZ * 5);
+        desired.set(headX + forwardX * 0.3, headY + 0.02, headZ + forwardZ * 0.3);
+        desiredTarget.set(headX + forwardX * 5, headY - 0.12, headZ + forwardZ * 5);
       } else {
-        desired.set(head.x - forwardX * 5.2, head.y + 2.35, head.z - forwardZ * 5.2);
-        desiredTarget.set(head.x + forwardX * 0.55, head.y - 0.32, head.z + forwardZ * 0.55);
+        desired.set(headX - forwardX * 5.2, headY + 2.35, headZ - forwardZ * 5.2);
+        desiredTarget.set(headX + forwardX * 0.55, headY - 0.32, headZ + forwardZ * 0.55);
       }
-      camera.position.lerp(desired, 1 - Math.exp(-dt * (spectator.cameraMode === 'first_person' ? 12 : 5.8)));
-      smoothedTarget.lerp(desiredTarget, 1 - Math.exp(-dt * 8.5));
+      camera.position.lerp(desired, 1 - Math.exp(-clampedDt * (spectator.cameraMode === 'first_person' ? 12 : 5.8)));
+      smoothedTarget.lerp(desiredTarget, 1 - Math.exp(-clampedDt * 8.5));
       lookAtSafe(camera as PerspectiveCamera, smoothedTarget);
       if ('fov' in camera) {
         const perspective = camera as PerspectiveCamera;
         const targetFov = spectator.cameraMode === 'first_person' ? 64 : 52;
-        perspective.fov += (targetFov - perspective.fov) * (1 - Math.exp(-dt * 7));
+        perspective.fov += (targetFov - perspective.fov) * (1 - Math.exp(-clampedDt * 7));
         perspective.updateProjectionMatrix();
       }
       return;
@@ -160,53 +210,85 @@ export function CameraRig() {
       document.documentElement.dataset.cameraShot = shot.current;
       desired.set(frame.position.x, frame.position.y, frame.position.z);
       desiredTarget.set(frame.target.x, frame.target.y, frame.target.z);
-      camera.position.lerp(desired, 1 - Math.exp(-dt * 5.2));
-      smoothedTarget.lerp(desiredTarget, 1 - Math.exp(-dt * 6.4));
+      camera.position.lerp(desired, 1 - Math.exp(-clampedDt * 5.2));
+      smoothedTarget.lerp(desiredTarget, 1 - Math.exp(-clampedDt * 6.4));
       lookAtSafe(camera as PerspectiveCamera, smoothedTarget);
       if ('fov' in camera) {
         const perspective = camera as PerspectiveCamera;
-        perspective.fov += (frame.fov - perspective.fov) * (1 - Math.exp(-dt * 6.4));
+        perspective.fov += (frame.fov - perspective.fov) * (1 - Math.exp(-clampedDt * 6.4));
         perspective.updateProjectionMatrix();
         document.documentElement.dataset.cameraFov = perspective.fov.toFixed(2);
       }
       return;
     }
 
-    const activeSlots: FighterSlot[] = model.matchMode === 'battle_royale'
-      ? FIGHTER_SLOTS.filter((slot) => model[slot]?.state !== 'defeated')
-      : ['player', 'opponent'];
+    // Populate active slots without allocating arrays
+    let activeSlotsCount = 0;
+    if (model.matchMode === 'battle_royale') {
+      for (let i = 0; i < FIGHTER_SLOTS.length; i++) {
+        const slot = FIGHTER_SLOTS[i] as FighterSlot;
+        if (model[slot]?.state !== 'defeated') {
+          activeSlotsRef.current[activeSlotsCount++] = slot;
+        }
+      }
+    } else {
+      activeSlotsRef.current[0] = 'player';
+      activeSlotsRef.current[1] = 'opponent';
+      activeSlotsCount = 2;
+    }
+
     const playerTargetSlot = model.targets.player ?? 'opponent';
     const playerTarget = model[playerTargetSlot] ?? model.player;
-    const playerTargetState = safeSlotState(playerTargetSlot, 0, 0);
+    const playerTargetState = updateSlotState(slotStateCache.current, model, playerTargetSlot, 0, 0);
 
-    const framingSlots: FighterSlot[] = model.matchMode === 'battle_royale' && model.player.state !== 'defeated'
-      ? ['player', playerTargetSlot]
-      : activeSlots;
+    // Populate framing slots without allocating arrays
+    let framingSlotsCount: number;
+    if (model.matchMode === 'battle_royale' && model.player.state !== 'defeated') {
+      framingSlotsRef.current[0] = 'player';
+      framingSlotsRef.current[1] = playerTargetSlot;
+      framingSlotsCount = 2;
+    } else {
+      for (let i = 0; i < activeSlotsCount; i++) {
+        framingSlotsRef.current[i] = activeSlotsRef.current[i] as FighterSlot;
+      }
+      framingSlotsCount = activeSlotsCount;
+    }
+
     const prediction = reduced
       ? 0.06
-      : framingSlots.some((slot) => model[slot]?.attackPhase === 'anticipation') ? 0.3 : 0.16;
+      : (model.player?.attackPhase === 'anticipation' || (playerTargetSlot && model[playerTargetSlot]?.attackPhase === 'anticipation')) ? 0.3 : 0.16;
 
-    const predicted = framingSlots.map((slot) => {
-      const slotState = safeSlotState(slot);
-      return {
-        slot,
-        x: boundedPrediction(slotState.x, slotState.velocityX, prediction),
-        z: boundedPrediction(slotState.z, slotState.velocityZ, prediction),
-      };
-    });
-    sanitizeVector(desired, 0, 4.45, 0);
-    const safePredicted = predicted.length > 0
-      ? predicted
-      : [{ slot: 'player', x: safeNumber(model.player?.position?.x, 0), z: safeNumber(model.player?.position?.z, 0) }];
-    const minimumX = Math.min(...safePredicted.map(({ x }) => safeNumber(x, 0)));
-    const maximumX = Math.max(...safePredicted.map(({ x }) => safeNumber(x, 0)));
-    const minimumZ = Math.min(...safePredicted.map(({ z }) => safeNumber(z, 0)));
-    const maximumZ = Math.max(...safePredicted.map(({ z }) => safeNumber(z, 0)));
+    // Direct O(N) single-pass calculations for min/max positions with absolutely 0 allocation pressure
+    let minimumX = Infinity;
+    let maximumX = -Infinity;
+    let minimumZ = Infinity;
+    let maximumZ = -Infinity;
+
+    if (framingSlotsCount > 0) {
+      for (let i = 0; i < framingSlotsCount; i++) {
+        const slot = framingSlotsRef.current[i] as FighterSlot;
+        const slotState = updateSlotState(slotStateCache.current, model, slot);
+        const predX = boundedPrediction(slotState.x, slotState.velocityX, prediction);
+        const predZ = boundedPrediction(slotState.z, slotState.velocityZ, prediction);
+        if (predX < minimumX) minimumX = predX;
+        if (predX > maximumX) maximumX = predX;
+        if (predZ < minimumZ) minimumZ = predZ;
+        if (predZ > maximumZ) maximumZ = predZ;
+      }
+    } else {
+      const fallbackX = safeNumber(model.player?.position?.x, 0);
+      const fallbackZ = safeNumber(model.player?.position?.z, 0);
+      minimumX = fallbackX;
+      maximumX = fallbackX;
+      minimumZ = fallbackZ;
+      maximumZ = fallbackZ;
+    }
+
     const middleX = (minimumX + maximumX) / 2;
     const middleZ = (minimumZ + maximumZ) / 2;
     const separation = Math.hypot(maximumX - minimumX, maximumZ - minimumZ);
 
-    const player = safeSlotState('player', 0, 0);
+    const player = updateSlotState(slotStateCache.current, model, 'player', 0, 0);
     const playerState = model.player;
     const playerMove = playerState?.moveId ? getMove(playerState.moveId) : null;
     const targetEngagingPlayer = model.targets[playerTargetSlot] === 'player'
@@ -222,22 +304,26 @@ export function CameraRig() {
     );
 
     const table = model.props.find((prop) => prop.kind === 'table' && !prop.broken) ?? null;
-    const directedShot = selectCameraShot({
-      replayActive,
-      middleX,
-      middleZ,
-      separation,
-      playerState: model.player.state,
-      opponentState: playerTargetState.state,
-      playerMoveCategory: playerMove?.category ?? null,
-      opponentMoveCategory: opponentMove?.category ?? null,
-      securedGrapple,
-      playerAttackPhase: model.player.attackPhase,
-      opponentAttackPhase: targetEngagingPlayer ? playerTarget.attackPhase : null,
-      grapplePhase: playerInGrapple ? model.grapple?.phase ?? null : null,
-      tablePosition: table?.position ?? null,
-      lastImpactKind: model.lastImpact?.kind ?? null,
-    });
+
+    // Use pre-allocated context to completely eliminate garbage collection overhead inside useFrame
+    const ctx = cameraDirectorContextRef.current;
+    ctx.replayActive = replayActive;
+    ctx.middleX = middleX;
+    ctx.middleZ = middleZ;
+    ctx.separation = separation;
+    ctx.playerState = model.player.state;
+    ctx.opponentState = playerTargetState.state;
+    ctx.playerMoveCategory = playerMove?.category ?? null;
+    ctx.opponentMoveCategory = opponentMove?.category ?? null;
+    ctx.securedGrapple = securedGrapple;
+    ctx.playerAttackPhase = model.player.attackPhase;
+    ctx.opponentAttackPhase = targetEngagingPlayer ? playerTarget.attackPhase : null;
+    ctx.grapplePhase = playerInGrapple ? model.grapple?.phase ?? null : null;
+    ctx.tablePosition = table?.position ?? null;
+    ctx.lastImpactKind = model.lastImpact?.kind ?? null;
+
+    const directedShot = selectCameraShot(ctx);
+
     const playerEngaged = replayActive
       || playerInGrapple
       || model.player.moveId !== null
@@ -255,13 +341,22 @@ export function CameraRig() {
     }
 
     const grappleActorKey = model.grapple?.attacker ?? 'player';
-    const grappleActor = safeSlotState(grappleActorKey, player.x, player.z);
+    const grappleActor = updateSlotState(slotStateCache.current, model, grappleActorKey, player.x, player.z);
     const grappleDefenderKey = model.grapple?.defender ?? model.targets[grappleActorKey] ?? 'player';
-    const grappleDefender = safeSlotState(grappleDefenderKey, grappleActor.x, grappleActor.z);
+    const grappleDefender = updateSlotState(slotStateCache.current, model, grappleDefenderKey, grappleActor.x, grappleActor.z);
     const grappleMove = grappleActor.moveId ? getMove(grappleActor.moveId) : null;
     const grapplePhase = model.grapple?.phase ?? null;
     const grappleLift = safeNumber(model.grapple?.lift, 0);
-    const maximumAir = Math.max(0, ...activeSlots.map((slot) => safeNumber(model[slot]?.body?.verticalOffset, 0)));
+
+    // Compute maximum air time without dynamic array mapping or allocations
+    let maximumAir = 0;
+    for (let i = 0; i < activeSlotsCount; i++) {
+      const slot = activeSlotsRef.current[i] as FighterSlot;
+      const offset = safeNumber(model[slot]?.body?.verticalOffset, 0);
+      if (offset > maximumAir) {
+        maximumAir = offset;
+      }
+    }
 
     let focusX = middleX;
     let focusZ = middleZ;
@@ -277,8 +372,9 @@ export function CameraRig() {
         const forwardZ = Math.cos(grappleActor.facing);
         const rightX = forwardZ;
         const rightZ = -forwardX;
-        const distance = grappleMove?.category === 'finisher' ? 8.4 : 7.8;
-        const height = grappleMove?.category === 'finisher' ? 5.2 : 4.5;
+        // Cinematic: Closer, tighter grapple camera angle to pull player into the grapple struggle
+        const distance = grappleMove?.category === 'finisher' ? 7.8 : 7.2;
+        const height = grappleMove?.category === 'finisher' ? 4.6 : 3.8;
         focusX = (grappleActor.x + grappleDefender.x) * 0.5;
         focusZ = (grappleActor.z + grappleDefender.z) * 0.5;
         desired.set(focusX + rightX * distance * shotSide.current - forwardX * 1.2, height, focusZ + rightZ * distance * shotSide.current - forwardZ * 1.2);
@@ -293,8 +389,9 @@ export function CameraRig() {
         const peakLift = grapplePhase === 'lift'
           ? Math.min(isPiledriver ? 2.2 : 1.6, grappleLift * (isPiledriver ? 1 : 0.72))
           : 0;
-        const distance = isPiledriver ? 7.0 : 9.2;
-        const baseHeight = isPiledriver ? 2.2 : 3.8;
+        // Cinematic: Tighter slam distance and lower camera angle to look upwards at towering slams and piledrivers
+        const distance = isPiledriver ? 6.2 : 8.4;
+        const baseHeight = isPiledriver ? 1.8 : 3.2;
         focusX = (grappleActor.x + grappleDefender.x) * 0.5;
         focusZ = (grappleActor.z + grappleDefender.z) * 0.5;
         desired.set(
@@ -305,14 +402,23 @@ export function CameraRig() {
         break;
       }
       case 'strike': {
-        const attackerSlot = model.player.moveId
-          ? 'player'
-          : targetEngagingPlayer && playerTarget.moveId
-            ? playerTargetSlot
-            : activeSlots.find((slot) => model[slot]?.attackPhase === 'active') ?? 'player';
-        const attacker = safeSlotState(attackerSlot, player.x, player.z);
+        let attackerSlot: FighterSlot = 'player';
+        if (model.player.moveId) {
+          attackerSlot = 'player';
+        } else if (targetEngagingPlayer && playerTarget.moveId) {
+          attackerSlot = playerTargetSlot;
+        } else {
+          for (let i = 0; i < activeSlotsCount; i++) {
+            const slot = activeSlotsRef.current[i] as FighterSlot;
+            if (model[slot]?.attackPhase === 'active') {
+              attackerSlot = slot;
+              break;
+            }
+          }
+        }
+        const attacker = updateSlotState(slotStateCache.current, model, attackerSlot, player.x, player.z);
         const strikeTargetSlot = model.targets[attackerSlot] ?? (attackerSlot === 'player' ? 'opponent' : 'player');
-        const strikeTarget = safeSlotState(strikeTargetSlot, attacker.x, attacker.z);
+        const strikeTarget = updateSlotState(slotStateCache.current, model, strikeTargetSlot, attacker.x, attacker.z);
         const forwardX = Math.sin(attacker.facing);
         const forwardZ = Math.cos(attacker.facing);
         const rightX = forwardZ;
@@ -320,13 +426,22 @@ export function CameraRig() {
         focusX = (attacker.x + strikeTarget.x) * 0.5;
         focusZ = (attacker.z + strikeTarget.z) * 0.5;
         const strikeSeparation = Math.hypot(strikeTarget.x - attacker.x, strikeTarget.z - attacker.z);
-        const distance = Math.max(7.4, Math.min(9.1, 7.2 + strikeSeparation * 0.75));
-        desired.set(focusX + rightX * distance * shotSide.current - forwardX * 0.35, 4.65, focusZ + rightZ * distance * shotSide.current - forwardZ * 0.35);
+        // Cinematic: Lower standard strike camera from 4.65 to 3.85, and tighten the shot to amplify strike impact
+        const distance = Math.max(6.5, Math.min(8.2, 6.2 + strikeSeparation * 0.6));
+        desired.set(focusX + rightX * distance * shotSide.current - forwardX * 0.35, 3.85, focusZ + rightZ * distance * shotSide.current - forwardZ * 0.35);
         break;
       }
       case 'corner': {
-        const climberSlot = activeSlots.find((slot) => model[slot]?.state === 'climbing') ?? 'player';
-        const climber = safeSlotState(climberSlot, player.x, player.z);
+        // Find climber slot without array allocations
+        let climberSlot: FighterSlot = 'player';
+        for (let i = 0; i < activeSlotsCount; i++) {
+          const slot = activeSlotsRef.current[i] as FighterSlot;
+          if (model[slot]?.state === 'climbing') {
+            climberSlot = slot;
+            break;
+          }
+        }
+        const climber = updateSlotState(slotStateCache.current, model, climberSlot, player.x, player.z);
         const cornerX = Math.sign(climber.x || 1) * 5.45;
         const cornerZ = Math.sign(climber.z || 1) * 3.95;
         const inwardX = -Math.sign(cornerX);
@@ -335,12 +450,20 @@ export function CameraRig() {
         break;
       }
       case 'aerial': {
-        const aerialSlot = activeSlots.find((slot) =>
-          model[slot]?.state === 'climbing'
-          || model[slot]?.state === 'airborne'
-          || (model[slot]?.moveId ? getMove(model[slot].moveId ?? '').category === 'aerial' : false)
-        ) ?? 'player';
-        const aerialActor = safeSlotState(aerialSlot, player.x, player.z);
+        // Find aerial slot without array allocations
+        let aerialSlot: FighterSlot = 'player';
+        for (let i = 0; i < activeSlotsCount; i++) {
+          const slot = activeSlotsRef.current[i] as FighterSlot;
+          const actor = model[slot];
+          if (actor) {
+            const hasAerialCategory = actor.moveId ? getMove(actor.moveId).category === 'aerial' : false;
+            if (actor.state === 'climbing' || actor.state === 'airborne' || hasAerialCategory) {
+              aerialSlot = slot;
+              break;
+            }
+          }
+        }
+        const aerialActor = updateSlotState(slotStateCache.current, model, aerialSlot, player.x, player.z);
         const forwardX = Math.sin(aerialActor.facing);
         const forwardZ = Math.cos(aerialActor.facing);
         const rightX = forwardZ;
@@ -354,9 +477,9 @@ export function CameraRig() {
       }
       case 'table': {
         const focus = table?.position ?? model.lastImpact?.position ?? { x: middleX, z: middleZ };
-        const focusX = safeNumber(focus?.x, middleX);
-        const focusZ = safeNumber(focus?.z, middleZ);
-        desired.set(focusX + shotSide.current * (8.4 + separation * 0.18), 5.25 + separation * 0.12, focusZ + 4.5);
+        const focusXVal = safeNumber(focus?.x, middleX);
+        const focusZVal = safeNumber(focus?.z, middleZ);
+        desired.set(focusXVal + shotSide.current * (8.4 + separation * 0.18), 5.25 + separation * 0.12, focusZVal + 4.5);
         break;
       }
       case 'ringside-z': {
@@ -439,7 +562,7 @@ export function CameraRig() {
               : shot.current === 'grapple' || shot.current === 'slam' || shot.current === 'table'
                 ? 4.8
                 : 4.6;
-    camera.position.lerp(desired, 1 - Math.exp(-dt * positionDamping));
+    camera.position.lerp(desired, 1 - Math.exp(-clampedDt * positionDamping));
     desiredTarget.set(
       focusX,
       (shot.current === 'grapple' ? 2.7 : shot.current === 'slam' ? 2.45 : shot.current === 'corner' ? 3.05 : shot.current === 'aerial' ? 2.7 : shot.current === 'strike' ? 2.75 : 2.2)
@@ -449,7 +572,7 @@ export function CameraRig() {
     );
     sanitizeVector(desiredTarget, middleX, fallbackTargetY, middleZ);
     sanitizeVector(smoothedTarget, middleX, fallbackTargetY, middleZ);
-    smoothedTarget.lerp(desiredTarget, 1 - Math.exp(-dt * (reduced ? 4 : 7.2)));
+    smoothedTarget.lerp(desiredTarget, 1 - Math.exp(-clampedDt * (reduced ? 4 : 7.2)));
     lookAtSafe(camera as PerspectiveCamera, smoothedTarget);
 
     if ('fov' in camera) {
@@ -479,7 +602,7 @@ export function CameraRig() {
         model.matchMode === 'battle_royale' && shot.current === 'wide' ? 53 : 0,
         baseFov + impactImpulse.current * 1.15 + (model.slowMotion > 0 ? -2.5 : 0),
       );
-      perspective.fov += (desiredFov - perspective.fov) * (1 - Math.exp(-dt * 7.5));
+      perspective.fov += (desiredFov - perspective.fov) * (1 - Math.exp(-clampedDt * 7.5));
       perspective.updateProjectionMatrix();
     }
   });
