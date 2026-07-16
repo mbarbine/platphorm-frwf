@@ -87,7 +87,12 @@ function BurstView({ burst }: { burst: Burst }) {
   useFrame((_, dt) => {
     age.current += dt;
     const expansion = burst.tier === 'light' ? 7.2 : burst.tier === 'heavy' ? 5.8 : burst.tier === 'major' ? 4.4 : 3.6;
-    if (root.current) root.current.scale.setScalar(1 + age.current * expansion);
+    if (root.current) {
+      root.current.scale.setScalar(1 + age.current * expansion);
+      // Spiraling rotation over time for gorgeous visual delight!
+      root.current.rotation.y += dt * 3.5;
+      root.current.rotation.x += dt * 1.2;
+    }
     const fade = burst.tier === 'light' ? 5.4 : burst.tier === 'heavy' ? 3.8 : burst.tier === 'major' ? 2.6 : 2.0;
     for (const material of materials.current) material.opacity = Math.max(0, 1 - age.current * fade);
   });

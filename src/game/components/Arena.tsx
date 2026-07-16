@@ -424,6 +424,20 @@ function Jumbotron() {
   </group>;
 }
 
+function DynamicSpotlights() {
+  const groupRef = useRef<Group>(null);
+  useFrame(({ clock }) => {
+    if (!groupRef.current) return;
+    groupRef.current.rotation.y = Math.sin(clock.elapsedTime * 0.45) * 0.22;
+  });
+  return <group ref={groupRef} position={[0, 13, 0]}>
+    {[0, Math.PI / 2, Math.PI, Math.PI * 1.5].map((angle) => <group key={angle} rotation={[0, angle, 0]}>
+      <mesh position={[0, -.65, -7.75]} rotation={[.15, 0, 0]}><cylinderGeometry args={[.18, .36, .65, 10]} /><meshStandardMaterial color="#8eeeff" emissive="#41dcff" emissiveIntensity={2.4} /></mesh>
+      <spotLight position={[0, -.8, -7.65]} intensity={4} color={angle % Math.PI === 0 ? '#4be7ff' : '#ff3a95'} angle={.3} penumbra={.8} />
+    </group>)}
+  </group>;
+}
+
 export function Arena({ crowdCount = 156 }: { crowdCount?: number }) {
   const spotlight = useMatchStore((state) => state.model.chaosEvent?.type === 'SPOTLIGHT SHOWDOWN');
   const toyTest = useMatchStore((state) => state.model.toyTestMode);
@@ -463,12 +477,7 @@ export function Arena({ crowdCount = 156 }: { crowdCount?: number }) {
     <SteelSteps />
     <RigidBody ref={floorSurface} type="fixed" colliders="hull" position={[0, .2, 0]} collisionGroups={arenaCollisionGroups} solverGroups={arenaCollisionGroups} userData={{ surface: true, kind: 'floor' }}><mesh receiveShadow><cylinderGeometry args={[VOLT_DOME.floor.radius, VOLT_DOME.floor.radius, .4, 64]} /><meshStandardMaterial color="#100d1c" roughness={.8} /></mesh></RigidBody>
     <EntranceLane /><Barricades /><ArenaRibbon />{!toyTest && crowdCount > 0 && <Crowd count={crowdCount} />}<Props /><VoltDomeArchitecture /><Jumbotron />
-    <group position={[0, 13, 0]}>
-      {[0, Math.PI / 2, Math.PI, Math.PI * 1.5].map((angle) => <group key={angle} rotation={[0, angle, 0]}>
-        <mesh position={[0, -.65, -7.75]} rotation={[.15, 0, 0]}><cylinderGeometry args={[.18, .36, .65, 10]} /><meshStandardMaterial color="#8eeeff" emissive="#41dcff" emissiveIntensity={2.4} /></mesh>
-        <spotLight position={[0, -.8, -7.65]} intensity={4} color={angle % Math.PI === 0 ? '#4be7ff' : '#ff3a95'} angle={.3} penumbra={.8} />
-      </group>)}
-    </group>
+    <DynamicSpotlights />
     <group position={[0, 8.7, 0]}>{[-7.2, 7.2].flatMap((x) => [-5.8, 5.8].map((z) => <group key={`${x}-${z}`} position={[x, 0, z]}><mesh><cylinderGeometry args={[.13, .2, .44, 8]} /><meshStandardMaterial color="#adb8c7" metalness={.8} roughness={.2} /></mesh><pointLight position={[0, -.3, 0]} intensity={1.25} distance={10} color={x * z > 0 ? '#ff3f8f' : '#48e7ff'} /></group>))}</group>
     <BroadcastSet />
     <group position={[-10.7, .7, -6.4]}><mesh><boxGeometry args={[4.6, 1.25, .18]} /><meshStandardMaterial color="#272334" emissive="#27105b" emissiveIntensity={.18} /></mesh></group>
