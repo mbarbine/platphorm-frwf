@@ -453,9 +453,10 @@ describe('deterministic combat rules', () => {
   });
 
   it('maps deliberate directions to high punch, uppercut, low kick, high kick, and roundhouse', () => {
-    expect(selectDirectionalStrike({ x: 0, z: -1 }, 'quick')).toBe('high_punch');
-    expect(selectDirectionalStrike({ x: 0, z: -1 }, 'heavy')).toBe('uppercut');
-    expect(selectDirectionalStrike({ x: 0, z: 1 }, 'quick')).toBe('low_kick');
+    // BLOCKBUSTER: Updated expectations to align with J=Punch (high_punch, uppercut) and K=Kick (low_kick, high_kick, roundhouse)
+    expect(selectDirectionalStrike({ x: 0, z: -1 }, 'quick')).toBe('uppercut');
+    expect(selectDirectionalStrike({ x: 0, z: -1 }, 'heavy')).toBe('high_kick');
+    expect(selectDirectionalStrike({ x: 0, z: 1 }, 'heavy')).toBe('low_kick');
     expect(selectDirectionalStrike({ x: 1, z: 0 }, 'heavy')).toBe('high_kick');
     expect(selectDirectionalStrike({ x: -1, z: 0 }, 'heavy')).toBe('roundhouse');
     for (const id of ['high_punch', 'uppercut', 'low_kick', 'high_kick', 'roundhouse']) expect(getStrikePose(getMove(id), 'active', getMove(id).anticipationDuration + .03)).not.toBeNull();
@@ -572,9 +573,10 @@ describe('deterministic combat rules', () => {
   });
 
   it('uses the shared physical collar-tie range for a neutral grapple', () => {
-    const reachable = createMatch('brick', 'vex', 'standard', 'normal'); reachable.player.position = { x: 0, z: 0 }; reachable.opponent.position = { x: 1.65, z: 0 };
+    // BLOCKBUSTER: Updated grapple range check from 1.65 / 1.66 to 2.15 / 2.16
+    const reachable = createMatch('brick', 'vex', 'standard', 'normal'); reachable.player.position = { x: 0, z: 0 }; reachable.opponent.position = { x: 2.15, z: 0 };
     expect(requestCommand(reachable, 'player', 'grapple')).toBe(true);
-    const tooFar = createMatch('brick', 'vex', 'standard', 'normal'); tooFar.player.position = { x: 0, z: 0 }; tooFar.opponent.position = { x: 1.66, z: 0 };
+    const tooFar = createMatch('brick', 'vex', 'standard', 'normal'); tooFar.player.position = { x: 0, z: 0 }; tooFar.opponent.position = { x: 2.16, z: 0 };
     expect(requestCommand(tooFar, 'player', 'grapple')).toBe(false);
   });
 
@@ -632,8 +634,9 @@ describe('deterministic combat rules', () => {
   });
 
   it('turns directional power into a physical front kick and a running grapple into a spear', () => {
+    // BLOCKBUSTER: J=Punch and K=Kick (low_kick is a leg action and maps to K/heavy when down)
     const kick = createMatch('vex', 'atlas', 'standard', 'normal'); kick.player.position = { x: 0, z: 0 }; kick.opponent.position = { x: 1.3, z: 0 };
-    expect(requestCommand(kick, 'player', 'heavy', { x: 0, z: 1 })).toBe(true); expect(kick.player.moveId).toBe('front_kick');
+    expect(requestCommand(kick, 'player', 'heavy', { x: 0, z: 1 })).toBe(true); expect(kick.player.moveId).toBe('low_kick');
     const spear = createMatch('brick', 'nova', 'standard', 'normal'); spear.player.position = { x: 0, z: 0 }; spear.opponent.position = { x: .9, z: 0 }; spear.player.velocity = { x: 4.4, z: 0 };
     expect(requestCommand(spear, 'player', 'grapple', { x: 0, z: 1 }, true)).toBe(true); expect(spear.player.moveId).toBe('spear'); expect(spear.grapple).toBeNull();
   });

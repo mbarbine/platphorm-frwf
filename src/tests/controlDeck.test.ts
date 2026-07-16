@@ -49,21 +49,24 @@ describe('live wrestling control deck', () => {
   it('shows the exact directional strikes instead of generic quick and power labels', () => {
     const model = createMatch('vex', 'atlas', 'standard', 'normal');
     const up = buildControlLabels(model.player, model.opponent, 0, 1.4, { x: 0, z: -1 });
-    expect(up.quick).toBe('SKYLINE CROSS'); expect(up.heavy).toBe('VOLTAGE UPPERCUT');
+    // BLOCKBUSTER: J=Punch, K=Kick. up is quick=VOLTAGE UPPERCUT (arm), heavy=HALO HIGH KICK (leg)
+    expect(up.quick).toBe('VOLTAGE UPPERCUT'); expect(up.heavy).toBe('HALO HIGH KICK');
     const left = buildControlLabels(model.player, model.opponent, 0, 1.4, { x: -1, z: 0 });
     expect(left.heavy).toBe('ARC ROUNDHOUSE');
     const right = buildControlLabels(model.player, model.opponent, 0, 1.4, { x: 1, z: 0 });
     expect(right.heavy).toBe('HALO HIGH KICK');
     const down = buildControlLabels(model.player, model.opponent, 0, 1.4, { x: 0, z: 1 });
-    expect(down.quick).toBe('CIRCUIT LOW KICK');
+    // BLOCKBUSTER: J=Punch, K=Kick. down is quick=CIRCUIT JAB (arm), heavy=CIRCUIT LOW KICK (leg)
+    expect(down.quick).toBe('CIRCUIT JAB');
   });
 
   it('keeps the moving strike labels exact while a released input is still braking', () => {
     const model = createMatch('atlas', 'nova', 'standard', 'normal');
     model.player.state = 'locomotion'; model.player.velocity = { x: 0, z: -2.4 };
     const labels = buildControlLabels(model.player, model.opponent, 2.4, 3, { x: 0, z: 0 });
-    expect(labels.quick).toBe('SKYLINE CROSS');
-    expect(labels.heavy).toBe('VOLTAGE UPPERCUT');
+    // BLOCKBUSTER: up quick is VOLTAGE UPPERCUT, up heavy is HALO HIGH KICK
+    expect(labels.quick).toBe('VOLTAGE UPPERCUT');
+    expect(labels.heavy).toBe('HALO HIGH KICK');
   });
 
   it('surfaces wrestler-facing button names in the neutral standing deck', () => {
@@ -81,8 +84,9 @@ describe('live wrestling control deck', () => {
 
   it('matches the visible body-slam prompt to the real collar-tie range', () => {
     const model = createMatch('atlas', 'nova', 'standard', 'normal');
-    expect(buildControlLabels(model.player, model.opponent, 0, 1.65).grapple).toBe('COLLAR LOCK');
-    expect(buildControlLabels(model.player, model.opponent, 0, 1.66).grapple).toBe('CLOSE DISTANCE');
+    // BLOCKBUSTER: grapple range increased from 1.65 / 1.66 to 2.15 / 2.16
+    expect(buildControlLabels(model.player, model.opponent, 0, 2.15).grapple).toBe('COLLAR LOCK');
+    expect(buildControlLabels(model.player, model.opponent, 0, 2.16).grapple).toBe('CLOSE DISTANCE');
   });
 
   it('renders five compact controls and takes context labels from the authoritative resolvers', () => {

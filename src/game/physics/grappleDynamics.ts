@@ -128,11 +128,12 @@ export const stepGrappleDynamics = (model: MatchModel, dt: number, playerIntent:
   grapple.leverage = clamp(attackerDrive / Math.max(.15, defenderDrive), .35, 2.2);
   grapple.struggle = clamp(grapple.struggle + (defenderInput - attackerInput * .45) * dt - dt * .12, 0, 1);
 
-  const stiffness = (13 + technique * 6) * clamp(grapple.leverage, .65, 1.45);
+  // BLOCKBUSTER: Doubled base stiffness from 13 to 26 and clamp limits from -18..18 to -36..36
+  const stiffness = (26 + technique * 12) * clamp(grapple.leverage, .65, 1.45);
   const damping = 4.8 + technique * 2.2;
   const force = {
-    x: clamp(error.x * stiffness - relativeVelocity.x * damping, -18, 18),
-    z: clamp(error.z * stiffness - relativeVelocity.z * damping, -18, 18),
+    x: clamp(error.x * stiffness - relativeVelocity.x * damping, -36, 36),
+    z: clamp(error.z * stiffness - relativeVelocity.z * damping, -36, 36),
   };
   grapple.tension = clamp(Math.hypot(force.x, force.z) / 18, 0, 1);
   grapple.rotation = wrapAngle(Math.atan2(toDefender.x, toDefender.z) - attacker.facing);

@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import { colyseusClient } from './ColyseusClient';
-import type { ConnectionStatus } from './ColyseusClient';
-import type { ClientRoomState } from './ColyseusClient';
+import type { ConnectionStatus, ClientFighterState, ClientRoomState } from './ColyseusClient';
 import type { ActionEvent, FighterId } from '@frwf/game-protocol';
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -19,6 +18,10 @@ export interface MultiplayerState {
 
   // Room phase (mirrored from server state)
   roomPhase: string;
+
+  // Synchronized state Maps
+  fighters: Map<string, ClientFighterState>;
+  roles: Map<string, string>;
 
   // Latency
   rtt: number;
@@ -42,7 +45,12 @@ export const useMultiplayerStore = create<MultiplayerState>((set) => {
   colyseusClient.setEventHandlers({
     onStatusChange: (status) => set({ status }),
     onStateChange: (state: ClientRoomState) => {
-    set({ roomPhase: state.phase ?? '' });
+      set({
+        roomPhase: state.phase ?? '',
+        fighters: state.fighters ? new Map(state.fighters) : new Map(),
+        roles: state.roles ? new Map(state.roles) : new Map(),
+        myRole: (state.roles && colyseusClient.sessionId) ? (state.roles.get(colyseusClient.sessionId) as 'player1' | 'player2' | 'spectator') : null,
+      });
     },
   });
 
@@ -52,6 +60,8 @@ export const useMultiplayerStore = create<MultiplayerState>((set) => {
     sessionId: null,
     myRole: null,
     roomPhase: 'lobby',
+    fighters: new Map(),
+    roles: new Map(),
     rtt: 0,
     lastServerTimestamp: 0,
     lastCommandSeq: 0,
@@ -64,7 +74,7 @@ export const useMultiplayerStore = create<MultiplayerState>((set) => {
 
     async disconnect() {
       await colyseusClient.leave();
-      set({ roomId: null, sessionId: null, myRole: null, status: 'disconnected' });
+      set({ roomId: null, sessionId: null, myRole: null, status: 'disconnected', fighters: new Map(), roles: new Map() });
     },
 
     async createPrivateRoom(options = {}) {

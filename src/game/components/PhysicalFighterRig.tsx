@@ -157,7 +157,7 @@ export function PhysicalFighterRig({ runtime, side, showVisuals = true }: Props)
     const directionalStiffArm = sourceRuntime.moveId === 'stiff_arm' || sourceRuntime.moveId === 'rebound';
     const chestLedDive = sourceRuntime.moveId === 'aerial' && ['chest', 'abdomen', 'pelvis', 'leftUpperArm', 'rightUpperArm', 'leftForearm', 'rightForearm', 'leftHand', 'rightHand', 'leftThigh', 'rightThigh', 'leftShin', 'rightShin', 'leftFoot', 'rightFoot'].includes(segment.id);
     const activeContactLimb = Boolean(strikeProfile && (strikeProfile.source === segment.id
-      || directionalStiffArm && (segment.id.includes('Forearm') || segment.id.includes('Hand') || segment.id.includes('UpperArm'))
+      || directionalStiffArm && ['leftForearm', 'rightForearm', 'leftHand', 'rightHand', 'leftUpperArm', 'rightUpperArm'].includes(segment.id)
       || chestLedDive));
     // Shipping damage is emitted only by the move's active physical limb. A
     // nearby foot, shoulder, or authored animation phase cannot impersonate a

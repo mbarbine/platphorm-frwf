@@ -62,12 +62,24 @@ const playerBotInput = (model: MatchModel, step: number): FrameInput => {
   const actor = model.player; const target = model[model.targets.player]; const direction = toward(actor.position, target.position);
   const separation = Math.hypot(target.position.x - actor.position.x, target.position.z - actor.position.z);
   const cadence = step % 11 === 0; let command: GameCommand | null = null;
+  const nearApron = (Math.abs(actor.position.x) > 4.62 && Math.abs(actor.position.x) < 6.9 && Math.abs(actor.position.z) < 3.55)
+    || (Math.abs(actor.position.z) > 3.05 && Math.abs(actor.position.z) < 5.6 && Math.abs(actor.position.x) < 5.15);
+  const targetRingside = Math.abs(target.position.x) > 5.82 || Math.abs(target.position.z) > 4.32;
+  const actorRingside = Math.abs(actor.position.x) > 5.82 || Math.abs(actor.position.z) > 4.32;
+
   if (actor.state === 'pinned' || actor.state === 'downed') command = cadence ? 'dodge' : null;
+  else if (nearApron && targetRingside !== actorRingside && ['idle', 'locomotion'].includes(actor.state) && cadence) command = 'context';
   else if (actor.state === 'climbing') command = cadence ? 'context' : null;
   else if (actor.state === 'grappling' && actor.attackPhase === 'anticipation') command = actor.phaseElapsed < .18 && cadence ? (step % 3 === 0 ? 'grapple' : 'heavy') : null;
   else if (actor.momentum >= 100 && ['staggered', 'downed'].includes(target.state) && separation < 2.1) command = cadence ? 'context' : null;
   else if (target.state === 'downed' && separation < 1.65) command = cadence ? (model.elapsed > 12 ? 'context' : 'quick') : null;
-  else if (separation < 1.72 && cadence) command = step % 44 === 0 ? 'grapple' : step % 33 === 0 ? 'heavy' : 'quick';
+  else if (separation < 2.22 && cadence) {
+    if (step % 44 === 0) {
+      command = 'grapple';
+    } else if (separation < 1.72) {
+      command = step % 33 === 0 ? 'heavy' : 'quick';
+    }
+  }
   const canAdvance = ['idle', 'locomotion'].includes(actor.state) && separation > 1.28;
   return { move: canAdvance ? direction : { x: 0, z: 0 }, run: canAdvance && separation > 3.4, block: false, actions: command ? [createActionEvent(gameCommandToAction(command), { source: 'ai', timestamp: model.elapsed * 1_000, direction })] : [] };
 };
