@@ -412,6 +412,7 @@ describe('deterministic combat rules', () => {
   it('blocks strikes with chip damage and guard stamina loss', () => {
     const model = createMatch('atlas', 'vex', 'standard', 'normal'); model.player.position = { x: 0, z: 0 }; model.opponent.position = { x: 1, z: 0 };
     expect(requestCommand(model, 'player', 'block')).toBe(true);
+    model.player.stateElapsed = 0.2;
     const stamina = model.player.stamina;
     startMove(model.opponent, model.player, getMove('heavy')); model.opponent.attackPhase = 'active';
     expect(applyMoveHit(model, 'opponent', 'player', getMove('heavy'))).toBe(true);
@@ -546,7 +547,7 @@ describe('deterministic combat rules', () => {
 
   it('honors a fresh active-window manifold consumed on the recovery boundary', () => {
     const model = createMatch('atlas', 'vex', 'standard', 'normal'); model.physicsAuthority = true; model.player.position = { x: 0, z: 0 }; model.opponent.position = { x: 1, z: 0 };
-    startMove(model.player, model.opponent, getMove('jab')); model.player.attackPhase = 'recovery'; model.opponent.state = 'blocking'; const health = model.opponent.health;
+    startMove(model.player, model.opponent, getMove('jab')); model.player.attackPhase = 'recovery'; model.opponent.state = 'blocking'; model.opponent.stateElapsed = 0.2; const health = model.opponent.health;
     const contact = { id: 1, time: model.elapsed, sourceFighter: 'player' as const, sourceSegment: 'rightHand' as const, targetFighter: 'opponent' as const, targetSegment: 'leftForearm' as const, targetRegion: 'leftArm' as const, totalForce: 120, maximumForce: 90, forceDirection: [0, 0, 1] as const, relativeSpeed: 2, attackInstanceId: model.player.attackInstanceId, moveId: 'jab', attackPhaseAtContact: 'active' as const, sourceObjectId: null, targetSurface: null, isLanding: false };
     expect(applyPhysicalContact(model, contact)).toBe(true);
     expect(model.lastImpact?.kind).toBe('blocked'); expect(model.opponent.health).toBeLessThan(health); expect(model.opponent.health).toBeGreaterThan(98);

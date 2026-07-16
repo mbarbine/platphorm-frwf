@@ -108,10 +108,20 @@ export const chooseAiDecision = (model: MatchModel, definition: FighterDefinitio
     return { command, move: grappleDirectionFor(definition.tendency, roll), run: false, nextSeed };
   }
   const hard = model.difficulty === 'hard';
-  const counterChance = clampChance((hard ? .58 : .3) + personality.technical * .24 + personality.athletic * .08);
+  const isSingles = model.matchMode === 'singles';
+  const playerSpamming = isSingles && target.recentMoves.length >= 3 && target.recentMoves.every((mv) => mv === target.recentMoves[0]);
+  const counterMultiplier = playerSpamming ? 1.45 : 1.0;
+  const counterChance = clampChance(((hard ? .58 : .3) + personality.technical * .24 + personality.athletic * .08) * counterMultiplier);
   const incomingMajor = target.attackPhase === 'anticipation' && target.moveId !== 'jab' && separation < 2.2;
   if (incomingMajor && roll < counterChance && isActionLegal(model, 'dodge', actorKey)) return { command: 'dodge', move: { x: 0, z: 0 }, run: false, nextSeed };
-  if (target.attackPhase === 'anticipation' && separation < 2.05 && roll < (hard ? .88 : .67) && isActionLegal(model, 'block', actorKey)) return { command: 'block', move: { x: 0, z: 0 }, run: false, nextSeed };
+  const blockMultiplier = playerSpamming ? 1.25 : 1.0;
+  if (target.attackPhase === 'anticipation' && separation < 2.05 && roll < (hard ? .88 : .67) * blockMultiplier && isActionLegal(model, 'block', actorKey)) return { command: 'block', move: { x: 0, z: 0 }, run: false, nextSeed };
+
+  // Taunt punishment: enrage if player tries to taunt at range
+  if (isSingles && target.moveId === 'taunt' && separation > 1.8) {
+    const enragedCommand: GameCommand | null = isActionLegal(model, 'heavy', actorKey) ? 'heavy' : isActionLegal(model, 'grapple', actorKey) ? 'grapple' : null;
+    if (enragedCommand) return { command: enragedCommand, move: toward, run: true, nextSeed };
+  }
   if (actor.heldPropId) {
     if (separation <= 2.2 && isActionLegal(model, 'heavy', actorKey)) return { command: 'heavy', move: { x: 0, z: 0 }, run: false, nextSeed };
     // Throw prop at distance for chaos-mode projectile attacks
@@ -134,6 +144,10 @@ export const chooseAiDecision = (model: MatchModel, definition: FighterDefinitio
   }
   const physicallyCompromised = actor.stamina < 24 || actor.body.balance < 34 || actor.body.muscle < .36;
   if (physicallyCompromised) {
+    // Baiting under low stamina: fakes a retreat but triggers sudden jab counter-strike
+    if (isSingles && actor.stamina >= 8 && actor.stamina < 24 && separation < 2.5 && roll < 0.35 && isActionLegal(model, 'quick', actorKey)) {
+      return { command: 'quick', move: { x: 0, z: 0 }, run: false, nextSeed };
+    }
     if (actor.stamina < 18) return { command: null, move: separation < 2.6 ? { x: -toward.x * .72, z: -toward.z * .72 } : { x: 0, z: 0 }, run: false, nextSeed };
     const guard = separation < 2.25 && isActionLegal(model, 'block', actorKey) && roll < .48;
     return { command: guard ? 'block' : separation < 1.5 && isActionLegal(model, 'dodge', actorKey) ? 'dodge' : null, move: { x: -toward.x * .55, z: -toward.z * .55 }, run: false, nextSeed };

@@ -208,6 +208,9 @@ const varietyMultiplier = (actor: FighterRuntime, moveId: string): number => {
 export const applyMoveHit = (model: MatchModel, actorKey: FighterSlot, targetKey: FighterSlot, move: MoveDefinition, contact?: BodyWorksContact): boolean => {
   const actor = model[actorKey];
   const target = model[targetKey];
+  const targetPreHealth = target.health;
+  const inSingles = model.matchMode === 'singles';
+  const isComboFinisher = inSingles && actor.comboStep >= 2 && (move.category === 'heavy' || move.category === 'grapple' || move.category === 'prop' || move.category === 'aerial');
   if (['defeated', 'victorious'].includes(actor.state) || ['defeated', 'victorious'].includes(target.state)) return false;
   const impactPosition = contact?.point ? { x: contact.point[0], z: contact.point[2] } : target.position;
   const hitToken = contact ? `${targetKey}:${actor.attackInstanceId}` : targetKey;
@@ -225,7 +228,17 @@ export const applyMoveHit = (model: MatchModel, actorKey: FighterSlot, targetKey
   const actorDefinition = fighterById(actor.definitionId);
   const majorImpactMove = move.category === 'finisher' || move.category === 'heavy' || move.category === 'grapple' || move.category === 'prop' || move.category === 'aerial';
   const contactQuality = contact ? clamp(contact.relativeSpeed * .22 + contact.maximumForce / 950, .28, 1.35) : 1;
-  const scaledDamage = move.damage * BALANCE.damageScale * (.78 + actorDefinition.stats.power / 250) * (1.08 - targetDefinition.stats.stamina / 900) * contactQuality;
+  const actorClutch = inSingles && actor.health < 35;
+  const clutchDamageMultiplier = actorClutch ? 1.15 : 1.0;
+  let comboDamageMultiplier = 1.0;
+  if (inSingles && actor.comboStep >= 2) {
+    if (move.category === 'quick') {
+      comboDamageMultiplier = 1.0 + Math.min(0.5, (actor.comboStep - 1) * 0.1);
+    } else if (isComboFinisher) {
+      comboDamageMultiplier = 1.2;
+    }
+  }
+  const scaledDamage = move.damage * BALANCE.damageScale * (.78 + actorDefinition.stats.power / 250) * (1.08 - targetDefinition.stats.stamina / 900) * contactQuality * clutchDamageMultiplier * comboDamageMultiplier;
   const damage = Math.round(scaledDamage * 10) / 10;
   const baseImpact = calculateImpact(actor, target, move, model.impactSequence);
   const planarDirection = contact ? normalize({ x: contact.forceDirection[0], z: contact.forceDirection[2] }) : baseImpact.direction;
@@ -237,6 +250,16 @@ export const applyMoveHit = (model: MatchModel, actorKey: FighterSlot, targetKey
   } : baseImpact;
   const spatialGuard = contact ? target.state === 'blocking' && (contact.targetSegment?.includes('Forearm') === true || contact.targetSegment?.includes('Hand') === true) : target.state === 'blocking';
   if (spatialGuard && move.category !== 'grapple' && move.category !== 'finisher' && move.category !== 'utility') {
+    const isPerfectParry = inSingles && target.stateElapsed <= 0.15 && move.category !== 'aerial';
+    if (isPerfectParry) {
+      actor.hitTargets.push(hitToken);
+      actor.state = 'staggered'; actor.stateElapsed = 0; actor.moveId = null; actor.attackPhase = null; actor.climbStage = 0;
+      target.momentum = clamp(target.momentum + 15, 0, 100);
+      model.hype = clamp(model.hype + 12, 0, 100);
+      model.announcement = 'PERFECT PARRY!'; model.announcementTimer = 1.0;
+      addImpact(model, impactPosition, 'counter', 1.1, { region: calculatedImpact.region, force: calculatedImpact.force * 0.5, torque: calculatedImpact.torque, outcome: 'stagger', moveId: move.id });
+      return true;
+    }
     if (move.category === 'aerial' && target.stamina > Math.max(6, move.damage * .45)) {
       actor.hitTargets.push(hitToken);
       target.stamina = clamp(target.stamina - Math.max(6, move.damage * .45), 0, target.staminaCap);
@@ -274,7 +297,10 @@ export const applyMoveHit = (model: MatchModel, actorKey: FighterSlot, targetKey
   const surge = model.chaosEvent?.type === 'CROWD SURGE' ? 1.6 : 1;
   const stats = model.fighterStats[actorKey];
   if (!model.toyTestMode) {
-    actor.momentum = clamp(actor.momentum + move.momentumGain * variety * (model.ruleset === 'chaos' ? 1.2 : 1) * surge, 0, 100);
+    const comboMomentumMultiplier = inSingles && actor.comboStep >= 2 && move.category === 'quick'
+      ? 1.0 + Math.min(0.6, (actor.comboStep - 1) * 0.15)
+      : 1.0;
+    actor.momentum = clamp(actor.momentum + move.momentumGain * variety * (model.ruleset === 'chaos' ? 1.2 : 1) * surge * comboMomentumMultiplier, 0, 100);
     model.hype = clamp(model.hype + move.hypeValue * variety * BALANCE.hypeScale, 0, 100);
     actor.recentMoves = [...actor.recentMoves.slice(-4), move.id];
     stats.damageDealt = Math.round((stats.damageDealt + damage) * 10) / 10;
@@ -364,16 +390,37 @@ export const applyMoveHit = (model: MatchModel, actorKey: FighterSlot, targetKey
   }
   // Combo streak announcement
   if (!model.toyTestMode && (move.category === 'quick' || move.category === 'heavy') && actor.comboStep >= 2) {
-    if (actor.comboStep === 2) { model.announcement = 'ONE-TWO!'; model.announcementTimer = .5; }
-    else if (actor.comboStep === 3) { model.announcement = 'TRIPLE!'; model.announcementTimer = .58; }
-    else if (actor.comboStep === 4) { model.announcement = '4× COMBO!'; model.announcementTimer = .68; model.hype = clamp(model.hype + 4, 0, 100); }
-    else if (actor.comboStep >= 5) { model.announcement = 'UNSTOPPABLE!'; model.announcementTimer = .88; model.hype = clamp(model.hype + 9, 0, 100); }
+    if (inSingles) {
+      if (actor.comboStep === 2) { model.announcement = 'NEON FLARE COMBO!'; model.announcementTimer = .5; }
+      else if (actor.comboStep === 3) { model.announcement = 'CHAOS CIRCUIT SPLIT!'; model.announcementTimer = .58; }
+      else if (actor.comboStep === 4) { model.announcement = '4× MATRIX HYPER!'; model.announcementTimer = .68; model.hype = clamp(model.hype + 6, 0, 100); }
+      else if (actor.comboStep >= 5) { model.announcement = 'OVERDRIVE MATRIX BREAK!'; model.announcementTimer = .88; model.hype = clamp(model.hype + 12, 0, 100); }
+    } else {
+      if (actor.comboStep === 2) { model.announcement = 'ONE-TWO!'; model.announcementTimer = .5; }
+      else if (actor.comboStep === 3) { model.announcement = 'TRIPLE!'; model.announcementTimer = .58; }
+      else if (actor.comboStep === 4) { model.announcement = '4× COMBO!'; model.announcementTimer = .68; model.hype = clamp(model.hype + 4, 0, 100); }
+      else if (actor.comboStep >= 5) { model.announcement = 'UNSTOPPABLE!'; model.announcementTimer = .88; model.hype = clamp(model.hype + 9, 0, 100); }
+    }
+  }
+
+  if (isComboFinisher) {
+    model.announcement = 'COMBO FINISHER!';
+    model.announcementTimer = 1.05;
+    model.slowMotion = Math.max(model.slowMotion, 0.35);
+    actor.comboStep = 0;
   }
   const exhaustionKnockout = model.elapsed >= BALANCE.knockout.earliestSeconds
     && target.health <= BALANCE.knockout.healthThreshold
     && target.stamina <= BALANCE.knockout.staminaThreshold
     && move.damage >= BALANCE.knockout.minimumMoveDamage;
   if (!model.toyTestMode && ((target.health <= 0 && (majorImpactMove || model.matchMode === 'battle_royale')) || (majorImpactMove && exhaustionKnockout))) resolveMatch(model, actorKey, 'KNOCKOUT', targetKey);
+
+  if (inSingles && targetPreHealth >= 35 && target.health < 35 && target.health > 0) {
+    model.announcement = `${targetDefinition.name.toUpperCase()} CLUTCH OVERDRIVE!`;
+    model.announcementTimer = 1.8;
+    model.slowMotion = Math.max(model.slowMotion, 0.25);
+  }
+
   return true;
 };
 
