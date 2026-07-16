@@ -62,8 +62,8 @@ export function App() {
   // Synchronize Multiplayer transition to actual active gameplay
   useEffect(() => {
     if (screen === 'multiplayer_lobby' && multiplayerStatus === 'connected' && multiplayerRoomPhase === 'active') {
-      const p1SessionId = [...multiplayerRoles.entries()].find(([_, r]) => r === 'player1')?.[0];
-      const p2SessionId = [...multiplayerRoles.entries()].find(([_, r]) => r === 'player2')?.[0];
+      const p1SessionId = [...multiplayerRoles.entries()].find((entry) => entry[1] === 'player1')?.[0];
+      const p2SessionId = [...multiplayerRoles.entries()].find((entry) => entry[1] === 'player2')?.[0];
       const p1Fighter = p1SessionId ? (multiplayerFightersMap.get(p1SessionId)?.definitionId as FighterId) : 'atlas';
       const p2Fighter = p2SessionId ? (multiplayerFightersMap.get(p2SessionId)?.definitionId as FighterId) : 'nova';
 

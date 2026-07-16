@@ -3,7 +3,7 @@ import { BALANCE } from '../data/balance';
 import { distance, seededRandom } from '../utils/math';
 import { FIGHTER_SLOTS } from '../types/game';
 import type { FighterDefinition, FighterSlot, GameCommand, MatchModel } from '../types/game';
-import { GRAPPLE_ACQUISITION_RANGE } from '../systems/moveSelection';
+import { GRAPPLE_ACQUISITION_RANGE, selectDirectionalStrike } from '../systems/moveSelection';
 import { isRingside } from '../physics/ringDynamics';
 
 export interface AiDecision { command: GameCommand | null; move: { x: number; z: number }; run: boolean; nextSeed: number }
@@ -36,6 +36,7 @@ export const isActionLegal = (model: MatchModel, command: GameCommand, actorKey:
   const target = model[model.targets[actorKey]];
   if (model.paused || model.resolved || actor.state === 'pinned' || actor.state === 'pinning' || actor.state === 'defeated' || actor.state === 'victorious') return false;
   const targetDistance = distance(actor.position, target.position);
+  const delta = { x: target.position.x - actor.position.x, z: target.position.z - actor.position.z };
   if (command === 'block') return actor.stamina > 2 && ['idle', 'locomotion', 'blocking', 'staggered'].includes(actor.state);
   if (command === 'jump') return actor.stamina >= 8 && actor.body.verticalOffset <= .32 && ['idle', 'locomotion'].includes(actor.state);
   if (actor.state === 'grappling' && actor.attackPhase === 'anticipation' && ['quick', 'heavy', 'grapple'].includes(command)) return true;
@@ -63,7 +64,14 @@ export const isActionLegal = (model: MatchModel, command: GameCommand, actorKey:
     return nearApron && ['idle', 'locomotion'].includes(actor.state);
   }
   if (command === 'grapple' && model.grapple) return false;
-  const move = command === 'quick' ? target.state === 'downed' ? MOVES.ground : MOVES.jab : command === 'heavy' ? actor.ropeRebound > 0 ? MOVES.stiff_arm : MOVES.heavy : MOVES.slam;
+  let move = MOVES.jab;
+  if (command === 'quick') {
+    move = target.state === 'downed' ? MOVES.ground : (MOVES[selectDirectionalStrike(delta, 'quick', actor.comboStep)] || MOVES.jab);
+  } else if (command === 'heavy') {
+    move = actor.ropeRebound > 0 ? MOVES.stiff_arm : (MOVES[selectDirectionalStrike(delta, 'heavy', actor.comboStep)] || MOVES.heavy);
+  } else {
+    move = MOVES.slam;
+  }
   if (!move) return false;
   return move.requiredActorStates.includes(actor.state) && actor.stamina >= move.staminaCost && (command !== 'grapple' || targetDistance <= GRAPPLE_ACQUISITION_RANGE);
 };
@@ -192,12 +200,13 @@ export const chooseAiDecision = (model: MatchModel, definition: FighterDefinitio
     return { command: null, move: toward, run: separation > 2.8, nextSeed };
   }
   const bias = definition.tendency;
-  const grappleThreshold = clampChance(.31 + personality.technical * .25 + personality.powerhouse * .16);
-  const heavyThreshold = clampChance(.7 - personality.aggressive * .12 - personality.reckless * .1);
+  // BLOCKBUSTER: Boost grapple selection threshold for all AI fighters (+5% for technical pacing balance)
+  const grappleThreshold = clampChance(.36 + personality.technical * .25 + personality.powerhouse * .16);
+  const heavyThreshold = clampChance(.68 - personality.aggressive * .12 - personality.reckless * .1);
   const command: GameCommand = bias === 'technical' && roll < grappleThreshold + .16 ? 'grapple'
     : bias === 'opportunistic' && roll > heavyThreshold ? 'heavy'
-    : bias === 'aggressive' && roll < .28 ? 'grapple' // aggressive fighters grab for a default slam
-    : roll < .44 ? 'quick' : roll < .44 + grappleThreshold ? 'grapple' : 'heavy';
+    : bias === 'aggressive' && roll < .36 ? 'grapple' // aggressive fighters grab for a default slam more often
+    : roll < .40 ? 'quick' : roll < .40 + grappleThreshold ? 'grapple' : 'heavy';
   const legal = isActionLegal(model, command, actorKey) ? command : isActionLegal(model, 'quick', actorKey) ? 'quick' : null;
   const move = legal === 'grapple' ? grappleDirectionFor(definition.tendency, roll)
     : legal === 'quick' || legal === 'heavy' ? strikeDirectionFor(legal, definition.tendency, roll, actor.stamina) : { x: 0, z: 0 };

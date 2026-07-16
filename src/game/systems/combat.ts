@@ -150,6 +150,21 @@ export const startMove = (actor: FighterRuntime, target: FighterRuntime, move: M
   actor.stamina = clamp(actor.stamina - move.staminaCost, 0, actor.staminaCap);
   actor.finisherPrimed = move.category === 'finisher';
   if (move.category === 'finisher') actor.momentum = 0;
+
+  // BLOCKBUSTER: Magnetic strike target assist
+  // If the move is a punch, kick, or grapple entry, slide the actor closer to the target (up to 0.6 meters)
+  const isStrikeOrGrapple = ['quick', 'heavy', 'grapple', 'finisher'].includes(move.category);
+  if (isStrikeOrGrapple && move.id !== 'taunt' && move.id !== 'kick_up') {
+    const toTarget = { x: target.position.x - actor.position.x, z: target.position.z - actor.position.z };
+    const dist = Math.hypot(toTarget.x, toTarget.z);
+    if (dist > 0.05) {
+      const idealDist = Math.max(0.4, move.minimumRange + 0.1);
+      const moveAmount = Math.min(0.65, Math.max(0, dist - idealDist));
+      actor.position.x += (toTarget.x / dist) * moveAmount;
+      actor.position.z += (toTarget.z / dist) * moveAmount;
+    }
+  }
+
   return true;
 };
 
@@ -329,10 +344,11 @@ export const applyMoveHit = (model: MatchModel, actorKey: FighterSlot, targetKey
     moveId: move.id,
   });
   if (move.category === 'quick' || move.category === 'heavy' || move.category === 'grapple' || move.category === 'aerial') {
-    model.slowMotion = Math.max(model.slowMotion, move.category === 'quick' ? .08 : move.category === 'heavy' ? .14 : move.category === 'aerial' ? .18 : .22);
+    // BLOCKBUSTER: Amplified slowMotion values for heavy, aerial, and grapple moves to feel more blockbuster
+    model.slowMotion = Math.max(model.slowMotion, move.category === 'quick' ? .10 : move.category === 'heavy' ? .32 : move.category === 'aerial' ? .38 : .42);
   }
   if (move.category === 'finisher') {
-    model.slowMotion = .82;
+    model.slowMotion = 1.25; // BLOCKBUSTER: increased slowMotion for signature moves
     model.announcement = `${actorDefinition.signature}!`;
     model.announcementTimer = 2.1;
   }
@@ -344,7 +360,7 @@ export const applyMoveHit = (model: MatchModel, actorKey: FighterSlot, targetKey
   }
   if (move.category === 'grapple') {
     if (move.id === 'piledriver') {
-      model.slowMotion = Math.max(model.slowMotion, .52);
+      model.slowMotion = Math.max(model.slowMotion, .85); // BLOCKBUSTER: enhanced piledriver slowdown
       model.announcement = 'VOLTAGE PILEDRIVER!'; model.announcementTimer = 2.1;
       model.hitStop = Math.max(model.hitStop, .18);
     } else if (move.id === 'slam') {
@@ -352,7 +368,7 @@ export const applyMoveHit = (model: MatchModel, actorKey: FighterSlot, targetKey
       model.announcement = 'VOLTAGE SLAM!'; model.announcementTimer = 1.6;
       model.hitStop = Math.max(model.hitStop, .14);
     } else if (move.damage >= 18) {
-      model.slowMotion = Math.max(model.slowMotion, .24);
+      model.slowMotion = Math.max(model.slowMotion, .48); // BLOCKBUSTER: enhanced slam slowdown
       model.announcement = move.displayName.toUpperCase(); model.announcementTimer = 1.2;
     }
   }
