@@ -64,14 +64,11 @@ export const isActionLegal = (model: MatchModel, command: GameCommand, actorKey:
     return nearApron && ['idle', 'locomotion'].includes(actor.state);
   }
   if (command === 'grapple' && model.grapple) return false;
-  let move = MOVES.jab;
-  if (command === 'quick') {
-    move = target.state === 'downed' ? MOVES.ground : (MOVES[selectDirectionalStrike(delta, 'quick', actor.comboStep)] || MOVES.jab);
-  } else if (command === 'heavy') {
-    move = actor.ropeRebound > 0 ? MOVES.stiff_arm : (MOVES[selectDirectionalStrike(delta, 'heavy', actor.comboStep)] || MOVES.heavy);
-  } else {
-    move = MOVES.slam;
-  }
+  const move = command === 'quick'
+    ? (target.state === 'downed' ? MOVES.ground : (MOVES[selectDirectionalStrike(delta, 'quick', actor.comboStep)] || MOVES.jab))
+    : command === 'heavy'
+      ? (actor.ropeRebound > 0 ? MOVES.stiff_arm : (MOVES[selectDirectionalStrike(delta, 'heavy', actor.comboStep)] || MOVES.heavy))
+      : MOVES.slam;
   if (!move) return false;
   return move.requiredActorStates.includes(actor.state) && actor.stamina >= move.staminaCost && (command !== 'grapple' || targetDistance <= GRAPPLE_ACQUISITION_RANGE);
 };

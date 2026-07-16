@@ -167,7 +167,7 @@ export function PhysicsLab() {
         // At rebound speed even the compact wind-up covers roughly one metre.
         // Queue near the outer edge of legal move range, before the chest has
         // crossed the opponent, so the real arm collider reaches on active.
-        if (player.ropeRebound > 0 && Math.hypot(player.position.x - opponent.position.x, player.position.z - opponent.position.z) <= 2.25) {
+        if (player.ropeRebound > 0 && Math.hypot(player.position.x - opponent.position.x, player.position.z - opponent.position.z) <= 1.85) {
           reboundPressAt = elapsedMs; dispatchKey('KeyK', true);
         }
       } else if (reboundPressAt !== null && !reboundReleased && elapsedMs >= reboundPressAt + 180) {
