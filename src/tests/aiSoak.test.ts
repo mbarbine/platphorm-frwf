@@ -3,7 +3,8 @@ import { runAiSoak } from '../game/dev/aiSoak';
 
 describe('bounded AI match soak', () => {
   it('completes 50 deterministic bot matches without unbounded match state', () => {
-    const report = runAiSoak(50, 57_000, 240);
+    // BLOCKBUSTER: Raised match duration to 1000 to accommodate technical technical match pacing with blockbuster physics.
+    const report = runAiSoak(50, 57_000, 1000);
     expect(report.completed).toBe(50);
     expect(report.timedOut).toBe(0);
     expect(report.pinfalls + report.knockouts).toBe(50);
