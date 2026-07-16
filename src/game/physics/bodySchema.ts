@@ -49,8 +49,17 @@ const segment = (definition: FighterDefinition, id: BodySegmentId, side: Segment
   };
 };
 
+// Cache to store pre-built body schemas by fighter ID to eliminate GC pressure and rebuild overhead
+const SCHEMA_CACHE = new Map<string, readonly BodySegmentSchema[]>();
+
+// Cache to store pre-built body segment schemas by fighter ID and segment ID for O(1) retrieval
+const SEGMENT_SCHEMA_CACHE = new Map<string, BodySegmentSchema>();
+
 /** Stable human proportions in meters. All segment masses stay within a safe connected ratio. */
 export const buildBodySchema = (definition: FighterDefinition): readonly BodySegmentSchema[] => {
+  const cached = SCHEMA_CACHE.get(definition.id);
+  if (cached) return cached;
+
   const p = definition.physics;
   const heightScale = p.standingHeightM / 1.88;
   const shoulder = p.shoulderWidthM * .54;
@@ -78,11 +87,19 @@ export const buildBodySchema = (definition: FighterDefinition): readonly BodySeg
     segment(definition, 'leftFoot', 'left', .1, -hip, .14, .105),
     segment(definition, 'rightFoot', 'right', .1, hip, .14, .105),
   ];
+
+  SCHEMA_CACHE.set(definition.id, schema);
   return schema;
 };
 
 export const segmentSchema = (definition: FighterDefinition, id: BodySegmentId): BodySegmentSchema => {
+  const cacheKey = `${definition.id}-${id}`;
+  const cached = SEGMENT_SCHEMA_CACHE.get(cacheKey);
+  if (cached) return cached;
+
   const found = buildBodySchema(definition).find((candidate) => candidate.id === id);
   if (!found) throw new Error(`Missing body segment ${id}`);
+
+  SEGMENT_SCHEMA_CACHE.set(cacheKey, found);
   return found;
 };
