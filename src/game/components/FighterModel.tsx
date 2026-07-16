@@ -547,18 +547,22 @@ export function FighterModel({ runtime, counterpart, fighterId, preview = false,
     root.current.rotation.y += (animatedPose.rootYaw - root.current.rotation.y) * smooth;
     root.current.rotation.z += (animatedPose.rootRoll + visibleSideLean + personalityRoll - root.current.rotation.z) * smooth;
 
-    const apply = (group: Group, rotation: readonly [number, number, number], droop = 0): void => {
-      group.rotation.x += (rotation[0] + droop - group.rotation.x) * smooth;
-      group.rotation.y += (rotation[1] - group.rotation.y) * smooth;
-      group.rotation.z += (rotation[2] - group.rotation.z) * smooth;
+    const apply = (group: Group, rx: number, ry: number, rz: number, droop = 0): void => {
+      group.rotation.x += (rx + droop - group.rotation.x) * smooth;
+      group.rotation.y += (ry - group.rotation.y) * smooth;
+      group.rotation.z += (rz - group.rotation.z) * smooth;
     };
     apply(
       torso.current,
-      [animatedPose.torso[0] + breath + fatigue * .06, animatedPose.torso[1] + safeNumber(runtime?.body?.twist, 0) * .34 + (combatOrientation?.torsoYaw ?? 0), animatedPose.torso[2]],
+      animatedPose.torso[0] + breath + fatigue * .06,
+      animatedPose.torso[1] + safeNumber(runtime?.body?.twist, 0) * .34 + (combatOrientation?.torsoYaw ?? 0),
+      animatedPose.torso[2],
     );
     apply(
       head.current,
-      [safeNumber(runtime?.body?.headSnap, 0) * .55 + fatigue * .06, -safeNumber(runtime?.body?.twist, 0) * .18 + (combatOrientation?.headYaw ?? 0), safeNumber(runtime?.body?.headSnap, 0) * .24],
+      safeNumber(runtime?.body?.headSnap, 0) * .55 + fatigue * .06,
+      -safeNumber(runtime?.body?.twist, 0) * .18 + (combatOrientation?.headYaw ?? 0),
+      safeNumber(runtime?.body?.headSnap, 0) * .24,
     );
     const armDroop = idle ? fatigue * profile.fatigueDroop * .34 : 0;
     const gaitCycle = runtime ? safeNumber(runtime.body?.gaitPhase, t * 3) : t * 3;
@@ -566,10 +570,10 @@ export function FighterModel({ runtime, counterpart, fighterId, preview = false,
     const gaitForward = movement ? safeNumber(movement.forward, 0) : 0;
     const armSwing = movement && movement.state === 'run' ? Math.sin(gaitCycle) * gaitStrength * .68
       : movement && gaitForward > .35 ? Math.sin(gaitCycle) * gaitStrength * .18 : 0;
-    apply(leftArm.current, [animatedPose.leftArm[0] + armSwing, animatedPose.leftArm[1], animatedPose.leftArm[2]], armDroop);
-    apply(rightArm.current, [animatedPose.rightArm[0] - armSwing, animatedPose.rightArm[1], animatedPose.rightArm[2]], armDroop);
-    apply(leftForearm.current, [animatedPose.leftForearm[0] + (1 - muscle) * .34, animatedPose.leftForearm[1], animatedPose.leftForearm[2]]);
-    apply(rightForearm.current, [animatedPose.rightForearm[0] + (1 - muscle) * .34, animatedPose.rightForearm[1], animatedPose.rightForearm[2]]);
+    apply(leftArm.current, animatedPose.leftArm[0] + armSwing, animatedPose.leftArm[1], animatedPose.leftArm[2], armDroop);
+    apply(rightArm.current, animatedPose.rightArm[0] - armSwing, animatedPose.rightArm[1], animatedPose.rightArm[2], armDroop);
+    apply(leftForearm.current, animatedPose.leftForearm[0] + (1 - muscle) * .34, animatedPose.leftForearm[1], animatedPose.leftForearm[2]);
+    apply(rightForearm.current, animatedPose.rightForearm[0] + (1 - muscle) * .34, animatedPose.rightForearm[1], animatedPose.rightForearm[2]);
 
     const stride = safeNumber(runtime?.body?.stride, 0);
     const gaitBoost = key === 'run' ? 1.15 : key === 'walk' ? .82 : 1;
@@ -581,10 +585,10 @@ export function FighterModel({ runtime, counterpart, fighterId, preview = false,
     const leftSwing = leftCycle * stride * .48 * gaitBoost * forwardFactor;
     const rightSwing = rightCycle * stride * .48 * gaitBoost * forwardFactor;
     const leftStrafe = leftCycle * stride * .28 * lateralFactor; const rightStrafe = rightCycle * stride * .28 * lateralFactor;
-    apply(leftLeg.current, [animatedPose.leftLeg[0] - leftSwing + (1 - muscle) * .08, animatedPose.leftLeg[1], animatedPose.leftLeg[2] + leftStrafe]);
-    apply(rightLeg.current, [animatedPose.rightLeg[0] - rightSwing + (1 - muscle) * .08, animatedPose.rightLeg[1], animatedPose.rightLeg[2] + rightStrafe]);
-    apply(leftShin.current, [animatedPose.leftShin[0] + Math.max(0, leftSwing) * .7 + (1 - muscle) * .22, animatedPose.leftShin[1], animatedPose.leftShin[2]]);
-    apply(rightShin.current, [animatedPose.rightShin[0] + Math.max(0, rightSwing) * .7 + (1 - muscle) * .22, animatedPose.rightShin[1], animatedPose.rightShin[2]]);
+    apply(leftLeg.current, animatedPose.leftLeg[0] - leftSwing + (1 - muscle) * .08, animatedPose.leftLeg[1], animatedPose.leftLeg[2] + leftStrafe);
+    apply(rightLeg.current, animatedPose.rightLeg[0] - rightSwing + (1 - muscle) * .08, animatedPose.rightLeg[1], animatedPose.rightLeg[2] + rightStrafe);
+    apply(leftShin.current, animatedPose.leftShin[0] + Math.max(0, leftSwing) * .7 + (1 - muscle) * .22, animatedPose.leftShin[1], animatedPose.leftShin[2]);
+    apply(rightShin.current, animatedPose.rightShin[0] + Math.max(0, rightSwing) * .7 + (1 - muscle) * .22, animatedPose.rightShin[1], animatedPose.rightShin[2]);
 
     if (runtime) {
       const leftFootLift = safeNumber(runtime.body.leftFoot.lift, 0);

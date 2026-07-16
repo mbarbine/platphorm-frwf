@@ -78,6 +78,15 @@ function ArenaRibbon() {
 function RopeSide({ axis, side, color, emissive }: { axis: 'x' | 'z'; side: -1 | 1; color: string; emissive: string }) {
   const rope = useRef<InstancedMesh>(null); const material = useRef<MeshStandardMaterial>(null); const dummy = useMemo(() => new Object3D(), []); const elapsed = useRef(0);
   const segmentCount = 7; const length = axis === 'x' ? 8.5 : 11.5; const segmentLength = length / segmentCount; const ropeCount = 3;
+  // Precalculate the static along offsets for the rope segments to avoid redundant calculations inside useFrame
+  const alongOffsets = useMemo(() => {
+    const offsets = [];
+    for (let index = 0; index < segmentCount; index += 1) {
+      offsets.push(-length / 2 + segmentLength * (index + .5));
+    }
+    return offsets;
+  }, [length, segmentLength, segmentCount]);
+
   useFrame((_, dt) => {
     elapsed.current += dt;
     if (!rope.current) return;
@@ -94,7 +103,9 @@ function RopeSide({ axis, side, color, emissive }: { axis: 'x' | 'z'; side: -1 |
     for (let ropeIndex = 0; ropeIndex < ropeCount; ropeIndex += 1) {
       const y = 2.5 + ropeIndex * .55;
       for (let index = 0; index < segmentCount; index += 1) {
-        const along = -length / 2 + segmentLength * (index + .5); const distanceFromContact = Math.abs(along - contactAlong);
+        const along = alongOffsets[index];
+        if (along === undefined) continue;
+        const distanceFromContact = Math.abs(along - contactAlong);
         const envelope = Math.exp(-distanceFromContact * distanceFromContact * .42);
         const travellingWave = Math.sin(elapsed.current * 25 - distanceFromContact * 2.2) * rebound * .075 * envelope;
         const deflection = side * (compression * (.34 + pulse * .1) * envelope + travellingWave);
