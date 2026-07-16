@@ -64,16 +64,16 @@ export const isActionLegal = (model: MatchModel, command: GameCommand, actorKey:
     return nearApron && ['idle', 'locomotion'].includes(actor.state);
   }
   if (command === 'grapple' && model.grapple) return false;
-  let move = MOVES.jab;
+  let selectedMove;
   if (command === 'quick') {
-    move = target.state === 'downed' ? MOVES.ground : (MOVES[selectDirectionalStrike(delta, 'quick', actor.comboStep)] || MOVES.jab);
+    selectedMove = target.state === 'downed' ? MOVES.ground : (MOVES[selectDirectionalStrike(delta, 'quick', actor.comboStep)] || MOVES.jab);
   } else if (command === 'heavy') {
-    move = actor.ropeRebound > 0 ? MOVES.stiff_arm : (MOVES[selectDirectionalStrike(delta, 'heavy', actor.comboStep)] || MOVES.heavy);
+    selectedMove = actor.ropeRebound > 0 ? MOVES.stiff_arm : (MOVES[selectDirectionalStrike(delta, 'heavy', actor.comboStep)] || MOVES.heavy);
   } else {
-    move = MOVES.slam;
+    selectedMove = MOVES.slam;
   }
-  if (!move) return false;
-  return move.requiredActorStates.includes(actor.state) && actor.stamina >= move.staminaCost && (command !== 'grapple' || targetDistance <= GRAPPLE_ACQUISITION_RANGE);
+  if (!selectedMove) return false;
+  return selectedMove.requiredActorStates.includes(actor.state) && actor.stamina >= selectedMove.staminaCost && (command !== 'grapple' || targetDistance <= GRAPPLE_ACQUISITION_RANGE);
 };
 
 export const chooseAiDecision = (model: MatchModel, definition: FighterDefinition, actorKey: FighterSlot = 'opponent'): AiDecision => {
