@@ -2,8 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { chooseAiDecision } from '../game/ai/utilityAI';
 import { fighterById } from '../game/data/fighters';
 import { getMove } from '../game/data/moves';
-import { applyMoveHit, createMatch, advanceMatch, requestCommand } from '../game/systems/combat';
-import { FIGHTERS } from '../game/data/fighters';
+import { applyMoveHit, createMatch } from '../game/systems/combat';
 
 describe('Singles Gameplay Enhancements', () => {
   it('activates Clutch Overdrive with damage and stamina boosts when health drops below 35%', () => {
