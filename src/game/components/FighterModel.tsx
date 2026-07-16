@@ -485,6 +485,8 @@ export function FighterModel({ runtime, counterpart, fighterId, preview = false,
     elapsed.current += delta;
     if (!shell.current || !root.current || !torso.current || !head.current || !leftArm.current || !rightArm.current || !leftForearm.current || !rightForearm.current || !leftLeg.current || !rightLeg.current || !leftShin.current || !rightShin.current) return;
     const t = elapsed.current;
+    // Clamp delta time to protect against sudden frame drops, preventing presentation spikes and teleportation
+    const clampedDelta = Math.min(delta, 0.1);
     const movement = runtime ? locomotionPresentation(runtime) : null;
     const combatOrientation = runtime ? resolveCombatOrientation(runtime, counterpart) : null;
     let key = animationFor(runtime, preview);
@@ -524,7 +526,7 @@ export function FighterModel({ runtime, counterpart, fighterId, preview = false,
     const movementSpeed = runtime ? Math.hypot(safeNumber(runtime.velocity?.x, 0), safeNumber(runtime.velocity?.z, 0)) : 0;
     const speedScale = key === 'run' ? Math.min(1.35, .85 + movementSpeed * .07) : 1;
     const poseResponse = runtime?.attackPhase === 'active' ? 38 : runtime?.attackPhase === 'anticipation' ? 21 : runtime?.attackPhase === 'recovery' ? 11 : 14 * profile.motionTempo;
-    const smooth = 1 - Math.exp(-delta * poseResponse);
+    const smooth = 1 - Math.exp(-clampedDelta * poseResponse);
     const idle = ['combatIdle', 'idle', 'taunt'].includes(key);
     const groundedBob = idle
       ? Math.sin(t * 2.25 * tempo + phaseOffset) * .022 * profile.stepWeight
@@ -621,13 +623,13 @@ export function FighterModel({ runtime, counterpart, fighterId, preview = false,
         shell.current.position.set(runtimeX, targetY, runtimeZ); shell.current.rotation.y = safeNumber(runtime.facing, 0); presentationInitialized.current = true;
       } else {
         const correctionRate = runtime.attackPhase === 'active' || planarError > .7 ? 34 : movement?.state === 'run' ? 28 : 22;
-        const correction = 1 - Math.exp(-delta * correctionRate);
+        const correction = 1 - Math.exp(-clampedDelta * correctionRate);
         shell.current.position.x += (runtimeX - shell.current.position.x) * correction;
-        shell.current.position.y += (targetY - shell.current.position.y) * (1 - Math.exp(-delta * 30));
+        shell.current.position.y += (targetY - shell.current.position.y) * (1 - Math.exp(-clampedDelta * 30));
         shell.current.position.z += (runtimeZ - shell.current.position.z) * correction;
         const safeFacing = safeNumber(runtime.facing, 0);
         const facingError = Math.atan2(Math.sin(safeFacing - shell.current.rotation.y), Math.cos(safeFacing - shell.current.rotation.y));
-        shell.current.rotation.y += facingError * (1 - Math.exp(-delta * 24));
+        shell.current.rotation.y += facingError * (1 - Math.exp(-clampedDelta * 24));
       }
       root.current.updateWorldMatrix(true, true);
       root.current.localToWorld(alignmentPoints.current.pelvis.set(0, 1.02 * height, 0));
@@ -673,7 +675,7 @@ export function FighterModel({ runtime, counterpart, fighterId, preview = false,
         vectors.previous.copy(vectors.current);
       } else if (trail) {
         const material = trail.material as MeshBasicMaterial;
-        material.opacity = Math.max(0, material.opacity - delta * 7.5);
+        material.opacity = Math.max(0, material.opacity - clampedDelta * 7.5);
         if (material.opacity <= .015) trail.visible = false;
         if (sourcePoint) trailVectors.current.previous.copy(sourcePoint);
       }
@@ -702,7 +704,7 @@ export function FighterModel({ runtime, counterpart, fighterId, preview = false,
     if (runtime) previousHealth.current = runtime.health;
     if (flash.current) {
       const material = flash.current.material as MeshBasicMaterial;
-      material.opacity = Math.max(0, material.opacity - delta * 5.8);
+      material.opacity = Math.max(0, material.opacity - clampedDelta * 5.8);
       if (material.opacity <= .01) flash.current.visible = false;
     }
   });
