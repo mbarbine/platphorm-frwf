@@ -46,13 +46,13 @@ export const isActionLegal = (model: MatchModel, command: GameCommand, actorKey:
   }
   if (actor.state === 'climbing' && actor.climbStage === 3 && (command === 'quick' || command === 'heavy')) {
     const move = command === 'quick' ? MOVES.aerial_elbow : MOVES.aerial_kick;
-    return Boolean(move && actor.stamina >= move.staminaCost && targetDistance <= move.maximumRange && !['defeated', 'victorious'].includes(target.state));
+    return Boolean(move && actor.stamina >= move.staminaCost && targetDistance >= move.minimumRange && targetDistance <= move.maximumRange && !['defeated', 'victorious'].includes(target.state));
   }
   if (command === 'dodge') return actor.stamina >= (actor.state === 'downed' ? 12 : 8) && ['idle', 'locomotion', 'climbing', 'staggered', 'grabbed', 'downed'].includes(actor.state);
   if (command === 'taunt') return ['idle', 'locomotion', 'climbing'].includes(actor.state);
   if (command === 'interact') return model.ruleset === 'chaos' && ['idle', 'locomotion'].includes(actor.state);
   if (command === 'context') {
-    if (actor.state === 'climbing') return actor.climbStage < 3 || (!['defeated', 'victorious'].includes(target.state) && targetDistance <= getMove('aerial').maximumRange);
+    if (actor.state === 'climbing') return actor.climbStage < 3 || (!['defeated', 'victorious'].includes(target.state) && targetDistance >= getMove('aerial').minimumRange && targetDistance <= getMove('aerial').maximumRange);
     if (actor.momentum >= 100) return !model.grapple && targetDistance <= getMove('finisher').maximumRange && ['staggered', 'downed'].includes(target.state);
     const pinEligible = actorKey === 'player' || (model.elapsed >= BALANCE.ai.earliestPinSeconds && target.health <= BALANCE.ai.pinHealthThreshold);
     const pinInProgress = FIGHTER_SLOTS.some((slot) => model[slot].state === 'pinning' || model[slot].state === 'pinned');
@@ -94,6 +94,9 @@ export const chooseAiDecision = (model: MatchModel, definition: FighterDefinitio
   const availableRingsideProp = model.ruleset === 'chaos' && !actor.heldPropId && model.props.some((prop) => !prop.broken && !prop.heldBy && prop.kind !== 'table' && isRingside(prop.position));
   if (actor.state === 'downed') return { command: isActionLegal(model, 'dodge', actorKey) && roll < (model.difficulty === 'hard' ? .72 : .48) ? 'dodge' : null, move: { x: 0, z: 0 }, run: false, nextSeed };
   if (actor.state === 'climbing') {
+    if (separation < getMove('aerial').minimumRange) {
+      return { command: isActionLegal(model, 'dodge', actorKey) ? 'dodge' : null, move: { x: 0, z: 0 }, run: false, nextSeed };
+    }
     if (actor.climbStage < 3) return { command: 'context', move: { x: 0, z: 0 }, run: false, nextSeed };
     const aerialCommand: GameCommand = roll < .4 ? 'quick' : roll < .78 ? 'heavy' : 'context';
     const legalAerial = isActionLegal(model, aerialCommand, actorKey) ? aerialCommand : isActionLegal(model, 'context', actorKey) ? 'context' : isActionLegal(model, 'dodge', actorKey) ? 'dodge' : null;
