@@ -16,7 +16,7 @@ export type ActionPushResult = 'buffered' | 'duplicate' | 'rejected';
 
 export const ACTION_BUFFER_DEFAULT_TTL_MS = 150;
 export const ACTION_BUFFER_CONTEXT_TTL_MS = 110;
-export const ACTION_BUFFER_DUPLICATE_WINDOW_MS = 48;
+export const ACTION_BUFFER_DUPLICATE_WINDOW_MS = 32;
 
 interface BufferedAction<T> {
   payload: T;
