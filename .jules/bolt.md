@@ -8,3 +8,7 @@
 ## 2026-07-16 - [Memoized Fighter Definitions and Static Segment Schema Generations]
 **Learning:** In a performance-critical game and physics engine running continuous physics updates, repeatedly allocating 16-element arrays of segment schema objects and performing O(n) array lookups for static reference structures (like `fighterById` or `buildBodySchema`) puts heavy strain on the CPU and Garbage Collector.
 **Action:** Cache the resulting arrays and objects by wrestler ID in static Map and Record structures. This ensures that lookups and schema retrievals become O(1) with zero dynamic allocation on subsequent accesses.
+
+## 2026-07-17 - [Optimized Visual Trail Width Scaling and Stabilized Multi-Agent Targeting]
+**Learning:** In Battle Royale mode, constant target flicking caused characters to rotate and execute physics commands erratically, creating huge frame drops and coordinate jitter. Applying target persistence and preventing retargeting mid-move stabilized the physics solver. Furthermore, scaling visual motion trails dynamically by referencing existing move properties avoids hot-path array allocations in Three.js and preserves zero GC churn.
+**Action:** Prevent AIs from target switching during mid-move active states, implement stable target buffers (1.35m) for active brawls, and scale motion trail widths directly within the layout solver instead of instantiating new geometries.
