@@ -53,13 +53,23 @@ export const FIGHTERS: readonly FighterDefinition[] = [
   },
 ] as const;
 
+// Precompute fast O(1) lookup map for fighters to avoid repetitive array .find calls
+const FIGHTER_MAP = Object.fromEntries(FIGHTERS.map((fighter) => [fighter.id, fighter])) as Record<FighterId, FighterDefinition>;
+
+// Precompute fast O(1) lookup map for opponents to avoid repetitive index scans
+const OPPONENT_MAP = Object.fromEntries(
+  FIGHTERS.map((fighter, index) => [
+    fighter.id,
+    FIGHTERS[(index + 2) % FIGHTERS.length]?.id ?? 'brick'
+  ])
+) as Record<FighterId, FighterId>;
+
 export const fighterById = (id: FighterId): FighterDefinition => {
-  const fighter = FIGHTERS.find((candidate) => candidate.id === id);
+  const fighter = FIGHTER_MAP[id];
   if (!fighter) throw new Error(`Unknown fighter: ${id}`);
   return fighter;
 };
 
 export const opponentFor = (id: FighterId): FighterId => {
-  const index = FIGHTERS.findIndex((fighter) => fighter.id === id);
-  return FIGHTERS[(index + 2) % FIGHTERS.length]?.id ?? 'brick';
+  return OPPONENT_MAP[id] ?? 'brick';
 };
