@@ -50,18 +50,27 @@ test('captures the shipping combat presentation at decisive motion beats', async
   await lab.getByRole('button', { name: 'PLAY' }).click();
 
   await expect(lab).toHaveAttribute('data-lab-scenario', 'idle', { timeout: 30_000 });
+  // The evidence reel's strike captures intentionally pause and teleport one
+  // diagnostic world. Start the constrained slam in a fresh match—the same
+  // lifecycle a player gets—rather than treating an in-place lab reset as a
+  // new Rapier world.
+  await page.goto('/?physicsLab=1');
+  await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
+  await page.getByRole('button', { name: 'PLAY', exact: true }).click();
+  await page.getByRole('button', { name: /LOCK IN ATLAS/ }).click();
+  await page.getByRole('button', { name: /^STANDARD/ }).click();
+  await page.getByRole('button', { name: 'START MATCH' }).click();
+  await expect(hud).toHaveAttribute('data-physics-bodies', '32', { timeout: 30_000 });
   const slam = lab.getByRole('button', { name: 'BODY SLAM' });
   await expect(slam).toBeEnabled({ timeout: 20_000 });
-  await pauseOnHudAttribute(page, 'data-grapple-phase', '^lift$', 'capturedSlam');
   await slam.click();
-  await expect(page.locator('html')).toHaveAttribute('data-captured-slam', 'lift', { timeout: 90_000 });
-  await page.screenshot({ path: testInfo.outputPath('05-slam-sequence.png') });
-  // Keep the constrained release in slow motion. Jumping Rapier directly from
-  // quarter-speed to full-speed during a secured lift can introduce a solver
-  // discontinuity and turn a valid slam into a grip break.
-  await lab.getByRole('button', { name: '0.5×' }).click();
-  await lab.getByRole('button', { name: 'PLAY' }).click();
+  await expect(hud).toHaveAttribute('data-grapple-phase', 'lift', { timeout: 90_000 });
+  // The shipping simulation stays at 60 Hz; the instant replay owns the
+  // slow-motion presentation after the committed torso landing. Capture the
+  // replay instead of stalling the live GPU during a constrained lift.
   await expect(hud.locator('[data-replay-active="true"]')).toBeAttached({ timeout: 90_000 });
+  await page.screenshot({ path: testInfo.outputPath('05-slam-sequence.png') });
+  await page.waitForTimeout(900);
   await page.screenshot({ path: testInfo.outputPath('06-slam-replay.png') });
 
   await page.getByRole('button', { name: 'SKIP REPLAY' }).click();
