@@ -140,7 +140,7 @@ export const canStartMove = (actor: FighterRuntime, target: FighterRuntime, move
     && actor.stamina >= move.staminaCost
     && (motionCanWhiff || targetDistance >= move.minimumRange)
     && (motionCanWhiff || targetDistance <= maximumInputRange)
-    && (!move.requiredTargetStates || move.requiredTargetStates.includes(target.state));
+    && (motionCanWhiff || !move.requiredTargetStates || move.requiredTargetStates.includes(target.state));
 };
 
 export const startMove = (actor: FighterRuntime, target: FighterRuntime, move: MoveDefinition): boolean => {
@@ -167,6 +167,8 @@ interface ImpactMetadata {
   outcome?: ImpactEvent['outcome'];
   highlight?: Omit<HighlightMoment, 'impactId' | 'time'>;
   moveId?: string;
+  sourceFighter?: FighterSlot;
+  targetFighter?: FighterSlot;
 }
 
 const addImpact = (model: MatchModel, position: Vec2, kind: ImpactEvent['kind'], intensity: number, metadata: ImpactMetadata = {}): void => {
@@ -181,6 +183,8 @@ const addImpact = (model: MatchModel, position: Vec2, kind: ImpactEvent['kind'],
     torque: metadata.torque,
     outcome: metadata.outcome,
     moveId: metadata.moveId,
+    sourceFighter: metadata.sourceFighter,
+    targetFighter: metadata.targetFighter,
   };
   if (metadata.highlight) {
     model.highlights = [...model.highlights.slice(-23), {
@@ -249,7 +253,7 @@ export const applyMoveHit = (model: MatchModel, actorKey: FighterSlot, targetKey
       target.momentum = clamp(target.momentum + 15, 0, 100);
       model.hype = clamp(model.hype + 12, 0, 100);
       model.announcement = 'PERFECT PARRY!'; model.announcementTimer = 1.0;
-      addImpact(model, impactPosition, 'counter', 1.1, { region: calculatedImpact.region, force: calculatedImpact.force * 0.5, torque: calculatedImpact.torque, outcome: 'stagger', moveId: move.id });
+      addImpact(model, impactPosition, 'counter', 1.1, { region: calculatedImpact.region, force: calculatedImpact.force * 0.5, torque: calculatedImpact.torque, outcome: 'stagger', moveId: move.id, sourceFighter: targetKey, targetFighter: actorKey });
       return true;
     }
     if (move.category === 'aerial' && target.stamina > Math.max(6, move.damage * .45)) {
@@ -261,7 +265,7 @@ export const applyMoveHit = (model: MatchModel, actorKey: FighterSlot, targetKey
       actor.body.verticalOffset = 0; actor.body.verticalVelocity = 0; actor.recoveryOrientation = 'back';
       model.hype = clamp(model.hype + 12, 0, 100);
       model.announcement = 'BLOCK CATCH!'; model.announcementTimer = .95;
-      addImpact(model, impactPosition, 'counter', 1.05, { region: calculatedImpact.region, force: calculatedImpact.force * .84, torque: calculatedImpact.torque, outcome: 'spin', moveId: move.id });
+      addImpact(model, impactPosition, 'counter', 1.05, { region: calculatedImpact.region, force: calculatedImpact.force * .84, torque: calculatedImpact.torque, outcome: 'spin', moveId: move.id, sourceFighter: targetKey, targetFighter: actorKey });
       return true;
     }
     actor.hitTargets.push(hitToken);
@@ -275,9 +279,9 @@ export const applyMoveHit = (model: MatchModel, actorKey: FighterSlot, targetKey
       target.state = 'staggered'; target.stateElapsed = -BALANCE.block.guardBreakStagger;
       model.announcement = 'GUARD BREAK!'; model.announcementTimer = 1.1;
       model.hype = clamp(model.hype + 5, 0, 100);
-      addImpact(model, impactPosition, 'heavy', 1.15, { region: calculatedImpact.region, force: guardedImpact.force, torque: guardedImpact.torque, outcome: 'stagger', moveId: move.id });
+      addImpact(model, impactPosition, 'heavy', 1.15, { region: calculatedImpact.region, force: guardedImpact.force, torque: guardedImpact.torque, outcome: 'stagger', moveId: move.id, sourceFighter: actorKey, targetFighter: targetKey });
     } else {
-      addImpact(model, impactPosition, 'blocked', .72, { region: calculatedImpact.region, force: guardedImpact.force, torque: guardedImpact.torque, outcome: 'absorbed', moveId: move.id });
+      addImpact(model, impactPosition, 'blocked', .72, { region: calculatedImpact.region, force: guardedImpact.force, torque: guardedImpact.torque, outcome: 'absorbed', moveId: move.id, sourceFighter: actorKey, targetFighter: targetKey });
     }
     if (!model.toyTestMode && target.health <= 0 && (majorImpactMove || model.matchMode === 'battle_royale')) resolveMatch(model, actorKey, 'KNOCKOUT', targetKey);
     return true;
@@ -360,6 +364,8 @@ export const applyMoveHit = (model: MatchModel, actorKey: FighterSlot, targetKey
     outcome: collisionOutcome,
     highlight: move.category === 'quick' && impact.force < 7 ? undefined : { label: move.category === 'finisher' ? actorDefinition.signature : move.displayName, score: highlightScore, kind: highlightKind },
     moveId: move.id,
+    sourceFighter: actorKey,
+    targetFighter: targetKey,
   });
   if (move.category === 'quick' || move.category === 'heavy' || move.category === 'grapple' || move.category === 'aerial') {
     // BLOCKBUSTER: Amplified slowMotion values for heavy, aerial, and grapple moves to feel more blockbuster
@@ -382,7 +388,7 @@ export const applyMoveHit = (model: MatchModel, actorKey: FighterSlot, targetKey
       model.announcement = 'VOLTAGE PILEDRIVER!'; model.announcementTimer = 2.1;
       model.hitStop = Math.max(model.hitStop, .18);
     } else if (move.id === 'slam') {
-      model.slowMotion = Math.max(model.slowMotion, .42);
+      model.slowMotion = Math.max(model.slowMotion, 1.05);
       model.announcement = 'VOLTAGE SLAM!'; model.announcementTimer = 1.6;
       model.hitStop = Math.max(model.hitStop, .14);
     } else if (move.damage >= 18) {

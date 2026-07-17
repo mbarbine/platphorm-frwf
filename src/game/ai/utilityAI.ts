@@ -84,7 +84,11 @@ export const chooseAiDecision = (model: MatchModel, definition: FighterDefinitio
   // A raised physical guard establishes glove contact before the torsos reach
   // ordinary strike distance. Treat that as a legal engagement lane so the AI
   // throws into the guard instead of pacing forever against the forearms.
-  const strikingRange = target.state === 'blocking' ? 2.6 : 1.32;
+  // The articulated torsos and neutral separation controller establish a real
+  // standing gap around 1.5 m between pelvis centres. Requiring 1.32 m made AI
+  // wrestlers reach visible chest/hand contact and then walk forever because
+  // the physical bodies correctly refused to overlap.
+  const strikingRange = target.state === 'blocking' ? 2.6 : GRAPPLE_ACQUISITION_RANGE;
   const magnitude = Math.max(.001, Math.hypot(delta.x, delta.z));
   const toward = { x: delta.x / magnitude, z: delta.z / magnitude };
   const [roll, nextSeed] = seededRandom(model.seed);
@@ -173,7 +177,7 @@ export const chooseAiDecision = (model: MatchModel, definition: FighterDefinitio
   const nearRopes = Math.abs(actor.position.x) > 4.1 || Math.abs(actor.position.z) > 3.2;
 
   // Rope rebound setup: run away from opponent to build a clothesline charge (athletic fighters)
-  if (actor.ropeRebound <= 0 && !nearRopes && !physicallyCompromised && separation > 2.0 && model.elapsed > 5) {
+  if (actor.ropeRebound <= 0 && !nearRopes && !physicallyCompromised && separation > 2.0 && model.elapsed > 5 && target.state === 'staggered') {
     if (roll < personality.athletic * .22) return { command: null, move: { x: -toward.x, z: -toward.z }, run: true, nextSeed };
   }
 
@@ -181,7 +185,7 @@ export const chooseAiDecision = (model: MatchModel, definition: FighterDefinitio
   if (atCorner && !['climbing', 'grappling', 'attacking'].includes(actor.state) && isActionLegal(model, 'context', actorKey)) {
     const opponentVulnerable = target.state === 'downed' || (target.state === 'staggered' && separation < 5.5);
     const climbChance = (.18 + personality.athletic * .38) * (opponentVulnerable ? 2.4 : 1);
-    if ((model.matchMode === 'singles' || opponentVulnerable) && roll < climbChance && model.elapsed > 8) return { command: 'context', move: { x: 0, z: 0 }, run: false, nextSeed };
+    if (opponentVulnerable && roll < climbChance && model.elapsed > 8) return { command: 'context', move: { x: 0, z: 0 }, run: false, nextSeed };
   }
 
   // Aggressive downed opponent pursuit: sprint and finish
@@ -207,13 +211,10 @@ export const chooseAiDecision = (model: MatchModel, definition: FighterDefinitio
   }
   // Commit only after entering physical striking/grip range.
   if (separation > strikingRange) {
-    if (separation > 3.1 && actor.health > 48 && roll < personality.showman * .15 && isActionLegal(model, 'taunt', actorKey)) return { command: 'taunt', move: { x: 0, z: 0 }, run: false, nextSeed };
-    // Tactical corner positioning for aerial setup
-    if (!atCorner && separation > 3.8 && roll < personality.athletic * .1) {
-      const cornerX = actor.position.x >= 0 ? 4.9 : -4.9; const cornerZ = actor.position.z >= 0 ? 3.6 : -3.6;
-      const mag = Math.hypot(cornerX - actor.position.x, cornerZ - actor.position.z);
-      return { command: null, move: { x: (cornerX - actor.position.x) / Math.max(.001, mag), z: (cornerZ - actor.position.z) / Math.max(.001, mag) }, run: true, nextSeed };
-    }
+    // An idle human is still an opponent. Close distance deterministically;
+    // do not replace the fight with repeated corner walks and solo taunts.
+    // Aerial setup remains available above when the target is genuinely
+    // vulnerable, and taunts remain available after a knockdown.
     return { command: null, move: toward, run: separation > 2.8, nextSeed };
   }
   const bias = definition.tendency;

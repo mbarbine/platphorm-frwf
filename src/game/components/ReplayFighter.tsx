@@ -59,7 +59,8 @@ export function ReplayDirector() {
     // while a replay is already open. Treat those as part of the current spot so
     // Skip never closes one overlay only to immediately queue another.
     if (active) { replayedImpact.current = lastImpact.id; return; }
-    const replayWorthy = lastImpact.kind === 'finisher' || lastImpact.kind === 'table' || lastImpact.kind === 'ko';
+    const majorSlam = lastImpact.kind === 'grapple' && ['slam', 'piledriver', 'powerbomb', 'spinebuster', 'mountain_drop', 'skyhook', 'suplex'].includes(lastImpact.moveId ?? '');
+    const replayWorthy = majorSlam || lastImpact.kind === 'finisher' || lastImpact.kind === 'table' || lastImpact.kind === 'ko';
     if (!replayWorthy || bodyWorksRuntime.replay.size < 45) return;
     replayedImpact.current = lastImpact.id; useMatchStore.getState().startReplay();
   }, [active, lastImpact, reducedMotion]);

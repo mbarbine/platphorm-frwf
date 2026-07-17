@@ -83,6 +83,7 @@ export const selectMotorProfile = (fighter: FighterRuntime): MotorProfile => {
   if (fighter.state === 'locomotion') return Math.hypot(fighter.velocity.x, fighter.velocity.z) > 3.75 ? MOTOR_PROFILES.running : MOTOR_PROFILES.walking;
   if (fighter.moveId) {
     if (fighter.attackPhase === 'recovery') return MOTOR_PROFILES.neutral;
+    if (['grapple_miss', 'prop_pickup', 'prop_drop'].includes(fighter.moveId)) return MOTOR_PROFILES.grappleReach;
     if (['slam', 'suplex', 'powerbomb', 'spinebuster', 'mountain_drop', 'skyhook', 'finisher', 'piledriver'].includes(fighter.moveId)) return fighter.attackPhase === 'active' ? MOTOR_PROFILES.throw : MOTOR_PROFILES.lift;
     if (['whip', 'arm_drag', 'takedown', 'clutch', 'side_toss', 'corner_smash'].includes(fighter.moveId)) return MOTOR_PROFILES.clinch;
     if (fighter.moveId.includes('kick') || fighter.moveId === 'roundhouse' || fighter.moveId === 'aerial') return MOTOR_PROFILES.kick;

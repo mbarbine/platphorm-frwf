@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { keyboardTargetCycle, readGamepadDirection } from '../game/input/useGameInput';
+import { keyboardTargetCycle, primaryGamepad, readGamepadDirection } from '../game/input/useGameInput';
 
 const gamepadWithAxes = (axes: readonly number[]): Gamepad => ({ axes }) as unknown as Gamepad;
 
@@ -22,5 +22,10 @@ describe('desktop and XR gamepad normalization', () => {
 
   it('preserves the deadzone for resting controllers', () => {
     expect(readGamepadDirection(gamepadWithAxes([.08, -.06, .04, -.03]))).toEqual({ x: 0, z: 0 });
+  });
+
+  it('uses a connected controller even when browser slot zero is empty', () => {
+    const connected = { connected: true, buttons: [], axes: [] } as unknown as Gamepad;
+    expect(primaryGamepad([null, connected])).toBe(connected);
   });
 });

@@ -14,8 +14,8 @@ test('standard gamepad axes, run trigger, and quick attack drive the live match'
   test.setTimeout(180_000);
   await page.addInitScript(() => {
     const buttons = Array.from({ length: 17 }, () => ({ pressed: false, touched: false, value: 0 }));
-    const pad = { axes: [0, 0, 0, 0], buttons, connected: true, id: 'Ringfall deterministic standard pad', index: 0, mapping: 'standard', timestamp: 0, vibrationActuator: null, hapticActuators: [] };
-    Object.defineProperty(navigator, 'getGamepads', { configurable: true, value: () => [pad] });
+    const pad = { axes: [0, 0, 0, 0], buttons, connected: true, id: 'Ringfall deterministic standard pad', index: 1, mapping: 'standard', timestamp: 0, vibrationActuator: null, hapticActuators: [] };
+    Object.defineProperty(navigator, 'getGamepads', { configurable: true, value: () => [null, pad] });
     (window as Window & { __ringfallPad?: typeof pad }).__ringfallPad = pad;
   });
   await enterLabMatch(page);

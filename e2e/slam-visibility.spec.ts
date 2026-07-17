@@ -19,6 +19,9 @@ test('a body slam visibly lifts, lands torso-first, and settles without a broken
       const peak = Number(document.documentElement.dataset.slamPeakPelvisY ?? 0);
       if (Number.isFinite(pelvisY) && pelvisY > peak) document.documentElement.dataset.slamPeakPelvisY = pelvisY.toFixed(3);
       if (liveHud.getAttribute('data-grapple-phase') === 'lift') document.documentElement.dataset.sawSlamLift = 'true';
+      if (liveHud.querySelector('[data-replay-active="true"]')) document.documentElement.dataset.sawSlamReplay = 'true';
+      const readout = liveHud.querySelector('[data-testid="impact-readout"]');
+      if (readout?.getAttribute('data-impact-owner') === 'player' && readout.getAttribute('data-impact-kind') === 'grapple') document.documentElement.dataset.sawSlamHitReadout = 'true';
       const contact = liveHud.querySelector('[data-physics-last-contact]')?.getAttribute('data-physics-last-contact');
       if (contact === 'chest>ring') document.documentElement.dataset.sawSlamLanding = 'true';
     };
@@ -38,8 +41,13 @@ test('a body slam visibly lifts, lands torso-first, and settles without a broken
   expect(completed).toBe(true);
   await expect(html).toHaveAttribute('data-saw-slam-lift', 'true');
   await expect(html).toHaveAttribute('data-saw-slam-landing', 'true');
+  await expect(html).toHaveAttribute('data-saw-slam-replay', 'true', { timeout: 15_000 });
+  await expect(html).toHaveAttribute('data-saw-slam-hit-readout', 'true');
   expect(Number(await html.getAttribute('data-slam-peak-pelvis-y'))).toBeGreaterThan(restingPelvisY + .55);
   await expect.poll(async () => Number(await hud.locator('[data-pending-landings]').getAttribute('data-pending-landings')), { timeout: 30_000 }).toBe(0);
+  await expect.poll(async () => await hud.getAttribute('data-opponent-state'), { timeout: 40_000, intervals: [250, 500, 1000] }).toMatch(/idle|locomotion/);
+  await expect.poll(async () => Number(await hud.getAttribute('data-opponent-pelvis-y')), { timeout: 10_000 }).toBeGreaterThan(restingPelvisY - .3);
+  await expect.poll(async () => Number(await hud.locator('[data-opponent-physics-speed]').getAttribute('data-opponent-physics-speed')), { timeout: 10_000 }).toBeLessThan(.8);
   expect(Number(await hud.locator('[data-max-joint-separation]').getAttribute('data-max-joint-separation'))).toBeLessThan(1.35);
   await expect(hud.locator('[data-numerical-faults]')).toHaveAttribute('data-numerical-faults', '0');
   await expect(hud).toHaveAttribute('data-physics-emergency-resets', '0');

@@ -138,4 +138,26 @@ describe('Singles Gameplay Enhancements', () => {
     // Because player is spamming and at range, AI's adaptive defense block/counter chances are heavily boosted
     expect(decision).toBeDefined();
   });
+
+  it('pursues an idle player directly instead of wandering, taunting, or climbing', () => {
+    const model = createMatch('atlas', 'vex', 'standard', 'normal', 1337, 0, 0, 'singles');
+    model.elapsed = 20;
+    model.player.position = { x: -3.2, z: 0 };
+    model.opponent.position = { x: 4.9, z: 3.1 };
+    model.player.state = 'idle'; model.opponent.state = 'idle';
+    const decision = chooseAiDecision(model, fighterById('vex'), 'opponent');
+    const separationBefore = Math.hypot(model.player.position.x - model.opponent.position.x, model.player.position.z - model.opponent.position.z);
+    const separationAfter = Math.hypot(model.player.position.x - (model.opponent.position.x + decision.move.x), model.player.position.z - (model.opponent.position.z + decision.move.z));
+    expect(decision.command).toBeNull();
+    expect(decision.run).toBe(true);
+    expect(separationAfter).toBeLessThan(separationBefore);
+  });
+
+  it('commits offense at the real articulated-body standoff distance', () => {
+    const model = createMatch('atlas', 'vex', 'standard', 'normal', 1337, 0, 0, 'singles');
+    model.elapsed = 20; model.player.position = { x: 0, z: 0 }; model.opponent.position = { x: 1.55, z: 0 };
+    model.player.state = 'idle'; model.opponent.state = 'idle'; model.opponent.stamina = 90; model.opponent.body.balance = 100;
+    const decision = chooseAiDecision(model, fighterById('vex'), 'opponent');
+    expect(decision.command).not.toBeNull();
+  });
 });

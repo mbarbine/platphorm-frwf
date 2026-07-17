@@ -43,6 +43,17 @@ export const readGamepadDirection = (gamepad: Gamepad): Vec2 => {
   };
 };
 
+export const primaryGamepad = (
+  pads: ArrayLike<Gamepad | null> | undefined = navigator.getGamepads?.(),
+): Gamepad | null => {
+  if (!pads) return null;
+  for (let index = 0; index < pads.length; index += 1) {
+    const pad = pads[index];
+    if (pad && pad.connected !== false) return pad;
+  }
+  return null;
+};
+
 export const keyboardTargetCycle = (code: string, shiftKey = false): -1 | 0 | 1 => (
   code === 'Tab' ? shiftKey ? -1 : 1 : 0
 );
@@ -66,7 +77,7 @@ export const useGameInput = (onPause: () => void, enabled = true, onClear?: (rea
   const clearInputState = useCallback((reason: string): void => {
     keys.current.clear(); edgeEvents.current?.clear(); heldActions.current?.reset(); mobileInput.reset();
     pendingTargetCycle.current = 0;
-    const gamepad = navigator.getGamepads?.()[0];
+    const gamepad = primaryGamepad();
     previousButtons.current = Array.from(gamepad?.buttons ?? [], (button) => button.pressed);
     previousPausePressed.current = gamepad?.buttons[9]?.pressed ?? false;
     previousXRButtons.current.clear();
@@ -110,7 +121,7 @@ export const useGameInput = (onPause: () => void, enabled = true, onClear?: (rea
   useEffect(() => {
     let frame = 0;
     const pollPause = (): void => {
-      const pressed = navigator.getGamepads?.()[0]?.buttons[9]?.pressed ?? false;
+      const pressed = primaryGamepad()?.buttons[9]?.pressed ?? false;
       if (pressed && !previousPausePressed.current) onPauseRef.current();
       previousPausePressed.current = pressed;
       frame = window.requestAnimationFrame(pollPause);
@@ -121,11 +132,11 @@ export const useGameInput = (onPause: () => void, enabled = true, onClear?: (rea
 
   useEffect(() => {
     if (!enabled) clearInputState('input disabled');
-    else previousButtons.current = Array.from(navigator.getGamepads?.()[0]?.buttons ?? [], (button) => button.pressed);
+    else previousButtons.current = Array.from(primaryGamepad()?.buttons ?? [], (button) => button.pressed);
   }, [clearInputState, enabled]);
 
   const read = (xrSources: readonly XRInputSource[] = []): FrameInput => {
-    const gamepad = navigator.getGamepads?.()[0];
+    const gamepad = primaryGamepad();
     if (!enabledRef.current) {
       previousButtons.current = Array.from(gamepad?.buttons ?? [], (button) => button.pressed);
       return { move: { x: 0, z: 0 }, run: false, block: false, actions: [], targetCycle: 0 };

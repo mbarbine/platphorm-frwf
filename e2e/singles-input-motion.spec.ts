@@ -52,3 +52,26 @@ test('ordinary Singles executes strike keys visibly and a jump returns control',
   await expect(root).toHaveAttribute('data-saw-ordinary-attack-motion', /front_kick|low_kick|high_kick|roundhouse/, { timeout: 8_000 });
   await expect(hud).toHaveAttribute('data-physics-emergency-resets', '0');
 });
+
+test('ordinary Singles AI pursues and physically attacks an idle player', async ({ page }) => {
+  test.setTimeout(180_000);
+  await enterOrdinarySingles(page);
+  const hud = page.locator('.hud'); const root = page.locator('html');
+  await expect(hud).toHaveAttribute('data-physics-bodies', '32', { timeout: 30_000 });
+  await page.evaluate(() => {
+    const sample = (): void => {
+      const live = document.querySelector('.hud'); if (!live) return;
+      const move = live.getAttribute('data-opponent-move') ?? '';
+      if (move && move !== 'taunt') document.documentElement.dataset.sawIdleOpponentAttack = move;
+    };
+    new MutationObserver(sample).observe(document.body, { subtree: true, attributes: true, childList: true }); sample();
+  });
+  // Deliberately send no gameplay input. A live Singles opponent must close
+  // distance and land contact against the idle player under its own AI.
+  await expect(root).toHaveAttribute('data-saw-idle-opponent-attack', /.+/, { timeout: 45_000 });
+  await expect.poll(async () => Number(await hud.getAttribute('data-player-health')), {
+    timeout: 60_000, intervals: [250, 500, 1000],
+  }).toBeLessThan(100);
+  await expect.poll(async () => Number(await hud.getAttribute('data-total-damage')), { timeout: 10_000 }).toBeGreaterThan(0);
+  await expect(hud).toHaveAttribute('data-physics-emergency-resets', '0');
+});

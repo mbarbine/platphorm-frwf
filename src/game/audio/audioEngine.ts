@@ -56,7 +56,7 @@ class AudioEngine {
               : moveId === 'stiff_arm' || moveId === 'rebound' ? 'clothesline' : moveId === 'spear' ? 'spear'
                 : moveId.startsWith('aerial') || moveId === 'aerial' ? 'aerial' : moveId === 'finisher' ? 'finisher'
                   : moveId === 'prop' || moveId === 'prop_throw' ? 'prop' : moveId === 'kick_up' ? 'kickout'
-                    : ['takedown', 'whip', 'arm_drag', 'clutch', 'side_toss', 'corner_smash'].includes(moveId) ? 'grapple' : 'impact';
+                    : ['grapple_miss', 'takedown', 'whip', 'arm_drag', 'clutch', 'side_toss', 'corner_smash'].includes(moveId) ? 'grapple' : 'impact';
     this.playAt(sound, settings, position);
   }
 

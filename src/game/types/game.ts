@@ -201,6 +201,8 @@ export interface ImpactEvent {
   torque?: number;
   outcome?: CollisionOutcome;
   moveId?: string;
+  sourceFighter?: FighterSlot;
+  targetFighter?: FighterSlot;
 }
 
 export interface GrappleRuntime {

@@ -26,4 +26,10 @@ describe('BodyWorks motor profiles', () => {
     fighter.moveId = null; fighter.state = 'airborne'; expect(selectMotorProfile(fighter).id).toBe('protectedFall');
     fighter.state = 'recovering'; expect(selectMotorProfile(fighter).id).toBe('getUp');
   });
+
+  it('gives a missed grapple a physical reach profile instead of a presentation-only pose', () => {
+    const fighter = createFighterRuntime('atlas', { x: 0, z: 0 });
+    fighter.state = 'attacking'; fighter.moveId = 'grapple_miss'; fighter.attackPhase = 'active';
+    expect(selectMotorProfile(fighter).id).toBe('grappleReach');
+  });
 });

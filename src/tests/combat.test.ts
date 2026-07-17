@@ -116,6 +116,7 @@ describe('deterministic combat rules', () => {
     expect(startMove(model.player, model.opponent, getMove('heavy'))).toBe(true);
     expect(applyMoveHit(model, 'player', 'opponent', getMove('heavy'))).toBe(false);
     model.player.attackPhase = 'active'; expect(applyMoveHit(model, 'player', 'opponent', getMove('heavy'))).toBe(true);
+    expect(model.lastImpact).toMatchObject({ sourceFighter: 'player', targetFighter: 'opponent', moveId: 'heavy' });
   });
 
   it('never moves or damages a wrestler merely because an attack was requested', () => {

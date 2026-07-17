@@ -554,6 +554,7 @@ export class BodyWorksRuntime {
         moveId: pending.moveId,
         isLanding: true,
       };
+      this.absorbCompletedLanding(pending.defender, contact.targetSurface);
       this.pendingLandings.delete(pending.defender);
     }
     this.contactId += 1;
@@ -563,6 +564,27 @@ export class BodyWorksRuntime {
     this.metrics.lastContactPair = `${contact.sourceSegment ?? 'environment'}>${contact.targetSegment ?? contact.targetSurface ?? 'environment'}`;
     this.metrics.lastContactMaximumForce = contact.maximumForce;
     this.metrics.lastContactRelativeSpeed = contact.relativeSpeed;
+  }
+
+  private absorbCompletedLanding(defender: FighterKey, surface: string | null): void {
+    const rig = this.rigs.get(defender); if (!rig) return;
+    const surfaceY = surface === 'ring' ? VOLT_DOME.ring.deckY : surface === 'floor' ? .4 : null;
+    const core = (['pelvis', 'abdomen', 'chest', 'head'] as const).map((segment) => rig.bodies[segment]).filter((body): body is RapierRigidBody => Boolean(body?.isValid()));
+    const lowestCore = core.reduce((lowest, body) => Math.min(lowest, body.translation().y), Number.POSITIVE_INFINITY);
+    // The correction is coherent across the articulated tree and runs only
+    // after a solved torso/surface manifold. It prevents a high-energy throw
+    // from leaving one core collider below the fixed mat while preserving the
+    // actual landing pose and contact result.
+    const correctionY = surfaceY === null || !Number.isFinite(lowestCore) ? 0 : clamp(surfaceY + .08 - lowestCore, 0, .32);
+    for (const body of Object.values(rig.bodies)) {
+      if (!body?.isValid()) continue;
+      body.resetForces(true); body.resetTorques(true);
+      if (correctionY > 0) { const position = body.translation(); body.setTranslation({ x: position.x, y: position.y + correctionY, z: position.z }, true); }
+      const linear = body.linvel(); const angular = body.angvel();
+      body.setLinvel({ x: linear.x * .28, y: clamp(linear.y * .12, -.18, .32), z: linear.z * .28 }, true);
+      body.setAngvel({ x: angular.x * .14, y: angular.y * .14, z: angular.z * .14 }, true);
+    }
+    rig.landingSupportFrames = 0; rig.settlingFrames = 0;
   }
 
   consumeContacts(): readonly BodyWorksContact[] { const result = this.contacts.splice(0); return result; }
@@ -906,6 +928,16 @@ export class BodyWorksRuntime {
     if (BODYWORKS_FLAGS.contactStrikes) this.applyPhysicalStrike(key, rig, fighter, model);
     const tableLandingPose = this.pendingLandings.get(key)?.targetSurface === 'table' ? POSES.downed : undefined;
     this.applyPoseDrive(rig, fighter, motorProfile, tableLandingPose);
+    if (fighter.state === 'downed' && fighter.stateElapsed > .22 && !this.pendingLandings.has(key)) {
+      // Once the real landing has been absorbed, let the ragdoll rest instead
+      // of continuously feeding tiny motor/contact corrections into the mat.
+      for (const body of Object.values(rig.bodies)) {
+        if (!body?.isValid()) continue;
+        const linear = body.linvel(); const angular = body.angvel();
+        body.setLinvel({ x: linear.x * .9, y: Math.abs(linear.y) < .24 ? 0 : linear.y * .88, z: linear.z * .9 }, true);
+        body.setAngvel({ x: angular.x * .72, y: angular.y * .72, z: angular.z * .72 }, true);
+      }
+    }
   }
 
   private configureRotationalAuthority(rig: FighterRigRegistration, fighter: FighterRuntime, profile: MotorProfile): void {
@@ -931,7 +963,8 @@ export class BodyWorksRuntime {
       for (const segment of ['leftThigh', 'rightThigh', 'leftShin', 'rightShin', 'leftFoot', 'rightFoot'] as const) dynamic.add(segment);
     }
     if (fighter.state === 'blocking') for (const segment of ['leftUpperArm', 'rightUpperArm', 'leftForearm', 'rightForearm', 'leftHand', 'rightHand'] as const) dynamic.add(segment);
-    if (fighter.state === 'grappling' || profile.id === 'clinch' || profile.id === 'lift' || profile.id === 'throw') for (const segment of ['leftUpperArm', 'rightUpperArm', 'leftForearm', 'rightForearm', 'leftHand', 'rightHand', 'chest', 'abdomen'] as const) dynamic.add(segment);
+    const physicalReach = ['grapple_miss', 'prop_pickup', 'prop_drop'].includes(fighter.moveId ?? '');
+    if (fighter.state === 'grappling' || physicalReach || profile.id === 'clinch' || profile.id === 'lift' || profile.id === 'throw') for (const segment of ['leftUpperArm', 'rightUpperArm', 'leftForearm', 'rightForearm', 'leftHand', 'rightHand', 'chest', 'abdomen'] as const) dynamic.add(segment);
     const strike = fighter.moveId ? strikeDriveProfile(fighter.moveId) : null;
     if (strike) {
       for (const segment of strikePoseChain(strike.source)) dynamic.add(segment);
@@ -1593,6 +1626,7 @@ export class BodyWorksRuntime {
     const strike = fighter.moveId ? strikeDriveProfile(fighter.moveId) : null;
     const strikeSegments = strike ? strikePoseChain(strike.source) : [];
     for (const [segment, body] of Object.entries(rig.bodies) as [BodySegmentId, RapierRigidBody][]) {
+      if (fighter.state === 'downed' && fighter.stateElapsed > .22) continue;
       // Locked neutral limbs are constraint-stabilized and need no motor. A
       // motor fighting a disabled rotation cannot animate the limb; it only
       // hammers Rapier's limit and was the source of the old standing buzz.
