@@ -1704,6 +1704,7 @@ export class BodyWorksRuntime {
     this.containRigsToArena(model);
     const slots = model.matchMode === 'battle_royale' ? FIGHTER_SLOTS : FIGHTER_SLOTS.slice(0, 2);
     for (const key of slots) {
+      this.correctCoreDeckPenetration(key, model);
       this.syncFighter(key, model[key], model.labMode);
       this.settleSupportedAirborneFighter(key, model);
     }
@@ -1982,6 +1983,28 @@ export class BodyWorksRuntime {
       }
       this.metrics.containmentCount += 1;
     }
+  }
+
+  private correctCoreDeckPenetration(key: FighterKey, model: MatchModel): void {
+    const fighter = model[key];
+    if (!['airborne', 'downed', 'recovering'].includes(fighter.state)) return;
+    const rig = this.rigs.get(key); if (!rig) return;
+    const surfaceY = isRingside(fighter.position) ? .4 : VOLT_DOME.ring.deckY;
+    const core = (['pelvis', 'abdomen', 'chest', 'head'] as const).map((segment) => rig.bodies[segment]).filter((body): body is RapierRigidBody => Boolean(body?.isValid()));
+    const lowestCore = core.reduce((lowest, body) => Math.min(lowest, body.translation().y), Number.POSITIVE_INFINITY);
+    if (!Number.isFinite(lowestCore) || lowestCore >= surfaceY + .015) return;
+    // Preserve the entire articulated pose while moving the connected tree out
+    // of the fixed surface. This is a bounded penetration correction, not a
+    // standing reset: the wrestler remains downed and must recover normally.
+    const correctionY = clamp(surfaceY + .065 - lowestCore, .05, .28);
+    for (const body of Object.values(rig.bodies)) {
+      if (!body?.isValid()) continue;
+      const position = body.translation(); const linear = body.linvel(); const angular = body.angvel();
+      body.setTranslation({ x: position.x, y: position.y + correctionY, z: position.z }, true);
+      body.setLinvel({ x: linear.x * .82, y: Math.max(0, linear.y * .12), z: linear.z * .82 }, true);
+      body.setAngvel({ x: angular.x * .45, y: angular.y * .45, z: angular.z * .45 }, true);
+    }
+    this.metrics.containmentCount += 1;
   }
 
   private captureReplayFrame(time: number): void {

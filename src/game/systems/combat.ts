@@ -324,7 +324,14 @@ export const applyMoveHit = (model: MatchModel, actorKey: FighterSlot, targetKey
   const lowHealthBonus = target.health < 35 ? .28 : 0;
   const physicalFall = ['trip', 'fall', 'launch'].includes(collisionOutcome);
   const guaranteedRunningKnockdown = move.id === 'stiff_arm' || move.id === 'rebound';
-  if (guaranteedRunningKnockdown || move.knockdownStrength + lowHealthBonus >= .72 || move.category === 'finisher' || physicalFall) {
+  const majorKnockdownMove = move.category === 'grapple' || move.category === 'finisher' || move.category === 'aerial' || move.category === 'prop';
+  const balanceBrokenByContact = physicalFall && target.body.balance < 22;
+  // Solver force still controls recoil and balance loss, but one unusually
+  // energetic hand manifold cannot turn every jab into a knockdown. Routine
+  // strikes stay standing until a wrestler is genuinely balance-broken; only
+  // authored major offense and high-knockdown moves bypass that requirement.
+  const shouldKnockDown = guaranteedRunningKnockdown || majorKnockdownMove || move.knockdownStrength + lowHealthBonus >= .78 || balanceBrokenByContact;
+  if (shouldKnockDown) {
     // Pure rules tests and non-WebGL simulations retain a bounded deterministic
     // flight proxy. The shipping match never enters this branch: Rapier owns the
     // victim's height and the contact bridge resolves the real mat landing.

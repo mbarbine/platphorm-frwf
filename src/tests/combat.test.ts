@@ -119,6 +119,15 @@ describe('deterministic combat rules', () => {
     expect(model.lastImpact).toMatchObject({ sourceFighter: 'player', targetFighter: 'opponent', moveId: 'heavy' });
   });
 
+  it('keeps a fresh wrestler standing through one high-force routine jab', () => {
+    const model = createMatch('atlas', 'vex', 'standard', 'normal'); model.physicsAuthority = true;
+    model.player.position = { x: 0, z: 0 }; model.opponent.position = { x: 1, z: 0 };
+    expect(startMove(model.player, model.opponent, getMove('jab'))).toBe(true); model.player.attackPhase = 'active';
+    const contact = { id: 1, time: model.elapsed, sourceFighter: 'player' as const, sourceSegment: 'rightHand' as const, targetFighter: 'opponent' as const, targetSegment: 'head' as const, targetRegion: 'head' as const, totalForce: 2700, maximumForce: 2500, forceDirection: [1, 0, 0] as const, relativeSpeed: 4, attackInstanceId: model.player.attackInstanceId, moveId: 'jab', attackPhaseAtContact: 'active' as const, sourceObjectId: null, targetSurface: null, isLanding: false };
+    expect(applyMoveHit(model, 'player', 'opponent', getMove('jab'), contact)).toBe(true);
+    expect(model.opponent.state).toBe('staggered'); expect(model.opponent.health).toBeLessThan(100);
+  });
+
   it('never moves or damages a wrestler merely because an attack was requested', () => {
     const model = createMatch('atlas', 'vex', 'standard', 'normal');
     model.player.position = { x: 0, z: 0 }; model.opponent.position = { x: 1, z: 0 };

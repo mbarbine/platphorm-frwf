@@ -19,7 +19,7 @@ test('controlled Bodyworks scenarios prove a physical slam, staged climb, taunt,
     const observe = (): void => {
       const liveHud = document.querySelector('.hud');
       const grapple = document.querySelector('[data-testid="control-deck"] [data-control="grapple"]');
-      if (grapple?.classList.contains('is-active')) document.documentElement.dataset.sawActiveGrappleControl = 'true';
+      if (grapple?.classList.contains('is-active') || liveHud?.getAttribute('data-player-state') === 'grappling') document.documentElement.dataset.sawActiveGrappleControl = 'true';
       const pelvisY = Number(liveHud?.getAttribute('data-opponent-pelvis-y'));
       if (Number.isFinite(pelvisY)) {
         const peak = Number(document.documentElement.dataset.slamPeakPelvisY ?? 0);

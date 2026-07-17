@@ -63,6 +63,8 @@ test('ordinary Singles AI pursues and physically attacks an idle player', async 
       const live = document.querySelector('.hud'); if (!live) return;
       const move = live.getAttribute('data-opponent-move') ?? '';
       if (move && move !== 'taunt') document.documentElement.dataset.sawIdleOpponentAttack = move;
+      const readout = live.querySelector('[data-testid="impact-readout"]');
+      if (readout?.getAttribute('data-impact-owner') === 'opponent') document.documentElement.dataset.sawPlayerHitReadout = 'true';
     };
     new MutationObserver(sample).observe(document.body, { subtree: true, attributes: true, childList: true }); sample();
   });
@@ -72,6 +74,7 @@ test('ordinary Singles AI pursues and physically attacks an idle player', async 
   await expect.poll(async () => Number(await hud.getAttribute('data-player-health')), {
     timeout: 60_000, intervals: [250, 500, 1000],
   }).toBeLessThan(100);
+  await expect(root).toHaveAttribute('data-saw-player-hit-readout', 'true');
   await expect.poll(async () => Number(await hud.getAttribute('data-total-damage')), { timeout: 10_000 }).toBeGreaterThan(0);
   await expect(hud).toHaveAttribute('data-physics-emergency-resets', '0');
 });
