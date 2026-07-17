@@ -1,7 +1,7 @@
 # Ringfall Blockbuster move certification
 
 Move manifest: `ringfall-moves-2.1.0`  
-Current public move count: 38  
+Current public move count: 39  
 Status: baseline inventory complete; visual/device/human certification pending
 
 The tables record the current runtime mapping. Shared animation, generic reaction, audio, VFX or camera entries are explicit gaps—not evidence of visual distinction.
@@ -44,6 +44,7 @@ The tables record the current runtime mapping. Shared animation, generic reactio
 | `finisher` Signature Finisher | F at full Momentum and legal target | finisher | `finisher` / generic finisher victim | fighter-dependent / torso-back | finisher / finisher / finisher | 12 / 32 / 0 / 38 | yes |
 | `counter` Flash Reversal | Space in counter window | utility | `counter` / stagger sell | hand-body / attacker | counter / counter / strike | 10 / 9 / 18 / 18 | yes |
 | `kick_up` Livewire Kick-Up | Space while downed | utility | `recovery` / none | support hands-feet / self | step / recovery / neutral | 12 / 0 / 2 / 3 | legal runtime |
+| `grapple_miss` Collar Reach | L outside grapple range | utility | full two-arm reach and recovery / none | hands / no target | grapple / utility / neutral | 0 / 0 / 0 / 0 | legal runtime |
 | `prop_pickup` Hardware Pickup | E near prop | utility | full crouch, reach, and lift / none | hands and full body / prop | prop / utility / neutral | 0 / 0 / 0 / 0 | legal runtime |
 | `prop_drop` Hardware Drop | E while holding outside attack range | utility | lower, release, and recover / none | hand and full body / prop | prop / utility / neutral | 0 / 0 / 0 / 0 | legal runtime |
 | `taunt` Signature Taunt | Q | utility | `taunt` shared / none | full body / crowd | cheer / accent / neutral-turnbuckle | 0 / 0 / 13 / 7 | yes |
@@ -88,6 +89,7 @@ The tables record the current runtime mapping. Shared animation, generic reactio
 | `finisher` | P | P | P | P | P | P | P | P | P |
 | `counter` | P | P | P | P | P | P | P | P | P |
 | `kick_up` | P | P | P | P | P | P | P | P | P |
+| `grapple_miss` | P | P | P | P | P | P | P | P | P |
 | `prop_pickup` | P | P | P | P | P | P | P | P | P |
 | `prop_drop` | P | P | P | P | P | P | P | P | P |
 | `taunt` | P | P | P | P | P | P | P | P | P |

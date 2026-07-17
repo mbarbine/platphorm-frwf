@@ -7,12 +7,12 @@ const enterBattleRoyale = async (page: Page): Promise<void> => {
   await page.getByRole('button', { name: 'PLAY', exact: true }).click();
   await page.getByRole('button', { name: /LOCK IN ATLAS/ }).click();
   const battleMode = page.getByTestId('battle-royale-mode');
+  await battleMode.click();
   await expect(battleMode).toHaveClass(/active/);
-  await expect(battleMode).toContainText('DEFAULT');
   await page.getByRole('button', { name: /START MATCH · BATTLE ROYALE/ }).click();
 };
 
-test('Battle Royale is the default and starts one real rig for all five wrestlers', async ({ page }) => {
+test('Battle Royale starts one real rig for all five wrestlers and produces AI contact', async ({ page }) => {
   test.setTimeout(90_000);
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));

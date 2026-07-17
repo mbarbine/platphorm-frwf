@@ -71,7 +71,7 @@ export function buildControlLabels(player: FighterRuntime, opponent: FighterRunt
   } else if (player.state === 'pinned') {
     labels.quick = 'RECOVER'; labels.heavy = 'RECOVER'; labels.grapple = 'RECOVER'; labels.counter = 'KICK OUT'; labels.context = 'KICK OUT';
   } else {
-    labels.grapple = distance <= GRAPPLE_ACQUISITION_RANGE ? moveLabel(selectGrappleEntryMove(effectiveDirection)) : 'CLOSE DISTANCE';
+    labels.grapple = distance <= GRAPPLE_ACQUISITION_RANGE ? moveLabel(selectGrappleEntryMove(effectiveDirection)) : 'COLLAR REACH (MISS)';
     if (player.momentum >= 100 && ['staggered', 'downed'].includes(opponent.state) && distance < 2.2) labels.context = 'SIGNATURE FINISHER';
     else if (opponent.state === 'downed' && distance < 1.7) labels.context = 'PIN SHOULDERS';
     else if (nearCorner) labels.context = 'CLIMB TURNBUCKLE';
@@ -103,7 +103,7 @@ export function buildControlReadout(player: FighterRuntime, opponent: FighterRun
   if (player.heldPropId) active.add('interact');
   if (player.ropeRebound > 0) { active.add('run'); active.add('heavy'); }
 
-  let state = paused ? 'MATCH PAUSED' : distance > 5.5 ? 'APPROACH YOUR OPPONENT' : 'READY TO FIGHT';
+  let state = paused ? 'MATCH PAUSED' : distance > 5.5 ? 'WHIFFS LIVE · APPROACH FOR CONTACT' : 'READY TO FIGHT';
   if (!paused && player.moveId) {
     const move = getMove(player.moveId);
     const phaseLabel = isInLift ? 'LIFT ACTIVE — THROW OR SLAM' : (player.attackPhase ?? player.state).toUpperCase();
@@ -127,7 +127,7 @@ export function buildControlReadout(player: FighterRuntime, opponent: FighterRun
   const ringside = Math.abs(player.position.x) > 5.82 || Math.abs(player.position.z) > 4.32;
   const clinchCornerDistance = Math.hypot(opponent.position.x - Math.sign(opponent.position.x || player.position.x || 1) * 5.35, opponent.position.z - Math.sign(opponent.position.z || player.position.z || 1) * 3.85);
   let callout = distance > 5.5
-    ? `${keys.move} MOVE · ${keys.run} SPRINT · CLOSE IN THEN ${keys.quick} ${labels.quick} OR ${keys.grapple} COLLAR LOCK`
+    ? `${keys.quick} ${labels.quick} WHIFF · ${keys.heavy} ${labels.heavy} WHIFF · ${keys.grapple} COLLAR REACH · MOVE IN FOR CONTACT`
     : `${keys.quick} ${labels.quick} · ${keys.heavy} ${labels.heavy} · ${keys.grapple} COLLAR LOCK · ${keys.jump} JUMP · ${keys.block} GUARD`;
   if (paused) callout = 'SIMULATION STOPPED · RESUME TO WRESTLE';
   else if (player.state === 'pinned') callout = `${keys.counter} RAPIDLY · KICK OUT BEFORE THREE`;

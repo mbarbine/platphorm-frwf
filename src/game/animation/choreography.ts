@@ -324,6 +324,13 @@ const strikeFrames = (moveId: string): readonly PoseKeyframe[] => {
     { at: .76, pose: pose({ torso: [-.18, 0, 0], leftArm: [-1.48, 0, -.42], rightArm: [-1.62, 0, .42], leftForearm: [-.5, 0, 0], rightForearm: [-.38, 0, 0], rootY: .08, rootTilt: -.12 }) },
     { at: 1, pose: POSES.combatIdle },
   ];
+  if (moveId === 'grapple_miss') return [
+    { at: 0, pose: POSES.combatIdle },
+    { at: .42, pose: pose({ torso: [-.12, 0, 0], leftArm: [-.74, 0, -.38], rightArm: [-.74, 0, .38], leftForearm: [-1.18, 0, -.12], rightForearm: [-1.18, 0, .12], leftLeg: [.16, 0, 0], rightLeg: [-.12, 0, 0], rootZ: -.08, rootTilt: -.08 }) },
+    { at: .7, pose: pose({ torso: [.24, 0, 0], leftArm: [-1.48, 0, -.28], rightArm: [-1.48, 0, .28], leftForearm: [-.28, 0, -.08], rightForearm: [-.28, 0, .08], leftLeg: [-.18, 0, 0], rightLeg: [.2, 0, 0], rootZ: .34, rootTilt: .2 }) },
+    { at: .84, pose: pose({ ...POSES.combatIdle, leftArm: [-.92, 0, -.3], rightArm: [-.92, 0, .3], rootZ: .12 }) },
+    { at: 1, pose: POSES.combatIdle },
+  ];
   if (moveId === 'prop_drop') return [
     { at: 0, pose: POSES.combatIdle },
     { at: .48, pose: pose({ torso: [.34, 0, 0], rightArm: [-.72, 0, .52], rightForearm: [-.18, 0, 0], leftArm: [-.72, 0, -.42], leftForearm: [-.9, 0, 0], rootY: -.18, rootTilt: .28 }) },

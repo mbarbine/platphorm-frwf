@@ -85,7 +85,7 @@ describe('live wrestling control deck', () => {
     const model = createMatch('atlas', 'nova', 'standard', 'normal');
     // BLOCKBUSTER: grapple range increased from 1.65 / 1.66 to 2.15 / 2.16
     expect(buildControlLabels(model.player, model.opponent, 0, 2.15).grapple).toBe('VOLTAGE SLAM');
-    expect(buildControlLabels(model.player, model.opponent, 0, 2.16).grapple).toBe('CLOSE DISTANCE');
+    expect(buildControlLabels(model.player, model.opponent, 0, 2.16).grapple).toBe('COLLAR REACH (MISS)');
     expect(buildControlLabels(model.player, model.opponent, 0, 1.4, { x: 0, z: 1 }).grapple).toBe('VOLTAGE PILEDRIVER');
   });
 

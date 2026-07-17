@@ -783,10 +783,18 @@ export class BodyWorksRuntime {
       const position = pelvis.translation(); const target = rig.cornerAnchor;
       target.stage = fighter.climbStage || 1;
       const targetY = target.stage === 1 ? 2.72 : target.stage === 2 ? 3.46 : 4.28;
-      this.applyRigAcceleration(rig, {
-        x: clamp((target.x - position.x) * 36 - velocity.x * 8, -46, 46),
-        y: clamp((targetY - position.y) * 38 - velocity.y * 8.5, -52, 52),
-        z: clamp((target.z - position.z) * 36 - velocity.z * 8, -46, 46),
+      // Pull the articulated tree with one critically damped centre-of-mass
+      // velocity. The old high-gain acceleration fought the fixed post every
+      // frame, producing the visible rope-merge jitter. This remains physical:
+      // contacts and joints solve the approach and no transform is written.
+      const center = this.rigPlanarCenter(rig);
+      const desiredX = clamp((target.x - center.x) * 5.6, -3.2, 3.2);
+      const desiredY = clamp((targetY - position.y) * 5.8, -3.4, 3.4);
+      const desiredZ = clamp((target.z - center.z) * 5.6, -3.2, 3.2);
+      this.applyRigVelocityDelta(rig, {
+        x: clamp(desiredX - center.velocityX, -.24, .24),
+        y: clamp(desiredY - velocity.y, -.22, .22),
+        z: clamp(desiredZ - center.velocityZ, -.24, .24),
       });
       this.applyPoseDrive(rig, fighter, motorProfile);
       return;
@@ -1157,7 +1165,11 @@ export class BodyWorksRuntime {
   private applyRopeController(rig: FighterRigRegistration, fighter: FighterRuntime, model: MatchModel): void {
     const pelvis = rig.bodies.pelvis;
     const battleContained = model.matchMode === 'battle_royale' && !model.labMode && !['defeated', 'victorious'].includes(fighter.state);
-    const ignoresRopes = ['defeated', 'climbing'].includes(fighter.state) || (!battleContained && ['airborne', 'downed'].includes(fighter.state));
+    // Falls and knockdowns must also meet the ropes. Letting Singles ragdolls
+    // ignore them was how ordinary attacks leaked AI wrestlers to ringside,
+    // where they could vibrate in an endless recovery. Explicit apron motion
+    // returns earlier from the controller and remains the only traversal path.
+    const ignoresRopes = ['defeated', 'climbing'].includes(fighter.state);
     if (!pelvis || ignoresRopes) { rig.ropeContact = null; return; }
     const position = pelvis.translation(); const velocity = pelvis.linvel();
     // The ropes resist a wrestler leaving the raised ring, not someone who is
@@ -1788,7 +1800,8 @@ export class BodyWorksRuntime {
    */
   private settleSupportedAirborneFighter(key: FighterKey, model: MatchModel): void {
     const fighter = model[key]; const rig = this.rigs.get(key);
-    if (!rig || fighter.state !== 'airborne' || this.pendingLandings.has(key) || fighter.stateElapsed < .2) {
+    const settlingJump = fighter.state === 'jumping';
+    if (!rig || (!settlingJump && fighter.state !== 'airborne') || this.pendingLandings.has(key) || fighter.stateElapsed < .2) {
       if (rig) rig.landingSupportFrames = 0;
       return;
     }
@@ -1803,8 +1816,8 @@ export class BodyWorksRuntime {
     const settledVertically = mass > 0 && Math.abs(weightedVerticalVelocity / mass) <= 1.05;
     rig.landingSupportFrames = this.hasExternalSupport(rig) && nearGround && settledVertically ? rig.landingSupportFrames + 1 : 0;
     if (rig.landingSupportFrames < 5) return;
-    fighter.state = 'downed'; fighter.stateElapsed = 0;
-    fighter.downTimer = Math.max(fighter.downTimer, 1.25 + (100 - fighter.health) / 90);
+    fighter.state = settlingJump ? 'recovering' : 'downed'; fighter.stateElapsed = 0;
+    if (!settlingJump) fighter.downTimer = Math.max(fighter.downTimer, 1.25 + (100 - fighter.health) / 90);
     fighter.moveId = null; fighter.attackPhase = null;
     rig.landingSupportFrames = 0;
   }

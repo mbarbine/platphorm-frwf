@@ -18,7 +18,7 @@ test('mobile player can enter a match, move, guard, and attack', async ({ page }
   const grapple = controls.locator('.mobile-action--grapple');
   await expect(quick).toBeVisible(); await expect(quick).toHaveAttribute('data-move-label', 'CIRCUIT JAB');
   await expect(controls.locator('.mobile-action--power')).toHaveAttribute('data-move-label', 'PISTON BOOT');
-  await expect(grapple).toHaveAttribute('data-move-label', 'CLOSE DISTANCE'); await expect(grapple).toBeDisabled();
+  await expect(grapple).toHaveAttribute('data-move-label', 'COLLAR REACH (MISS)'); await expect(grapple).toBeEnabled();
   await expect(controls.locator('.mobile-action')).toHaveCount(5);
   await expect(controls.getByRole('button', { name: 'Jump' })).toHaveCount(0);
   await expect(controls.getByRole('button', { name: 'Pick up, drop, or throw prop' })).toBeHidden();

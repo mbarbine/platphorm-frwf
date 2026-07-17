@@ -131,10 +131,15 @@ export const canStartMove = (actor: FighterRuntime, target: FighterRuntime, move
   const strikeReachAssist = target.state === 'blocking' && (move.category === 'quick' || move.category === 'heavy') ? 1.3
     : ['quick', 'heavy', 'ground', 'prop'].includes(move.category) ? .12 : 0;
   const maximumInputRange = move.category === 'grapple' ? Math.max(move.maximumRange, GRAPPLE_ACQUISITION_RANGE) : move.maximumRange + strikeReachAssist;
+  // Strikes always author their complete motion. Distance decides whether the
+  // active limb can meet a collider; it must never decide whether a button
+  // press animates at all. Grapples, finishers, aerials, and contextual utility
+  // actions still require their real acquisition/workflow range.
+  const motionCanWhiff = ['quick', 'heavy', 'ground', 'prop'].includes(move.category);
   return move.requiredActorStates.includes(actor.state)
     && actor.stamina >= move.staminaCost
-    && targetDistance >= move.minimumRange
-    && targetDistance <= maximumInputRange
+    && (motionCanWhiff || targetDistance >= move.minimumRange)
+    && (motionCanWhiff || targetDistance <= maximumInputRange)
     && (!move.requiredTargetStates || move.requiredTargetStates.includes(target.state));
 };
 
@@ -592,6 +597,8 @@ export const requestCommand = (model: MatchModel, actorKey: FighterSlot, command
     }
     return false;
   }
+  if (command === 'grapple' && !model.grapple && distance(actor.position, target.position) > GRAPPLE_ACQUISITION_RANGE
+    && ['idle', 'locomotion'].includes(actor.state)) return startMove(actor, target, getMove('grapple_miss'));
   if (!isActionLegal(model, command, actorKey)) return false;
   if (command === 'block') {
     // Holding guard sustains the existing defensive window. Restarting its

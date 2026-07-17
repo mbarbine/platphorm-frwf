@@ -58,10 +58,9 @@ export function MobileControls({ onPause, paused }: MobileControlsProps) {
   const powerLabel = player.state === 'downed' ? 'NO STRIKE' : getMove(heavyMove).displayName.toUpperCase();
   const grappleLabel = player.state === 'climbing' || player.state === 'downed' || player.state === 'pinned' ? 'NO LOCK'
     : grappleMove ? getMove(grappleMove).displayName.toUpperCase()
-      : targetDistance <= GRAPPLE_ACQUISITION_RANGE ? 'COLLAR LOCK' : 'CLOSE DISTANCE';
+      : targetDistance <= GRAPPLE_ACQUISITION_RANGE ? 'VOLTAGE SLAM' : 'COLLAR REACH (MISS)';
   const strikeLocked = player.state === 'downed' || player.state === 'pinned' || (player.state === 'climbing' && player.climbStage < 3);
-  const grappleLocked = player.state === 'downed' || player.state === 'pinned' || player.state === 'climbing'
-    || player.state !== 'grappling' && targetDistance > GRAPPLE_ACQUISITION_RANGE;
+  const grappleLocked = player.state === 'downed' || player.state === 'pinned' || player.state === 'climbing';
 
   useEffect(() => {
     if (paused) { pointer.current = null; setStick({ x: 0, z: 0 }); mobileInput.reset(); }

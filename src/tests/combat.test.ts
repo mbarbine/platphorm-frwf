@@ -128,6 +128,15 @@ describe('deterministic combat rules', () => {
     expect(model.opponent.health).toBe(100);
   });
 
+  it('plays a visible whiff when a strike key is pressed outside contact range', () => {
+    const model = createMatch('atlas', 'vex', 'standard', 'normal');
+    model.player.position = { x: -4, z: 0 }; model.opponent.position = { x: 4, z: 0 }; model.opponent.state = 'attacking'; model.opponent.moveId = 'taunt'; model.opponent.attackPhase = 'active';
+    expect(requestCommand(model, 'player', 'quick')).toBe(true);
+    expect(model.player).toMatchObject({ state: 'attacking', moveId: 'jab', attackPhase: 'anticipation' });
+    for (let frame = 0; frame < 90; frame += 1) advanceMatch(model, 1 / 60, none);
+    expect(model.opponent.health).toBe(100);
+  });
+
   it('one attack cannot damage the same target repeatedly', () => {
     const model = createMatch('atlas', 'vex', 'standard', 'normal'); model.player.position = { x: 0, z: 0 }; model.opponent.position = { x: 1, z: 0 };
     startMove(model.player, model.opponent, getMove('jab')); model.player.attackPhase = 'active';
@@ -470,7 +479,7 @@ describe('deterministic combat rules', () => {
     expect(startMove(model.opponent, model.player, jab)).toBe(true);
     model.opponent.state = 'idle'; model.opponent.moveId = null; model.opponent.attackPhase = null; model.opponent.stamina = model.opponent.staminaCap;
     model.player.state = 'idle';
-    expect(startMove(model.opponent, model.player, jab)).toBe(false);
+    expect(startMove(model.opponent, model.player, jab)).toBe(true);
   });
 
   it('lets AI strike a raised guard from the physical glove-engagement lane', () => {
@@ -633,12 +642,20 @@ describe('deterministic combat rules', () => {
     expect(model.player.moveId).toBe('piledriver'); expect(model.grapple?.phase).toBe('reach');
   });
 
+  it('shows a complete collar-reach miss without creating a fake grapple', () => {
+    const model = createMatch('brick', 'vex', 'standard', 'normal'); model.player.position = { x: -4, z: 0 }; model.opponent.position = { x: 4, z: 0 };
+    expect(requestCommand(model, 'player', 'grapple')).toBe(true);
+    expect(model.player).toMatchObject({ state: 'attacking', moveId: 'grapple_miss', attackPhase: 'anticipation' });
+    expect(model.grapple).toBeNull(); expect(model.opponent.state).toBe('idle'); expect(model.opponent.health).toBe(100);
+  });
+
   it('uses the shared physical collar-tie range for a neutral grapple', () => {
     // BLOCKBUSTER: Updated grapple range check from 1.65 / 1.66 to 2.15 / 2.16
     const reachable = createMatch('brick', 'vex', 'standard', 'normal'); reachable.player.position = { x: 0, z: 0 }; reachable.opponent.position = { x: 2.15, z: 0 };
     expect(requestCommand(reachable, 'player', 'grapple')).toBe(true);
     const tooFar = createMatch('brick', 'vex', 'standard', 'normal'); tooFar.player.position = { x: 0, z: 0 }; tooFar.opponent.position = { x: 2.16, z: 0 };
-    expect(requestCommand(tooFar, 'player', 'grapple')).toBe(false);
+    expect(requestCommand(tooFar, 'player', 'grapple')).toBe(true);
+    expect(tooFar.player.moveId).toBe('grapple_miss'); expect(tooFar.grapple).toBeNull();
   });
 
   it('completes one hundred neutral body-slam intents without fake renderer-free damage or a stuck attacker', () => {

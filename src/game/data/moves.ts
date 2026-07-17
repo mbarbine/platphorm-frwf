@@ -1,7 +1,10 @@
 import type { MoveDefinition } from '../types/game';
 
 const active = ['idle', 'locomotion'] as const;
-const allStanding = ['idle', 'locomotion', 'staggered'] as const;
+// A standing wrestler remains a valid physical target while attacking,
+// blocking, or working a clinch. Excluding those states silently swallowed
+// counter-strike inputs even though the opponent was visibly in front of you.
+const allStanding = ['idle', 'locomotion', 'attacking', 'blocking', 'grappling', 'grabbed', 'staggered'] as const;
 
 export const MOVES: Readonly<Record<string, MoveDefinition>> = {
   jab: { id: 'jab', displayName: 'Circuit Jab', category: 'quick', requiredActorStates: active, minimumRange: 0, maximumRange: 1.35, staminaCost: 5, momentumGain: 7, damage: 5, anticipationDuration: .14, activeDuration: .30, recoveryDuration: .2, knockback: .55, knockdownStrength: 0, counterWindow: null, hypeValue: 3, animationKey: 'jab' },
@@ -39,6 +42,7 @@ export const MOVES: Readonly<Record<string, MoveDefinition>> = {
   finisher: { id: 'finisher', displayName: 'Signature Finisher', category: 'finisher', requiredActorStates: active, requiredTargetStates: ['staggered', 'downed'], minimumRange: 0, maximumRange: 2.1, staminaCost: 12, momentumGain: 0, damage: 32, anticipationDuration: .78, activeDuration: .22, recoveryDuration: .85, knockback: 2.2, knockdownStrength: 1, counterWindow: [.28, .58], hypeValue: 38, animationKey: 'finisher' },
   counter: { id: 'counter', displayName: 'Flash Reversal', category: 'utility', requiredActorStates: allStanding, minimumRange: 0, maximumRange: 2.1, staminaCost: 10, momentumGain: 18, damage: 9, anticipationDuration: .04, activeDuration: .16, recoveryDuration: .28, knockback: 1.1, knockdownStrength: .28, counterWindow: null, hypeValue: 18, animationKey: 'counter' },
   kick_up: { id: 'kick_up', displayName: 'Livewire Kick-Up', category: 'utility', requiredActorStates: ['downed'], minimumRange: 0, maximumRange: 99, staminaCost: 12, momentumGain: 2, damage: 0, anticipationDuration: .18, activeDuration: .2, recoveryDuration: .34, knockback: 0, knockdownStrength: 0, counterWindow: null, hypeValue: 3, animationKey: 'recovery' },
+  grapple_miss: { id: 'grapple_miss', displayName: 'Collar Reach', category: 'utility', requiredActorStates: active, minimumRange: 0, maximumRange: 99, staminaCost: 0, momentumGain: 0, damage: 0, anticipationDuration: .18, activeDuration: .26, recoveryDuration: .28, knockback: 0, knockdownStrength: 0, counterWindow: null, hypeValue: 0, animationKey: 'grappleEntry' },
   prop_pickup: { id: 'prop_pickup', displayName: 'Hardware Pickup', category: 'utility', requiredActorStates: active, minimumRange: 0, maximumRange: 99, staminaCost: 0, momentumGain: 0, damage: 0, anticipationDuration: .2, activeDuration: .28, recoveryDuration: .24, knockback: 0, knockdownStrength: 0, counterWindow: null, hypeValue: 0, animationKey: 'heavyStrike' },
   prop_drop: { id: 'prop_drop', displayName: 'Hardware Drop', category: 'utility', requiredActorStates: active, minimumRange: 0, maximumRange: 99, staminaCost: 0, momentumGain: 0, damage: 0, anticipationDuration: .12, activeDuration: .22, recoveryDuration: .2, knockback: 0, knockdownStrength: 0, counterWindow: null, hypeValue: 0, animationKey: 'heavyStrike' },
   taunt: { id: 'taunt', displayName: 'Signature Taunt', category: 'utility', requiredActorStates: [...active, 'climbing'], minimumRange: 0, maximumRange: 99, staminaCost: 0, momentumGain: 13, damage: 0, anticipationDuration: .2, activeDuration: .45, recoveryDuration: .35, knockback: 0, knockdownStrength: 0, counterWindow: null, hypeValue: 7, animationKey: 'taunt' },
