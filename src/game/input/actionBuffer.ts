@@ -17,8 +17,8 @@ export type ActionPushResult = 'buffered' | 'duplicate' | 'rejected';
 // A press made during the tail of a visible recovery must survive long enough
 // to become the next motion. The old 110-150 ms windows were shorter than a
 // normal browser frame hitch and made valid attacks feel unregistered.
-export const ACTION_BUFFER_DEFAULT_TTL_MS = 650;
-export const ACTION_BUFFER_CONTEXT_TTL_MS = 500;
+export const ACTION_BUFFER_DEFAULT_TTL_MS = 250;
+export const ACTION_BUFFER_CONTEXT_TTL_MS = 300;
 export const ACTION_BUFFER_DUPLICATE_WINDOW_MS = 32;
 
 interface BufferedAction<T> {
