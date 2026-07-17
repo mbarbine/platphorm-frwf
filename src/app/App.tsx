@@ -66,12 +66,15 @@ export function App() {
       const p2SessionId = [...multiplayerRoles.entries()].find((entry) => entry[1] === 'player2')?.[0];
       const p1Fighter = p1SessionId ? (multiplayerFightersMap.get(p1SessionId)?.definitionId as FighterId) : 'atlas';
       const p2Fighter = p2SessionId ? (multiplayerFightersMap.get(p2SessionId)?.definitionId as FighterId) : 'nova';
+      const localFighter = multiplayerMyRole === 'player2' ? p2Fighter : p1Fighter;
+      const remoteFighter = multiplayerMyRole === 'player2' ? p1Fighter : p2Fighter;
 
-      configure(p1Fighter, p2Fighter, 'standard', 'normal', 0, 0, 'singles');
+      configure(localFighter, remoteFighter, 'standard', 'normal', 0, 0, 'singles');
+      useMatchStore.getState().setNetworkAuthority(true);
       setScreen('match');
       audioEngine.play('bell', settings);
     }
-  }, [screen, multiplayerStatus, multiplayerRoomPhase, multiplayerRoles, multiplayerFightersMap, configure, settings]);
+  }, [screen, multiplayerStatus, multiplayerRoomPhase, multiplayerMyRole, multiplayerRoles, multiplayerFightersMap, configure, settings]);
 
   const confirm = (next: Screen): void => { audioEngine.play('confirm', settings); setScreen(next); };
   const preloadRuntime = useCallback((): void => {
@@ -87,7 +90,12 @@ export function App() {
     setPaused(next);
   }, []);
   const finish = useCallback(() => setScreen('results'), []);
-  const doRematch = (): void => { rematch(); setPaused(false); confirm('match'); audioEngine.play('bell', settings); };
+  const doRematch = (): void => {
+    if (useMatchStore.getState().model.networkAuthority) {
+      useMultiplayerStore.getState().voteRematch(); setScreen('multiplayer_lobby'); return;
+    }
+    rematch(); setPaused(false); confirm('match'); audioEngine.play('bell', settings);
+  };
 
   const menuBackdrop = screen !== 'match' && <div className="backdrop"><div className="backdrop__ring" /><div className="backdrop__beam backdrop__beam--a" /><div className="backdrop__beam backdrop__beam--b" /></div>;
   return <main className={`app app--${screen}${toyTest ? ' app--toy-test' : ''}`}>
@@ -130,7 +138,7 @@ export function App() {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', padding: '1.5rem', background: 'rgba(255,255,255,0.03)', borderRadius: '8px' }}>
             <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#ff007b' }}>JOIN MATCH</h3>
-            <input type="text" placeholder="ENTER ROOM CODE..." value={joinRoomId} onChange={(e) => setJoinRoomId(e.target.value.toUpperCase())} style={{ padding: '0.75rem', background: 'rgba(0,0,0,0.8)', color: '#fff', border: '2px solid #7000ff', borderRadius: '4px', fontFamily: 'monospace', fontSize: '1.1rem', textAlign: 'center' }} />
+            <input type="text" placeholder="ENTER ROOM CODE..." value={joinRoomId} autoCapitalize="none" autoCorrect="off" spellCheck={false} onChange={(e) => setJoinRoomId(e.target.value.trim())} style={{ padding: '0.75rem', background: 'rgba(0,0,0,0.8)', color: '#fff', border: '2px solid #7000ff', borderRadius: '4px', fontFamily: 'monospace', fontSize: '1.1rem', textAlign: 'center' }} />
             <button className="button" style={{ width: '100%' }} disabled={!joinRoomId} onClick={async () => {
               audioEngine.play('confirm', settings);
               try {
@@ -177,7 +185,7 @@ export function App() {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem' }}>
               <span style={{ fontSize: '0.8rem', color: '#888' }}>ROOM CODE</span>
-              <strong style={{ fontSize: '1.8rem', color: '#ff007b', letterSpacing: '4px', fontFamily: 'monospace' }}>{multiplayerRoomId}</strong>
+              <strong data-testid="multiplayer-room-code" style={{ fontSize: '1.8rem', color: '#ff007b', letterSpacing: '4px', fontFamily: 'monospace' }}>{multiplayerRoomId}</strong>
               <button className="button button--quiet" style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }} onClick={() => {
                 navigator.clipboard.writeText(multiplayerRoomId || '');
                 audioEngine.play('menu', settings);
@@ -226,7 +234,7 @@ export function App() {
         }}>RETURN TO MENU</button>
       </div>
     </section>}
-    {screen === 'match' && <section className="match-screen"><Suspense fallback={<div className="canvas-fallback"><b>THE VOLT DOME IS POWERING UP</b><span>Preparing local physics and shader modules…</span></div>}><GameScene onPause={togglePause} onDevice={setDevice} onFinished={finish} /></Suspense>{!toyTest && <><HUD device={device} paused={paused} />{settings.controlDeckMode !== 'hidden' && <Tutorial device={device} />}<MobileControls onPause={togglePause} paused={paused || replayActive} /><SpectatorControls /></>}{physicsLab && <Suspense fallback={null}><PhysicsLab /></Suspense>}{replayActive && <div className="replay-overlay"><span>VOLT DOME INSTANT REPLAY</span><b>PHYSICAL IMPACT REVIEW</b><button onClick={() => useMatchStore.getState().stopReplay()}>SKIP REPLAY</button></div>}{paused && <div className="pause-overlay"><Logo compact /><span>MATCH PAUSED</span><button className="button button--hero" onClick={togglePause}>RESUME</button><button className="button button--quiet" onClick={() => { useMatchStore.getState().pause(false); setPaused(false); setScreen('settings'); }}>SETTINGS</button><button className="button button--quiet" onClick={() => { useMatchStore.getState().pause(false); setPaused(false); setScreen('main'); }}>QUIT TO MENU</button></div>}</section>}
+    {screen === 'match' && <section className="match-screen"><Suspense fallback={<div className="canvas-fallback"><b>THE VOLT DOME IS POWERING UP</b><span>Preparing local physics and shader modules…</span></div>}><GameScene onPause={togglePause} onDevice={setDevice} onFinished={finish} onlineRole={useMatchStore.getState().model.networkAuthority ? multiplayerMyRole : null} /></Suspense>{!toyTest && <><HUD device={device} paused={paused} />{settings.controlDeckMode !== 'hidden' && <Tutorial device={device} />}<MobileControls onPause={togglePause} paused={paused || replayActive} /><SpectatorControls /></>}{physicsLab && <Suspense fallback={null}><PhysicsLab /></Suspense>}{replayActive && <div className="replay-overlay"><span>VOLT DOME INSTANT REPLAY</span><b>PHYSICAL IMPACT REVIEW</b><button onClick={() => useMatchStore.getState().stopReplay()}>SKIP REPLAY</button></div>}{paused && <div className="pause-overlay"><Logo compact /><span>MATCH PAUSED</span><button className="button button--hero" onClick={togglePause}>RESUME</button><button className="button button--quiet" onClick={() => { useMatchStore.getState().pause(false); setPaused(false); setScreen('settings'); }}>SETTINGS</button><button className="button button--quiet" onClick={() => { useMatchStore.getState().pause(false); useMatchStore.getState().setNetworkAuthority(false); void useMultiplayerStore.getState().disconnect(); setPaused(false); setScreen('main'); }}>QUIT TO MENU</button></div>}</section>}
     {screen === 'results' && result && <Results result={result} winnerName={fighterById(useMatchStore.getState().model[result.winner].definitionId).name} onRematch={doRematch} onChange={() => confirm('select')} onMenu={() => confirm('main')} />}
   </main>;
 }

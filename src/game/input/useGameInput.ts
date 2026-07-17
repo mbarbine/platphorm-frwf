@@ -15,7 +15,8 @@ import { mobileInput } from './mobileInput';
 
 // Unified rescue grammar: WASD move · Shift sprint · J punch · K kick · L grapple
 //                         I guard · Space dodge/counter · C jump · E prop · F context · Q taunt
-const MOVEMENT_KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowLeft', 'ArrowDown', 'ArrowRight', 'ShiftLeft', 'ShiftRight', 'KeyI']);
+const DIRECTION_KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowLeft', 'ArrowDown', 'ArrowRight']);
+const MOVEMENT_KEYS = new Set([...DIRECTION_KEYS, 'ShiftLeft', 'ShiftRight', 'KeyI']);
 
 export interface InputController {
   read: (xrSources?: readonly XRInputSource[]) => FrameInput;
@@ -58,7 +59,12 @@ export const keyboardTargetCycle = (code: string, shiftKey = false): -1 | 0 | 1 
   code === 'Tab' ? shiftKey ? -1 : 1 : 0
 );
 
-export const useGameInput = (onPause: () => void, enabled = true, onClear?: (reason: string) => void): InputController => {
+export const useGameInput = (
+  onPause: () => void,
+  enabled = true,
+  onClear?: (reason: string) => void,
+  onImmediateRelease?: (event: ActionEvent) => void,
+): InputController => {
   const keys = useRef(new Set<string>());
   const edgeEvents = useRef<ActionEventCollector | null>(null);
   const heldActions = useRef<HeldActionTracker | null>(null);
@@ -72,9 +78,16 @@ export const useGameInput = (onPause: () => void, enabled = true, onClear?: (rea
   const enabledRef = useRef(enabled); enabledRef.current = enabled;
   const onPauseRef = useRef(onPause); onPauseRef.current = onPause;
   const onClearRef = useRef(onClear); onClearRef.current = onClear;
+  const onImmediateReleaseRef = useRef(onImmediateRelease); onImmediateReleaseRef.current = onImmediateRelease;
   const [device, setDevice] = useState<ControlDevice>('keyboard');
 
   const clearInputState = useCallback((reason: string): void => {
+    if (keys.current.size > 0) {
+      const timestamp = performance.now(); const direction = keyboardDirection(keys.current);
+      if (Math.hypot(direction.x, direction.z) > .08) onImmediateReleaseRef.current?.(createActionEvent('move', { phase: 'released', source: 'keyboard', direction: { x: 0, z: 0 }, timestamp }));
+      if (keys.current.has('ShiftLeft') || keys.current.has('ShiftRight')) onImmediateReleaseRef.current?.(createActionEvent('run', { phase: 'released', source: 'keyboard', direction: { x: 0, z: 0 }, timestamp }));
+      if (keys.current.has('KeyI')) onImmediateReleaseRef.current?.(createActionEvent('guard', { phase: 'released', source: 'keyboard', direction: { x: 0, z: 0 }, timestamp }));
+    }
     keys.current.clear(); edgeEvents.current?.clear(); heldActions.current?.reset(); mobileInput.reset();
     pendingTargetCycle.current = 0;
     const gamepad = primaryGamepad();
@@ -107,7 +120,18 @@ export const useGameInput = (onPause: () => void, enabled = true, onClear?: (rea
       }
       if (action || MOVEMENT_KEYS.has(event.code)) event.preventDefault();
     };
-    const up = (event: KeyboardEvent): void => { keys.current.delete(event.code); };
+    const up = (event: KeyboardEvent): void => {
+      const hadKey = keys.current.delete(event.code);
+      if (!hadKey || !enabledRef.current) return;
+      const timestamp = performance.now(); const direction = keyboardDirection(keys.current);
+      if (DIRECTION_KEYS.has(event.code) && Math.hypot(direction.x, direction.z) <= .08) {
+        onImmediateReleaseRef.current?.(createActionEvent('move', { phase: 'released', source: 'keyboard', direction: { x: 0, z: 0 }, timestamp }));
+      }
+      if ((event.code === 'ShiftLeft' || event.code === 'ShiftRight') && !keys.current.has('ShiftLeft') && !keys.current.has('ShiftRight')) {
+        onImmediateReleaseRef.current?.(createActionEvent('run', { phase: 'released', source: 'keyboard', direction, timestamp }));
+      }
+      if (event.code === 'KeyI') onImmediateReleaseRef.current?.(createActionEvent('guard', { phase: 'released', source: 'keyboard', direction, timestamp }));
+    };
     const clear = (): void => clearInputState('focus lost');
     const visibility = (): void => { if (document.hidden) clearInputState('document hidden'); };
     const connected = (): void => setDevice('gamepad');

@@ -59,6 +59,15 @@ export interface CommandAckMessage {
   type: 'commandAck';
   seq: number;
   serverTimestamp: number;
+  accepted: boolean;
+}
+
+/** Explicit room lifecycle/roster state, requested after client listeners attach. */
+export interface RoomStateMessage {
+  type: 'roomState';
+  phase: 'lobby' | 'selection' | 'countdown' | 'active' | 'result';
+  roles: ReadonlyArray<{ sessionId: string; role: 'player1' | 'player2' | 'spectator' }>;
+  fighters: ReadonlyArray<{ sessionId: string; definitionId: FighterId }>;
 }
 
 /** Server sends a compact match snapshot at the configured rate (~15–20 Hz). */
@@ -70,6 +79,7 @@ export interface SnapshotMessage {
   announcement: string | null;
   fighters: ReadonlyArray<{
     sessionId: string;
+    definitionId: FighterId;
     health: number;
     stamina: number;
     momentum: number;
@@ -81,7 +91,11 @@ export interface SnapshotMessage {
     combatState: string;
     moveId: string;
     attackPhase: string;
+    phaseElapsed: number;
+    grappleTargetSessionId: string | null;
     pinCount: number;
+    finisherPrimed: boolean;
+    lastCommandSeq: number;
   }>;
 }
 
@@ -89,6 +103,8 @@ export interface SnapshotMessage {
 export interface ImpactEventMessage {
   type: 'impactEvent';
   impactId: number;
+  sourceSessionId: string;
+  targetSessionId: string;
   kind: string;
   intensity: number;
   posX: number;
@@ -101,7 +117,7 @@ export interface ImpactEventMessage {
 export interface MatchResultMessage {
   type: 'matchResult';
   winner: string; // sessionId
-  method: 'PINFALL' | 'KNOCKOUT' | 'TIMEOUT';
+  method: 'PINFALL' | 'KNOCKOUT' | 'TIMEOUT' | 'FORFEIT';
   duration: number;
   hype: number;
   grade: 'D' | 'C' | 'B' | 'A' | 'S';
@@ -115,6 +131,7 @@ export interface VersionRejectedMessage {
 }
 
 export type ServerMessage =
+  | RoomStateMessage
   | CommandAckMessage
   | SnapshotMessage
   | ImpactEventMessage

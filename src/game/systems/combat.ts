@@ -76,7 +76,7 @@ export const createMatch = (playerId: FighterId, opponentId: FighterId, ruleset:
   const playerStats = EMPTY_STATS(); const opponentStats = EMPTY_STATS();
   const fighterStats: Record<FighterSlot, MatchStats> = { player: playerStats, opponent: opponentStats, rival1: EMPTY_STATS(), rival2: EMPTY_STATS(), rival3: EMPTY_STATS() };
   return {
-    toyTestMode: false, labMode: false, matchMode, ruleset, difficulty, elapsed: 0, paused: false, physicsAuthority: false, resolved: false,
+    toyTestMode: false, labMode: false, matchMode, ruleset, difficulty, elapsed: 0, paused: false, physicsAuthority: false, networkAuthority: false, resolved: false,
     player: createFighterRuntime(playerId, { x: -3.25, z: 0 }, playerBeers), opponent: createFighterRuntime(resolvedOpponentId, { x: 3.25, z: 0 }, opponentBeers),
     rival1: createFighterRuntime(rivalIds[0], { x: 0, z: -2.45 }), rival2: createFighterRuntime(rivalIds[1], { x: -1.85, z: 2.35 }), rival3: createFighterRuntime(rivalIds[2], { x: 1.85, z: 2.35 }),
     targets: { player: 'opponent', opponent: 'player', rival1: 'rival3', rival2: 'rival1', rival3: 'rival2' }, playerTargetLock: 0, eliminations: [], falls: [], fallSequence: 0, unstableWithoutCauseSeconds: 0,
@@ -612,6 +612,10 @@ export const requestCommand = (model: MatchModel, actorKey: FighterSlot, command
   }
   if (command === 'grapple' && !model.grapple && distance(actor.position, target.position) > GRAPPLE_ACQUISITION_RANGE
     && ['idle', 'locomotion'].includes(actor.state)) return startMove(actor, target, getMove('grapple_miss'));
+  // A grounded wrestler cannot throw a standing punch, but the button must
+  // still produce an honest motion. Primary attack/grapple presses become the
+  // existing physical kick-up recovery instead of expiring invisibly.
+  if (actor.state === 'downed' && (command === 'quick' || command === 'heavy' || command === 'grapple')) return startKickUp(actor, target);
   if (!isActionLegal(model, command, actorKey)) return false;
   if (command === 'block') {
     // Holding guard sustains the existing defensive window. Restarting its
@@ -730,7 +734,7 @@ export const resolveMatch = (model: MatchModel, winner: FighterSlot, method: Mat
     }
     if (remaining.length > 1) {
       model.announcement = `${fighterById(model[loser].definitionId).name} ELIMINATED — ${remaining.length} REMAIN!`; model.announcementTimer = 2.2;
-      addImpact(model, model[loser].position, method === 'KNOCKOUT' ? 'ko' : 'finisher', 2.1);
+      if (method !== 'FORFEIT') addImpact(model, model[loser].position, method === 'KNOCKOUT' ? 'ko' : 'finisher', 2.1);
       return;
     }
     winner = remaining[0] ?? winner;
@@ -741,8 +745,8 @@ export const resolveMatch = (model: MatchModel, winner: FighterSlot, method: Mat
   model.resolved = true;
   model[winner].state = 'victorious';
   model.result = { winner, method, duration: model.elapsed, hype: model.hype, grade: scoreGrade(model.hype), playerStats: { ...model.playerStats }, highlights: summarizeHighlights(model.highlights) };
-  model.announcement = model.matchMode === 'battle_royale' ? 'LAST WRESTLER STANDING!' : method === 'KNOCKOUT' ? 'KNOCKOUT!' : 'THREE!'; model.announcementTimer = 4;
-  addImpact(model, model[winner].position, method === 'KNOCKOUT' ? 'ko' : 'finisher', 2.4);
+  model.announcement = method === 'FORFEIT' ? 'MATCH ENDS BY FORFEIT' : model.matchMode === 'battle_royale' ? 'LAST WRESTLER STANDING!' : method === 'KNOCKOUT' ? 'KNOCKOUT!' : 'THREE!'; model.announcementTimer = 4;
+  if (method !== 'FORFEIT') addImpact(model, model[winner].position, method === 'KNOCKOUT' ? 'ko' : 'finisher', 2.4);
 };
 
 const updatePin = (model: MatchModel, dt: number, playerInput: FrameInput): void => {
@@ -1074,6 +1078,11 @@ export const advanceMatch = (model: MatchModel, dt: number, playerInput: FrameIn
     if (model.labMode || model.toyTestMode || openingBell) {
       controller.movement = { x: 0, z: 0 }; controller.running = false; controller.intent = null; controller.blockTimer = 0;
       if (openingBell) controller.thinkTimer = Math.max(controller.thinkTimer, BATTLE_ROYALE_OPENING_BELL_SECONDS - model.elapsed);
+    } else if (model.networkAuthority) {
+      // The remote wrestler is driven by authoritative snapshots. Running the
+      // local utility AI here creates a second, conflicting opponent on every
+      // browser and makes contact diverge between clients.
+      controller.intent = null;
     } else if (controller.thinkTimer <= 0) {
       const decision = chooseAiDecision(model, fighterById(model[slot].definitionId), slot);
       model.seed = decision.nextSeed; controller.intent = decision.command; controller.movement = decision.move; controller.running = decision.run;

@@ -75,7 +75,7 @@ const stepHarness = (world: World, runtime: BodyWorksRuntime, model: MatchModel,
   for (const contact of runtime.consumeContacts()) applyPhysicalContact(model, contact);
 };
 
-const makeGrappleHarness = (): { world: World; runtime: BodyWorksRuntime; model: MatchModel } => {
+const makeGrappleHarness = (): { world: World; runtime: BodyWorksRuntime; model: MatchModel; player: HeadlessRig; opponent: HeadlessRig } => {
   const world = new World({ x: 0, y: -18, z: 0 }); world.timestep = STEP;
   const mat = world.createRigidBody(RigidBodyDesc.fixed().setTranslation(0, 1.52, 0));
   world.createCollider(ColliderDesc.cuboid(6, .325, 4.5).setFriction(1.1).setCollisionGroups(arenaCollisionGroups), mat);
@@ -88,7 +88,7 @@ const makeGrappleHarness = (): { world: World; runtime: BodyWorksRuntime; model:
   runtime.registerFighter('player', player.bodies, player.joints); runtime.registerFighter('opponent', opponent.bodies, opponent.joints);
   runtime.setFootContact('player', 'leftFoot', true); runtime.setFootContact('player', 'rightFoot', true);
   runtime.setFootContact('opponent', 'leftFoot', true); runtime.setFootContact('opponent', 'rightFoot', true);
-  return { world, runtime, model };
+  return { world, runtime, model, player, opponent };
 };
 
 const stepGrappleHarness = (world: World, runtime: BodyWorksRuntime, model: MatchModel): void => {
@@ -194,6 +194,22 @@ describe('Rapier-backed Bodyworks integration', () => {
     world.free();
   });
 
+  it('ends a low airborne state even when repeated impacts keep resetting state elapsed', () => {
+    const { world, runtime, model } = makeHarness();
+    for (let frame = 0; frame < 30; frame += 1) stepHarness(world, runtime, model);
+    let downedFrame = -1;
+    for (let frame = 0; frame < 190; frame += 1) {
+      model.player.state = 'airborne'; model.player.stateElapsed = 0;
+      stepHarness(world, runtime, model);
+      const currentState: string = model.player.state;
+      if (currentState === 'downed') { downedFrame = frame; break; }
+    }
+    expect(downedFrame, JSON.stringify({ state: model.player.state, snapshot: runtime.fighterSnapshot('player'), metrics: runtime.metrics })).toBeGreaterThanOrEqual(38);
+    expect(downedFrame).toBeLessThan(55);
+    expect(runtime.metrics.emergencyResetCount).toBe(0);
+    world.free();
+  });
+
   it('locks one physical recovery side instead of flickering between slanted downed poses', () => {
     const { world, runtime, model, rig } = makeHarness();
     model.player.state = 'downed'; model.player.stateElapsed = .3; model.player.downTimer = 20;
@@ -238,6 +254,25 @@ describe('Rapier-backed Bodyworks integration', () => {
     expect(runtime.metrics.maximumJointSeparation, JSON.stringify(runtime.metrics)).toBeLessThan(1.35);
     world.free();
   }, 30_000);
+
+  it('breaks a pre-lift grapple that collapses a wrestler onto the deck', () => {
+    const { world, runtime, model, player } = makeGrappleHarness();
+    for (let frame = 0; frame < 30; frame += 1) stepGrappleHarness(world, runtime, model);
+    expect(requestCommand(model, 'player', 'grapple')).toBe(true);
+    expect(model.grapple).not.toBeNull();
+    if (!model.grapple) return;
+    model.grapple.age = 1; model.grapple.phase = 'reach';
+    const pelvisPosition = player.bodies.pelvis.translation();
+    player.bodies.pelvis.setTranslation({ x: pelvisPosition.x, y: 2.25, z: pelvisPosition.z }, true);
+    player.bodies.pelvis.setRotation({ x: Math.SQRT1_2, y: 0, z: 0, w: Math.SQRT1_2 }, true);
+    stepGrappleHarness(world, runtime, model);
+    expect(model.grapple).toBeNull();
+    expect(model.player.state).toBe('downed');
+    expect(model.player.moveId).toBeNull();
+    expect(model.announcement).toContain('GROUND LOCK BROKEN');
+    expect(runtime.metrics.gripCount).toBe(0);
+    world.free();
+  });
 
   it('answers directional input promptly without destabilizing the articulated rig', () => {
     const { world, runtime, model } = makeHarness(); const initialX = model.player.position.x;

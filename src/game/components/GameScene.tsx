@@ -34,23 +34,30 @@ import { resolvedSpectatorTarget, useSpectatorStore } from '../state/spectatorSt
 import { BODY_SEGMENT_COUNT } from '../physics/bodySchema';
 import { fallCount } from '../systems/falls';
 import { ReplayDirector } from './ReplayFighter';
+import { useMultiplayerStore } from '../multiplayer/MultiplayerStore';
+import type { ActionEvent } from '../input/actionLayer';
 
-interface Props { onPause: () => void; onDevice: (device: ControlDevice) => void; onFinished: () => void; inputEnabled?: boolean }
+interface Props { onPause: () => void; onDevice: (device: ControlDevice) => void; onFinished: () => void; inputEnabled?: boolean; onlineRole?: 'player1' | 'player2' | 'spectator' | null }
 
 const BodyWorksDebugOverlay = lazy(async () => ({ default: (await import('./BodyWorksDebugOverlay')).BodyWorksDebugOverlay }));
 
 bodyWorksRuntime.setJointData(JointData);
 
-function Simulation({ onPause, onDevice, onFinished, inputEnabled = true }: Props) {
+function Simulation({ onPause, onDevice, onFinished, inputEnabled = true, onlineRole = null }: Props) {
   const pause = useCallback(onPause, [onPause]);
   const clearPendingInput = useCallback((reason: string) => {
     const model = useMatchStore.getState().model;
     bodyWorksRuntime.rejectPendingActions('player', model.elapsed, reason);
   }, []);
-  const input = useGameInput(pause, inputEnabled, clearPendingInput); const lastImpactId = useRef(0); const lastActionAudio = useRef(''); const finishNotified = useRef(false); const finishTimer = useRef<number | null>(null); const { camera, gl } = useThree();
+  const immediateNetworkRelease = useCallback((event: ActionEvent): void => {
+    if (!useMatchStore.getState().model.networkAuthority || onlineRole === 'spectator') return;
+    useMultiplayerStore.getState().sendAction(event);
+  }, [onlineRole]);
+  const input = useGameInput(pause, inputEnabled, clearPendingInput, immediateNetworkRelease); const lastImpactId = useRef(0); const lastActionAudio = useRef(''); const finishNotified = useRef(false); const finishTimer = useRef<number | null>(null); const { camera, gl } = useThree();
   const inputBasis = useRef<CameraInputBasis | null>(null);
   const storeActionCount = useRef(0);
   const rosterReadiness = useRef({ runtimeId: -1, ready: false });
+  const lastNetworkSnapshot = useRef(0); const lastNetworkImpact = useRef(0); const networkResultApplied = useRef(false);
   const listenerPosition = useRef(new Vector3()); const listenerForward = useRef(new Vector3()); const footstepTimer = useRef(0);
   useEffect(() => onDevice(input.device), [input.device, onDevice]);
   useEffect(() => { useMatchStore.getState().setPhysicsAuthority(true); return () => useMatchStore.getState().setPhysicsAuthority(false); }, []);
@@ -73,6 +80,30 @@ function Simulation({ onPause, onDevice, onFinished, inputEnabled = true }: Prop
   useBeforePhysicsStep((world) => {
     const model = useMatchStore.getState().model;
     const fixedStep = model.labMode ? usePhysicsLabStore.getState().rate / 60 : 1 / 60;
+    if (model.networkAuthority) {
+      const network = useMultiplayerStore.getState();
+      const p1SessionId = [...network.roles.entries()].find((entry) => entry[1] === 'player1')?.[0];
+      const p2SessionId = [...network.roles.entries()].find((entry) => entry[1] === 'player2')?.[0];
+      const localSessionId = onlineRole === 'player2' ? p2SessionId : p1SessionId;
+      const remoteSessionId = onlineRole === 'player2' ? p1SessionId : p2SessionId;
+      const local = localSessionId ? network.fighters.get(localSessionId) : null; const remote = remoteSessionId ? network.fighters.get(remoteSessionId) : null;
+      if (network.lastSnapshotSeq > lastNetworkSnapshot.current && local && remote) {
+        lastNetworkSnapshot.current = network.lastSnapshotSeq;
+        useMatchStore.getState().reconcileNetworkSnapshot(local, remote, network.serverElapsed, network.serverHype, network.serverAnnouncement);
+      }
+      if (network.lastImpact && network.lastImpact.impactId > lastNetworkImpact.current && localSessionId && remoteSessionId) {
+        lastNetworkImpact.current = network.lastImpact.impactId;
+        useMatchStore.getState().applyNetworkImpact(
+          network.lastImpact,
+          network.lastImpact.sourceSessionId === localSessionId ? 'player' : 'opponent',
+          network.lastImpact.targetSessionId === localSessionId ? 'player' : 'opponent',
+        );
+      }
+      if (network.matchResult && !networkResultApplied.current && localSessionId && network.matchResult.method !== 'TIMEOUT') {
+        networkResultApplied.current = true;
+        useMatchStore.getState().resolveNetworkMatch(network.matchResult.winner === localSessionId ? 'player' : 'opponent', network.matchResult.method);
+      }
+    }
     const activeSlots = model.matchMode === 'battle_royale' ? FIGHTER_SLOTS.filter((slot) => model[slot].state !== 'defeated') : FIGHTER_SLOTS.slice(0, 2);
     const expectedBodies = activeSlots.length * BODY_SEGMENT_COUNT;
     if (requiresPhysicalRig) {
@@ -106,7 +137,20 @@ function Simulation({ onPause, onDevice, onFinished, inputEnabled = true }: Prop
       const playerInGrapple = Boolean(model.grapple && (model.grapple.attacker === 'player' || model.grapple.defender === 'player'));
       const cinematic = useMatchStore.getState().replayActive || playerInGrapple || model.player.moveId !== null || ['grappling', 'grabbed', 'climbing', 'airborne', 'jumping', 'pinning', 'pinned'].includes(model.player.state);
       inputBasis.current = updateStableBasis(inputBasis.current, candidate, inputHeld, cinematic, fixedStep);
-      raw.move = transformCameraRelative(raw.move, inputBasis.current);
+      const stableBasis = inputBasis.current;
+      raw.move = transformCameraRelative(raw.move, stableBasis);
+      raw.actions = raw.actions?.map((event) => {
+        // Locomotion follows the broadcast camera. Attack and grapple choices
+        // stay controller-relative so "down + strike" always means the same
+        // move even after a camera cut or when players occupy opposite sides.
+        const sourceDirection = { x: event.direction.x, z: event.direction.y };
+        const direction = ['move', 'run', 'guard'].includes(event.action) ? transformCameraRelative(sourceDirection, stableBasis) : sourceDirection;
+        const magnitude = Math.max(1, Math.hypot(direction.x, direction.z));
+        return { ...event, direction: { x: direction.x / magnitude, y: direction.z / magnitude } };
+      });
+      if (model.networkAuthority && onlineRole !== 'spectator') {
+        for (const event of raw.actions ?? []) useMultiplayerStore.getState().sendAction(event);
+      }
       useMatchStore.getState().advance(fixedStep, raw);
     }
   });
@@ -228,6 +272,9 @@ export function GameScene(props: Props) {
   const fallbackQuality = useMemo(() => browserRuntimeQuality('performance', reducedMotion, lab), [lab, reducedMotion]);
   const quality = automaticPerformanceFallback && graphicsQuality === 'auto' ? fallbackQuality : selectedQuality;
   const fighterDetail = selectFighterDetail(quality.tier);
+  const networkDiagnostics = useMultiplayerStore.getState();
+  const diagnosticSessionId = networkDiagnostics.sessionId;
+  const diagnosticServerFighter = diagnosticSessionId ? networkDiagnostics.fighters.get(diagnosticSessionId) : null;
   const renderer = useRef<WebGLRenderer | null>(null); const [xrAvailable, setXrAvailable] = useState(false); const [xrPresenting, setXrPresenting] = useState(false); const [xrError, setXrError] = useState('');
   const enterXR = async (): Promise<void> => {
     if (!navigator.xr || !renderer.current) return;
@@ -269,6 +316,13 @@ export function GameScene(props: Props) {
         data-player-x={playerPosition.x.toFixed(3)}
         data-player-z={playerPosition.z.toFixed(3)}
         data-opponent-health={opponentHealth.toFixed(1)}
+        data-online-role={props.onlineRole ?? 'offline'}
+        data-network-authority={diagnosticModel.networkAuthority ? 'true' : 'false'}
+        data-network-snapshot={useMultiplayerStore.getState().lastSnapshotSeq}
+        data-network-command-seq={networkDiagnostics.lastCommandSeq}
+        data-network-acked-seq={networkDiagnostics.lastAckedSeq}
+        data-network-server-x={diagnosticServerFighter?.posX ?? ''}
+        data-network-server-z={diagnosticServerFighter?.posZ ?? ''}
       >
         <Canvas
           shadows={quality.shadows ? 'basic' : false}
@@ -296,7 +350,7 @@ export function GameScene(props: Props) {
             <ReplayDirector />
             <PlayerControlBeacon />
             <ImpactEffects />
-            <Simulation {...props} inputEnabled={!paused && !replayActive && !diagnosticModel.resolved && !['defeated', 'victorious'].includes(diagnosticModel.player.state)} />
+            <Simulation {...props} inputEnabled={props.onlineRole !== 'spectator' && !paused && !replayActive && !diagnosticModel.resolved && !['defeated', 'victorious'].includes(diagnosticModel.player.state)} />
           </Physics>
           {lab && labDebug ? <Suspense fallback={null}><BodyWorksDebugOverlay /></Suspense> : null}
           <CameraRig />

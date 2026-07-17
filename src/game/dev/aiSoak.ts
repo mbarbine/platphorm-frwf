@@ -12,7 +12,7 @@ export interface AiSoakMatch {
   opponent: FighterId;
   completed: boolean;
   winner: FighterSlot | null;
-  method: 'PINFALL' | 'KNOCKOUT' | null;
+  method: 'PINFALL' | 'KNOCKOUT' | 'FORFEIT' | null;
   matchMode: MatchMode;
   eliminations: number;
   remaining: readonly FighterSlot[];

@@ -4,7 +4,9 @@ import { MatchRoomStateSchema, FighterStateSchema } from './WrestlingRoomState';
 import { SERVER_CONFIG } from '../config';
 import { PROTOCOL_VERSION } from '@frwf/game-protocol';
 import type { ActionEvent, FighterId, PlayerRole } from '@frwf/game-protocol';
-// Future: import { createMatch, advanceMatch, requestAction } from '@frwf/game-core';
+import { applyOnlineAction, createOnlineMatch, stepOnlineMatch } from '@frwf/game-core';
+import type { OnlineMatchState } from '@frwf/game-core';
+import { z } from 'zod';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Internal session record — not part of the synchronized state.
@@ -28,6 +30,15 @@ interface SelectFighterMsg { fighterId: FighterId }
 interface CommandMsg { event: ActionEvent; seq: number }
 interface VersionMsg { clientVersion: string }
 
+const actionEventSchema = z.object({
+  action: z.enum(['move', 'run', 'quickStrike', 'heavyStrike', 'grapple', 'guard', 'dodgeCounter', 'jump', 'propAction', 'contextAction', 'taunt', 'pause']),
+  phase: z.enum(['started', 'held', 'released']),
+  sequence: z.number().int().nonnegative(), timestamp: z.number().finite(),
+  direction: z.object({ x: z.number().finite().min(-1).max(1), y: z.number().finite().min(-1).max(1) }),
+  source: z.enum(['keyboard', 'gamepad', 'touch', 'xr', 'ai', 'replay', 'network']),
+});
+const commandSchema = z.object({ event: actionEventSchema, seq: z.number().int().positive() });
+
 // ──────────────────────────────────────────────────────────────────────────────
 // WrestlingRoom
 // ──────────────────────────────────────────────────────────────────────────────
@@ -40,8 +51,7 @@ export class WrestlingRoom extends Room<MatchRoomStateSchema> {
   private snapshotClock?: Delayed;
   private snapshotSeq = 0;
 
-  /** Future game-core match model (authoritative deterministic simulation). */
-  // private matchModel: MatchModel | null = null;
+  private matchModel: OnlineMatchState | null = null;
 
   // ── Lifecycle ──────────────────────────────────────────────────────────────
 
@@ -66,7 +76,7 @@ export class WrestlingRoom extends Room<MatchRoomStateSchema> {
         return;
       }
       if (msg.clientVersion !== PROTOCOL_VERSION) {
-        client.send('versionRejected', { serverVersion: PROTOCOL_VERSION, minClientVersion: PROTOCOL_VERSION });
+        client.send('versionRejected', { type: 'versionRejected', serverVersion: PROTOCOL_VERSION, minClientVersion: PROTOCOL_VERSION });
         client.leave(4000);
       }
     });
@@ -90,15 +100,17 @@ export class WrestlingRoom extends Room<MatchRoomStateSchema> {
     };
     this.sessions.set(client.sessionId, session);
 
-    // Initialize fighter state in the synchronized schema
-    const fighterState = new FighterStateSchema();
-    fighterState.definitionId = session.fighterId;
-    fighterState.posX = role === 'player1' ? -2.3 : 2.3;
-    fighterState.facing = role === 'player1' ? 0 : Math.PI;
-    this.state.fighters.set(client.sessionId, fighterState);
+    if (role !== 'spectator') {
+      const fighterState = new FighterStateSchema();
+      fighterState.definitionId = session.fighterId;
+      fighterState.posX = role === 'player1' ? -2.3 : 2.3;
+      fighterState.facing = role === 'player1' ? Math.PI / 2 : -Math.PI / 2;
+      this.state.fighters.set(client.sessionId, fighterState);
+    }
     this.state.roles.set(client.sessionId, role);
 
     this.log(`${client.sessionId} joined as ${role} (${session.fighterId})`);
+    this.broadcastRoomState();
   }
 
   async onLeave(client: Client, consented: boolean): Promise<void> {
@@ -113,13 +125,14 @@ export class WrestlingRoom extends Room<MatchRoomStateSchema> {
         session.connected = true;
         this.log(`${client.sessionId} reconnected`);
       } catch {
-        this.log(`${client.sessionId} did not reconnect — replacing with AI`);
-        this.replaceWithAI(session);
+        this.log(`${client.sessionId} did not reconnect — match ends by forfeit`);
+        this.resolveForfeit(session);
       }
     } else {
       this.sessions.delete(client.sessionId);
       this.state.fighters.delete(client.sessionId);
       this.state.roles.delete(client.sessionId);
+      this.broadcastRoomState();
     }
   }
 
@@ -136,6 +149,7 @@ export class WrestlingRoom extends Room<MatchRoomStateSchema> {
     this.onMessage('ready', (client) => this.handleReady(client));
     this.onMessage<CommandMsg>('command', (client, msg) => this.handleCommand(client, msg));
     this.onMessage('rematch', (client) => this.handleRematch(client));
+    this.onMessage('syncState', (client) => client.send('roomState', this.roomStateMessage()));
     this.onMessage('pause', (client, msg: { paused: boolean }) => {
       // Pause is only respected in single-player practice mode
       if (this.singlePlayerMode()) {
@@ -157,6 +171,7 @@ export class WrestlingRoom extends Room<MatchRoomStateSchema> {
     const fighter = this.state.fighters.get(client.sessionId);
     if (fighter) fighter.definitionId = session.fighterId;
     this.state.phase = 'selection';
+    this.broadcastRoomState();
     this.log(`${client.sessionId} selected ${session.fighterId}`);
   }
 
@@ -168,30 +183,26 @@ export class WrestlingRoom extends Room<MatchRoomStateSchema> {
     session.ready = true;
     const players = this.activePlayers();
     if (players.length >= 2 && players.every(s => s.ready)) this.startMatch();
-    else if (players.length === 1 && players[0]?.ready) this.startSinglePlayer();
+    else { this.state.announcement = 'WAITING FOR SECOND WRESTLER'; this.state.announcementTimer = 0; this.broadcastRoomState(); }
   }
 
   private handleCommand(client: Client, msg: CommandMsg): void {
     if (this.state.phase !== 'active') return;
     const session = this.sessions.get(client.sessionId);
     if (!session || session.role === 'spectator') return;
-    // Defensively check that payload is a valid object with expected seq
-    if (!msg || typeof msg !== 'object' || typeof msg.seq !== 'number') return;
+    const parsed = commandSchema.safeParse(msg); if (!parsed.success) return;
+    const command = parsed.data;
 
     // Reject duplicate or out-of-order commands
-    if (msg.seq <= session.lastCommandSeq) return;
-    session.lastCommandSeq = msg.seq;
+    if (command.seq <= session.lastCommandSeq) return;
+    session.lastCommandSeq = command.seq;
 
     // Update last acknowledged sequence in the synchronized state
     const fighter = this.state.fighters.get(client.sessionId);
-    if (fighter) fighter.lastCommandSeq = msg.seq;
+    if (fighter) fighter.lastCommandSeq = command.seq;
 
-    // Acknowledge immediately for client-side reconciliation
-    client.send('commandAck', { seq: msg.seq, serverTimestamp: this.clock.elapsedTime });
-
-    // Apply to deterministic simulation (game-core integration point)
-    // const actorKey = session.role === 'player1' ? 'player' : 'opponent';
-    // if (this.matchModel) requestAction(this.matchModel, actorKey, msg.event);
+    const accepted = this.matchModel ? applyOnlineAction(this.matchModel, client.sessionId, command.event, command.seq) : false;
+    client.send('commandAck', { type: 'commandAck', seq: command.seq, serverTimestamp: this.clock.elapsedTime, accepted });
   }
 
   private handleRematch(client: Client): void {
@@ -216,8 +227,10 @@ export class WrestlingRoom extends Room<MatchRoomStateSchema> {
     const p2 = players.find(s => s.role === 'player2');
     if (!p1 || !p2) return;
 
-    // Initialize game-core model (integration hook)
-    // this.matchModel = createMatch(p1.fighterId, p2.fighterId, this.state.ruleset, this.state.difficulty, this.state.seed);
+    this.matchModel = createOnlineMatch([
+      { sessionId: p1.sessionId, fighterId: p1.fighterId },
+      { sessionId: p2.sessionId, fighterId: p2.fighterId },
+    ], this.state.ruleset === 'chaos' ? 'chaos' : 'standard');
 
     this.state.phase = 'active';
     this.state.resolved = false;
@@ -226,6 +239,8 @@ export class WrestlingRoom extends Room<MatchRoomStateSchema> {
     this.state.announcementTimer = 2.2;
     this.state.winnerSessionId = '';
     this.state.winMethod = '';
+    this.syncStateFromModel();
+    this.broadcastRoomState();
 
     this.simulationClock = this.clock.setInterval(
       () => this.tick(),
@@ -239,41 +254,18 @@ export class WrestlingRoom extends Room<MatchRoomStateSchema> {
     this.log(`Match started: ${p1.fighterId} vs ${p2.fighterId}`);
   }
 
-  private startSinglePlayer(): void {
-    const p1 = this.activePlayers()[0];
-    if (!p1) return;
-
-    this.state.phase = 'active';
-    this.state.resolved = false;
-    this.state.elapsed = 0;
-    this.state.announcement = 'ROUND ONE — FIGHT!';
-
-    this.simulationClock = this.clock.setInterval(
-      () => this.tick(),
-      1000 / SERVER_CONFIG.SERVER_TICK_RATE,
-    );
-    this.snapshotClock = this.clock.setInterval(
-      () => this.broadcastSnapshot(),
-      1000 / SERVER_CONFIG.SNAPSHOT_RATE,
-    );
-
-    this.log(`Single-player match started (${p1.fighterId} vs AI)`);
-  }
-
   private tick(): void {
     if (this.state.phase !== 'active') return;
 
     const dt = 1 / SERVER_CONFIG.SERVER_TICK_RATE;
-    this.state.elapsed += dt;
-    if (this.state.announcementTimer > 0) this.state.announcementTimer = Math.max(0, this.state.announcementTimer - dt);
-    if (this.state.announcementTimer === 0 && this.state.announcement) this.state.announcement = '';
-
-    // Run deterministic simulation (game-core integration hook)
-    // if (this.matchModel) {
-    //   advanceMatch(this.matchModel, dt, { move: { x: 0, z: 0 }, run: false, block: false, commands: [] });
-    //   this.syncStateFromModel();
-    //   if (this.matchModel.resolved) this.endMatch();
-    // }
+    if (this.matchModel) {
+      const impacts = stepOnlineMatch(this.matchModel, dt); this.syncStateFromModel();
+      for (const impact of impacts) this.broadcast('impactEvent', { type: 'impactEvent', ...impact });
+      if (this.matchModel.resolved) {
+        this.endMatch(this.matchModel.winMethod || 'KNOCKOUT', this.matchModel.winnerSessionId);
+        return;
+      }
+    } else this.state.elapsed += dt;
 
     // Timeout protection
     if (this.state.elapsed >= SERVER_CONFIG.MATCH_TIMEOUT_SECONDS) {
@@ -282,12 +274,18 @@ export class WrestlingRoom extends Room<MatchRoomStateSchema> {
   }
 
   private syncStateFromModel(): void {
-    // Sync server matchModel → Colyseus schema (game-core integration hook)
-    // Called once per server tick.
-    // if (!this.matchModel) return;
-    // this.state.hype = this.matchModel.hype;
-    // this.state.elapsed = this.matchModel.elapsed;
-    // ... etc
+    const model = this.matchModel; if (!model) return;
+    this.state.hype = model.hype; this.state.elapsed = model.elapsed; this.state.resolved = model.resolved;
+    this.state.announcement = model.announcement; this.state.announcementTimer = model.announcementTimer;
+    this.state.winnerSessionId = model.winnerSessionId; this.state.winMethod = model.winMethod;
+    for (const [sessionId, source] of model.fighters) {
+      let target = this.state.fighters.get(sessionId);
+      if (!target) { target = new FighterStateSchema(); this.state.fighters.set(sessionId, target); }
+      target.definitionId = source.fighterId; target.health = source.health; target.stamina = source.stamina; target.momentum = source.momentum;
+      target.posX = source.posX; target.posZ = source.posZ; target.facing = source.facing; target.velocityX = source.velocityX; target.velocityZ = source.velocityZ;
+      target.combatState = source.combatState; target.moveId = source.moveId; target.attackPhase = source.attackPhase ?? '';
+      target.pinCount = source.pinCount; target.finisherPrimed = source.finisherPrimed; target.lastCommandSeq = source.lastCommandSeq;
+    }
   }
 
   private broadcastSnapshot(): void {
@@ -299,6 +297,7 @@ export class WrestlingRoom extends Room<MatchRoomStateSchema> {
     this.state.fighters.forEach((f, sessionId) => {
       fighters.push({
         sessionId,
+        definitionId: f.definitionId,
         health: f.health,
         stamina: f.stamina,
         momentum: f.momentum,
@@ -310,13 +309,17 @@ export class WrestlingRoom extends Room<MatchRoomStateSchema> {
         combatState: f.combatState,
         moveId: f.moveId,
         attackPhase: f.attackPhase,
+        phaseElapsed: this.matchModel?.fighters.get(sessionId)?.phaseElapsed ?? 0,
+        grappleTargetSessionId: this.matchModel?.fighters.get(sessionId)?.grappleTarget ?? null,
         pinCount: f.pinCount,
+        finisherPrimed: f.finisherPrimed,
+        lastCommandSeq: f.lastCommandSeq,
       });
     });
-    this.broadcast('snapshot', { seq: this.snapshotSeq, elapsed: this.state.elapsed, hype: this.state.hype, announcement: this.state.announcement || null, fighters });
+    this.broadcast('snapshot', { type: 'snapshot', seq: this.snapshotSeq, elapsed: this.state.elapsed, hype: this.state.hype, announcement: this.state.announcement || null, fighters });
   }
 
-  private endMatch(method: 'PINFALL' | 'KNOCKOUT' | 'TIMEOUT' = 'TIMEOUT', winnerSessionId = ''): void {
+  private endMatch(method: 'PINFALL' | 'KNOCKOUT' | 'TIMEOUT' | 'FORFEIT' = 'TIMEOUT', winnerSessionId = ''): void {
     this.simulationClock?.clear();
     this.snapshotClock?.clear();
 
@@ -324,15 +327,18 @@ export class WrestlingRoom extends Room<MatchRoomStateSchema> {
     this.state.resolved = true;
     this.state.winnerSessionId = winnerSessionId;
     this.state.winMethod = method;
-    this.state.announcement = method === 'TIMEOUT' ? 'TIME LIMIT!' : method === 'KNOCKOUT' ? 'KNOCKOUT!' : 'THREE!';
+    this.state.announcement = method === 'TIMEOUT' ? 'TIME LIMIT!' : method === 'FORFEIT' ? 'MATCH ENDS BY FORFEIT' : method === 'KNOCKOUT' ? 'KNOCKOUT!' : 'THREE!';
     this.state.announcementTimer = 4;
 
     this.broadcast('matchResult', {
+      type: 'matchResult',
       winner: winnerSessionId,
       method,
       duration: this.state.elapsed,
       hype: this.state.hype,
+      grade: this.state.hype >= 90 ? 'S' : this.state.hype >= 70 ? 'A' : this.state.hype >= 50 ? 'B' : this.state.hype >= 30 ? 'C' : 'D',
     });
+    this.broadcastRoomState();
 
     this.log(`Match ended: ${method}, winner=${winnerSessionId || 'none'}`);
   }
@@ -343,16 +349,28 @@ export class WrestlingRoom extends Room<MatchRoomStateSchema> {
     return [...this.sessions.values()].filter(s => s.role !== 'spectator');
   }
 
+  private roomStateMessage() {
+    return {
+      type: 'roomState' as const,
+      phase: this.state.phase as 'lobby' | 'selection' | 'countdown' | 'active' | 'result',
+      roles: [...this.sessions.values()].map(({ sessionId, role }) => ({ sessionId, role })),
+      fighters: [...this.sessions.values()].filter(({ role }) => role !== 'spectator').map(({ sessionId, fighterId }) => ({ sessionId, definitionId: fighterId })),
+    };
+  }
+
+  private broadcastRoomState(): void { this.broadcast('roomState', this.roomStateMessage()); }
+
   private singlePlayerMode(): boolean {
     return this.activePlayers().length === 1;
   }
 
-  private replaceWithAI(session: PlayerSession): void {
-    // Mark as AI-controlled (game-core will drive input for this slot)
+  private resolveForfeit(session: PlayerSession): void {
+    const winner = this.activePlayers().find((candidate) => candidate.sessionId !== session.sessionId && candidate.connected)?.sessionId ?? '';
+    if (this.state.phase === 'active') this.endMatch('FORFEIT', winner);
     this.sessions.delete(session.sessionId);
     this.state.fighters.delete(session.sessionId);
     this.state.roles.delete(session.sessionId);
-    this.log(`Slot ${session.role} replaced with AI`);
+    this.broadcastRoomState();
   }
 
   private validatedFighterId(id: unknown): FighterId {

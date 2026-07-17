@@ -204,6 +204,8 @@ describe('ColyseusClient', () => {
     const onSnapshot = vi.fn();
     const onImpactEvent = vi.fn();
     const onMatchResult = vi.fn();
+    const onCommandAck = vi.fn();
+    const onRoomState = vi.fn();
     const onVersionRejected = vi.fn();
 
     const specialClient = new ColyseusClient({
@@ -211,6 +213,8 @@ describe('ColyseusClient', () => {
       onSnapshot,
       onImpactEvent,
       onMatchResult,
+      onCommandAck,
+      onRoomState,
       onVersionRejected,
     });
 
@@ -235,6 +239,14 @@ describe('ColyseusClient', () => {
     const resultCb = mockRoom._messageCallbacks.get('matchResult');
     if (resultCb) resultCb('result_data');
     expect(onMatchResult).toHaveBeenCalledWith('result_data');
+
+    const ackCb = mockRoom._messageCallbacks.get('commandAck');
+    if (ackCb) ackCb('ack_data');
+    expect(onCommandAck).toHaveBeenCalledWith('ack_data');
+
+    const roomStateCb = mockRoom._messageCallbacks.get('roomState');
+    if (roomStateCb) roomStateCb('room_state_data');
+    expect(onRoomState).toHaveBeenCalledWith('room_state_data');
 
     const versionCb = mockRoom._messageCallbacks.get('versionRejected');
     if (versionCb) versionCb('version_data');

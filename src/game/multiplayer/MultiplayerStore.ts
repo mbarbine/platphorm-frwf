@@ -2,6 +2,12 @@ import { create } from 'zustand';
 import { colyseusClient } from './ColyseusClient';
 import type { ConnectionStatus, ClientFighterState, ClientRoomState } from './ColyseusClient';
 import type { ActionEvent, FighterId } from '@frwf/game-protocol';
+import type { ImpactEventMessage, MatchResultMessage } from '@frwf/game-protocol';
+
+interface ReadableStateMap<T> { forEach: (callback: (value: T, key: string) => void) => void }
+const copyStateMap = <T>(source: ReadableStateMap<T> | null | undefined): Map<string, T> => {
+  const result = new Map<string, T>(); source?.forEach((value, key) => result.set(key, value)); return result;
+};
 
 // ──────────────────────────────────────────────────────────────────────────────
 // MultiplayerStore — Zustand store for multiplayer connection state.
@@ -28,6 +34,12 @@ export interface MultiplayerState {
   lastServerTimestamp: number;
   lastCommandSeq: number;
   lastAckedSeq: number;
+  lastSnapshotSeq: number;
+  serverElapsed: number;
+  serverHype: number;
+  serverAnnouncement: string | null;
+  lastImpact: ImpactEventMessage | null;
+  matchResult: MatchResultMessage | null;
 
   // Actions
   connect: (roomName?: string, options?: { fighterId?: FighterId; private?: boolean }) => Promise<void>;
@@ -45,13 +57,46 @@ export const useMultiplayerStore = create<MultiplayerState>((set) => {
   colyseusClient.setEventHandlers({
     onStatusChange: (status) => set({ status }),
     onStateChange: (state: ClientRoomState) => {
-      set({
+      set((current) => {
+        const roomFighters = copyStateMap(state.fighters); const fighters = new Map<string, ClientFighterState>();
+        roomFighters.forEach((fighter, sessionId) => fighters.set(sessionId, { ...current.fighters.get(sessionId), ...fighter }));
+        const roles = copyStateMap(state.roles);
+        return {
         roomPhase: state.phase ?? '',
-        fighters: state.fighters ? new Map(state.fighters) : new Map(),
-        roles: state.roles ? new Map(state.roles) : new Map(),
-        myRole: (state.roles && colyseusClient.sessionId) ? (state.roles.get(colyseusClient.sessionId) as 'player1' | 'player2' | 'spectator') : null,
-      });
+        fighters,
+        roles,
+        myRole: colyseusClient.sessionId ? (roles.get(colyseusClient.sessionId) as 'player1' | 'player2' | 'spectator' | undefined) ?? null : null,
+      }; });
     },
+    onSnapshot: (snapshot) => set({
+      lastSnapshotSeq: snapshot.seq,
+      serverElapsed: snapshot.elapsed,
+      serverHype: snapshot.hype,
+      serverAnnouncement: snapshot.announcement,
+      fighters: new Map(snapshot.fighters.map((fighter) => [fighter.sessionId, {
+        definitionId: fighter.definitionId,
+        health: fighter.health, stamina: fighter.stamina, momentum: fighter.momentum,
+        posX: fighter.posX, posZ: fighter.posZ, facing: fighter.facing,
+        velocityX: fighter.velocityX, velocityZ: fighter.velocityZ,
+        combatState: fighter.combatState, moveId: fighter.moveId, attackPhase: fighter.attackPhase,
+        phaseElapsed: fighter.phaseElapsed, grappleTargetSessionId: fighter.grappleTargetSessionId,
+        pinCount: fighter.pinCount, finisherPrimed: fighter.finisherPrimed, lastCommandSeq: fighter.lastCommandSeq,
+      }] as const)),
+    }),
+    onRoomState: (roomState) => set((current) => {
+      const fighters = new Map(current.fighters); const roles = new Map<string, string>();
+      roomState.fighters.forEach((fighter) => fighters.set(fighter.sessionId, { ...fighters.get(fighter.sessionId), definitionId: fighter.definitionId } as ClientFighterState));
+      roomState.roles.forEach(({ sessionId, role }) => roles.set(sessionId, role));
+      return {
+        roomPhase: roomState.phase,
+        fighters,
+        roles,
+        myRole: current.sessionId ? (roles.get(current.sessionId) as MultiplayerState['myRole']) ?? null : current.myRole,
+      };
+    }),
+    onCommandAck: (ack) => set({ lastAckedSeq: ack.seq, lastServerTimestamp: ack.serverTimestamp }),
+    onImpactEvent: (impact) => set({ lastImpact: impact }),
+    onMatchResult: (matchResult) => set({ matchResult, roomPhase: 'result' }),
   });
 
   return {
@@ -66,15 +111,21 @@ export const useMultiplayerStore = create<MultiplayerState>((set) => {
     lastServerTimestamp: 0,
     lastCommandSeq: 0,
     lastAckedSeq: 0,
+    lastSnapshotSeq: 0,
+    serverElapsed: 0,
+    serverHype: 0,
+    serverAnnouncement: null,
+    lastImpact: null,
+    matchResult: null,
 
     async connect(roomName = 'wrestling', options = {}) {
       await colyseusClient.joinOrCreate(roomName, options);
-      set({ roomId: colyseusClient.roomId ?? null, sessionId: colyseusClient.sessionId ?? null });
+      set({ roomId: colyseusClient.roomId ?? null, sessionId: colyseusClient.sessionId ?? null, matchResult: null, lastImpact: null });
     },
 
     async disconnect() {
       await colyseusClient.leave();
-      set({ roomId: null, sessionId: null, myRole: null, status: 'disconnected', fighters: new Map(), roles: new Map() });
+      set({ roomId: null, sessionId: null, myRole: null, status: 'disconnected', fighters: new Map(), roles: new Map(), lastSnapshotSeq: 0, lastImpact: null, matchResult: null });
     },
 
     async createPrivateRoom(options = {}) {

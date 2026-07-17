@@ -60,6 +60,23 @@ describe('deterministic combat rules', () => {
     expect(model.opponent.state).toBe('defeated');
   });
 
+  it('turns a grounded primary attack press into visible kick-up recovery', () => {
+    const model = createMatch('atlas', 'vex', 'standard', 'normal');
+    model.player.state = 'downed'; model.player.downTimer = 2;
+    expect(requestCommand(model, 'player', 'quick')).toBe(true);
+    expect(model.player).toMatchObject({ state: 'recovering', moveId: 'kick_up', attackPhase: 'anticipation' });
+  });
+
+  it('records a forfeit without fabricating a collision impact', () => {
+    const model = createMatch('atlas', 'vex', 'standard', 'normal');
+    expect(model.lastImpact).toBeNull();
+    resolveMatch(model, 'player', 'FORFEIT', 'opponent');
+    expect(model.result).toMatchObject({ winner: 'player', method: 'FORFEIT' });
+    expect(model.announcement).toBe('MATCH ENDS BY FORFEIT');
+    expect(model.lastImpact).toBeNull();
+    expect(model.impactSequence).toBe(0);
+  });
+
   it('allows only one pin sequence across a Battle Royale ring', () => {
     const model = createMatch('atlas', 'vex', 'standard', 'normal', 1337, 0, 0, 'battle_royale');
     model.elapsed = 90; model.opponent.state = 'pinning'; model.player.state = 'pinned';

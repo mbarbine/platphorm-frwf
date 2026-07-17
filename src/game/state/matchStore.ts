@@ -2,9 +2,11 @@ import { create } from 'zustand';
 import { advanceMatch, applyPhysicalContact, createFighterRuntime, createMatch, cyclePlayerTarget, requestAction, requestCommand, resetTransientState, resolveMatch } from '../systems/combat';
 import type { FrameInput } from '../systems/combat';
 import { bodyWorksRuntime } from '../physics/physicsRuntime';
-import { getMove } from '../data/moves';
+import { getMove, getSafeMove } from '../data/moves';
 import type { BodyWorksContact } from '../physics/physicsRuntime';
-import type { Difficulty, FighterId, FighterState, GameCommand, MatchMode, MatchModel, RecoveryOrientation, Ruleset, Vec2 } from '../types/game';
+import type { Difficulty, FighterId, FighterSlot, FighterState, GameCommand, MatchMode, MatchModel, RecoveryOrientation, Ruleset, Vec2 } from '../types/game';
+import type { ClientFighterState } from '../multiplayer/ColyseusClient';
+import type { ImpactEventMessage } from '@frwf/game-protocol';
 import { AI_FIGHTER_SLOTS } from '../types/game';
 import { useSpectatorStore } from './spectatorStore';
 import { createActionEvent, gameCommandToAction } from '../input/actionLayer';
@@ -26,6 +28,10 @@ interface MatchStore {
   resolveLabKnockout: () => void;
   prepareLabScenario: (playerPosition: Vec2, opponentPosition: Vec2, playerState?: Extract<FighterState, 'idle' | 'blocking' | 'downed'>, opponentHealth?: number, recoveryOrientation?: RecoveryOrientation, downTimer?: number, playerStaminaPercent?: number) => void;
   setPhysicsAuthority: (active: boolean) => void;
+  setNetworkAuthority: (active: boolean) => void;
+  reconcileNetworkSnapshot: (local: ClientFighterState, remote: ClientFighterState, elapsed: number, hype: number, announcement: string | null) => void;
+  applyNetworkImpact: (impact: ImpactEventMessage, source: FighterSlot, target: FighterSlot) => void;
+  resolveNetworkMatch: (winner: FighterSlot, method: 'PINFALL' | 'KNOCKOUT' | 'FORFEIT') => void;
   resolvePhysicsContacts: (contacts: readonly BodyWorksContact[]) => void;
   cyclePlayerTarget: (direction?: number) => void;
   rematch: () => void;
@@ -34,6 +40,44 @@ interface MatchStore {
 }
 
 let publishAccumulator = 0;
+
+const ONLINE_STATES = new Set<FighterState>(['idle', 'locomotion', 'jumping', 'attacking', 'grappling', 'grabbed', 'airborne', 'blocking', 'climbing', 'staggered', 'downed', 'recovering', 'pinning', 'pinned', 'victorious', 'defeated']);
+const ONLINE_PHASES = new Set(['anticipation', 'active', 'recovery']);
+
+const reconcileFighter = (model: MatchModel, slot: 'player' | 'opponent', snapshot: ClientFighterState): void => {
+  const runtime = model[slot]; const move = getSafeMove(snapshot.moveId);
+  if (runtime.moveId !== move?.id && move) runtime.attackInstanceId += 1;
+  runtime.position.x = snapshot.posX; runtime.position.z = snapshot.posZ;
+  runtime.velocity.x = snapshot.velocityX; runtime.velocity.z = snapshot.velocityZ;
+  runtime.facing = snapshot.facing; runtime.health = Math.max(0, Math.min(100, snapshot.health));
+  runtime.stamina = Math.max(0, Math.min(runtime.staminaCap, snapshot.stamina));
+  runtime.momentum = Math.max(0, Math.min(100, snapshot.momentum));
+  runtime.state = ONLINE_STATES.has(snapshot.combatState as FighterState) ? snapshot.combatState as FighterState : 'idle';
+  runtime.moveId = move?.id ?? null;
+  runtime.attackPhase = ONLINE_PHASES.has(snapshot.attackPhase) ? snapshot.attackPhase as 'anticipation' | 'active' | 'recovery' : null;
+  runtime.phaseElapsed = Math.max(0, snapshot.phaseElapsed || 0);
+  runtime.pinCount = Math.max(0, snapshot.pinCount); runtime.finisherPrimed = snapshot.finisherPrimed;
+  bodyWorksRuntime.setNetworkTarget(slot, runtime.position, runtime.velocity);
+};
+
+const reconcileNetworkGrapple = (model: MatchModel, local: ClientFighterState, remote: ClientFighterState): void => {
+  const localOwns = Boolean(local.grappleTargetSessionId); const remoteOwns = Boolean(remote.grappleTargetSessionId);
+  if (!localOwns && !remoteOwns) { model.grapple = null; return; }
+  const attacker: 'player' | 'opponent' = local.combatState === 'grappling' && localOwns ? 'player' : 'opponent';
+  const defender: 'player' | 'opponent' = attacker === 'player' ? 'opponent' : 'player';
+  const source = attacker === 'player' ? local : remote;
+  const progress = source.moveId === 'slam' ? Math.max(0, Math.min(1, source.phaseElapsed / .42)) : 0;
+  const phase = source.attackPhase === 'active' ? 'release'
+    : source.attackPhase === 'recovery' ? 'impact'
+      : source.moveId === 'slam' ? progress < .38 ? 'clinch' : progress < .56 ? 'load' : 'lift'
+        : 'clinch';
+  const prior = model.grapple;
+  model.grapple = {
+    attacker, defender, position: prior?.attacker === attacker ? prior.position : 'collarTie', leverage: prior?.leverage ?? 1,
+    tension: prior?.tension ?? 0, rotation: prior?.rotation ?? 0, lift: prior?.lift ?? 0, struggle: prior?.struggle ?? 0,
+    age: prior?.attacker === attacker ? prior.age : 0, gripCount: prior?.gripCount ?? 0, phase,
+  };
+};
 
 export const useMatchStore = create<MatchStore>((set) => ({
   model: createMatch('atlas', 'nova', 'standard', 'normal', 1337, 0, 0, 'battle_royale'), revision: 0, replayActive: false,
@@ -134,7 +178,38 @@ export const useMatchStore = create<MatchStore>((set) => ({
     return { model, revision: state.revision + 1, replayActive: false };
   }),
   setPhysicsAuthority: (active) => set((state) => ({ model: { ...state.model, physicsAuthority: active }, revision: state.revision + 1 })),
+  setNetworkAuthority: (active) => set((state) => {
+    if (!active) bodyWorksRuntime.clearNetworkTargets();
+    return { model: { ...state.model, networkAuthority: active }, revision: state.revision + 1 };
+  }),
+  reconcileNetworkSnapshot: (local, remote, elapsed, hype, announcement) => set((state) => {
+    if (!state.model.networkAuthority || state.model.resolved) return state;
+    const model = state.model; reconcileFighter(model, 'player', local); reconcileFighter(model, 'opponent', remote);
+    reconcileNetworkGrapple(model, local, remote);
+    model.elapsed = Math.max(model.elapsed, elapsed); model.hype = Math.max(0, Math.min(100, hype));
+    if (announcement) { model.announcement = announcement; model.announcementTimer = Math.max(model.announcementTimer, .12); }
+    const controller = model.aiControllers.opponent; const speed = Math.hypot(remote.velocityX, remote.velocityZ);
+    controller.movement = speed > .05 ? { x: remote.velocityX / speed, z: remote.velocityZ / speed } : { x: 0, z: 0 };
+    controller.running = speed > 4.6; controller.blockTimer = remote.combatState === 'blocking' ? .12 : 0; controller.intent = null;
+    return { model: { ...model }, revision: state.revision + 1 };
+  }),
+  applyNetworkImpact: (impact, source, target) => set((state) => {
+    if (!state.model.networkAuthority || impact.impactId <= state.model.impactSequence) return state;
+    const model = state.model; model.impactSequence = impact.impactId;
+    const region = impact.region === 'head' || impact.region === 'chest' ? impact.region : impact.region === 'legs' ? 'pelvis' : undefined;
+    const kind = impact.kind === 'heavy' ? 'heavy' : impact.kind === 'grapple' ? 'grapple' : 'light';
+    model.lastImpact = { id: impact.impactId, position: { x: impact.posX, z: impact.posZ }, kind, intensity: impact.intensity, region, moveId: impact.moveId ?? undefined, sourceFighter: source, targetFighter: target };
+    model.hitStop = Math.max(model.hitStop, impact.moveId === 'slam' ? .14 : .045);
+    if (impact.moveId === 'slam') model.slowMotion = Math.max(model.slowMotion, .48);
+    return { model: { ...model }, revision: state.revision + 1 };
+  }),
+  resolveNetworkMatch: (winner, method) => set((state) => {
+    if (!state.model.networkAuthority || state.model.resolved) return state;
+    resolveMatch(state.model, winner, method, winner === 'player' ? 'opponent' : 'player');
+    return { model: { ...state.model }, revision: state.revision + 1 };
+  }),
   resolvePhysicsContacts: (contacts) => set((state) => {
+    if (state.model.networkAuthority) return state;
     let changed = false;
     for (const contact of contacts) changed = applyPhysicalContact(state.model, contact) || changed;
     return changed ? { model: { ...state.model }, revision: state.revision + 1 } : state;

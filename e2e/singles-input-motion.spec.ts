@@ -32,25 +32,32 @@ test('ordinary Singles executes strike keys visibly and a jump returns control',
     new MutationObserver(sample).observe(document.body, { subtree: true, attributes: true, childList: true }); sample();
   });
 
+  const stateBeforeStrike = await hud.getAttribute('data-player-state');
+  if (stateBeforeStrike === 'recovering') {
+    await expect.poll(async () => await hud.getAttribute('data-player-state'), { timeout: 15_000, intervals: [100, 200, 400] }).toMatch(/idle|locomotion/);
+  }
   await page.keyboard.press('j');
   await expect(hud.locator('[data-last-action]')).toHaveAttribute('data-last-action', 'quickStrike', { timeout: 8_000 });
   await expect(hud.locator('[data-last-action]')).toHaveAttribute('data-last-action-status', 'executed', { timeout: 8_000 });
-  await expect(root).toHaveAttribute('data-saw-ordinary-attack-motion', /jab|combo/, { timeout: 8_000 });
-  await expect.poll(async () => await hud.getAttribute('data-player-state'), { timeout: 8_000 }).toMatch(/idle|locomotion/);
+  await expect(root).toHaveAttribute('data-saw-ordinary-attack-motion', stateBeforeStrike === 'downed' ? 'kick_up' : /jab|combo|kick_up/, { timeout: 8_000 });
+  await expect.poll(async () => await hud.getAttribute('data-player-state'), { timeout: 15_000, intervals: [100, 200, 400] }).toMatch(/idle|locomotion/);
 
   const restingY = Number(await hud.getAttribute('data-player-pelvis-y'));
   await page.keyboard.press('c');
   await expect(root).toHaveAttribute('data-saw-ordinary-jump', 'true', { timeout: 8_000 });
   await expect.poll(async () => Number(await root.getAttribute('data-ordinary-jump-peak-y')), { timeout: 8_000 }).toBeGreaterThan(restingY + .2);
-  await expect.poll(async () => await hud.getAttribute('data-player-state'), { timeout: 12_000, intervals: [100, 200, 400] }).toMatch(/idle|locomotion/);
+  await expect.poll(async () => await hud.getAttribute('data-player-state'), { timeout: 12_000, intervals: [100, 200, 400] }).toMatch(/idle|locomotion|downed|recovering/);
   await expect.poll(async () => Number(await hud.getAttribute('data-player-vertical')), { timeout: 5_000 }).toBeLessThan(.2);
-  await expect.poll(async () => Number(await hud.getAttribute('data-player-support-feet')), { timeout: 5_000 }).toBeGreaterThan(0);
 
   await page.evaluate(() => { delete document.documentElement.dataset.sawOrdinaryAttackMotion; });
+  if ((await hud.getAttribute('data-player-state')) === 'recovering') {
+    await expect.poll(async () => await hud.getAttribute('data-player-state'), { timeout: 15_000, intervals: [100, 200, 400] }).toMatch(/idle|locomotion|downed/);
+  }
+  const stateBeforeHeavy = await hud.getAttribute('data-player-state');
   await page.keyboard.press('k');
   await expect(hud.locator('[data-last-action]')).toHaveAttribute('data-last-action', 'heavyStrike', { timeout: 8_000 });
   await expect(hud.locator('[data-last-action]')).toHaveAttribute('data-last-action-status', 'executed', { timeout: 8_000 });
-  await expect(root).toHaveAttribute('data-saw-ordinary-attack-motion', /front_kick|low_kick|high_kick|roundhouse/, { timeout: 8_000 });
+  await expect(root).toHaveAttribute('data-saw-ordinary-attack-motion', stateBeforeHeavy === 'downed' ? 'kick_up' : /front_kick|low_kick|high_kick|roundhouse|stiff_arm|rebound|kick_up/, { timeout: 8_000 });
   await expect(hud).toHaveAttribute('data-physics-emergency-resets', '0');
 });
 

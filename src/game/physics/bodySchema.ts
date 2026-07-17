@@ -10,6 +10,7 @@ export type ColliderRole = 'body' | 'strike' | 'grip' | 'support';
 
 /** Every articulated wrestler must register this many rigid bodies before play begins. */
 export const BODY_SEGMENT_COUNT = 16;
+export const HEAD_COLLIDER_RADIUS = .235;
 
 export interface BodySegmentSchema {
   id: BodySegmentId;
@@ -73,7 +74,9 @@ export const buildBodySchema = (definition: FighterDefinition): readonly BodySeg
     // collider. A 30 cm radius keeps committed chest-led dives and shoulder
     // contact physical instead of allowing a few-centimetre visual pass-through.
     segment(definition, 'chest', 'center', 1.72 * heightScale, 0, .21 * p.torsoLength, .3),
-    segment(definition, 'head', 'center', 2.08 * heightScale, 0, .15, .18),
+    // Match the rendered brow, jaw, and facial profile closely enough that a
+    // visible head-to-head collision is also a solved Rapier collision.
+    segment(definition, 'head', 'center', 2.08 * heightScale, 0, .15, HEAD_COLLIDER_RADIUS),
     segment(definition, 'leftUpperArm', 'left', 1.48 * heightScale, -shoulder, .19 * arm, .105),
     segment(definition, 'rightUpperArm', 'right', 1.48 * heightScale, shoulder, .19 * arm, .105),
     segment(definition, 'leftForearm', 'left', 1.08 * heightScale, -shoulder, .18 * arm, .11),

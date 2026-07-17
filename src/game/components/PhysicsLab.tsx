@@ -105,6 +105,10 @@ export function PhysicsLab() {
     // Starting inside the rope engagement band only tested a slow shove into
     // the spring and could never satisfy the production rebound threshold.
     else if (scenario.id === 'ropeStrike') useMatchStore.getState().prepareLabScenario({ x: -4.25, z: .08 }, { x: 0, z: .08 });
+    // Two .235 m head spheres need a non-overlapping but genuinely reachable
+    // lane. Chest colliders remain separated at .64 m while the authored brow
+    // drive can close the final head-surface gap during the active window.
+    else if (scenario.id === 'headbutt') useMatchStore.getState().prepareLabScenario({ x: 0, z: -.32 }, { x: 0, z: .32 });
     else if (closeRange) useMatchStore.getState().prepareLabScenario({ x: 0, z: -.4 }, { x: 0, z: .4 }, 'idle', scenario.id === 'soakRound' ? 1 : 100, 'back', 5, scenario.id === 'failedLift' ? 34 : undefined);
     else if (scenario.id === 'miss' || scenario.id === 'jabWhiff') useMatchStore.getState().prepareLabScenario({ x: 0, z: -2.6 }, { x: 0, z: 2.6 });
     else useMatchStore.getState().prepareLabScenario({ x: -1.4, z: 0 }, { x: 2.2, z: 0 });

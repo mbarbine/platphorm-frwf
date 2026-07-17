@@ -183,7 +183,7 @@ export interface MatchStats {
 
 export interface MatchResult {
   winner: FighterSlot;
-  method: 'PINFALL' | 'KNOCKOUT';
+  method: 'PINFALL' | 'KNOCKOUT' | 'FORFEIT';
   duration: number;
   hype: number;
   grade: 'D' | 'C' | 'B' | 'A' | 'S';
@@ -287,7 +287,7 @@ export interface AiControllerRuntime {
 export interface MatchElimination {
   fighter: FighterSlot;
   by: FighterSlot;
-  method: 'PINFALL' | 'KNOCKOUT';
+  method: 'PINFALL' | 'KNOCKOUT' | 'FORFEIT';
   time: number;
 }
 
@@ -308,6 +308,7 @@ export interface MatchModel {
   elapsed: number;
   paused: boolean;
   physicsAuthority: boolean;
+  networkAuthority: boolean;
   resolved: boolean;
   player: FighterRuntime;
   opponent: FighterRuntime;

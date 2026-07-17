@@ -1,6 +1,7 @@
 import { Client } from 'colyseus.js';
 import type { Room } from 'colyseus.js';
 import type { ActionEvent, CommandMessage, SelectFighterMessage } from '@frwf/game-protocol';
+import type { CommandAckMessage, ImpactEventMessage, MatchResultMessage, RoomStateMessage, SnapshotMessage } from '@frwf/game-protocol';
 import { PROTOCOL_VERSION } from '@frwf/game-protocol';
 
 // Client-side view of the server room state.
@@ -33,8 +34,11 @@ export interface ClientFighterState {
   combatState: string;
   moveId: string;
   attackPhase: string;
+  phaseElapsed: number;
+  grappleTargetSessionId: string | null;
   pinCount: number;
   finisherPrimed: boolean;
+  lastCommandSeq: number;
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -54,9 +58,11 @@ export interface ColyseusClientOptions {
   serverUrl?: string;
   onStatusChange?: (status: ConnectionStatus) => void;
   onStateChange?: (state: ClientRoomState) => void;
-  onSnapshot?: (snapshot: unknown) => void;
-  onImpactEvent?: (event: unknown) => void;
-  onMatchResult?: (result: unknown) => void;
+  onSnapshot?: (snapshot: SnapshotMessage) => void;
+  onImpactEvent?: (event: ImpactEventMessage) => void;
+  onMatchResult?: (result: MatchResultMessage) => void;
+  onCommandAck?: (ack: CommandAckMessage) => void;
+  onRoomState?: (state: RoomStateMessage) => void;
   onVersionRejected?: (info: { serverVersion: string }) => void;
 }
 
@@ -67,6 +73,7 @@ export class ColyseusClient {
   private room: Room<ClientRoomState> | null = null;
   private commandSeq = 0;
   private status: ConnectionStatus = 'disconnected';
+  private intentionalLeave = false;
   private readonly options: Required<ColyseusClientOptions>;
 
   constructor(options: ColyseusClientOptions = {}) {
@@ -78,13 +85,20 @@ export class ColyseusClient {
       onSnapshot: options.onSnapshot ?? (() => undefined),
       onImpactEvent: options.onImpactEvent ?? (() => undefined),
       onMatchResult: options.onMatchResult ?? (() => undefined),
+      onCommandAck: options.onCommandAck ?? (() => undefined),
+      onRoomState: options.onRoomState ?? (() => undefined),
       onVersionRejected: options.onVersionRejected ?? (() => undefined),
     };
+    if (typeof window !== 'undefined') window.addEventListener('pagehide', () => {
+      this.intentionalLeave = true;
+      void this.room?.leave(true).catch(() => undefined);
+    });
   }
 
   // ── Connection ─────────────────────────────────────────────────────────────
 
   async joinOrCreate(roomName: string, options: { fighterId?: string; spectate?: boolean } = {}): Promise<void> {
+    this.intentionalLeave = false;
     this.setStatus('connecting');
     try {
       this.room = await this.sdk.joinOrCreate<ClientRoomState>(roomName, options);
@@ -98,6 +112,7 @@ export class ColyseusClient {
   }
 
   async joinByRoomId(roomId: string, options: { fighterId?: string } = {}): Promise<void> {
+    this.intentionalLeave = false;
     this.setStatus('connecting');
     try {
       this.room = await this.sdk.joinById<ClientRoomState>(roomId, options);
@@ -111,6 +126,7 @@ export class ColyseusClient {
   }
 
   async createPrivateRoom(options: { fighterId?: string; ruleset?: string } = {}): Promise<string> {
+    this.intentionalLeave = false;
     this.setStatus('connecting');
     try {
       this.room = await this.sdk.create<ClientRoomState>('practice', { ...options, private: true });
@@ -125,6 +141,7 @@ export class ColyseusClient {
   }
 
   async leave(consented = true): Promise<void> {
+    this.intentionalLeave = true;
     await this.room?.leave(consented);
     this.room = null;
     this.setStatus('disconnected');
@@ -166,9 +183,14 @@ export class ColyseusClient {
   get currentStatus(): ConnectionStatus { return this.status; }
   get isConnected(): boolean { return this.status === 'connected'; }
 
-  setEventHandlers(handlers: Pick<ColyseusClientOptions, 'onStatusChange' | 'onStateChange'>): void {
+  setEventHandlers(handlers: Partial<Pick<ColyseusClientOptions, 'onStatusChange' | 'onStateChange' | 'onSnapshot' | 'onImpactEvent' | 'onMatchResult' | 'onCommandAck' | 'onRoomState'>>): void {
     if (handlers.onStatusChange) this.options.onStatusChange = handlers.onStatusChange;
     if (handlers.onStateChange) this.options.onStateChange = handlers.onStateChange;
+    if (handlers.onSnapshot) this.options.onSnapshot = handlers.onSnapshot;
+    if (handlers.onImpactEvent) this.options.onImpactEvent = handlers.onImpactEvent;
+    if (handlers.onMatchResult) this.options.onMatchResult = handlers.onMatchResult;
+    if (handlers.onCommandAck) this.options.onCommandAck = handlers.onCommandAck;
+    if (handlers.onRoomState) this.options.onRoomState = handlers.onRoomState;
   }
 
   // ── Private ────────────────────────────────────────────────────────────────
@@ -180,9 +202,11 @@ export class ColyseusClient {
     this.room.onMessage('snapshot', (msg) => this.options.onSnapshot(msg));
     this.room.onMessage('impactEvent', (msg) => this.options.onImpactEvent(msg));
     this.room.onMessage('matchResult', (msg) => this.options.onMatchResult(msg));
+    this.room.onMessage('commandAck', (msg) => this.options.onCommandAck(msg));
+    this.room.onMessage('roomState', (msg) => this.options.onRoomState(msg));
     this.room.onMessage('versionRejected', (msg) => this.options.onVersionRejected(msg));
     this.room.onLeave((code) => {
-      if (code === 1000) {
+      if (code === 1000 || this.intentionalLeave) {
         this.setStatus('disconnected');
       } else {
         this.setStatus('reconnecting');
@@ -193,6 +217,11 @@ export class ColyseusClient {
       console.error(`[ColyseusClient] Room error ${code}: ${message}`);
       this.setStatus('error');
     });
+    // Colyseus resolves join only after decoding the initial schema. Listener
+    // registration does not replay that already-decoded state, so publish it
+    // once here and let subsequent patches flow through onStateChange.
+    if (this.room.state) this.options.onStateChange(this.room.state);
+    this.room.send('syncState', { protocolVersion: PROTOCOL_VERSION });
   }
 
   private async attemptReconnect(): Promise<void> {

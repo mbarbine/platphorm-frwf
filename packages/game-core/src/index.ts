@@ -38,6 +38,10 @@ export * from './utils/math.js';
 // Data
 export { BALANCE } from './data/balance.js';
 
+// Deterministic server authority for online movement, attack windows, swept
+// collider contact, resources, grapples, and match resolution.
+export * from './onlineSimulation.js';
+
 // Simulation API — the primary integration surface for both client and server
 // TODO: uncomment as extraction completes
 // export { createMatch, createFighterRuntime, advanceMatch, requestCommand } from './combat/combat.js';

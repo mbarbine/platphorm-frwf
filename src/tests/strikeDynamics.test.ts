@@ -35,6 +35,12 @@ describe('physical strike drive', () => {
     expect(strikeDriveProfile(moveId)).toMatchObject({ source: 'head', target: 'head' });
   });
 
+  it('aims a low kick at the opponent shin with the striking boot collider', () => {
+    const moveId = selectDirectionalStrike({ x: 0, z: 1 }, 'heavy');
+    expect(moveId).toBe('low_kick');
+    expect(strikeDriveProfile(moveId)).toMatchObject({ source: 'rightFoot', target: 'leftShin' });
+  });
+
   it('bounds whole-body travel and near-field limb speed into a physical guard', () => {
     const jab = strikeDriveProfile('jab');
     expect(jab).not.toBeNull();

@@ -58,7 +58,7 @@ test('punch, kick, guard, block, and miss remain visually distinct and contact-t
     minimumPlanar: Number(await lab.getAttribute('data-lab-min-strike-planar')),
     minimumVertical: Number(await lab.getAttribute('data-lab-min-strike-vertical')),
     lastContact: await hud.locator('[data-physics-last-contact]').getAttribute('data-physics-last-contact'),
-  })), { timeout: 8_000 }).not.toContain('"health":100');
+  }), { timeout: 8_000 }).not.toContain('"health":100');
 
   await expect(lab.getByRole('button', { name: 'BLOCK WINDOW' })).toBeEnabled({ timeout: 5_000 });
   await lab.getByRole('button', { name: 'BLOCK WINDOW' }).click();
@@ -94,12 +94,13 @@ test('down plus strike performs a visible contact-true headbutt', async ({ page 
       const liveHud = document.querySelector('.hud'); if (!liveHud) return;
       if (liveHud.getAttribute('data-player-move') !== 'headbutt') return;
       document.documentElement.dataset.sawHeadbuttMotion = 'true';
+      if (liveHud.getAttribute('data-player-phase') !== 'active') return;
       const player = vector(liveHud.querySelector('[data-player-head]')?.getAttribute('data-player-head') ?? null);
       const opponent = vector(liveHud.querySelector('[data-opponent-head]')?.getAttribute('data-opponent-head') ?? null);
       if (player && opponent) {
         const distance = Math.hypot(player[0] - opponent[0], player[1] - opponent[1], player[2] - opponent[2]);
-        const minimum = Number(document.documentElement.dataset.minimumHeadbuttDistance ?? Number.POSITIVE_INFINITY);
-        if (distance < minimum) document.documentElement.dataset.minimumHeadbuttDistance = distance.toFixed(3);
+        const minimum = Number(document.documentElement.dataset.minimumHeadbuttActiveDistance ?? Number.POSITIVE_INFINITY);
+        if (distance < minimum) document.documentElement.dataset.minimumHeadbuttActiveDistance = distance.toFixed(3);
       }
       const contact = liveHud.querySelector('[data-physics-last-contact]')?.getAttribute('data-physics-last-contact') ?? '';
       if (contact.startsWith('head>')) document.documentElement.dataset.sawHeadbuttContact = 'true';
@@ -108,10 +109,22 @@ test('down plus strike performs a visible contact-true headbutt', async ({ page 
   });
   await lab.getByRole('button', { name: 'CONTACT-TRUE HEADBUTT' }).click();
   await expect(root).toHaveAttribute('data-saw-headbutt-motion', 'true', { timeout: 8_000 });
-  // Head colliders are capsules, so their solved surface contact occurs while
+  // Head colliders are spheres, so their solved surface contact occurs while
   // the body centers are still roughly half a metre apart.
-  await expect.poll(async () => Number(await root.getAttribute('data-minimum-headbutt-distance')), { timeout: 10_000, intervals: [80, 160, 320] }).toBeLessThan(.62);
-  await expect(root).toHaveAttribute('data-saw-headbutt-contact', 'true', { timeout: 15_000 });
+  await expect.poll(async () => Number(await root.getAttribute('data-minimum-headbutt-active-distance')), { timeout: 10_000, intervals: [80, 160, 320] }).toBeLessThan(.62);
+  await expect.poll(async () => {
+    const diagnostics = {
+      contact: await root.getAttribute('data-saw-headbutt-contact') === 'true',
+      health: Number(await hud.getAttribute('data-opponent-health')),
+      minimumActiveDistance: Number(await lab.getAttribute('data-lab-min-strike-distance')),
+      minimumActivePlanar: Number(await lab.getAttribute('data-lab-min-strike-planar')),
+      minimumActiveVertical: Number(await lab.getAttribute('data-lab-min-strike-vertical')),
+      lastContact: await hud.locator('[data-physics-last-contact]').getAttribute('data-physics-last-contact'),
+      continuousCaptures: Number(await hud.locator('[data-continuous-strike-captures]').getAttribute('data-continuous-strike-captures')),
+      lastContinuousStrike: await hud.locator('[data-last-continuous-strike]').getAttribute('data-last-continuous-strike'),
+    };
+    return `${diagnostics.contact}:${JSON.stringify(diagnostics)}`;
+  }, { timeout: 15_000, intervals: [80, 160, 320] }).toContain('true:');
   await expect.poll(async () => Number(await hud.getAttribute('data-opponent-health')), { timeout: 15_000, intervals: [80, 160, 320] }).toBeLessThan(100);
   await expect(hud).toHaveAttribute('data-physics-emergency-resets', '0');
 });

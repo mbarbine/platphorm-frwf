@@ -30,7 +30,7 @@ export interface ActionEvent {
   source: ActionSource;
 }
 export type RoomPhase = 'lobby' | 'selection' | 'countdown' | 'active' | 'result';
-export type MatchEndMethod = 'PINFALL' | 'KNOCKOUT' | 'TIMEOUT';
+export type MatchEndMethod = 'PINFALL' | 'KNOCKOUT' | 'TIMEOUT' | 'FORFEIT';
 
 export interface Vec2 { x: number; z: number }
 

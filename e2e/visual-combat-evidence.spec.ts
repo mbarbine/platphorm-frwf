@@ -56,6 +56,10 @@ test('captures the shipping combat presentation at decisive motion beats', async
   await slam.click();
   await expect(page.locator('html')).toHaveAttribute('data-captured-slam', 'lift', { timeout: 90_000 });
   await page.screenshot({ path: testInfo.outputPath('05-slam-sequence.png') });
+  // Keep the constrained release in slow motion. Jumping Rapier directly from
+  // quarter-speed to full-speed during a secured lift can introduce a solver
+  // discontinuity and turn a valid slam into a grip break.
+  await lab.getByRole('button', { name: '0.5×' }).click();
   await lab.getByRole('button', { name: 'PLAY' }).click();
   await expect(hud.locator('[data-replay-active="true"]')).toBeAttached({ timeout: 90_000 });
   await page.screenshot({ path: testInfo.outputPath('06-slam-replay.png') });
