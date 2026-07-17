@@ -5,9 +5,9 @@ type ControlDeckMode = 'full' | 'compact' | 'prompts' | 'hidden';
 
 const enterLab = async (page: Page, mode: ControlDeckMode, tutorialComplete = true): Promise<void> => {
   await page.addInitScript(({ controlDeckMode, tutorialDone }) => {
-    localStorage.setItem('ringfall-settings-v1', JSON.stringify({ controlDeckMode }));
-    if (tutorialDone) localStorage.setItem('ringfall-tutorial-complete-v1', 'true');
-    else localStorage.removeItem('ringfall-tutorial-complete-v1');
+    localStorage.setItem('ringfall-settings-v2', JSON.stringify({ controlDeckMode }));
+    if (tutorialDone) localStorage.setItem('ringfall-tutorial-complete-v2', 'true');
+    else localStorage.removeItem('ringfall-tutorial-complete-v2');
   }, { controlDeckMode: mode, tutorialDone: tutorialComplete });
   await page.goto('/?physicsLab=1');
   await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
@@ -30,12 +30,12 @@ test('full deck exposes every binding with exact resolver-owned context and prop
   await expect(deck.locator('[data-control="interact"]')).toHaveAttribute('data-move-label', 'NO PROP ACTION');
 });
 
-test('compact deck shows five exact actions and neutral collar lock starts the default body slam', async ({ page }) => {
+test('compact deck shows four exact actions and neutral collar lock starts the default body slam', async ({ page }) => {
   await enterLab(page, 'compact');
   const hud = page.locator('.hud'); const deck = page.getByTestId('control-deck'); const lab = page.getByTestId('physics-lab');
   await expect(hud).toHaveAttribute('data-control-deck-mode', 'compact');
   await expect(deck).toHaveAttribute('data-control-mode', 'compact');
-  await expect(deck.locator('li')).toHaveCount(5);
+  await expect(deck.locator('li')).toHaveCount(4);
   await expect(deck.locator('[data-control="quick"]')).toHaveAttribute('data-move-label', 'CIRCUIT JAB');
   await expect(deck.locator('[data-control="heavy"]')).toHaveAttribute('data-move-label', 'PISTON BOOT');
   await expect(deck.locator('[data-control="context"]')).toHaveAttribute('data-move-label', 'NO CONTEXT ACTION');

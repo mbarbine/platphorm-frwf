@@ -535,7 +535,12 @@ export function FighterModel({ runtime, counterpart, fighterId, preview = false,
     const personalityRoll = idle ? Math.sin(t * 1.4 * tempo + phaseOffset) * .018 * (id === 'vex' ? 1.5 : 1) : 0;
     const muscle = safeNumber(runtime?.body?.muscle, 1);
     const pelvisDrop = safeNumber(runtime?.body?.pelvisDrop, 0);
-    const authoredRootY = pairedVictim ? animatedPose.rootY * .28 : animatedPose.rootY;
+    // Rapier owns the shell lift. Preserve enough of the paired performance
+    // pose to make the carried body visibly clear the mat, while keeping the
+    // impact/downed offsets shallow so the visual rig cannot sink through it.
+    const authoredRootY = pairedVictim
+      ? animatedPose.rootY * (animatedPose.rootY > 0 ? .58 : .22)
+      : animatedPose.rootY;
 
     root.current.position.x += (animatedPose.rootX - root.current.position.x) * smooth;
     root.current.position.y += ((authoredRootY + groundedBob - pelvisDrop) - root.current.position.y) * smooth;

@@ -6,6 +6,7 @@ import { buildBodySchema } from '../game/physics/bodySchema';
 import type { BodySegmentId, BodySegmentSchema } from '../game/physics/bodySchema';
 import { arenaCollisionGroups, fighterCollisionGroups } from '../game/physics/collisionGroups';
 import { BodyWorksRuntime } from '../game/physics/physicsRuntime';
+import { RINGSIDE_THRESHOLD } from '../game/physics/ringDynamics';
 import { advanceMatch, applyPhysicalContact, createMatch, requestCommand } from '../game/systems/combat';
 import { FALL_REASONS } from '../game/types/game';
 import type { FighterId, FighterSlot, MatchModel, Vec2 } from '../game/types/game';
@@ -140,6 +141,39 @@ describe('Rapier-backed Bodyworks integration', () => {
     world.free();
   });
 
+  it('returns a ring-height rope tunnel without dropping the wrestler through the apron', () => {
+    const { world, runtime, model, rig } = makeHarness();
+    for (let frame = 0; frame < 45; frame += 1) stepHarness(world, runtime, model);
+    const shiftX = RINGSIDE_THRESHOLD.x + .14 - model.player.position.x;
+    for (const body of Object.values(rig.bodies)) {
+      const position = body.translation(); body.setTranslation({ x: position.x + shiftX, y: position.y, z: position.z }, true);
+      body.setLinvel({ x: 5.2, y: 0, z: 0 }, true);
+    }
+    let minimumPelvisY = runtime.fighterSnapshot('player').pelvisY;
+    for (let frame = 0; frame < 150; frame += 1) {
+      stepHarness(world, runtime, model);
+      minimumPelvisY = Math.min(minimumPelvisY, runtime.fighterSnapshot('player').pelvisY);
+    }
+    expect(Math.abs(model.player.position.x), JSON.stringify({ position: model.player.position, snapshot: runtime.fighterSnapshot('player'), metrics: runtime.metrics })).toBeLessThan(RINGSIDE_THRESHOLD.x);
+    expect(minimumPelvisY).toBeGreaterThan(2.35);
+    expect(runtime.metrics.emergencyResetCount, JSON.stringify(runtime.metrics)).toBe(0);
+    world.free();
+  });
+
+  it('contains a singles wrestler before the articulated body can disappear below the mat', () => {
+    const { world, runtime, model, rig } = makeHarness();
+    for (let frame = 0; frame < 30; frame += 1) stepHarness(world, runtime, model);
+    for (const body of Object.values(rig.bodies)) {
+      const position = body.translation(); body.setTranslation({ x: position.x, y: position.y - 2.2, z: position.z }, true);
+      body.setLinvel({ x: 0, y: -2, z: 0 }, true);
+    }
+    stepHarness(world, runtime, model);
+    expect(runtime.fighterSnapshot('player').pelvisY).toBeGreaterThan(2.6);
+    expect(runtime.metrics.emergencyResetCount).toBe(1);
+    expect(runtime.metrics.lastNumericalFault).toBe('below-deck-safe-reset');
+    world.free();
+  });
+
   it('settles a physically supported airborne wrestler into the downed recovery path', () => {
     const { world, runtime, model, rig } = makeHarness();
     for (let frame = 0; frame < 30; frame += 1) stepHarness(world, runtime, model);
@@ -163,24 +197,29 @@ describe('Rapier-backed Bodyworks integration', () => {
   it('completes a two-grip lift and scores only the solved torso-to-mat landing', () => {
     const { world, runtime, model } = makeGrappleHarness();
     for (let frame = 0; frame < 45; frame += 1) stepGrappleHarness(world, runtime, model);
+    const restingPelvisY = runtime.fighterSnapshot('opponent').pelvisY;
     const positions = { player: model.player.position, opponent: model.opponent.position };
     expect(requestCommand(model, 'player', 'grapple'), JSON.stringify(positions)).toBe(true);
     expect(requestCommand(model, 'player', 'heavy')).toBe(true);
     stepGrappleHarness(world, runtime, model);
-    let sawTwoGrips = false; let sawLift = false; let sawLanding = false;
+    let sawTwoGrips = false; let sawLift = false; let sawLanding = false; let peakPelvisY = restingPelvisY;
     for (let frame = 0; frame < 540 && model.opponent.health === 100; frame += 1) {
       stepGrappleHarness(world, runtime, model);
+      peakPelvisY = Math.max(peakPelvisY, runtime.fighterSnapshot('opponent').pelvisY);
       sawTwoGrips ||= runtime.metrics.gripCreateCount >= 2;
       sawLift ||= model.grapple?.phase === 'lift';
       sawLanding ||= runtime.metrics.lastContactPair === 'chest>ring';
     }
     expect(sawTwoGrips, JSON.stringify(runtime.metrics)).toBe(true);
     expect(sawLift, JSON.stringify({ grapple: model.grapple, player: model.player, metrics: runtime.metrics })).toBe(true);
+    expect(peakPelvisY, JSON.stringify({ restingPelvisY, peakPelvisY, opponent: model.opponent, metrics: runtime.metrics })).toBeGreaterThan(restingPelvisY + .55);
     expect(sawLanding, JSON.stringify({ opponent: model.opponent, metrics: runtime.metrics })).toBe(true);
     expect(model.opponent.health).toBeLessThan(100);
     expect(model.playerStats.grapples).toBe(1);
     expect(runtime.pendingLandingCount()).toBe(0);
     expect(runtime.metrics.emergencyResetCount, JSON.stringify(runtime.metrics)).toBe(0);
+    expect(runtime.metrics.numericalFaultCount, JSON.stringify(runtime.metrics)).toBe(0);
+    expect(runtime.metrics.maximumJointSeparation, JSON.stringify(runtime.metrics)).toBeLessThan(1.35);
     world.free();
   }, 30_000);
 

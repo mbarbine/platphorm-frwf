@@ -17,19 +17,25 @@ test('controlled Bodyworks scenarios prove a physical slam, staged climb, taunt,
   const slam = lab.getByRole('button', { name: 'BODY SLAM' });
   await page.evaluate(() => {
     const observe = (): void => {
+      const liveHud = document.querySelector('.hud');
       const grapple = document.querySelector('[data-testid="control-deck"] [data-control="grapple"]');
       if (grapple?.classList.contains('is-active')) document.documentElement.dataset.sawActiveGrappleControl = 'true';
+      const pelvisY = Number(liveHud?.getAttribute('data-opponent-pelvis-y'));
+      if (Number.isFinite(pelvisY)) {
+        const peak = Number(document.documentElement.dataset.slamPeakPelvisY ?? 0);
+        if (pelvisY > peak) document.documentElement.dataset.slamPeakPelvisY = pelvisY.toFixed(3);
+      }
+      if (liveHud?.getAttribute('data-grapple-phase') === 'lift') document.documentElement.dataset.sawAirborneSlamLift = 'true';
+      if (liveHud?.querySelector('[data-physics-last-contact]')?.getAttribute('data-physics-last-contact') === 'chest>ring') document.documentElement.dataset.sawTorsoMatSlam = 'true';
     };
     new MutationObserver(observe).observe(document.body, { subtree: true, attributes: true }); observe();
   });
   let completedPhysicalSlam = false;
+  const restingOpponentPelvisY = Number(await hud.getAttribute('data-opponent-pelvis-y'));
   for (let attempt = 0; attempt < 3 && !completedPhysicalSlam; attempt += 1) {
     const startingGripCreates = Number(await hud.getAttribute('data-grip-creates'));
     await expect(slam).toBeEnabled({ timeout: 60_000 }); await slam.click();
-    if (attempt === 0) {
-      await expect.poll(async () => await deck.getAttribute('data-control-state'), { timeout: 60_000, intervals: [50, 100, 500] }).toMatch(/SLAM|GRAPPLE/);
-      await expect(page.locator('html')).toHaveAttribute('data-saw-active-grapple-control', 'true', { timeout: 60_000 });
-    }
+    if (attempt === 0) await expect(page.locator('html')).toHaveAttribute('data-saw-active-grapple-control', 'true', { timeout: 60_000 });
     await expect.poll(async () => Number(await hud.getAttribute('data-grip-creates')), { timeout: 60_000, intervals: [100, 200, 500] }).toBeGreaterThanOrEqual(startingGripCreates + 2);
     try {
       await expect.poll(async () => Number(await hud.getAttribute('data-player-grapples')), { timeout: 60_000, intervals: [200, 400, 1_000] }).toBeGreaterThan(0);
@@ -40,6 +46,11 @@ test('controlled Bodyworks scenarios prove a physical slam, staged climb, taunt,
     }
   }
   expect(completedPhysicalSlam).toBe(true);
+  await expect(page.locator('html')).toHaveAttribute('data-saw-airborne-slam-lift', 'true');
+  await expect(page.locator('html')).toHaveAttribute('data-saw-torso-mat-slam', 'true');
+  expect(Number(await page.locator('html').getAttribute('data-slam-peak-pelvis-y'))).toBeGreaterThan(restingOpponentPelvisY + .55);
+  await expect(hud.locator('[data-numerical-faults]')).toHaveAttribute('data-numerical-faults', '0');
+  await expect(hud).toHaveAttribute('data-physics-emergency-resets', '0');
   const replay = page.getByRole('button', { name: 'SKIP REPLAY' });
   if (await replay.isVisible()) await replay.click();
 

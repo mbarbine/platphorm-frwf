@@ -40,6 +40,7 @@ const EMPTY_STATS = (): MatchStats => ({ damageDealt: 0, counters: 0, grapples: 
 const EMPTY_HIGHLIGHTS = (): MatchHighlights => ({ bestSpot: null, bestSlam: null, mostBrutalImpact: null, mostUnexpectedReversal: null });
 const BATTLE_ROYALE_OPENING_BELL_SECONDS = 4.2;
 const PHYSICAL_CONTACT_HANDOFF_SECONDS = .075;
+const PERFECT_PARRY_WINDOW_SECONDS = .08;
 
 const contactCapturedDuringActiveWindow = (model: MatchModel, contact: BodyWorksContact): boolean => {
   const contactAge = model.elapsed - contact.time;
@@ -151,20 +152,6 @@ export const startMove = (actor: FighterRuntime, target: FighterRuntime, move: M
   actor.finisherPrimed = move.category === 'finisher';
   if (move.category === 'finisher') actor.momentum = 0;
 
-  // BLOCKBUSTER: Magnetic strike target assist
-  // If the move is a punch, kick, or grapple entry, slide the actor closer to the target (up to 0.6 meters)
-  const isStrikeOrGrapple = ['quick', 'heavy', 'grapple', 'finisher'].includes(move.category);
-  if (isStrikeOrGrapple && move.id !== 'taunt' && move.id !== 'kick_up') {
-    const toTarget = { x: target.position.x - actor.position.x, z: target.position.z - actor.position.z };
-    const dist = Math.hypot(toTarget.x, toTarget.z);
-    if (dist > 0.05) {
-      const idealDist = Math.max(0.4, move.minimumRange + 0.1);
-      const moveAmount = Math.min(0.65, Math.max(0, dist - idealDist));
-      actor.position.x += (toTarget.x / dist) * moveAmount;
-      actor.position.z += (toTarget.z / dist) * moveAmount;
-    }
-  }
-
   return true;
 };
 
@@ -250,7 +237,7 @@ export const applyMoveHit = (model: MatchModel, actorKey: FighterSlot, targetKey
   } : baseImpact;
   const spatialGuard = contact ? target.state === 'blocking' && (contact.targetSegment?.includes('Forearm') === true || contact.targetSegment?.includes('Hand') === true) : target.state === 'blocking';
   if (spatialGuard && move.category !== 'grapple' && move.category !== 'finisher' && move.category !== 'utility') {
-    const isPerfectParry = inSingles && target.stateElapsed <= 0.15 && move.category !== 'aerial';
+    const isPerfectParry = inSingles && target.stateElapsed <= PERFECT_PARRY_WINDOW_SECONDS && move.category !== 'aerial';
     if (isPerfectParry) {
       actor.hitTargets.push(hitToken);
       actor.state = 'staggered'; actor.stateElapsed = 0; actor.moveId = null; actor.attackPhase = null; actor.climbStage = 0;
@@ -605,6 +592,10 @@ export const requestCommand = (model: MatchModel, actorKey: FighterSlot, command
   }
   if (!isActionLegal(model, command, actorKey)) return false;
   if (command === 'block') {
+    // Holding guard sustains the existing defensive window. Restarting its
+    // clock every fixed step made every held block an accidental perfect
+    // parry, suppressing ordinary blocked-impact feedback and chip damage.
+    if (actor.state === 'blocking') return true;
     actor.state = 'blocking'; actor.stateElapsed = 0; actor.velocity = scale(actor.velocity, .15);
     return true;
   }
@@ -869,7 +860,8 @@ const updateFighter = (model: MatchModel, actorKey: FighterSlot, dt: number, mov
       actor.velocity.x += chase.x * dt * 6.5;
       actor.velocity.z += chase.z * dt * 6.5;
     }
-    if (actor.attackPhase === 'active' && !model.physicsAuthority && move.id !== 'taunt' && move.id !== 'kick_up') applyMoveHit(model, actorKey, targetSlotFor(model, actorKey), move);
+    // Attack phases author movement only. Damage is resolved exclusively by
+    // applyPhysicalContact after Rapier reports a solved limb/body manifold.
     if (!actor.attackPhase) {
       const completedTurnbuckleTaunt = move.id === 'taunt' && actor.state === 'climbing';
       if (move.id === 'taunt' && !model.toyTestMode) {
@@ -1092,6 +1084,7 @@ export const advanceMatch = (model: MatchModel, dt: number, playerInput: FrameIn
 };
 
 const expectedContactSegment = (move: MoveDefinition, segment: string): boolean => {
+  if (move.id === 'headbutt') return segment === 'head';
   if (move.id === 'aerial_elbow') return segment.includes('Forearm') || segment.includes('UpperArm') || segment === 'chest';
   if (move.category === 'aerial' || move.id === 'ground' || move.id === 'front_kick' || move.id === 'low_kick' || move.id === 'high_kick' || move.id === 'roundhouse') return segment.includes('Foot') || segment.includes('Shin') || segment.includes('chest') || move.id === 'aerial' && (segment === 'abdomen' || segment === 'pelvis' || segment.includes('UpperArm') || segment.includes('Forearm') || segment.includes('Hand') || segment.includes('Thigh'));
   if (move.id === 'rebound' || move.id === 'stiff_arm') return segment.includes('Hand') || segment.includes('Forearm') || segment.includes('UpperArm') || segment === 'chest';

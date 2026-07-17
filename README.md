@@ -44,7 +44,7 @@ pnpm preview
 | Signature taunt | Q | Right bumper |
 | Pause | Escape | Menu / Options |
 
-Movement is camera-relative and the live control deck always names the move that will fire. With no direction, J starts the Circuit Jab/Neon One-Two arm-strike chain and K is Piston Boot. Aim forward for Skyline Cross/Voltage Uppercut, backward for Circuit Low Kick/Piston Boot, left for Neon One-Two/Arc Roundhouse, and right for Skyline Cross/Halo High Kick.
+Movement is camera-relative and the live control deck always names the move that will fire. With no direction, J starts the Circuit Jab/Neon One-Two arm-strike chain and K is Piston Boot. Hold forward for Voltage Uppercut/Halo High Kick, backward for Hardline Headbutt/Circuit Low Kick, left for Neon One-Two/Arc Roundhouse, and right for Skyline Cross/Halo High Kick.
 
 In neutral range, movement heading remains independent from the bounded opponent-facing chest and head targets, so a wrestler can strafe or retreat without turning away or having the camera steal the selected direction. Exact close overlap uses bounded soft separation, and the runtime records every fall cause plus unexplained unstable time instead of treating a completed match as stability proof.
 
@@ -103,7 +103,7 @@ src/
   tests/        WebGL-free deterministic combat tests
 ```
 
-Combat and Rapier advance at a fixed 60 Hz step. Moves have anticipation, active, and recovery phases. `systems/moveSelection.ts` is a renderer-free control contract shared by combat and control prompts: neutral J remains an arm strike and neutral K remains a kick, while held direction unlocks the deeper variants. A stance-anchored swept hurt volume makes a visually valid strike reliable even when a distal hand joint trails by a few milliseconds; eligibility still exists only during active frames and retains one-hit-per-attack deduplication. The player and AI call the same command validation and execution functions.
+Combat and Rapier advance at a fixed 60 Hz step. Moves have anticipation, active, and recovery phases. `systems/moveSelection.ts` is a renderer-free control contract shared by combat and control prompts: neutral J remains an arm strike and neutral K remains a kick, while held direction unlocks the deeper variants. An input only starts the authored movement task. Damage, blocks, and grappling landings require a solved Rapier collider manifold during the legal contact window, with one-hit-per-attack deduplication; misses never score from range, timers, or presentation poses. The player and AI call the same command validation and execution functions.
 
 ### Adjustable balance rubric
 

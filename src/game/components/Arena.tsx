@@ -221,7 +221,7 @@ function ReactiveMat() {
     mesh.instanceMatrix.needsUpdate = true;
   });
   return <instancedMesh ref={mat} args={[undefined, undefined, count]} position={[0, 1.86, 0]} receiveShadow>
-    <boxGeometry args={[tileWidth + .012, .08, tileDepth + .012]} /><meshStandardMaterial color="#e9ebf4" emissive="#1a0e32" emissiveIntensity={.08} roughness={.72} />
+    <boxGeometry args={[tileWidth + .012, .08, tileDepth + .012]} /><meshStandardMaterial color="#8890a8" emissive="#150b2b" emissiveIntensity={.16} roughness={.78} metalness={.04} />
   </instancedMesh>;
 }
 

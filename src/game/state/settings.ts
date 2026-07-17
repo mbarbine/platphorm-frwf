@@ -18,8 +18,8 @@ export interface Settings {
 
 export type ControlDeckMode = 'full' | 'compact' | 'prompts' | 'hidden';
 
-const DEFAULTS: Settings = { masterVolume: .72, effectsVolume: .86, crowdVolume: .66, shake: .65, reducedMotion: false, uiScale: 1, graphicsQuality: 'auto', controlDeckMode: 'full', grappleGuide: 'full', cameraCuts: 'full', lowFlash: false, highContrast: false };
-const STORAGE_KEY = 'ringfall-settings-v1';
+const DEFAULTS: Settings = { masterVolume: .72, effectsVolume: .86, crowdVolume: .66, shake: .48, reducedMotion: false, uiScale: 1, graphicsQuality: 'auto', controlDeckMode: 'prompts', grappleGuide: 'minimal', cameraCuts: 'reduced', lowFlash: false, highContrast: false };
+const STORAGE_KEY = 'ringfall-settings-v2';
 
 const load = (): Settings => {
   if (typeof window === 'undefined') return DEFAULTS;

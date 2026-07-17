@@ -284,8 +284,12 @@ export const getTauntPose = (fighterId: FighterId, move: MoveDefinition, phase: 
 const strikeFrames = (moveId: string): readonly PoseKeyframe[] => {
   if (moveId === 'jab') return [
     { at: 0, pose: POSES.combatIdle },
-    { at: .46, pose: pose({ torso: [-.08, .2, 0], rightArm: [.18, 0, .7], rightForearm: [-1.18, 0, 0], leftArm: [-.72, 0, -.35], leftForearm: [-1.08, 0, 0], rootYaw: .18 }) },
-    { at: .68, pose: pose({ torso: [.08, -.18, 0], rightArm: [-1.52, 0, .08], rightForearm: [-.08, 0, 0], leftArm: [-.72, 0, -.42], leftForearm: [-1.05, 0, 0], rootZ: .14, rootYaw: -.12, rootTilt: .1 }) },
+    // Pull the fist visibly beside the jaw before driving the whole shoulder
+    // through a straight elbow. The contact frame is intentionally held by
+    // strikePresentationProgress so a player can read the punch at game speed.
+    { at: .46, pose: pose({ torso: [-.1, .28, 0], rightArm: [.28, -.08, .78], rightForearm: [-1.52, 0, 0], leftArm: [-.78, 0, -.4], leftForearm: [-1.12, 0, 0], rootYaw: .24 }) },
+    { at: .68, pose: pose({ torso: [.1, -.28, 0], rightArm: [-1.64, -.06, .03], rightForearm: [-.015, 0, 0], leftArm: [-.78, 0, -.46], leftForearm: [-1.08, 0, 0], rootZ: .22, rootYaw: -.18, rootTilt: .12 }) },
+    { at: .78, pose: pose({ torso: [.1, -.28, 0], rightArm: [-1.64, -.06, .03], rightForearm: [-.015, 0, 0], leftArm: [-.78, 0, -.46], leftForearm: [-1.08, 0, 0], rootZ: .22, rootYaw: -.18, rootTilt: .12 }) },
     { at: 1, pose: POSES.combatIdle },
   ];
   if (moveId === 'combo') return [
@@ -307,12 +311,28 @@ const strikeFrames = (moveId: string): readonly PoseKeyframe[] => {
     { at: .72, pose: pose({ torso: [.18, -.62, .12], rightArm: [-1.28, -.28, .72], rightForearm: [-.18, 0, 0], leftArm: [-.58, 0, -.5], leftForearm: [-1.02, 0, 0], rootZ: .2, rootYaw: -.58, rootRoll: .16, rootTilt: .2 }) },
     { at: 1, pose: POSES.combatIdle },
   ];
+  if (moveId === 'prop_throw') return [
+    { at: 0, pose: POSES.combatIdle },
+    { at: .46, pose: pose({ torso: [-.12, .7, -.12], rightArm: [.38, -.42, .92], rightForearm: [-1.42, 0, 0], leftArm: [-.82, 0, -.48], leftForearm: [-1.12, 0, 0], rightLeg: [.18, 0, 0], rootYaw: .68, rootTilt: .16 }) },
+    { at: .72, pose: pose({ torso: [.22, -.82, .16], rightArm: [-1.42, -.22, .28], rightForearm: [-.04, 0, 0], leftArm: [-.62, 0, -.55], leftForearm: [-.9, 0, 0], leftLeg: [.2, 0, 0], rightLeg: [-.28, 0, 0], rootZ: .28, rootYaw: -.72, rootRoll: .16, rootTilt: .24 }) },
+    { at: .82, pose: pose({ ...POSES.recovery, rightArm: [-1.08, 0, .32], rightForearm: [-.18, 0, 0], rootYaw: -.28 }) },
+    { at: 1, pose: POSES.combatIdle },
+  ];
   if (moveId === 'uppercut') return [
     { at: 0, pose: POSES.combatIdle },
     // Deep coiled crouch and torso wind-up
     { at: .46, pose: pose({ torso: [.48, .55, -.22], rightArm: [.6, -.25, .55], rightForearm: [-1.65, 0, 0], leftArm: [-.85, 0, -.45], leftForearm: [-1.22, 0, 0], leftLeg: [.45, 0, 0], rightLeg: [.55, 0, 0], leftShin: [-.92, 0, 0], rightShin: [-1.05, 0, 0], rootY: -.38, rootYaw: .38, rootTilt: .38 }) },
     // Explosive upward lift, rising off the ground with maximum vertical extension
     { at: .72, pose: pose({ torso: [-.48, -.35, .15], rightArm: [-2.45, 0, .18], rightForearm: [-.12, 0, 0], leftArm: [-.72, 0, -.55], leftForearm: [-1.15, 0, 0], leftLeg: [-.22, 0, 0], rightLeg: [-.3, 0, 0], rootY: .58, rootZ: .25, rootYaw: -.28, rootTilt: -.45 }) },
+    { at: 1, pose: POSES.combatIdle },
+  ];
+  if (moveId === 'headbutt') return [
+    { at: 0, pose: POSES.combatIdle },
+    // Both hands frame the opponent while the hips and neck chamber away.
+    { at: .45, pose: pose({ torso: [-.3, 0, -.08], leftArm: [-1.02, 0, -.38], rightArm: [-1.02, 0, .38], leftForearm: [-1.22, 0, 0], rightForearm: [-1.22, 0, 0], leftLeg: [.24, 0, 0], rightLeg: [.28, 0, 0], rootZ: -.16, rootTilt: -.26 }) },
+    // The complete body drives the real head collider through the contact line.
+    { at: .7, pose: pose({ torso: [.48, 0, .06], leftArm: [-1.28, 0, -.32], rightArm: [-1.28, 0, .32], leftForearm: [-.82, 0, 0], rightForearm: [-.82, 0, 0], leftLeg: [-.18, 0, 0], rightLeg: [-.22, 0, 0], rootZ: .3, rootTilt: .5 }) },
+    { at: .79, pose: pose({ torso: [.4, 0, .04], leftArm: [-1.2, 0, -.34], rightArm: [-1.2, 0, .34], leftForearm: [-.86, 0, 0], rightForearm: [-.86, 0, 0], rootZ: .26, rootTilt: .42 }) },
     { at: 1, pose: POSES.combatIdle },
   ];
   if (moveId === 'stiff_arm' || moveId === 'rebound') return [
@@ -357,6 +377,13 @@ const strikeFrames = (moveId: string): readonly PoseKeyframe[] => {
     { at: .5, pose: pose({ ...POSES.run, torso: [.42, 0, 0], leftArm: [-1.15, 0, -.42], rightArm: [-1.15, 0, .42], leftForearm: [-1.25, 0, 0], rightForearm: [-1.25, 0, 0], rootTilt: .52, rootY: -.18 }) },
     { at: .78, pose: pose({ ...POSES.run, torso: [.7, 0, 0], leftArm: [-1.48, 0, -.32], rightArm: [-1.48, 0, .32], leftForearm: [-.85, 0, 0], rightForearm: [-.85, 0, 0], rootZ: .36, rootTilt: .72, rootY: -.28 }) },
     { at: 1, pose: POSES.recovery },
+  ];
+  if (moveId === 'counter') return [
+    { at: 0, pose: POSES.combatIdle },
+    { at: .42, pose: pose({ torso: [-.18, .42, -.08], leftArm: [-1.28, 0, -.64], rightArm: [-.42, 0, .72], leftForearm: [-.48, 0, 0], rightForearm: [-1.28, 0, 0], leftLeg: [.38, 0, -.14], rightLeg: [-.22, 0, .14], rootYaw: .42, rootRoll: -.12 }) },
+    { at: .7, pose: pose({ torso: [.18, -.55, .12], leftArm: [-1.72, -.18, -.38], rightArm: [-1.42, .2, .42], leftForearm: [-.12, 0, 0], rightForearm: [-.28, 0, 0], leftLeg: [-.28, 0, 0], rightLeg: [.24, 0, 0], rootX: .24, rootZ: .18, rootYaw: -.58, rootRoll: .18, rootTilt: .18 }) },
+    { at: .82, pose: pose({ ...POSES.recovery, rootYaw: -.24 }) },
+    { at: 1, pose: POSES.combatIdle },
   ];
   if (moveId === 'ground') return [
     { at: 0, pose: POSES.combatIdle }, { at: .5, pose: pose({ torso: [.42, 0, 0], rightLeg: [.72, 0, 0], rightShin: [-1.22, 0, 0], rootTilt: .32 }) },

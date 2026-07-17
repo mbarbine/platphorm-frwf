@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { chooseAiDecision, isActionLegal } from '../game/ai/utilityAI';
 import { cinematicProgress, getPairedPose, getStrikePose, getStrikeReactionPose, getTauntPose, strikePresentationProgress } from '../game/animation/choreography';
 import { FIGHTERS, fighterById } from '../game/data/fighters';
-import { getMove } from '../game/data/moves';
+import { getMove, MOVES } from '../game/data/moves';
 import { activeFighterSlots, advanceMatch, applyMoveHit, applyPhysicalContact, createMatch, getAttackPhase, requestCommand, resetTransientState, resolveMatch, selectDirectionalGrapple, selectDirectionalStrike, startMove } from '../game/systems/combat';
 import { canTransition } from '../game/systems/stateMachine';
 import type { FrameInput } from '../game/systems/combat';
@@ -116,6 +116,16 @@ describe('deterministic combat rules', () => {
     expect(startMove(model.player, model.opponent, getMove('heavy'))).toBe(true);
     expect(applyMoveHit(model, 'player', 'opponent', getMove('heavy'))).toBe(false);
     model.player.attackPhase = 'active'; expect(applyMoveHit(model, 'player', 'opponent', getMove('heavy'))).toBe(true);
+  });
+
+  it('never moves or damages a wrestler merely because an attack was requested', () => {
+    const model = createMatch('atlas', 'vex', 'standard', 'normal');
+    model.player.position = { x: 0, z: 0 }; model.opponent.position = { x: 1, z: 0 };
+    const origin = { ...model.player.position };
+    expect(requestCommand(model, 'player', 'quick')).toBe(true);
+    expect(model.player.position).toEqual(origin);
+    for (let frame = 0; frame < 90; frame += 1) advanceMatch(model, 1 / 60, none);
+    expect(model.opponent.health).toBe(100);
   });
 
   it('one attack cannot damage the same target repeatedly', () => {
@@ -306,6 +316,28 @@ describe('deterministic combat rules', () => {
     }
   });
 
+  it('gives every playable move a real anticipation and contact presentation', () => {
+    for (const move of Object.values(MOVES)) {
+      if (move.id === 'taunt') {
+        const anticipation = getTauntPose('atlas', move, 'anticipation', move.anticipationDuration * .7);
+        const contact = getTauntPose('atlas', move, 'active', move.anticipationDuration + move.activeDuration * .6);
+        expect(contact, move.id).not.toEqual(anticipation);
+        continue;
+      }
+      if (move.category === 'grapple' || move.category === 'finisher') {
+        const actor = getPairedPose(move, 'actor', 'active', move.anticipationDuration + move.activeDuration * .55, 'atlas');
+        const victim = getPairedPose(move, 'victim', 'active', move.anticipationDuration + move.activeDuration * .55, 'atlas');
+        expect(actor, `${move.id}:actor`).not.toBeNull(); expect(victim, `${move.id}:victim`).not.toBeNull();
+        expect(actor, move.id).not.toEqual(victim);
+        continue;
+      }
+      const anticipation = getStrikePose(move, 'anticipation', move.anticipationDuration * .65);
+      const contact = getStrikePose(move, 'active', move.anticipationDuration + move.activeDuration * .55);
+      expect(anticipation, `${move.id}:anticipation`).not.toBeNull(); expect(contact, `${move.id}:contact`).not.toBeNull();
+      expect(contact, move.id).not.toEqual(anticipation);
+    }
+  });
+
   it('gives all five wrestlers a distinct body-slam peak silhouette', () => {
     const slam = getMove('slam'); const elapsed = slam.anticipationDuration + slam.activeDuration * .25;
     const peaks = FIGHTERS.map((fighter) => getPairedPose(slam, 'victim', 'active', elapsed, fighter.id));
@@ -329,11 +361,14 @@ describe('deterministic combat rules', () => {
 
   it('stages punch windup, contact, and articulated elbow follow-through', () => {
     const jab = getMove('jab');
-    const windup = getStrikePose(jab, 'anticipation', jab.anticipationDuration * .7);
+    const windup = getStrikePose(jab, 'anticipation', jab.anticipationDuration * .52);
     const contact = getStrikePose(jab, 'active', jab.anticipationDuration + jab.activeDuration * .55);
     expect(windup).not.toBeNull(); expect(contact).not.toBeNull();
-    expect(contact?.rightArm[0]).toBeLessThan(windup?.rightArm[0] ?? 0);
-    expect(contact?.rightForearm).not.toEqual(windup?.rightForearm);
+    expect(windup?.rightForearm[0]).toBeLessThan(-1.2);
+    expect(contact?.rightArm[0]).toBeLessThan(-1.5);
+    expect(Math.abs(contact?.rightForearm[0] ?? 1)).toBeLessThan(.08);
+    expect((windup?.rightArm[0] ?? 0) - (contact?.rightArm[0] ?? 0)).toBeGreaterThan(1.6);
+    expect(contact?.rootZ).toBeGreaterThan(.16);
   });
 
   it('holds a strike contact silhouette without slowing combat authority', () => {
@@ -419,6 +454,15 @@ describe('deterministic combat rules', () => {
     expect(model.player.health).toBeGreaterThan(98); expect(model.player.stamina).toBeLessThan(stamina); expect(model.lastImpact?.kind).toBe('blocked');
   });
 
+  it('does not restart the perfect-parry clock while guard remains held', () => {
+    const model = createMatch('atlas', 'nova', 'standard', 'normal');
+    expect(requestCommand(model, 'player', 'block')).toBe(true);
+    model.player.stateElapsed = .24;
+    expect(requestCommand(model, 'player', 'block')).toBe(true);
+    expect(model.player.state).toBe('blocking');
+    expect(model.player.stateElapsed).toBe(.24);
+  });
+
   it('admits a reachable glove-to-glove strike without widening ordinary body-hit range', () => {
     const model = createMatch('atlas', 'vex', 'standard', 'normal'); const jab = getMove('jab');
     model.opponent.position = { x: 0, z: 0 }; model.player.position = { x: 0, z: 2.6 };
@@ -453,14 +497,15 @@ describe('deterministic combat rules', () => {
     expect(moveIds.size).toBe(6); for (const id of moveIds) expect(getMove(id).category).toBe('grapple');
   });
 
-  it('maps deliberate directions to high punch, uppercut, low kick, high kick, and roundhouse', () => {
+  it('maps deliberate directions to high punch, uppercut, headbutt, low kick, high kick, and roundhouse', () => {
     // BLOCKBUSTER: Updated expectations to align with J=Punch (high_punch, uppercut) and K=Kick (low_kick, high_kick, roundhouse)
     expect(selectDirectionalStrike({ x: 0, z: -1 }, 'quick')).toBe('uppercut');
     expect(selectDirectionalStrike({ x: 0, z: -1 }, 'heavy')).toBe('high_kick');
+    expect(selectDirectionalStrike({ x: 0, z: 1 }, 'quick')).toBe('headbutt');
     expect(selectDirectionalStrike({ x: 0, z: 1 }, 'heavy')).toBe('low_kick');
     expect(selectDirectionalStrike({ x: 1, z: 0 }, 'heavy')).toBe('high_kick');
     expect(selectDirectionalStrike({ x: -1, z: 0 }, 'heavy')).toBe('roundhouse');
-    for (const id of ['high_punch', 'uppercut', 'low_kick', 'high_kick', 'roundhouse']) expect(getStrikePose(getMove(id), 'active', getMove(id).anticipationDuration + .03)).not.toBeNull();
+    for (const id of ['high_punch', 'uppercut', 'headbutt', 'low_kick', 'high_kick', 'roundhouse']) expect(getStrikePose(getMove(id), 'active', getMove(id).anticipationDuration + .03)).not.toBeNull();
   });
 
   it('keeps directionless rescue controls punch-first and kick-first', () => {
@@ -545,6 +590,15 @@ describe('deterministic combat rules', () => {
     expect(applyPhysicalContact(model, contact)).toBe(true); expect(model.opponent.health).toBeLessThan(health);
   });
 
+  it('scores a headbutt only from a solved head contact', () => {
+    const model = createMatch('atlas', 'vex', 'standard', 'normal'); model.physicsAuthority = true; model.player.position = { x: 0, z: 0 }; model.opponent.position = { x: 0, z: .8 };
+    startMove(model.player, model.opponent, getMove('headbutt')); model.player.attackPhase = 'active'; const health = model.opponent.health;
+    const wrongLimb = { id: 1, time: model.elapsed, sourceFighter: 'player' as const, sourceSegment: 'rightHand' as const, targetFighter: 'opponent' as const, targetSegment: 'head' as const, targetRegion: 'head' as const, totalForce: 120, maximumForce: 90, forceDirection: [0, 0, 1] as const, relativeSpeed: 2, attackInstanceId: model.player.attackInstanceId, moveId: 'headbutt', attackPhaseAtContact: 'active' as const, sourceObjectId: null, targetSurface: null, isLanding: false };
+    expect(applyPhysicalContact(model, wrongLimb)).toBe(false); expect(model.opponent.health).toBe(health);
+    expect(applyPhysicalContact(model, { ...wrongLimb, id: 2, sourceSegment: 'head' })).toBe(true);
+    expect(model.opponent.health).toBeLessThan(health);
+  });
+
   it('honors a fresh active-window manifold consumed on the recovery boundary', () => {
     const model = createMatch('atlas', 'vex', 'standard', 'normal'); model.physicsAuthority = true; model.player.position = { x: 0, z: 0 }; model.opponent.position = { x: 1, z: 0 };
     startMove(model.player, model.opponent, getMove('jab')); model.player.attackPhase = 'recovery'; model.opponent.state = 'blocking'; model.opponent.stateElapsed = 0.2; const health = model.opponent.health;
@@ -581,7 +635,7 @@ describe('deterministic combat rules', () => {
     expect(requestCommand(tooFar, 'player', 'grapple')).toBe(false);
   });
 
-  it('completes one hundred neutral body slams across the full weight and approach matrix without a stuck attacker', () => {
+  it('completes one hundred neutral body-slam intents without fake renderer-free damage or a stuck attacker', () => {
     const fighters = FIGHTERS.map((fighter) => fighter.id);
     let attempts = 0;
     for (const attacker of fighters) for (const defender of fighters) for (const side of [-1, 1] as const) for (const lane of [-.32, .32] as const) {
@@ -591,7 +645,7 @@ describe('deterministic combat rules', () => {
       expect(requestCommand(model, 'player', 'grapple')).toBe(true);
       expect(model.player.moveId).toBe('slam'); expect(model.grapple?.phase).toBe('reach');
       for (let frame = 0; frame < 240; frame += 1) advanceMatch(model, 1 / 60, none);
-      expect(model.opponent.health).toBeLessThan(100); expect(model.player.moveId).toBeNull();
+      expect(model.opponent.health).toBe(100); expect(model.player.moveId).toBeNull();
       expect(['idle', 'locomotion']).toContain(model.player.state); expect(model.grapple).toBeNull();
       attempts += 1;
     }

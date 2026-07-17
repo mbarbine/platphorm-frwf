@@ -738,7 +738,12 @@ export class BodyWorksRuntime {
         : ['idle', 'attacking', 'grappling', 'victorious'].includes(fighter.state) ? .045 : 0;
     const ringPelvisY = 1.8 + 1.12 * (definition.physics.standingHeightM / 1.88) - fighter.body.pelvisDrop * .32 - grappleHipLoad - stanceDrop;
     const physicalCenter = this.rigPlanarCenter(rig); const physicalPosition = { x: physicalCenter.x, z: physicalCenter.z };
-    const onRingsideFloor = isRingside(physicalPosition);
+    const outsideRopes = isRingside(physicalPosition);
+    // Crossing the rope line is not the same as reaching the lower floor. A
+    // ring-height body that leaks a few centimetres outside must remain at mat
+    // height and be returned by the rope spring; treating planar position as
+    // ringside floor pulled standing wrestlers straight down through the apron.
+    const onRingsideFloor = outsideRopes && pelvis.translation().y < ringPelvisY - .62;
     const targetPelvisY = ringPelvisY - (onRingsideFloor ? 1.5 : 0);
     const atSideApron = (Math.abs(fighter.position.x) > 5.02 && Math.abs(fighter.position.x) < 5.82 && Math.abs(fighter.position.z) < 2.9)
       || (Math.abs(fighter.position.z) > 3.52 && Math.abs(fighter.position.z) < 4.32 && Math.abs(fighter.position.x) < 4.25);
@@ -1159,7 +1164,8 @@ export class BodyWorksRuntime {
     // already working on the ringside floor. Reapplying the spring from the
     // outside pulled wrestlers through the apron and made ringside grapples
     // impossible; returning is owned by the explicit apron transition.
-    if (!battleContained && isRingside({ x: position.x, z: position.z }) && !rig.ropeContact) { rig.ropeContact = null; return; }
+    const physicallyOnRingsideFloor = isRingside({ x: position.x, z: position.z }) && position.y < rig.restPelvisY - .62;
+    if (!battleContained && physicallyOnRingsideFloor && !rig.ropeContact) { rig.ropeContact = null; return; }
     const response = solveRopeResponse({ x: position.x, z: position.z }, { x: velocity.x, z: velocity.z }, model.chaosEvent?.type === 'OVERDRIVE ROPES');
     if (response.engaged) {
       const hardLimit = response.axis === 'x' ? RING_HARD_LIMIT.x : RING_HARD_LIMIT.z;
@@ -1886,7 +1892,8 @@ export class BodyWorksRuntime {
       const maximumX = battleContained ? RING_HARD_LIMIT.x - .08 : VOLT_DOME.playable.halfWidth - .34;
       const maximumZ = battleContained ? RING_HARD_LIMIT.z - .08 : VOLT_DOME.playable.halfDepth - .34;
       const pelvisPosition = pelvis.translation();
-      const belowDeck = battleContained && Math.abs(pelvisPosition.x) <= RING_HARD_LIMIT.x && Math.abs(pelvisPosition.z) <= RING_HARD_LIMIT.z && pelvisPosition.y < 1.22;
+      const activeFighter = !['defeated', 'victorious'].includes(model[key].state);
+      const belowDeck = activeFighter && Math.abs(pelvisPosition.x) <= RING_HARD_LIMIT.x && Math.abs(pelvisPosition.z) <= RING_HARD_LIMIT.z && pelvisPosition.y < 1.22;
       let brokenTree = belowDeck || rig.jointFaultFrames > 45 || ![pelvisPosition.x, pelvisPosition.y, pelvisPosition.z].every(Number.isFinite);
       for (const body of Object.values(rig.bodies)) {
         if (!body?.isValid()) continue;
@@ -1973,7 +1980,8 @@ export class BodyWorksRuntime {
     const upright = uprightFromRotation(rotation);
     const supportScore = this.supportScore(rig); if (key === 'player') this.metrics.supportScore = supportScore;
     fighter.body.balance = clamp(supportScore * 58 + upright * 42 - Math.hypot(velocity.x, velocity.z) * 1.1, 0, 100);
-    const groundedPelvisY = rig.restPelvisY - (isRingside(fighter.position) ? 1.46 : 0);
+    const physicallyOnRingsideFloor = isRingside(fighter.position) && position.y < rig.restPelvisY - .62;
+    const groundedPelvisY = rig.restPelvisY - (physicallyOnRingsideFloor ? 1.46 : 0);
     fighter.body.verticalOffset = Math.max(0, position.y - groundedPelvisY);
     fighter.body.verticalVelocity = velocity.y;
     if (!preserveRecoveryOrientation && fighter.state === 'downed' && Math.hypot(velocity.x, velocity.y, velocity.z) < 1.6) {

@@ -183,9 +183,10 @@ function PlayerControlBeacon() {
   useFrame(({ clock }) => {
     const group = beacon.current; if (!group) return;
     const intent = bodyWorksRuntime.intentSnapshot('player'); const model = useMatchStore.getState().model;
-    const magnitude = Math.hypot(intent.move.x, intent.move.z); const controllable = ['idle', 'locomotion'].includes(model.player.state) && !model.paused && !model.resolved;
+    const magnitude = Math.hypot(intent.move.x, intent.move.z);
+    const controllable = ['idle', 'locomotion'].includes(model.player.state) && !model.paused && !model.resolved;
     const battleIdentity = model.matchMode === 'battle_royale' && !['defeated', 'victorious'].includes(model.player.state) && !model.resolved;
-    group.visible = battleIdentity || controllable && magnitude > .08;
+    group.visible = battleIdentity || controllable;
     if (!group.visible) return;
     group.position.set(model.player.position.x, Math.abs(model.player.position.x) <= 5.82 && Math.abs(model.player.position.z) <= 4.32 ? 1.94 : .08, model.player.position.z);
     group.rotation.y = Math.atan2(intent.move.x, intent.move.z);

@@ -29,6 +29,12 @@ describe('physical strike drive', () => {
     expect(kick).toMatchObject({ source: 'rightFoot', target: 'chest' });
   });
 
+  it('maps down plus quick to a real head-to-head drive', () => {
+    const moveId = selectDirectionalStrike({ x: 0, z: 1 }, 'quick');
+    expect(moveId).toBe('headbutt');
+    expect(strikeDriveProfile(moveId)).toMatchObject({ source: 'head', target: 'head' });
+  });
+
   it('bounds whole-body travel and near-field limb speed into a physical guard', () => {
     const jab = strikeDriveProfile('jab');
     expect(jab).not.toBeNull();

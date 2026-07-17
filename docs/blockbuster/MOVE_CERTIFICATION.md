@@ -1,7 +1,7 @@
 # Ringfall Blockbuster move certification
 
 Move manifest: `ringfall-moves-1.1.0`  
-Current public move count: 34  
+Current public move count: 36  
 Status: baseline inventory complete; visual/device/human certification pending
 
 The tables record the current runtime mapping. Shared animation, generic reaction, audio, VFX or camera entries are explicit gaps—not evidence of visual distinction.
@@ -14,8 +14,9 @@ The tables record the current runtime mapping. Shared animation, generic reactio
 | `combo` Neon One-Two | repeat neutral J or left+J | quick | `jab` shared / quick sell | hands / head-chest | impact / light / strike | 8 / 7 / 9 / 4 | yes |
 | `high_punch` Skyline Cross | forward or right+J | quick | `jab` shared / quick sell | rear hand / head | impact / light / strike | 7 / 7 / 9 / 5 | yes |
 | `heavy` Fault Hook | neutral K | heavy | `heavyStrike` / torso-head sell | fist-forearm / torso-head | heavy / heavy / strike | 17 / 13 / 13 / 8 | yes |
-| `uppercut` Voltage Uppercut | forward+K | heavy | `heavyStrike` shared / lift sell | fist / chin-torso | heavy / heavy / strike | 15 / 15 / 15 / 11 | yes |
-| `low_kick` Circuit Low Kick | back+J | quick | `kick` shared / leg sell | shin-boot / leg | kick / light / strike | 8 / 8 / 10 / 6 | yes |
+| `uppercut` Voltage Uppercut | forward+J | heavy | rising punch / lift sell | fist / head | uppercut / heavy / strike | 15 / 15 / 15 / 11 | yes |
+| `headbutt` Hardline Headbutt | back+J | quick | framed chamber and full-body drive / head sell | head / head | heavy / heavy / strike | 9 / 9 / 11 / 8 | yes |
+| `low_kick` Circuit Low Kick | back+K | heavy | `kick` shared / leg sell | shin-boot / leg | kick / light / strike | 8 / 8 / 10 / 6 | yes |
 | `high_kick` Halo High Kick | right+K | heavy | `kick` shared / head sell | boot / head | kick / heavy / strike | 16 / 16 / 16 / 13 | yes |
 | `roundhouse` Arc Roundhouse | left+K | heavy | `kick` shared / rotation sell | shin-boot / head-torso | kick / heavy / strike | 19 / 18 / 18 / 16 | yes |
 | `front_kick` Piston Boot | back+K | heavy | `kick` shared / torso sell | boot / torso | kick / heavy / strike | 14 / 14 / 14 / 11 | yes |
@@ -56,6 +57,7 @@ The tables record the current runtime mapping. Shared animation, generic reactio
 | `high_punch` | P | P | P | P | P | P | P | P | P |
 | `heavy` | P | P | P | P | P | P | P | P | P |
 | `uppercut` | P | P | P | P | P | P | P | P | P |
+| `headbutt` | P | P | P | P | P | P | P | P | P |
 | `low_kick` | P | P | P | P | P | P | P | P | P |
 | `high_kick` | P | P | P | P | P | P | P | P | P |
 | `roundhouse` | P | P | P | P | P | P | P | P | P |

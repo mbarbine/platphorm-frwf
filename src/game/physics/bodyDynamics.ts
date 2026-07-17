@@ -18,16 +18,16 @@ export interface LocomotionProfile { walkSpeed: number; runSpeed: number; accele
 /** Fighter-specific feel values shared by deterministic intent and Rapier drive. */
 export const locomotionProfile = (definition: FighterDefinition): LocomotionProfile => {
   const agility = definition.stats.speed / 100; const massPenalty = clamp((definition.physics.massKg - 78) / 48, 0, 1);
-  const acceleration = 17.5 + agility * 8.5 - massPenalty * 3;
-  const turnRate = 5 + agility * 3.2 - massPenalty * 1.05;
+  const acceleration = 12.5 + agility * 6.5 - massPenalty * 2.2;
+  const turnRate = 4.1 + agility * 2.55 - massPenalty * .72;
   return {
-    walkSpeed: 3.95 + agility * .92,
-    runSpeed: 6.2 + agility * 1.38,
+    walkSpeed: 2.65 + agility * .82,
+    runSpeed: 4.95 + agility * 1.08,
     acceleration,
-    runAcceleration: acceleration * .78,
-    braking: 19.5 + agility * 5.2 - massPenalty * 1.6,
+    runAcceleration: acceleration * .84,
+    braking: 22.5 + agility * 4.8 - massPenalty * 1.1,
     turnRate,
-    sprintTurnRate: turnRate * .62,
+    sprintTurnRate: turnRate * .68,
   };
 };
 
@@ -159,7 +159,7 @@ export const stepBodyDynamics = (fighter: FighterRuntime, dt: number): { landed:
 };
 
 export const bodyRegionForMove = (move: MoveDefinition, sequence: number): BodyRegion => {
-  if (move.id === 'jab' || move.id === 'high_punch' || move.id === 'heavy' || move.id === 'uppercut' || move.id === 'high_kick' || move.id === 'roundhouse' || move.id === 'stiff_arm') return 'head';
+  if (move.id === 'jab' || move.id === 'high_punch' || move.id === 'heavy' || move.id === 'uppercut' || move.id === 'headbutt' || move.id === 'high_kick' || move.id === 'roundhouse' || move.id === 'stiff_arm') return 'head';
   if (move.id === 'low_kick') return sequence % 2 === 0 ? 'leftLeg' : 'rightLeg';
   if (move.id === 'combo' || move.id === 'ground') return 'ribs';
   if (move.category === 'grapple' || move.category === 'finisher') return move.id === 'clutch' ? 'head' : 'pelvis';
@@ -200,16 +200,16 @@ export const applyLocalizedImpact = (target: FighterRuntime, impact: ImpactCalcu
   if (impact.region === 'head') body.headVelocity -= impact.force * .075;
   if (impact.region === 'ribs' || impact.region === 'chest') body.twistVelocity += (impact.torque >= 0 ? 1 : -1) * impact.force * .026;
   if (impact.region === 'pelvis' || impact.region.includes('Leg')) body.pelvisDrop = clamp(body.pelvisDrop + impact.force * .012, 0, .45);
-  const speedChange = impact.force * (108 / body.mass) * .15;
+  const speedChange = impact.force * (108 / body.mass) * .11;
   target.velocity.x += impact.direction.x * speedChange;
   target.velocity.z += impact.direction.z * speedChange;
   if (impact.verticalImpulse > 0) body.verticalVelocity = Math.max(body.verticalVelocity, impact.verticalImpulse);
   else if (body.verticalOffset > .04) body.verticalVelocity = Math.min(body.verticalVelocity, impact.verticalImpulse);
 
-  if (impact.force > 16 || body.balance < 12) return 'launch';
-  if (body.balance < 24) return 'fall';
-  if (impact.region.includes('Leg') && body.balance < 52) return 'trip';
-  if (Math.abs(impact.torque) > .9 && body.balance < 62) return 'spin';
-  if (body.balance < 68 || impact.force > 6) return 'stagger';
+  if (impact.force > 21 || body.balance < 9) return 'launch';
+  if (body.balance < 19) return 'fall';
+  if (impact.region.includes('Leg') && body.balance < 46) return 'trip';
+  if (Math.abs(impact.torque) > 1.05 && body.balance < 54) return 'spin';
+  if (body.balance < 63 || impact.force > 8.25) return 'stagger';
   return 'absorbed';
 };

@@ -181,3 +181,29 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--cyan); outl
 [data-high-contrast="true"] button:focus-visible, [data-high-contrast="true"] select:focus-visible, [data-high-contrast="true"] input:focus-visible { outline: 3px solid #fff44d; outline-offset: 3px; }
 [data-high-contrast="true"] .meter__label, [data-high-contrast="true"] .control-deck li, [data-high-contrast="true"] .context-hint { color: #fff; text-shadow: 0 1px 3px #000; }
 [data-low-flash="true"] .announcement, [data-low-flash="true"] .results-flare { filter: none; box-shadow: none; }
+
+/* Recovery pass: keep the wrestling visible and the controls readable. */
+.game-canvas canvas { filter: saturate(1.08) contrast(1.04); }
+.hud__fighters { gap: 1.2rem; padding: .65rem 1.2rem; background: linear-gradient(#080610d8, #08061080 58%, transparent); }
+.fighter-hud__name { margin-bottom: .28rem; }
+.fighter-hud__name b { font-size: 1.18rem; }
+.meter { margin-bottom: .24rem; }
+.meter--balance { display: none; }
+.meter__track { height: 7px; }
+.context-hint { bottom: 1rem; max-width: min(720px, calc(100vw - 2rem)); padding: .52rem .85rem; text-align: center; }
+.tutorial { left: 50%; bottom: 3.8rem; width: min(650px, calc(100vw - 2rem)); padding: .58rem .7rem; transform: translateX(-50%); }
+.tutorial ul { gap: .3rem; margin: .42rem 0; }
+.tutorial kbd { min-width: 48px; }
+.tutorial small { display: block; text-align: center; }
+.control-deck--compact { width: min(720px, calc(100vw - 2rem)); }
+.control-deck--compact ul { grid-template-columns: repeat(4,minmax(0,1fr)); }
+
+@media (hover: none), (pointer: coarse), (max-width: 900px) {
+  .mobile-actions { right: max(.7rem, env(safe-area-inset-right)); bottom: max(.7rem, env(safe-area-inset-bottom)); display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: .46rem; width: clamp(188px,43vw,252px); height: auto; }
+  .mobile-action { position: static; width: auto; min-width: 0; height: clamp(54px,11vw,68px); aspect-ratio: auto; padding: .35rem .42rem; border-radius: 15px; }
+  .mobile-action b { max-width: none; font-size: clamp(.62rem,1.8vw,.78rem); letter-spacing: .06em; }
+  .mobile-action small { display: block; max-width: 100%; overflow: hidden; font-size: clamp(.35rem,1vw,.45rem); text-overflow: ellipsis; white-space: nowrap; }
+  .mobile-action--counter { grid-column: 1 / -1; justify-self: center; width: 62%; height: clamp(44px,9vw,54px); }
+  .mobile-stick { width: clamp(116px,24vw,146px); }
+  .mobile-modifiers { bottom: calc(max(.75rem, env(safe-area-inset-bottom)) + clamp(122px,25vw,152px)); width: clamp(116px,24vw,146px); }
+}

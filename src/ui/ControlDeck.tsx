@@ -32,7 +32,7 @@ const BASE_LABELS: Readonly<Record<ControlId, string>> = {
 };
 
 const FULL_CONTROL_IDS = Object.keys(BASE_LABELS) as ControlId[];
-const COMPACT_CONTROL_IDS: readonly ControlId[] = ['quick', 'heavy', 'grapple', 'context', 'taunt'];
+const COMPACT_CONTROL_IDS: readonly ControlId[] = ['quick', 'heavy', 'grapple', 'context'];
 
 const moveLabel = (moveId: string): string => getMove(moveId).displayName.toUpperCase();
 

@@ -37,13 +37,14 @@ const SCENARIOS: readonly LabScenario[] = [
   { id: 'inputRange', label: 'CLOSE-RANGE INPUT', steps: [], duration: 900 },
   { id: 'jab', label: 'CONTACT-TRUE JAB', steps: tap('KeyJ'), duration: 1_400 },
   { id: 'jabWhiff', label: 'JAB WHIFF', steps: tap('KeyJ'), duration: 1_200 },
+  { id: 'headbutt', label: 'CONTACT-TRUE HEADBUTT', steps: [...hold('KeyS', 0, 460), ...tap('KeyJ', 0, 260)], duration: 1_600 },
   // Let the freshly placed rigs settle before raising guard, then hold it
   // through the incoming jab until generic scenario cleanup.
   { id: 'blockedJab', label: 'JAB INTO GUARD', steps: [{ at: 0, code: 'KeyI', down: true }], duration: 3_800 },
   { id: 'hook', label: 'TORSO POWER', steps: tap('KeyK'), duration: 1_400 },
   { id: 'frontKick', label: 'FRONT KICK', steps: [...hold('KeyS', 0, 620), ...tap('KeyK', 0, 360)], duration: 1_700 },
   { id: 'guard', label: 'BLOCK WINDOW', steps: hold('KeyI', 0, 1_250), duration: 1_700 },
-  { id: 'kick', label: 'DIRECTIONAL KICK', steps: [...hold('KeyS', 0, 1_250), ...tap('KeyK', 0, 420)], duration: 1_700 },
+  { id: 'kick', label: 'DIRECTIONAL KICK', steps: [...hold('KeyS', 0, 420), ...tap('KeyK', 0, 420)], duration: 1_700 },
   { id: 'miss', label: 'MISSED KICK', steps: [...hold('KeyS', 0, 650), ...tap('KeyK', 430)], duration: 1_600 },
   { id: 'lock', label: 'GRAPPLE ACQUIRE', steps: tap('KeyL'), duration: 2_200 },
   { id: 'slam', label: 'BODY SLAM', steps: tap('KeyL'), duration: 3_600 },
@@ -85,7 +86,7 @@ export function PhysicsLab() {
       timers.current.push(window.setTimeout(() => setActive(null), scenario.duration));
       return;
     }
-    const closeRange = ['inputRange', 'jab', 'blockedJab', 'hook', 'frontKick', 'guard', 'kick', 'lock', 'slam', 'failedLift', 'gripBreak', 'suplex', 'german', 'powerbomb', 'clothesline', 'spear', 'soakRound'].includes(scenario.id);
+    const closeRange = ['inputRange', 'jab', 'headbutt', 'blockedJab', 'hook', 'frontKick', 'guard', 'kick', 'lock', 'slam', 'failedLift', 'gripBreak', 'suplex', 'german', 'powerbomb', 'clothesline', 'spear', 'soakRound'].includes(scenario.id);
     const recoveryOrientation: RecoveryOrientation | null = scenario.id === 'recoveryFront' ? 'front' : scenario.id === 'recoverySide' ? 'left' : scenario.id === 'recoveryBack' ? 'back' : null;
     if (scenario.id === 'separation') useMatchStore.getState().prepareLabScenario({ x: -.12, z: 0 }, { x: .12, z: 0 });
     else if (scenario.id === 'climb' || scenario.id === 'dive') useMatchStore.getState().prepareLabScenario({ x: -4.52, z: -3.08 }, { x: -1.6, z: -.8 });
@@ -108,6 +109,7 @@ export function PhysicsLab() {
     else if (scenario.id === 'miss' || scenario.id === 'jabWhiff') useMatchStore.getState().prepareLabScenario({ x: 0, z: -2.6 }, { x: 0, z: 2.6 });
     else useMatchStore.getState().prepareLabScenario({ x: -1.4, z: 0 }, { x: 2.2, z: 0 });
     document.documentElement.dataset.labResetPelvisY = bodyWorksRuntime.fighterSnapshot('player').pelvisY.toFixed(3);
+    document.documentElement.dataset.labResetPlayerX = useMatchStore.getState().model.player.position.x.toFixed(3);
     // Lab choreography is scheduled against fixed simulation time. Wall-clock
     // timeouts made the same input sequence behave differently on a throttled
     // headless GPU because key-up could arrive after only a handful of ticks.

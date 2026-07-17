@@ -49,7 +49,7 @@ class AudioEngine {
 
   move(moveId: string, settings: Settings, position: Vec2): void {
     const sound: SoundName = moveId === 'jab' ? 'jab' : moveId === 'combo' || moveId === 'high_punch' ? 'cross'
-      : moveId === 'heavy' ? 'hook' : moveId === 'uppercut' ? 'uppercut'
+      : moveId === 'heavy' ? 'hook' : moveId === 'uppercut' ? 'uppercut' : moveId === 'headbutt' ? 'heavy'
         : moveId === 'low_kick' ? 'lowKick' : ['front_kick', 'high_kick', 'roundhouse'].includes(moveId) ? 'highKick'
           : moveId === 'slam' || moveId === 'mountain_drop' ? 'slam' : moveId === 'suplex' || moveId === 'skyhook' ? 'suplex'
             : moveId === 'piledriver' ? 'powerbomb' : moveId === 'powerbomb' ? 'powerbomb' : moveId === 'spinebuster' ? 'spinebuster'
@@ -93,7 +93,7 @@ class AudioEngine {
   impact(event: ImpactEvent, settings: Settings): void {
     const map: Record<ImpactEvent['kind'], SoundName> = { light: 'impact', heavy: 'heavy', blocked: 'block', counter: 'nearfall', grapple: 'slam', weapon: 'chair', finisher: 'finisher', table: 'table', nearfall: 'nearfall', ko: 'bell', rope: 'rope' };
     const moveImpact: SoundName | null = event.moveId === 'jab' ? 'jab' : event.moveId === 'combo' || event.moveId === 'high_punch' ? 'cross'
-      : event.moveId === 'heavy' ? 'hook' : event.moveId === 'uppercut' ? 'uppercut'
+      : event.moveId === 'heavy' ? 'hook' : event.moveId === 'uppercut' ? 'uppercut' : event.moveId === 'headbutt' ? 'heavy'
         : event.moveId === 'low_kick' ? 'lowKick' : ['front_kick', 'high_kick', 'roundhouse'].includes(event.moveId ?? '') ? 'highKick'
           : event.moveId === 'suplex' || event.moveId === 'skyhook' ? 'suplex' : event.moveId === 'piledriver' ? 'powerbomb' : event.moveId === 'powerbomb' ? 'powerbomb'
             : event.moveId === 'spinebuster' ? 'spinebuster' : event.moveId === 'stiff_arm' || event.moveId === 'rebound' ? 'clothesline'

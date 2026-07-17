@@ -20,10 +20,11 @@ export const strikeDriveProfile = (moveId: string): StrikeDriveProfile | null =>
   if (moveId === 'high_punch') return { source: 'rightHand', target: 'head', speed: 14.5, response: 18, maximumAcceleration: 195, pelvisAcceleration: 2.7 };
   if (moveId === 'heavy') return { source: 'rightHand', target: 'head', speed: 16.5, response: 18, maximumAcceleration: 225, pelvisAcceleration: 3.4 };
   if (moveId === 'uppercut') return { source: 'rightHand', target: 'head', speed: 17.2, response: 19, maximumAcceleration: 235, pelvisAcceleration: 3.8 };
-  if (moveId === 'low_kick') return { source: 'rightFoot', target: 'leftShin', speed: 14.8, response: 18, maximumAcceleration: 205, pelvisAcceleration: 2.2 };
+  if (moveId === 'headbutt') return { source: 'head', target: 'head', speed: 10.8, response: 18, maximumAcceleration: 145, pelvisAcceleration: 4.6 };
+  if (moveId === 'low_kick') return { source: 'rightFoot', target: 'leftShin', speed: 17.2, response: 22, maximumAcceleration: 285, pelvisAcceleration: 5.6 };
   if (moveId === 'high_kick') return { source: 'rightFoot', target: 'head', speed: 17.2, response: 19, maximumAcceleration: 240, pelvisAcceleration: 3.9 };
   if (moveId === 'roundhouse') return { source: 'rightFoot', target: 'head', speed: 18.5, response: 20, maximumAcceleration: 255, pelvisAcceleration: 4.5 };
-  if (moveId === 'front_kick') return { source: 'rightFoot', target: 'chest', speed: 16.2, response: 18, maximumAcceleration: 230, pelvisAcceleration: 3.8 };
+  if (moveId === 'front_kick') return { source: 'rightFoot', target: 'chest', speed: 17.4, response: 21, maximumAcceleration: 275, pelvisAcceleration: 5.2 };
   if (moveId === 'piledriver') return { source: 'chest', target: 'head', speed: 20, response: 30, maximumAcceleration: 520, pelvisAcceleration: 18 };
   // A wrestling stiff-arm lands through the braced forearm/elbow line. The
   // rope rebound uses the opposite arm so the player can pick left or right.

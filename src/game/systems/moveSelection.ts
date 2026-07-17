@@ -27,7 +27,7 @@ const GRAPPLE_GRID: Readonly<Record<CombatDirection, Readonly<Record<GrappleButt
 const STRIKE_GRID: Readonly<Record<CombatDirection, Readonly<Record<StrikeButton, string>>>> = {
   neutral: { quick: 'jab', heavy: 'front_kick' },
   up: { quick: 'uppercut', heavy: 'high_kick' },
-  down: { quick: 'jab', heavy: 'low_kick' },
+  down: { quick: 'headbutt', heavy: 'low_kick' },
   left: { quick: 'combo', heavy: 'roundhouse' },
   right: { quick: 'high_punch', heavy: 'high_kick' },
 };
@@ -43,13 +43,14 @@ export const selectGrappleEntryMove = (direction: Vec2): string => combatDirecti
 export const selectDirectionalStrike = (direction: Vec2, button: StrikeButton, comboStep = 0): string => {
   const directionId = combatDirection(direction);
   if (button === 'quick') {
-    // J / quick is strictly arm punches.
+    // J / quick is the close-strike family: fists in neutral/side/forward,
+    // and a short-range headbutt while holding back/down.
     if (directionId === 'neutral') {
       return comboStep % 2 === 0 ? 'jab' : 'combo';
     }
-    // ensure quick button only maps to arm-fist actions (jab, combo, high_punch, uppercut)
+    // Keep this whitelist synchronized with the physical source colliders.
     const raw = STRIKE_GRID[directionId].quick;
-    if (raw === 'jab' || raw === 'combo' || raw === 'high_punch' || raw === 'uppercut') {
+    if (raw === 'jab' || raw === 'combo' || raw === 'high_punch' || raw === 'uppercut' || raw === 'headbutt') {
       return raw;
     }
     return 'jab';

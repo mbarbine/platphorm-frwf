@@ -63,7 +63,7 @@ describe('Singles Gameplay Enhancements', () => {
     model.player.position = { x: 0, z: 0 };
     model.opponent.position = { x: 1, z: 0 };
 
-    // Opponent blocks (stateElapsed is 0, which is <= 0.15s, triggering Perfect Parry)
+    // A deliberately fresh guard edge stays inside the 80 ms parry window.
     model.opponent.state = 'blocking';
     model.opponent.stateElapsed = 0.05;
     const initialOppStamina = model.opponent.stamina;

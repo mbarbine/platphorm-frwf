@@ -56,8 +56,7 @@ describe('live wrestling control deck', () => {
     const right = buildControlLabels(model.player, model.opponent, 0, 1.4, { x: 1, z: 0 });
     expect(right.heavy).toBe('HALO HIGH KICK');
     const down = buildControlLabels(model.player, model.opponent, 0, 1.4, { x: 0, z: 1 });
-    // BLOCKBUSTER: J=Punch, K=Kick. down is quick=CIRCUIT JAB (arm), heavy=CIRCUIT LOW KICK (leg)
-    expect(down.quick).toBe('CIRCUIT JAB');
+    expect(down.quick).toBe('HARDLINE HEADBUTT');
   });
 
   it('keeps the moving strike labels exact while a released input is still braking', () => {
@@ -89,11 +88,11 @@ describe('live wrestling control deck', () => {
     expect(buildControlLabels(model.player, model.opponent, 0, 2.16).grapple).toBe('CLOSE DISTANCE');
   });
 
-  it('renders five compact controls and takes context labels from the authoritative resolvers', () => {
+  it('renders four compact core controls and takes context labels from the authoritative resolvers', () => {
     const model = createMatch('atlas', 'nova', 'standard', 'normal');
     const readout = buildControlReadout(model.player, model.opponent, 0, 1.4, false);
     const controls = buildVisibleControls(readout, 'keyboard', 'compact', 'PIN SHOULDERS', 'PICK UP CHAIR');
-    expect(controls.map((control) => control.id)).toEqual(['quick', 'heavy', 'grapple', 'context', 'taunt']);
+    expect(controls.map((control) => control.id)).toEqual(['quick', 'heavy', 'grapple', 'context']);
     expect(controls.find((control) => control.id === 'context')).toMatchObject({ key: 'F', label: 'PIN SHOULDERS' });
     expect(controls.some((control) => control.id === 'interact')).toBe(false);
   });

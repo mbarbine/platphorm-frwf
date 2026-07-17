@@ -51,7 +51,8 @@ test('rope rebound produces a loaded stiff-arm and physical knockdown', async ({
       if (/downed|airborne/.test(liveHud?.getAttribute('data-opponent-state') ?? '')) document.documentElement.dataset.sawDeterministicKnockdown = 'true';
       if (/^(?:left|right)(?:Hand|Forearm|UpperArm)>/.test(contact)) document.documentElement.dataset.sawDeterministicRopeContact = 'true';
       if (Number(liveHud?.getAttribute('data-opponent-health')) < health) document.documentElement.dataset.sawDeterministicRopeImpact = 'true';
-      if (deck?.textContent?.includes('STIFF-ARM!') || deck?.textContent?.includes('ROPES LOADED')) document.documentElement.dataset.sawDeterministicRopeLoad = 'true';
+      const rebound = Number(liveHud?.querySelector('[data-player-rope-rebound]')?.getAttribute('data-player-rope-rebound'));
+      if (rebound > 0 || deck?.textContent?.includes('STIFF-ARM!') || deck?.textContent?.includes('ROPES LOADED')) document.documentElement.dataset.sawDeterministicRopeLoad = 'true';
       const x = Math.abs(Number(liveHud?.getAttribute('data-player-x'))); const maximum = Number(document.documentElement.dataset.maximumRopeX ?? 0);
       if (Number.isFinite(x) && x > maximum) document.documentElement.dataset.maximumRopeX = x.toFixed(3);
       if (liveHud?.getAttribute('data-player-ringside') === 'true') document.documentElement.dataset.sawRopeTunnel = 'true';
@@ -100,7 +101,7 @@ test('ringside wrestler returns through the apron without crossing a wall', asyn
   const errors = captureErrors(page); await enterLabMatch(page);
   const hud = page.locator('.hud'); const lab = page.getByTestId('physics-lab');
   await lab.getByRole('button', { name: 'APRON RETURN' }).click();
-  await expect(hud).toHaveAttribute('data-player-ringside', 'true', { timeout: 2_000 });
+  await expect.poll(async () => Math.abs(Number(await page.locator('html').getAttribute('data-lab-reset-player-x'))), { timeout: 4_000 }).toBeGreaterThan(RINGSIDE_THRESHOLD.x);
   await expect(hud).toHaveAttribute('data-player-ringside', 'false', { timeout: 90_000 });
   await expect.poll(async () => Math.abs(Number(await hud.getAttribute('data-player-x'))), { timeout: 90_000, intervals: [100, 200, 500, 1_000] }).toBeLessThan(5.3);
   await expect(hud).toHaveAttribute('data-physics-emergency-resets', '0'); expect(errors).toEqual([]);
