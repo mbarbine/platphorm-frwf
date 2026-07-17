@@ -403,9 +403,10 @@ export function CameraRig() {
         const peakLift = grapplePhase === 'lift'
           ? Math.min(isPiledriver ? 2.2 : 1.6, grappleLift * (isPiledriver ? 1 : 0.72))
           : 0;
-        // Cinematic: Tighter slam distance and lower camera angle to look upwards at towering slams and piledrivers
-        const distance = isPiledriver ? 6.2 : 8.4;
-        const baseHeight = isPiledriver ? 1.8 : 3.2;
+        // Keep the lift and landing above the foreground rope plane. A low
+        // ringside angle hid the carried body behind the middle rope.
+        const distance = isPiledriver ? 6.2 : 8.1;
+        const baseHeight = isPiledriver ? 4.15 : 5.15;
         focusX = (grappleActor.x + grappleDefender.x) * 0.5;
         focusZ = (grappleActor.z + grappleDefender.z) * 0.5;
         desired.set(
@@ -574,8 +575,10 @@ export function CameraRig() {
             ? 11.5
             : shot.current === 'aerial' || shot.current === 'corner'
               ? 4.2
-              : shot.current === 'grapple' || shot.current === 'slam' || shot.current === 'table'
-                ? 4.8
+              : shot.current === 'slam'
+                ? 14
+                : shot.current === 'grapple' || shot.current === 'table'
+                  ? 8
                 : 4.6;
     camera.position.lerp(desired, 1 - Math.exp(-clampedDt * positionDamping));
     desiredTarget.set(

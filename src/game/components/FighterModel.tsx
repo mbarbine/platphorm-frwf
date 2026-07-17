@@ -470,6 +470,7 @@ export function FighterModel({ runtime, counterpart, fighterId, preview = false,
   const elapsed = useRef(0);
   const presentationInitialized = useRef(false);
   const trailAttackId = useRef(-1);
+  const trailSource = useRef<string | null>(null);
   const trailVectors = useRef({
     current: new Vector3(), previous: new Vector3(), localCurrent: new Vector3(), localPrevious: new Vector3(), midpoint: new Vector3(), direction: new Vector3(), up: new Vector3(0, 1, 0),
   });
@@ -657,20 +658,26 @@ export function FighterModel({ runtime, counterpart, fighterId, preview = false,
             : strike?.source === 'rightFoot' || strike?.source === 'rightShin'
               ? alignmentPoints.current.rightFoot
               : strike?.source === 'chest' ? alignmentPoints.current.chest : null;
-      if (trail && sourcePoint && runtime.attackPhase === 'active') {
+      if (trail && sourcePoint && strike && runtime.attackPhase === 'active') {
         const vectors = trailVectors.current; vectors.current.copy(sourcePoint);
         if (trailAttackId.current !== runtime.attackInstanceId) {
           // Anticipation continuously primes `previous` with the chambered
           // limb position. Keep that point for the first active frame so a
           // low-frame-rate contact still draws the full punch/kick streak.
           trailAttackId.current = runtime.attackInstanceId;
-          if (vectors.previous.lengthSq() < .0001) vectors.previous.copy(vectors.current);
+          if (trailSource.current !== strike.source || vectors.previous.lengthSq() < .0001) vectors.previous.copy(vectors.current);
         }
+        trailSource.current = strike.source;
         vectors.localCurrent.copy(vectors.current); vectors.localPrevious.copy(vectors.previous);
         shell.current.worldToLocal(vectors.localCurrent); shell.current.worldToLocal(vectors.localPrevious);
         vectors.direction.copy(vectors.localCurrent).sub(vectors.localPrevious);
         const distance = vectors.direction.length();
-        if (distance > .018) {
+        // Never turn a stale limb-to-limb sample into a screen-wide streak.
+        // A valid authored strike travels less than this between sampled poses.
+        if (distance > 1.8) {
+          vectors.previous.copy(vectors.current);
+          trail.visible = false;
+        } else if (distance > .018) {
           vectors.midpoint.copy(vectors.localCurrent).add(vectors.localPrevious).multiplyScalar(.5);
           vectors.direction.multiplyScalar(1 / distance);
           trail.position.copy(vectors.midpoint);
@@ -687,7 +694,12 @@ export function FighterModel({ runtime, counterpart, fighterId, preview = false,
         const material = trail.material as MeshBasicMaterial;
         material.opacity = Math.max(0, material.opacity - clampedDelta * 7.5);
         if (material.opacity <= .015) trail.visible = false;
-        if (sourcePoint) trailVectors.current.previous.copy(sourcePoint);
+        if (sourcePoint) {
+          trailVectors.current.previous.copy(sourcePoint);
+          trailSource.current = strike?.source ?? null;
+        } else {
+          trailSource.current = null;
+        }
       }
     } else {
       root.current.rotation.y = Math.sin(t * .45 * tempo) * .16;

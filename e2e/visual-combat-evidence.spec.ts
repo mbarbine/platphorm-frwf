@@ -59,7 +59,12 @@ test('captures the shipping combat presentation at decisive motion beats', async
   await expect(hud.locator('[data-replay-active="true"]')).toBeAttached({ timeout: 90_000 });
   await page.screenshot({ path: testInfo.outputPath('06-slam-replay.png') });
 
+  await page.getByRole('button', { name: 'SKIP REPLAY' }).click();
+  await pauseOnHudAttribute(page, 'data-opponent-state', '^(downed|recovering)$', 'capturedDeckRecovery');
+  await expect.poll(async () => await page.locator('html').getAttribute('data-captured-deck-recovery'), { timeout: 20_000 }).toMatch(/downed|recovering/);
+  await page.screenshot({ path: testInfo.outputPath('07-deck-safe-recovery.png') });
+  await lab.getByRole('button', { name: 'PLAY' }).click();
   await expect.poll(async () => await hud.getAttribute('data-opponent-state'), { timeout: 45_000 }).toMatch(/idle|locomotion/);
-  await page.screenshot({ path: testInfo.outputPath('07-post-slam-recovery.png') });
+  await page.screenshot({ path: testInfo.outputPath('08-post-slam-recovery.png') });
   await expect(hud).toHaveAttribute('data-physics-emergency-resets', '0');
 });
