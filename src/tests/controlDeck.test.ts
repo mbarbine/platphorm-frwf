@@ -73,7 +73,7 @@ describe('live wrestling control deck', () => {
     const labels = buildControlLabels(model.player, model.opponent, 0, 1.4);
     expect(labels.quick).toBe('CIRCUIT JAB');
     expect(labels.heavy).toBe('PISTON BOOT');
-    expect(labels.grapple).toBe('COLLAR LOCK');
+    expect(labels.grapple).toBe('VOLTAGE SLAM');
     expect(labels.context).toBe('NO CONTEXT ACTION');
     expect(labels.taunt).toBe('SIGNATURE TAUNT');
     expect(controlPrompt('keyboard', 'context')).toBe('F');
@@ -84,8 +84,9 @@ describe('live wrestling control deck', () => {
   it('matches the visible body-slam prompt to the real collar-tie range', () => {
     const model = createMatch('atlas', 'nova', 'standard', 'normal');
     // BLOCKBUSTER: grapple range increased from 1.65 / 1.66 to 2.15 / 2.16
-    expect(buildControlLabels(model.player, model.opponent, 0, 2.15).grapple).toBe('COLLAR LOCK');
+    expect(buildControlLabels(model.player, model.opponent, 0, 2.15).grapple).toBe('VOLTAGE SLAM');
     expect(buildControlLabels(model.player, model.opponent, 0, 2.16).grapple).toBe('CLOSE DISTANCE');
+    expect(buildControlLabels(model.player, model.opponent, 0, 1.4, { x: 0, z: 1 }).grapple).toBe('VOLTAGE PILEDRIVER');
   });
 
   it('renders four compact core controls and takes context labels from the authoritative resolvers', () => {

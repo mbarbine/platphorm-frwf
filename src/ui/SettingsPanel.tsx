@@ -39,7 +39,7 @@ export function SettingsPanel({ onBack }: { onBack: () => void }) {
       <label className="toggle-row"><span><b>Low flash</b><small>Fewer, dimmer impact strobes while keeping hit silhouettes</small></span><input type="checkbox" checked={settings.lowFlash} onChange={(event) => settings.update({ lowFlash: event.target.checked })} /></label>
       <label className="toggle-row"><span><b>High contrast</b><small>Brighter prompts, meter labels, and focus outlines</small></span><input type="checkbox" checked={settings.highContrast} onChange={(event) => settings.update({ highContrast: event.target.checked })} /></label>
     </div>
-    <div className="control-card"><b>CONTROL REFERENCE</b><span>WASD/D-pad move · Shift/RT sprint · C/L3 jump · J/X Circuit Jab · K/Y Piston Boot · L/B Collar Lock (Voltage Slam default, direction for depth) · I/LT guard (hold) · Space/A dodge or counter · E/LB resolver-named prop action · F/R3 resolver-named context action · Q/RB signature taunt · Esc pause</span></div>
+    <div className="control-card"><b>CONTROL REFERENCE</b><span>WASD/D-pad move · Shift/RT sprint · C/L3 jump · J/X Circuit Jab (forward uppercut, back headbutt) · K/Y Piston Boot (directional kicks) · L/B Collar Lock (Voltage Slam default, direction for depth) · I/LT guard (hold) · Space/A dodge or counter · E/LB visible prop pickup/drop/swing/throw · F/R3 visible pin/climb/rope exit/return · Q/RB signature taunt · Esc pause</span></div>
     <div className="button-row">
       <button
         className={`button button--quiet ${confirmReset ? 'button--confirm-active' : ''}`}

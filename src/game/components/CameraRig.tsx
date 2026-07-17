@@ -11,6 +11,7 @@ import { FIGHTER_SLOTS } from '../types/game';
 import type { FighterSlot, FighterState, MatchModel } from '../types/game';
 import { bodyWorksRuntime } from '../physics/physicsRuntime';
 import { resolvedSpectatorTarget, useSpectatorStore } from '../state/spectatorStore';
+import { isRingside } from '../physics/ringDynamics';
 
 const isFiniteNumber = (value: unknown): value is number => Number.isFinite(value as number);
 const safeNumber = (value: unknown, fallback: number): number => isFiniteNumber(value) ? value : fallback;
@@ -186,14 +187,21 @@ export function CameraRig() {
       const forwardX = Math.sin(targetState.facing);
       const forwardZ = Math.cos(targetState.facing);
       if (spectator.cameraMode === 'first_person') {
-        desired.set(headX + forwardX * 0.3, headY + 0.02, headZ + forwardZ * 0.3);
-        desiredTarget.set(headX + forwardX * 5, headY - 0.12, headZ + forwardZ * 5);
+        // Spectator first-person is an eye-line camera, not a rigid-body debug
+        // camera. Clamp it above the local floor and look level so a transient
+        // crouch or noisy head snapshot cannot leave the viewer at boot height.
+        const floorY = isRingside(target.position) ? 0 : 1.5;
+        const eyeY = Math.max(headY + .12, floorY + 1.82);
+        desired.set(headX + forwardX * 0.38, eyeY, headZ + forwardZ * 0.38);
+        desiredTarget.set(headX + forwardX * 5, eyeY + .03, headZ + forwardZ * 5);
       } else {
         desired.set(headX - forwardX * 5.2, headY + 2.35, headZ - forwardZ * 5.2);
         desiredTarget.set(headX + forwardX * 0.55, headY - 0.32, headZ + forwardZ * 0.55);
       }
       camera.position.lerp(desired, 1 - Math.exp(-clampedDt * (spectator.cameraMode === 'first_person' ? 12 : 5.8)));
       smoothedTarget.lerp(desiredTarget, 1 - Math.exp(-clampedDt * 8.5));
+      document.documentElement.dataset.spectatorCameraY = camera.position.y.toFixed(3);
+      document.documentElement.dataset.spectatorTargetY = smoothedTarget.y.toFixed(3);
       lookAtSafe(camera as PerspectiveCamera, smoothedTarget);
       if ('fov' in camera) {
         const perspective = camera as PerspectiveCamera;

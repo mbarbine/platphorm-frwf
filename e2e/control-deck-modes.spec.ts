@@ -43,7 +43,7 @@ test('compact deck shows four exact actions and neutral collar lock starts the d
 
   const rangeSetup = lab.getByRole('button', { name: 'CLOSE-RANGE INPUT' });
   await rangeSetup.click(); await expect(rangeSetup).toBeEnabled({ timeout: 10_000 });
-  await expect(deck.locator('[data-control="grapple"]')).toHaveAttribute('data-move-label', 'COLLAR LOCK');
+  await expect(deck.locator('[data-control="grapple"]')).toHaveAttribute('data-move-label', 'VOLTAGE SLAM');
   await page.evaluate(() => {
     const hudNode = document.querySelector('.hud');
     if (!hudNode) return;
@@ -53,7 +53,7 @@ test('compact deck shows four exact actions and neutral collar lock starts the d
     new MutationObserver(observe).observe(hudNode, { attributes: true }); observe();
   });
   await page.keyboard.press('l');
-  await expect(page.getByTestId('action-strip')).toHaveAttribute('data-action-label', 'COLLAR LOCK', { timeout: 5_000 });
+  await expect(page.getByTestId('action-strip')).toHaveAttribute('data-action-label', 'VOLTAGE SLAM', { timeout: 5_000 });
   await expect(hud.locator('[data-last-action]')).toHaveAttribute('data-last-action', 'grapple', { timeout: 10_000 });
   await expect(hud.locator('[data-last-action]')).toHaveAttribute('data-last-action-status', 'executed');
   await expect(page.locator('html')).toHaveAttribute('data-saw-default-body-slam', 'true');

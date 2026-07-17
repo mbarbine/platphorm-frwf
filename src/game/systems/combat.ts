@@ -462,6 +462,7 @@ const useProp = (model: MatchModel, actorKey: FighterSlot, direction: Vec2): boo
     return true;
   }
   if (resolution.actionId === 'drop_held_prop' && actor.heldPropId) {
+    if (!startMove(actor, target, getMove('prop_drop'))) return false;
     const prop = model.props.find((candidate) => candidate.id === actor.heldPropId);
     if (prop) { prop.heldBy = null; prop.position = { x: actor.position.x + Math.sin(actor.facing) * .75, z: actor.position.z + Math.cos(actor.facing) * .75 }; }
     actor.heldPropId = null; model.announcement = 'PROP DROPPED'; model.announcementTimer = .65; return true;
@@ -469,6 +470,7 @@ const useProp = (model: MatchModel, actorKey: FighterSlot, direction: Vec2): boo
   if (resolution.actionId === 'pick_up_prop' && resolution.target) {
     const prop = model.props.find((candidate) => candidate.id === resolution.target);
     if (!prop) return false;
+    if (!startMove(actor, target, getMove('prop_pickup'))) return false;
     actor.heldPropId = prop.id; prop.heldBy = actorKey; model.announcement = `${prop.kind.toUpperCase()} READY`; model.announcementTimer = .65; return true;
   }
   return false;

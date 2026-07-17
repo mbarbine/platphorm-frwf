@@ -99,7 +99,9 @@ test('down plus strike performs a visible contact-true headbutt', async ({ page 
   });
   await lab.getByRole('button', { name: 'CONTACT-TRUE HEADBUTT' }).click();
   await expect(root).toHaveAttribute('data-saw-headbutt-motion', 'true', { timeout: 8_000 });
-  await expect.poll(async () => Number(await root.getAttribute('data-minimum-headbutt-distance')), { timeout: 10_000, intervals: [80, 160, 320] }).toBeLessThan(.5);
+  // Head colliders are capsules, so their solved surface contact occurs while
+  // the body centers are still roughly half a metre apart.
+  await expect.poll(async () => Number(await root.getAttribute('data-minimum-headbutt-distance')), { timeout: 10_000, intervals: [80, 160, 320] }).toBeLessThan(.62);
   await expect(root).toHaveAttribute('data-saw-headbutt-contact', 'true', { timeout: 15_000 });
   await expect.poll(async () => Number(await hud.getAttribute('data-opponent-health')), { timeout: 15_000, intervals: [80, 160, 320] }).toBeLessThan(100);
   await expect(hud).toHaveAttribute('data-physics-emergency-resets', '0');

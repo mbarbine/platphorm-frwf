@@ -216,14 +216,14 @@ describe('deterministic combat rules', () => {
   it('expires stale buffered commands instead of executing them later', () => {
     const runtime = new BodyWorksRuntime(); const expired: string[] = []; let executed = false;
     runtime.captureInput('player', { ...none, commands: ['heavy'] }, 1);
-    runtime.resolveCommands('player', 1.151, () => { executed = true; return true; }, (command) => expired.push(command.command));
+    runtime.resolveCommands('player', 1.651, () => { executed = true; return true; }, (command) => expired.push(command.command));
     expect(executed).toBe(false); expect(expired).toEqual(['heavy']); expect(runtime.pendingCommandCount()).toBe(0); expect(runtime.metrics.actionExpired).toBe(1); expect(runtime.actionFeedback()?.status).toBe('expired');
   });
 
   it('uses a shorter context window and rejects pending control when the match pauses', () => {
     const runtime = new BodyWorksRuntime(); let executed = false;
     runtime.captureInput('player', { ...none, actions: [createActionEvent('contextAction', { source: 'keyboard', timestamp: 0, sequence: 51 })] }, 0);
-    runtime.resolveCommands('player', .111, () => { executed = true; return true; });
+    runtime.resolveCommands('player', .501, () => { executed = true; return true; });
     expect(executed).toBe(false); expect(runtime.metrics.actionExpired).toBe(1);
     runtime.captureInput('player', { ...none, actions: [createActionEvent('grapple', { source: 'keyboard', timestamp: 120, sequence: 52 })] }, .12);
     expect(runtime.rejectPendingActions('player', .13, 'Match paused')).toBe(1);
@@ -627,6 +627,12 @@ describe('deterministic combat rules', () => {
     expect(requestCommand(model, 'player', 'grapple')).toBe(true); expect(model.player.moveId).toBe('piledriver');
   });
 
+  it('starts the requested piledriver directly from back plus grapple', () => {
+    const model = createMatch('brick', 'vex', 'standard', 'normal'); model.player.position = { x: 0, z: 0 }; model.opponent.position = { x: 1, z: 0 };
+    expect(requestCommand(model, 'player', 'grapple', { x: 0, z: 1 })).toBe(true);
+    expect(model.player.moveId).toBe('piledriver'); expect(model.grapple?.phase).toBe('reach');
+  });
+
   it('uses the shared physical collar-tie range for a neutral grapple', () => {
     // BLOCKBUSTER: Updated grapple range check from 1.65 / 1.66 to 2.15 / 2.16
     const reachable = createMatch('brick', 'vex', 'standard', 'normal'); reachable.player.position = { x: 0, z: 0 }; reachable.opponent.position = { x: 2.15, z: 0 };
@@ -700,6 +706,10 @@ describe('deterministic combat rules', () => {
     const model = createMatch('brick', 'vex', 'chaos', 'normal'); const chair = model.props.find((prop) => prop.kind === 'chair');
     if (!chair) throw new Error('Chaos match must provide a chair');
     model.player.position = { ...chair.position }; expect(requestCommand(model, 'player', 'interact')).toBe(true);
+    expect(model.player).toMatchObject({ heldPropId: chair.id, moveId: 'prop_pickup', attackPhase: 'anticipation' });
+    // Finish the visible pickup before asking for the next prop action. An
+    // input cannot skip or overwrite the motion already in progress.
+    model.player.state = 'idle'; model.player.moveId = null; model.player.attackPhase = null; model.player.stateElapsed = 0;
     model.opponent.position = { x: 1, z: 0 }; model.player.position = { x: -2, z: 0 };
     expect(requestCommand(model, 'player', 'interact', { x: 1, z: 0 })).toBe(true);
     expect(model.player).toMatchObject({ heldPropId: null, moveId: 'prop_throw', attackPhase: 'anticipation' });

@@ -69,7 +69,7 @@ export const useMatchStore = create<MatchStore>((set) => ({
       if (accepted && buffered.command === 'context' && wasClimbing && model.player.state === 'climbing') bodyWorksRuntime.requestCornerClimb('player', model.player.position, model.player.climbStage || 1);
       if (accepted && wasClimbing && model.player.moveId && getMove(model.player.moveId).category === 'aerial') bodyWorksRuntime.requestCornerDive('player', model[model.targets.player].position);
       if (accepted && buffered.command === 'context' && !wasClimbing && wasNearApron && model.player.state === 'locomotion') bodyWorksRuntime.requestApronTransition('player', model.player.position);
-      const displayName = buffered.command === 'grapple' && !wasGrappling ? 'COLLAR LOCK'
+      const displayName = buffered.command === 'grapple' && !wasGrappling && model.player.moveId ? getMove(model.player.moveId).displayName.toUpperCase()
         : model.player.moveId ? getMove(model.player.moveId).displayName.toUpperCase()
           : contextPreview ?? propPreview ?? undefined;
       return { executed: accepted, displayName };

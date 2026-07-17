@@ -1,6 +1,6 @@
 import { getMove } from '../game/data/moves';
 import { canTransitionThroughRopes } from '../game/systems/combat';
-import { combatDirection, GRAPPLE_ACQUISITION_RANGE, selectDirectionalGrapple, selectDirectionalStrike } from '../game/systems/moveSelection';
+import { combatDirection, GRAPPLE_ACQUISITION_RANGE, selectDirectionalGrapple, selectDirectionalStrike, selectGrappleEntryMove } from '../game/systems/moveSelection';
 import type { ControlDevice, FighterRuntime, Vec2 } from '../game/types/game';
 import type { ControlDeckMode } from '../game/state/settings';
 
@@ -71,7 +71,7 @@ export function buildControlLabels(player: FighterRuntime, opponent: FighterRunt
   } else if (player.state === 'pinned') {
     labels.quick = 'RECOVER'; labels.heavy = 'RECOVER'; labels.grapple = 'RECOVER'; labels.counter = 'KICK OUT'; labels.context = 'KICK OUT';
   } else {
-    labels.grapple = distance <= GRAPPLE_ACQUISITION_RANGE ? BASE_LABELS.grapple : 'CLOSE DISTANCE';
+    labels.grapple = distance <= GRAPPLE_ACQUISITION_RANGE ? moveLabel(selectGrappleEntryMove(effectiveDirection)) : 'CLOSE DISTANCE';
     if (player.momentum >= 100 && ['staggered', 'downed'].includes(opponent.state) && distance < 2.2) labels.context = 'SIGNATURE FINISHER';
     else if (opponent.state === 'downed' && distance < 1.7) labels.context = 'PIN SHOULDERS';
     else if (nearCorner) labels.context = 'CLIMB TURNBUCKLE';
@@ -149,7 +149,7 @@ export function buildControlReadout(player: FighterRuntime, opponent: FighterRun
   else if (canTransitionThroughRopes(player.position)) callout = `${actionKey} · ${ringside ? 'ENTER RING' : 'EXIT TO RINGSIDE'} THROUGH CENTER ROPE`;
   else if (!nearCorner && (Math.abs(player.position.x) > 4.1 || Math.abs(player.position.z) > 3.2)) callout = `NEAR ROPES · SPRINT TO REBOUND · ${actionKey} AT APRON TO EXIT RING`;
   else if (player.counterWindow > 0) callout = `${keys.counter} NOW · REVERSE THE ATTACK`;
-  else if (distance <= GRAPPLE_ACQUISITION_RANGE) callout = `${keys.grapple} COLLAR LOCK · BODY SLAM DEFAULT · ${keys.quick} RAPID COMBO · ${keys.heavy} ${labels.heavy}`;
+  else if (distance <= GRAPPLE_ACQUISITION_RANGE) callout = `${keys.grapple} BODY SLAM · BACK/DOWN + ${keys.grapple} PILEDRIVER · CONTACT MUST LAND · ${keys.quick} RAPID COMBO`;
   else if (distance < 4.8 && movementHeld && !runHeld) callout = `IN RANGE · RAPID ${keys.quick}=JAB→ONE-TWO · ${keys.heavy}=KICK · HOLD WASD+${keys.quick}/${keys.heavy} FOR DIRECTIONAL STRIKES`;
 
   return { active, callout, labels, state };

@@ -36,9 +36,15 @@ export const selectDirectionalGrapple = (direction: Vec2, button: GrappleButton)
 
 /** A directionless first L establishes the learner-friendly default slam. A
  * second L during the secured clinch still selects the preserved piledriver. */
-export const selectGrappleEntryMove = (direction: Vec2): string => combatDirection(direction) === 'neutral'
-  ? 'slam'
-  : selectDirectionalGrapple(direction, 'grapple');
+export const selectGrappleEntryMove = (direction: Vec2): string => {
+  const directionId = combatDirection(direction);
+  // The two moves players ask for most have one-step, visible workflows:
+  // neutral L/B is the body slam; back/down + L/B is the piledriver. Other
+  // directions retain the deeper grapple grid once those basics are learned.
+  if (directionId === 'neutral') return 'slam';
+  if (directionId === 'down') return 'piledriver';
+  return selectDirectionalGrapple(direction, 'grapple');
+};
 
 export const selectDirectionalStrike = (direction: Vec2, button: StrikeButton, comboStep = 0): string => {
   const directionId = combatDirection(direction);

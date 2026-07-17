@@ -26,7 +26,7 @@ describe('PlatPhorm static game contract', () => {
     expect(index.data.capabilities).toEqual(expect.arrayContaining(['default_five_wrestler_battle_royale', 'battle_royale_target_cycle', 'battle_royale_spectator_controls', 'physical_grapple_and_slam', 'rope_rebound_and_ring_traversal', 'turnbuckle_aerials', 'webxr_arena_mode', 'spatial_audio']));
     const health = JSON.parse(read('public/api/health')) as { data: Record<string, unknown> };
     expect(health.data).toMatchObject({ status: 'operational', routeComplianceScore: 100, traceEnabled: false, vercelMetadataCaptured: false });
-    expect(health.data.releaseIdentity).toMatchObject({ fighterCount: 5, moveCount: 36, criticalAssetCount: 1 });
+    expect(health.data.releaseIdentity).toMatchObject({ fighterCount: 5, moveCount: 38, criticalAssetCount: 1 });
     expect(health.data.observabilityComplianceScore).toBeNull();
   });
 

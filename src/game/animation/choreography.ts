@@ -318,6 +318,18 @@ const strikeFrames = (moveId: string): readonly PoseKeyframe[] => {
     { at: .82, pose: pose({ ...POSES.recovery, rightArm: [-1.08, 0, .32], rightForearm: [-.18, 0, 0], rootYaw: -.28 }) },
     { at: 1, pose: POSES.combatIdle },
   ];
+  if (moveId === 'prop_pickup') return [
+    { at: 0, pose: POSES.combatIdle },
+    { at: .5, pose: pose({ torso: [.92, 0, 0], leftArm: [-1.42, 0, -.38], rightArm: [-1.52, 0, .38], leftForearm: [-.42, 0, 0], rightForearm: [-.34, 0, 0], leftLeg: [.62, 0, 0], rightLeg: [.58, 0, 0], leftShin: [-1.08, 0, 0], rightShin: [-1.04, 0, 0], rootY: -.46, rootTilt: .72 }) },
+    { at: .76, pose: pose({ torso: [-.18, 0, 0], leftArm: [-1.48, 0, -.42], rightArm: [-1.62, 0, .42], leftForearm: [-.5, 0, 0], rightForearm: [-.38, 0, 0], rootY: .08, rootTilt: -.12 }) },
+    { at: 1, pose: POSES.combatIdle },
+  ];
+  if (moveId === 'prop_drop') return [
+    { at: 0, pose: POSES.combatIdle },
+    { at: .48, pose: pose({ torso: [.34, 0, 0], rightArm: [-.72, 0, .52], rightForearm: [-.18, 0, 0], leftArm: [-.72, 0, -.42], leftForearm: [-.9, 0, 0], rootY: -.18, rootTilt: .28 }) },
+    { at: .74, pose: pose({ torso: [.52, 0, 0], rightArm: [-1.28, 0, .4], rightForearm: [-.08, 0, 0], leftArm: [-.82, 0, -.45], leftForearm: [-.92, 0, 0], rootY: -.28, rootTilt: .42 }) },
+    { at: 1, pose: POSES.combatIdle },
+  ];
   if (moveId === 'uppercut') return [
     { at: 0, pose: POSES.combatIdle },
     // Deep coiled crouch and torso wind-up

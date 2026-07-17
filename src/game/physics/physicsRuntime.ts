@@ -1572,6 +1572,12 @@ export class BodyWorksRuntime {
     const definition = fighterById(fighter.definitionId);
     const fatigue = 1 - fighter.body.muscle;
     const pose = overridePose ?? targetPoseFor(fighter); const targets = physicalPoseTargets(pose, fighter.facing);
+    // A headbutt has to drive the actual head rigid body through the torso's
+    // forward lean. Keeping the head locked to pelvis yaw made the animation
+    // readable in the renderer while the physical head never reached contact.
+    // This remains a joint-motor target: no body is teleported and no hit is
+    // awarded unless Rapier reports the solved head-to-head manifold.
+    if (fighter.moveId === 'headbutt') targets.head = targets.chest;
     const strike = fighter.moveId ? strikeDriveProfile(fighter.moveId) : null;
     const strikeSegments = strike ? strikePoseChain(strike.source) : [];
     for (const [segment, body] of Object.entries(rig.bodies) as [BodySegmentId, RapierRigidBody][]) {
