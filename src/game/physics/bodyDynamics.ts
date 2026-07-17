@@ -139,6 +139,16 @@ export const stepBodyDynamics = (fighter: FighterRuntime, dt: number): { landed:
   body.leanSide = clamp(body.leanSide + body.sideVelocity * dt, -.85, .85);
   body.twist = clamp(body.twist + body.twistVelocity * dt, -1.2, 1.2);
   body.headSnap = clamp(body.headSnap + body.headVelocity * dt, -1.1, 1.1);
+  if (deckBound) {
+    // The authored fall/get-up owns the visible root. Clear impact lean while
+    // it plays so the first idle frame cannot inherit a permanent backward
+    // slant from the collision that caused the knockdown.
+    const recoveryDamping = Math.exp(-dt * 18);
+    body.leanForward *= recoveryDamping; body.leanSide *= recoveryDamping;
+    body.leanVelocity *= recoveryDamping; body.sideVelocity *= recoveryDamping;
+    if (Math.abs(body.leanForward) < .002) body.leanForward = 0;
+    if (Math.abs(body.leanSide) < .002) body.leanSide = 0;
+  }
 
   const recoverable = ['idle', 'locomotion', 'blocking', 'downed', 'recovering'].includes(fighter.state);
   if (recoverable && body.verticalOffset <= .001) body.balance = clamp(body.balance + dt * (2.5 + body.muscle * 6.5), 0, 100);

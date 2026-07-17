@@ -14,7 +14,7 @@ import { fighterVisual } from '../presentation/fighterVisuals';
 import type { FighterVisualProfile } from '../presentation/fighterVisuals';
 import type { FighterDetail } from '../presentation/presentationManifest';
 import { bodyWorksRuntime } from '../physics/physicsRuntime';
-import { visiblePelvisDrop } from '../presentation/matPresentation';
+import { authoredDeckPoseOwnsRoot, visiblePelvisDrop } from '../presentation/matPresentation';
 import { strikeDriveProfile } from '../physics/strikeDynamics';
 import type { AnimationKey, FighterDefinition, FighterId, FighterRuntime, FighterSlot } from '../types/game';
 
@@ -469,6 +469,7 @@ export function FighterModel({ runtime, counterpart, fighterId, preview = false,
   const previousHealth = useRef(runtime?.health ?? 100);
   const elapsed = useRef(0);
   const presentationInitialized = useRef(false);
+  const previousRuntimeState = useRef(runtime?.state ?? null);
   const trailAttackId = useRef(-1);
   const trailSource = useRef<string | null>(null);
   const trailVectors = useRef({
@@ -550,11 +551,24 @@ export function FighterModel({ runtime, counterpart, fighterId, preview = false,
     const locomotionLean = movement && ['idle', 'forward', 'backward', 'strafe-left', 'strafe-right', 'diagonal', 'run', 'braking'].includes(movement.state);
     const physicalForwardLean = safeNumber(runtime?.body?.leanForward, 0);
     const physicalSideLean = safeNumber(runtime?.body?.leanSide, 0);
-    const visibleForwardLean = locomotionLean ? Math.max(-.18, Math.min(.24, physicalForwardLean)) : physicalForwardLean;
-    const visibleSideLean = locomotionLean ? Math.max(-.14, Math.min(.14, physicalSideLean)) : physicalSideLean;
+    if (side === 'player') {
+      document.documentElement.dataset.playerLeanForward = physicalForwardLean.toFixed(3);
+      document.documentElement.dataset.playerLeanSide = physicalSideLean.toFixed(3);
+    }
+    const authoredDeckRoot = authoredDeckPoseOwnsRoot(runtime);
+    const visibleForwardLean = authoredDeckRoot ? 0 : locomotionLean ? Math.max(-.18, Math.min(.24, physicalForwardLean)) : physicalForwardLean;
+    const visibleSideLean = authoredDeckRoot ? 0 : locomotionLean ? Math.max(-.14, Math.min(.14, physicalSideLean)) : physicalSideLean;
+    const completedRecovery = previousRuntimeState.current === 'recovering' && runtime?.state === 'idle';
+    if (completedRecovery) {
+      // At low frame rates the final interpolated kneel could otherwise remain
+      // visible after controls had already unlocked.
+      root.current.rotation.x = animatedPose.rootTilt + visibleForwardLean + fatigue * profile.fatigueDroop * .09;
+      root.current.rotation.z = animatedPose.rootRoll + visibleSideLean + personalityRoll;
+    }
     root.current.rotation.x += (animatedPose.rootTilt + visibleForwardLean + fatigue * profile.fatigueDroop * .09 - root.current.rotation.x) * smooth;
     root.current.rotation.y += (animatedPose.rootYaw - root.current.rotation.y) * smooth;
     root.current.rotation.z += (animatedPose.rootRoll + visibleSideLean + personalityRoll - root.current.rotation.z) * smooth;
+    previousRuntimeState.current = runtime?.state ?? null;
 
     const apply = (group: Group, rx: number, ry: number, rz: number, droop = 0): void => {
       group.rotation.x += (rx + droop - group.rotation.x) * smooth;

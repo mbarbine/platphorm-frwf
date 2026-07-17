@@ -194,6 +194,22 @@ describe('Rapier-backed Bodyworks integration', () => {
     world.free();
   });
 
+  it('locks one physical recovery side instead of flickering between slanted downed poses', () => {
+    const { world, runtime, model, rig } = makeHarness();
+    model.player.state = 'downed'; model.player.stateElapsed = .3; model.player.downTimer = 20;
+    const orientations: string[] = [];
+    for (let frame = 0; frame < 16; frame += 1) {
+      const angle = Math.PI / 2; const half = Math.sin(angle / 2); const w = Math.cos(angle / 2);
+      rig.bodies.chest.setRotation(frame % 2 === 0 ? { x: half, y: 0, z: 0, w } : { x: 0, y: 0, z: half, w }, true);
+      for (const body of Object.values(rig.bodies)) body.setLinvel({ x: 0, y: 0, z: 0 }, true);
+      stepHarness(world, runtime, model);
+      orientations.push(model.player.recoveryOrientation);
+    }
+    expect(new Set(orientations.slice(1)).size).toBe(1);
+    expect(runtime.fighterSnapshot('player').pelvisY).toBeGreaterThan(1.86);
+    world.free();
+  });
+
   it('completes a two-grip lift and scores only the solved torso-to-mat landing', () => {
     const { world, runtime, model } = makeGrappleHarness();
     for (let frame = 0; frame < 45; frame += 1) stepGrappleHarness(world, runtime, model);

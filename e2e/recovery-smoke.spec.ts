@@ -22,7 +22,9 @@ test('back recovery physically plants a boot and releases controls', async ({ pa
     leftFootY: Number(await hud.getAttribute('data-player-left-foot-y')),
     rightFootY: Number(await hud.getAttribute('data-player-right-foot-y')),
   }), { timeout: 120_000, intervals: [80, 160, 320, 640, 1_000] }).toMatchObject({ state: 'idle' });
+  await expect.poll(async () => Number(await hud.getAttribute('data-player-support-feet')), { timeout: 15_000, intervals: [80, 160, 320, 640] }).toBeGreaterThanOrEqual(1);
+  await expect.poll(async () => Math.abs(Number(await page.locator('html').getAttribute('data-player-lean-forward'))), { timeout: 10_000 }).toBeLessThan(.03);
+  await expect.poll(async () => Math.abs(Number(await page.locator('html').getAttribute('data-player-lean-side'))), { timeout: 10_000 }).toBeLessThan(.03);
   expect(Number(await hud.getAttribute('data-player-upright'))).toBeGreaterThan(.65);
-  expect(Number(await hud.getAttribute('data-player-support-feet'))).toBeGreaterThanOrEqual(1);
   await expect(hud).toHaveAttribute('data-physics-emergency-resets', '0');
 });

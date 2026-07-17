@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
+import type { Page } from '@playwright/test';
 
-const pauseOnHudAttribute = async (page: import('@playwright/test').Page, attribute: string, pattern: string, marker: string): Promise<void> => {
+const pauseOnHudAttribute = async (page: Page, attribute: string, pattern: string, marker: string): Promise<void> => {
   await page.evaluate(({ attribute, pattern, marker }) => {
     const hud = document.querySelector('.hud'); if (!hud) throw new Error('HUD not mounted');
     const expression = new RegExp(pattern);
@@ -62,7 +63,12 @@ test('captures the shipping combat presentation at decisive motion beats', async
   await page.getByRole('button', { name: 'SKIP REPLAY' }).click();
   await pauseOnHudAttribute(page, 'data-opponent-state', '^(downed|recovering)$', 'capturedDeckRecovery');
   await expect.poll(async () => await page.locator('html').getAttribute('data-captured-deck-recovery'), { timeout: 20_000 }).toMatch(/downed|recovering/);
+  // The lab panel is diagnostic-only and can cover the downed wrestler. Keep
+  // the gameplay frame unobstructed while the paused camera settles.
+  const unobstructedCaptureStyle = await page.addStyleTag({ content: '.physics-lab { visibility: hidden !important; }' });
+  await page.waitForTimeout(1_200);
   await page.screenshot({ path: testInfo.outputPath('07-deck-safe-recovery.png') });
+  await unobstructedCaptureStyle.evaluate((style) => (style as HTMLStyleElement).remove());
   await lab.getByRole('button', { name: 'PLAY' }).click();
   await expect.poll(async () => await hud.getAttribute('data-opponent-state'), { timeout: 45_000 }).toMatch(/idle|locomotion/);
   await page.screenshot({ path: testInfo.outputPath('08-post-slam-recovery.png') });

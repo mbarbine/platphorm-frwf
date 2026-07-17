@@ -151,6 +151,7 @@ interface FighterRigRegistration {
   jointFaultReported: boolean;
   settlingFrames: number;
   landingSupportFrames: number;
+  recoveryOrientationCaptured: boolean;
   lastSafeCenter: Vec2;
   neutralAnchor: Vec2 | null;
 }
@@ -287,7 +288,7 @@ export class BodyWorksRuntime {
       const position = body.translation();
       restOffsets[segment] = { x: position.x - pelvisPosition.x, y: position.y - pelvisPosition.y, z: position.z - pelvisPosition.z };
     }
-    this.rigs.set(fighter, { bodies, restOffsets, restPelvisY: pelvisPosition.y, rootStabilized: false, skeletonStabilized: false, rotationSignature: '', rotationallyDynamic: new Set<BodySegmentId>(), supportContacts: new Set<BodySegmentId>(), jumpQueued: false, jumpCooldown: 0, ropeContact: null, reboundTracking: false, cornerAnchor: null, apronAnchor: null, jointFaultFrames: 0, jointFaultReported: false, settlingFrames: 0, landingSupportFrames: 0, lastSafeCenter: { x: pelvisPosition.x, z: pelvisPosition.z }, neutralAnchor: { x: pelvisPosition.x, z: pelvisPosition.z } });
+    this.rigs.set(fighter, { bodies, restOffsets, restPelvisY: pelvisPosition.y, rootStabilized: false, skeletonStabilized: false, rotationSignature: '', rotationallyDynamic: new Set<BodySegmentId>(), supportContacts: new Set<BodySegmentId>(), jumpQueued: false, jumpCooldown: 0, ropeContact: null, reboundTracking: false, cornerAnchor: null, apronAnchor: null, jointFaultFrames: 0, jointFaultReported: false, settlingFrames: 0, landingSupportFrames: 0, recoveryOrientationCaptured: false, lastSafeCenter: { x: pelvisPosition.x, z: pelvisPosition.z }, neutralAnchor: { x: pelvisPosition.x, z: pelvisPosition.z } });
     this.applyLabAdditionalMass(fighter);
     this.recount(jointCount);
     const registeredGeneration = this.generation;
@@ -497,7 +498,7 @@ export class BodyWorksRuntime {
       body.setTranslation({ x: origin.x + rotated.x, y: anchorY + rotated.y, z: origin.z + rotated.z }, true);
       body.setRotation(rootRotation, true); body.setLinvel({ x: 0, y: 0, z: 0 }, true); body.setAngvel({ x: 0, y: 0, z: 0 }, true);
     }
-    rig.rootStabilized = false; rig.skeletonStabilized = false; rig.rotationSignature = ''; rig.rotationallyDynamic.clear(); rig.supportContacts.clear(); rig.settlingFrames = 0; rig.landingSupportFrames = 0;
+    rig.rootStabilized = false; rig.skeletonStabilized = false; rig.rotationSignature = ''; rig.rotationallyDynamic.clear(); rig.supportContacts.clear(); rig.settlingFrames = 0; rig.landingSupportFrames = 0; rig.recoveryOrientationCaptured = false;
   }
 
   private placeFighter(fighter: FighterKey, target: Vec2): void {
@@ -513,7 +514,7 @@ export class BodyWorksRuntime {
       body.setTranslation({ x: target.x + offset.x, y: placementPelvisY + offset.y, z: target.z + offset.z }, true);
       body.setLinvel({ x: 0, y: 0, z: 0 }, true); body.setAngvel({ x: 0, y: 0, z: 0 }, true); body.setRotation({ x: 0, y: 0, z: 0, w: 1 }, true);
     }
-    rig.rootStabilized = false; rig.skeletonStabilized = false; rig.rotationSignature = ''; rig.rotationallyDynamic.clear(); rig.supportContacts.clear(); rig.supportContacts.add('leftFoot'); rig.supportContacts.add('rightFoot'); rig.jumpQueued = false; rig.ropeContact = null; rig.reboundTracking = false; rig.cornerAnchor = null; rig.apronAnchor = null; rig.jointFaultFrames = 0; rig.jointFaultReported = false; rig.settlingFrames = 0; rig.landingSupportFrames = 0; rig.lastSafeCenter = { ...target }; rig.neutralAnchor = { ...target };
+    rig.rootStabilized = false; rig.skeletonStabilized = false; rig.rotationSignature = ''; rig.rotationallyDynamic.clear(); rig.supportContacts.clear(); rig.supportContacts.add('leftFoot'); rig.supportContacts.add('rightFoot'); rig.jumpQueued = false; rig.ropeContact = null; rig.reboundTracking = false; rig.cornerAnchor = null; rig.apronAnchor = null; rig.jointFaultFrames = 0; rig.jointFaultReported = false; rig.settlingFrames = 0; rig.landingSupportFrames = 0; rig.recoveryOrientationCaptured = false; rig.lastSafeCenter = { ...target }; rig.neutralAnchor = { ...target };
   }
 
   setFootContact(fighter: FighterKey, foot: BodySegmentId, touching: boolean): void {
@@ -1049,16 +1050,17 @@ export class BodyWorksRuntime {
       const offset = rig.restOffsets[segment];
       if (!body?.isValid() || !offset) continue;
       const bodyPosition = body.translation(); const bodyVelocity = body.linvel();
+      const isFoot = segment.includes('Foot');
+      const contactBias = isFoot ? .045 : 0;
       const target = {
         x: pelvisPosition.x + offset.x * cosine + offset.z * sine,
         // Recovery targets the legal standing frame, not the wrestler's
         // current fallen pelvis. The latter put the intended boot position
         // below the canvas and made the joint solver fold a knee over the
         // torso instead of building a stance.
-        y: targetPelvisY + offset.y,
+        y: targetPelvisY + offset.y - contactBias,
         z: pelvisPosition.z - offset.x * sine + offset.z * cosine,
       };
-      const isFoot = segment.includes('Foot');
       const stiffness = isFoot ? 74 : 58;
       const damping = isFoot ? 13 : 11;
       const acceleration = {
@@ -1078,7 +1080,7 @@ export class BodyWorksRuntime {
         // never writes a position: Rapier still resolves every intermediate
         // joint and mat contact before either foot can become support.
         const desiredX = clamp((target.x - bodyPosition.x) * 5.2, -3.2, 3.2);
-        const desiredY = clamp((targetPelvisY + offset.y - bodyPosition.y) * 6.4, -4.2, 3.6);
+        const desiredY = clamp((targetPelvisY + offset.y - contactBias - bodyPosition.y) * 6.4, -4.2, 3.6);
         const desiredZ = clamp((target.z - bodyPosition.z) * 5.2, -3.2, 3.2);
         const response = .1 + fighter.body.muscle * .08;
         body.setLinvel({
@@ -1990,19 +1992,24 @@ export class BodyWorksRuntime {
     if (!['airborne', 'downed', 'recovering', 'pinned', 'defeated'].includes(fighter.state)) return;
     const rig = this.rigs.get(key); if (!rig) return;
     const surfaceY = isRingside(fighter.position) ? .4 : VOLT_DOME.ring.deckY;
-    const core = (['pelvis', 'abdomen', 'chest', 'head'] as const).map((segment) => rig.bodies[segment]).filter((body): body is RapierRigidBody => Boolean(body?.isValid()));
-    const lowestCore = core.reduce((lowest, body) => Math.min(lowest, body.translation().y), Number.POSITIVE_INFINITY);
-    if (!Number.isFinite(lowestCore) || lowestCore >= surfaceY + .015) return;
+    const coreRadii = { pelvis: .22, abdomen: .21, chest: .27, head: .18 } as const;
+    const lowestCoreClearance = (Object.keys(coreRadii) as (keyof typeof coreRadii)[]).reduce((lowest, segment) => {
+      const body = rig.bodies[segment];
+      return body?.isValid() ? Math.min(lowest, body.translation().y - coreRadii[segment]) : lowest;
+    }, Number.POSITIVE_INFINITY);
+    if (!Number.isFinite(lowestCoreClearance) || lowestCoreClearance >= surfaceY + .008) return;
     // Preserve the entire articulated pose while moving the connected tree out
     // of the fixed surface. This is a bounded penetration correction, not a
     // standing reset: the wrestler remains downed and must recover normally.
-    const correctionY = clamp(surfaceY + .065 - lowestCore, .05, .28);
+    const correctionY = clamp(surfaceY + .018 - lowestCoreClearance, .003, .28);
+    const settlingOnDeck = ['downed', 'recovering', 'pinned', 'defeated'].includes(fighter.state);
     for (const body of Object.values(rig.bodies)) {
       if (!body?.isValid()) continue;
       const position = body.translation(); const linear = body.linvel(); const angular = body.angvel();
       body.setTranslation({ x: position.x, y: position.y + correctionY, z: position.z }, true);
-      body.setLinvel({ x: linear.x * .82, y: Math.max(0, linear.y * .12), z: linear.z * .82 }, true);
-      body.setAngvel({ x: angular.x * .45, y: angular.y * .45, z: angular.z * .45 }, true);
+      body.setLinvel({ x: linear.x * .82, y: settlingOnDeck && Math.abs(linear.y) < .65 ? 0 : Math.max(0, linear.y * .12), z: linear.z * .82 }, true);
+      const angularDamping = settlingOnDeck ? .22 : .45;
+      body.setAngvel({ x: angular.x * angularDamping, y: angular.y * angularDamping, z: angular.z * angularDamping }, true);
     }
     this.metrics.containmentCount += 1;
   }
@@ -2060,13 +2067,16 @@ export class BodyWorksRuntime {
     const groundedPelvisY = rig.restPelvisY - (physicallyOnRingsideFloor ? 1.46 : 0);
     fighter.body.verticalOffset = Math.max(0, position.y - groundedPelvisY);
     fighter.body.verticalVelocity = velocity.y;
-    if (!preserveRecoveryOrientation && fighter.state === 'downed' && Math.hypot(velocity.x, velocity.y, velocity.z) < 1.6) {
+    if (fighter.state === 'recovering' && rig.supportContacts.size === 0) fighter.body.balance = Math.min(fighter.body.balance, 69);
+    if (fighter.state !== 'downed') rig.recoveryOrientationCaptured = false;
+    if (!preserveRecoveryOrientation && fighter.state === 'downed' && !rig.recoveryOrientationCaptured && Math.hypot(velocity.x, velocity.y, velocity.z) < 1.6) {
       const chestRotation = rig.bodies.chest?.rotation() ?? rotation;
       const frontUp = 2 * (chestRotation.y * chestRotation.z - chestRotation.w * chestRotation.x);
       const rightUp = 2 * (chestRotation.x * chestRotation.y + chestRotation.w * chestRotation.z);
       fighter.recoveryOrientation = Math.abs(frontUp) >= Math.abs(rightUp)
         ? frontUp > 0 ? 'back' : 'front'
         : rightUp > 0 ? 'right' : 'left';
+      rig.recoveryOrientationCaptured = true;
     }
   }
 
