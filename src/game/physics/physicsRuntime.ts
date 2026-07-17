@@ -1987,7 +1987,7 @@ export class BodyWorksRuntime {
 
   private correctCoreDeckPenetration(key: FighterKey, model: MatchModel): void {
     const fighter = model[key];
-    if (!['airborne', 'downed', 'recovering'].includes(fighter.state)) return;
+    if (!['airborne', 'downed', 'recovering', 'pinned', 'defeated'].includes(fighter.state)) return;
     const rig = this.rigs.get(key); if (!rig) return;
     const surfaceY = isRingside(fighter.position) ? .4 : VOLT_DOME.ring.deckY;
     const core = (['pelvis', 'abdomen', 'chest', 'head'] as const).map((segment) => rig.bodies[segment]).filter((body): body is RapierRigidBody => Boolean(body?.isValid()));

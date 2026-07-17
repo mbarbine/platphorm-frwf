@@ -14,6 +14,7 @@ import { fighterVisual } from '../presentation/fighterVisuals';
 import type { FighterVisualProfile } from '../presentation/fighterVisuals';
 import type { FighterDetail } from '../presentation/presentationManifest';
 import { bodyWorksRuntime } from '../physics/physicsRuntime';
+import { visiblePelvisDrop } from '../presentation/matPresentation';
 import { strikeDriveProfile } from '../physics/strikeDynamics';
 import type { AnimationKey, FighterDefinition, FighterId, FighterRuntime, FighterSlot } from '../types/game';
 
@@ -534,7 +535,7 @@ export function FighterModel({ runtime, counterpart, fighterId, preview = false,
     const breath = Math.sin(t * 2.05 * tempo + phaseOffset) * (.012 + fatigue * .02);
     const personalityRoll = idle ? Math.sin(t * 1.4 * tempo + phaseOffset) * .018 * (id === 'vex' ? 1.5 : 1) : 0;
     const muscle = safeNumber(runtime?.body?.muscle, 1);
-    const pelvisDrop = safeNumber(runtime?.body?.pelvisDrop, 0);
+    const pelvisDrop = visiblePelvisDrop(runtime);
     // Rapier owns the shell lift. Preserve enough of the paired performance
     // pose to make the carried body visibly clear the mat, while keeping the
     // impact/downed offsets shallow so the visual rig cannot sink through it.
@@ -659,7 +660,11 @@ export function FighterModel({ runtime, counterpart, fighterId, preview = false,
       if (trail && sourcePoint && runtime.attackPhase === 'active') {
         const vectors = trailVectors.current; vectors.current.copy(sourcePoint);
         if (trailAttackId.current !== runtime.attackInstanceId) {
-          trailAttackId.current = runtime.attackInstanceId; vectors.previous.copy(vectors.current);
+          // Anticipation continuously primes `previous` with the chambered
+          // limb position. Keep that point for the first active frame so a
+          // low-frame-rate contact still draws the full punch/kick streak.
+          trailAttackId.current = runtime.attackInstanceId;
+          if (vectors.previous.lengthSq() < .0001) vectors.previous.copy(vectors.current);
         }
         vectors.localCurrent.copy(vectors.current); vectors.localPrevious.copy(vectors.previous);
         shell.current.worldToLocal(vectors.localCurrent); shell.current.worldToLocal(vectors.localPrevious);

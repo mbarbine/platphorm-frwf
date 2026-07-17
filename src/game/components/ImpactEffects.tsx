@@ -23,9 +23,10 @@ export function ImpactEffects() {
     const count = Math.min(38, Math.round(baseCount + impact.intensity * 5.5));
     setBursts((current) => current.some((burst) => burst.id === impact.id) ? current : [...current.slice(-5), { id: impact.id, x: impact.position.x, z: impact.position.z, color, kind, tier, intensity: impact.intensity, lowFlash, count: lowFlash ? Math.max(4, Math.ceil(count * .58)) : count }]);
     // Contact flash sphere at the impact body region
-    if (!lowFlash && ['light', 'heavy', 'counter', 'weapon'].includes(impact.kind)) {
-      const y = impact.region === 'head' ? 3.85 : impact.region === 'pelvis' || impact.region?.includes('Leg') ? 2.15 : 3.25;
-      const scale = impact.kind === 'heavy' || impact.kind === 'counter' ? 1.45 : 1.0;
+    if (!lowFlash && ['light', 'heavy', 'counter', 'weapon', 'grapple', 'table', 'finisher', 'ko'].includes(impact.kind)) {
+      const matImpact = ['grapple', 'table', 'finisher', 'ko'].includes(impact.kind);
+      const y = matImpact ? 2.08 : impact.region === 'head' ? 3.85 : impact.region === 'pelvis' || impact.region?.includes('Leg') ? 2.15 : 3.25;
+      const scale = matImpact ? 1.9 : impact.kind === 'heavy' || impact.kind === 'counter' ? 1.55 : 1.18;
       setHitFlashes((prev) => [...prev.slice(-4), { id: impact.id, x: impact.position.x, z: impact.position.z, y, scale }]);
     }
   }, [impactId, lowFlash]);
@@ -45,14 +46,14 @@ function HitFlashView({ flash }: { flash: HitFlash }) {
   useFrame((_, dt) => {
     age.current += dt;
     if (!ref.current) return;
-    const opacity = Math.max(0, 1 - age.current * 8.5);
-    const scale = flash.scale * (1 + age.current * 2.8);
+    const opacity = Math.max(0, 1 - age.current * 4.2);
+    const scale = flash.scale * (1 + age.current * 3.4);
     ref.current.scale.setScalar(scale);
     if (ref.current.material) (ref.current.material as MeshBasicMaterial).opacity = opacity;
   });
   return (
     <mesh ref={ref} position={[flash.x, flash.y, flash.z]}>
-      <sphereGeometry args={[.2, 8, 6]} />
+      <sphereGeometry args={[.24, 10, 8]} />
       <meshBasicMaterial color="#ffffff" transparent opacity={1} toneMapped={false} depthWrite={false} />
     </mesh>
   );
@@ -93,7 +94,7 @@ function BurstView({ burst }: { burst: Burst }) {
       root.current.rotation.y += dt * 3.5;
       root.current.rotation.x += dt * 1.2;
     }
-    const fade = burst.tier === 'light' ? 5.4 : burst.tier === 'heavy' ? 3.8 : burst.tier === 'major' ? 2.6 : 2.0;
+    const fade = burst.tier === 'light' ? 3.7 : burst.tier === 'heavy' ? 3.05 : burst.tier === 'major' ? 2.35 : 1.85;
     for (const material of materials.current) material.opacity = Math.max(0, 1 - age.current * fade);
   });
   const register = (material: MeshBasicMaterial | null): void => { if (material && !materials.current.includes(material)) materials.current.push(material); };

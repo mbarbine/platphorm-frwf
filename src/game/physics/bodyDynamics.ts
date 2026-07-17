@@ -118,8 +118,10 @@ export const stepBodyDynamics = (fighter: FighterRuntime, dt: number): { landed:
   const body = fighter.body;
   const staminaRatio = fighter.staminaCap > 0 ? fighter.stamina / fighter.staminaCap : 0;
   body.muscle = clamp(staminaRatio * .68 + fighter.health / 100 * .32, .16, 1);
-  const desiredPelvisDrop = (1 - body.muscle) * .2 + (body.balance < 40 ? (40 - body.balance) / 230 : 0);
-  body.pelvisDrop += (desiredPelvisDrop - body.pelvisDrop) * Math.min(1, dt * 7);
+  const deckBound = ['airborne', 'downed', 'recovering', 'pinned', 'defeated'].includes(fighter.state);
+  const desiredPelvisDrop = deckBound ? 0 : (1 - body.muscle) * .2 + (body.balance < 40 ? (40 - body.balance) / 230 : 0);
+  body.pelvisDrop += (desiredPelvisDrop - body.pelvisDrop) * Math.min(1, dt * (deckBound ? 24 : 7));
+  if (deckBound && body.pelvisDrop < .002) body.pelvisDrop = 0;
   body.stumble = Math.max(0, body.stumble - dt * body.muscle * .72);
   body.impactEnergy = Math.max(0, body.impactEnergy - dt * 11);
 

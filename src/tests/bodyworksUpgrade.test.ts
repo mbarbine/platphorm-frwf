@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { recoveryPose } from '../game/animation/recoveryMotion';
 import { POSES } from '../game/animation/poses';
 import { stepBodyDynamics } from '../game/physics/bodyDynamics';
+import { visiblePelvisDrop } from '../game/presentation/matPresentation';
 import { resolveRuntimeQuality, shouldUsePerformanceFallback } from '../game/runtime/quality';
 import { createMatch, requestCommand } from '../game/systems/combat';
 
@@ -59,5 +60,16 @@ describe('Bodyworks playability upgrade', () => {
     for (let frame = 0; frame < 20; frame += 1) stepBodyDynamics(model.player, 1 / 60);
     expect(model.player.body.verticalOffset).toBe(0);
     expect(model.player.body.verticalVelocity).toBe(0);
+  });
+
+  it('never applies standing pelvis compression on top of a deck recovery pose', () => {
+    const model = createMatch('atlas', 'nova', 'standard', 'normal');
+    model.player.body.pelvisDrop = .45;
+    model.player.state = 'downed';
+    expect(visiblePelvisDrop(model.player)).toBe(0);
+    for (let frame = 0; frame < 24; frame += 1) stepBodyDynamics(model.player, 1 / 60);
+    expect(model.player.body.pelvisDrop).toBeLessThan(.002);
+    model.player.state = 'idle'; model.player.body.pelvisDrop = .45;
+    expect(visiblePelvisDrop(model.player)).toBe(.22);
   });
 });

@@ -36,8 +36,11 @@ export function selectCameraShot(context: CameraDirectorContext): CameraShot {
   if (context.securedGrapple) return 'grapple';
   if (context.playerState === 'climbing' || context.opponentState === 'climbing') return 'corner';
   if (aerialState(context.playerState) || aerialState(context.opponentState) || context.playerMoveCategory === 'aerial' || context.opponentMoveCategory === 'aerial') return 'aerial';
-  const activeStrike = (['anticipation', 'active'].includes(context.playerAttackPhase ?? '') && ['heavy', 'prop'].includes(context.playerMoveCategory ?? ''))
-    || (['anticipation', 'active'].includes(context.opponentAttackPhase ?? '') && ['heavy', 'prop'].includes(context.opponentMoveCategory ?? ''));
+  const contactStrike = (context.playerAttackPhase === 'active' && ['quick', 'heavy', 'prop'].includes(context.playerMoveCategory ?? ''))
+    || (context.opponentAttackPhase === 'active' && ['quick', 'heavy', 'prop'].includes(context.opponentMoveCategory ?? ''));
+  const anticipatedPowerStrike = (context.playerAttackPhase === 'anticipation' && ['heavy', 'prop'].includes(context.playerMoveCategory ?? ''))
+    || (context.opponentAttackPhase === 'anticipation' && ['heavy', 'prop'].includes(context.opponentMoveCategory ?? ''));
+  const activeStrike = contactStrike || anticipatedPowerStrike;
   if (activeStrike && context.separation < 3.2) return 'strike';
   if (context.tablePosition) {
     const tableDistance = Math.hypot(context.middleX - context.tablePosition.x, context.middleZ - context.tablePosition.z);

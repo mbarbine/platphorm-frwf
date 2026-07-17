@@ -4,13 +4,14 @@ const pauseOnHudAttribute = async (page: import('@playwright/test').Page, attrib
   await page.evaluate(({ attribute, pattern, marker }) => {
     const hud = document.querySelector('.hud'); if (!hud) throw new Error('HUD not mounted');
     const expression = new RegExp(pattern);
+    let observer: MutationObserver | null = null;
     const inspect = (): void => {
       if (!expression.test(hud.getAttribute(attribute) ?? '')) return;
       document.documentElement.dataset[marker] = hud.getAttribute(attribute) ?? '';
       const pause = Array.from(document.querySelectorAll<HTMLButtonElement>('.physics-lab button')).find((button) => button.textContent?.trim() === 'PAUSE');
-      pause?.click(); observer.disconnect();
+      pause?.click(); observer?.disconnect();
     };
-    const observer = new MutationObserver(inspect);
+    observer = new MutationObserver(inspect);
     observer.observe(hud, { attributes: true, attributeFilter: [attribute] }); inspect();
   }, { attribute, pattern, marker });
 };
