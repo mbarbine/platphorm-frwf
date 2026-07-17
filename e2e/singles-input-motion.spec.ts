@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
+import type { Page } from '@playwright/test';
 
-const enterOrdinarySingles = async (page: import('@playwright/test').Page): Promise<void> => {
+const enterOrdinarySingles = async (page: Page): Promise<void> => {
   await page.goto('/');
   await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
   await page.getByRole('button', { name: 'PLAY', exact: true }).click();

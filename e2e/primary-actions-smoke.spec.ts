@@ -45,6 +45,8 @@ test('punch, kick, guard, block, and miss remain visually distinct and contact-t
   await expect(root).toHaveAttribute('data-saw-readable-punch', 'true');
   await expect.poll(async () => Number(await root.getAttribute('data-maximum-punch-reach')), { timeout: 8_000 }).toBeGreaterThan(.75);
   await expect.poll(async () => Number(await hud.getAttribute('data-opponent-health')), { timeout: 8_000 }).toBeLessThan(100);
+  expect(await hud.getAttribute('data-opponent-state')).not.toMatch(/downed|airborne/);
+  expect(Number(await hud.getAttribute('data-opponent-pelvis-y'))).toBeGreaterThan(1.86);
 
   await expect(lab.getByRole('button', { name: 'DIRECTIONAL KICK' })).toBeEnabled({ timeout: 5_000 });
   await lab.getByRole('button', { name: 'DIRECTIONAL KICK' }).click();

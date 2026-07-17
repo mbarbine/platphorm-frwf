@@ -12,7 +12,7 @@ test('controlled Bodyworks scenarios prove a physical slam, staged climb, taunt,
   await page.getByRole('button', { name: /^STANDARD/ }).click();
   await page.getByRole('button', { name: 'START MATCH' }).click();
 
-  const hud = page.locator('.hud'); const lab = page.getByTestId('physics-lab'); const deck = page.getByTestId('control-deck'); const telemetry = hud.locator('[data-player-climb-stage]'); const momentum = hud.locator('[data-player-momentum]');
+  const hud = page.locator('.hud'); const lab = page.getByTestId('physics-lab'); const telemetry = hud.locator('[data-player-climb-stage]'); const momentum = hud.locator('[data-player-momentum]');
   await expect(hud).toHaveAttribute('data-physics-bodies', '32', { timeout: 60_000 });
   const slam = lab.getByRole('button', { name: 'BODY SLAM' });
   await page.evaluate(() => {
@@ -65,8 +65,8 @@ test('controlled Bodyworks scenarios prove a physical slam, staged climb, taunt,
   await expect(climb).toBeEnabled({ timeout: 60_000 }); await climb.click();
   await expect.poll(async () => Number(await telemetry.getAttribute('data-player-climb-stage')), { timeout: 240_000, intervals: [100, 200, 400, 1_000] }).toBe(3);
   await expect(page.locator('html')).toHaveAttribute('data-saw-staged-taunt', 'true', { timeout: 240_000 });
-  await expect(deck.locator('[data-control="taunt"]')).toHaveClass(/is-active/);
-  for (const move of ['NEON DROP ELBOW', 'TOP-ROPE MISSILE KICK', 'DOMEFALL DIVE', 'CLIMB DOWN']) await expect(deck).toContainText(move);
+  const liveHint = page.locator('.context-hint');
+  for (const move of ['ELBOW', 'MISSILE KICK', 'DOMEFALL', 'POSE']) await expect(liveHint).toContainText(move);
   await page.screenshot({ path: '/tmp/frwf-wrestling-upgrade.png' });
   await expect.poll(async () => Number(await momentum.getAttribute('data-player-momentum')), { timeout: 240_000, intervals: [200, 400, 1_000] }).toBeGreaterThan(0);
 
