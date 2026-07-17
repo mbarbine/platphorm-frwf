@@ -694,7 +694,7 @@ function RingLasers() {
   </group>;
 }
 
-export function Arena({ crowdCount = 156 }: { crowdCount?: number }) {
+export function Arena({ crowdCount = 156, performanceMode = false }: { crowdCount?: number; performanceMode?: boolean }) {
   const spotlight = useMatchStore((state) => state.model.chaosEvent?.type === 'SPOTLIGHT SHOWDOWN');
   const toyTest = useMatchStore((state) => state.model.toyTestMode);
   const ringSurface = useRef<RapierRigidBody | null>(null);
@@ -732,14 +732,13 @@ export function Arena({ crowdCount = 156 }: { crowdCount?: number }) {
     <Ropes /><Post x={-5.75} z={-4.25} /><Post x={5.75} z={-4.25} /><Post x={-5.75} z={4.25} /><Post x={5.75} z={4.25} />
     <SteelSteps />
     <RigidBody ref={floorSurface} type="fixed" colliders="hull" position={[0, .2, 0]} collisionGroups={arenaCollisionGroups} solverGroups={arenaCollisionGroups} userData={{ surface: true, kind: 'floor' }}><mesh receiveShadow><cylinderGeometry args={[VOLT_DOME.floor.radius, VOLT_DOME.floor.radius, .4, 64]} /><meshStandardMaterial color="#100d1c" roughness={.8} /></mesh></RigidBody>
-    <EntranceLane /><Barricades /><ArenaRibbon />{!toyTest && crowdCount > 0 && <Crowd count={crowdCount} />}<Props /><VoltDomeArchitecture /><Jumbotron />
-    <DynamicSpotlights />
-    <ApronLEDBanners />
-    <RingLasers />
-    <group position={[0, 8.7, 0]}>{[-7.2, 7.2].flatMap((x) => [-5.8, 5.8].map((z) => <group key={`${x}-${z}`} position={[x, 0, z]}><mesh><cylinderGeometry args={[.13, .2, .44, 8]} /><meshStandardMaterial color="#adb8c7" metalness={.8} roughness={.2} /></mesh><pointLight position={[0, -.3, 0]} intensity={1.25} distance={10} color={x * z > 0 ? '#ff3f8f' : '#48e7ff'} /></group>))}</group>
-    <BroadcastSet />
-    <group position={[-10.7, .7, -6.4]}><mesh><boxGeometry args={[4.6, 1.25, .18]} /><meshStandardMaterial color="#272334" emissive="#27105b" emissiveIntensity={.18} /></mesh></group>
-    <group position={[10.7, .7, 6.4]}><mesh><boxGeometry args={[4.6, 1.25, .18]} /><meshStandardMaterial color="#272334" emissive="#5b123a" emissiveIntensity={.18} /></mesh></group>
-    <mesh position={[5.3, 2.3, -5.3]}><cylinderGeometry args={[.22, .3, .26, 16]} /><meshStandardMaterial color="#d7a940" metalness={.8} roughness={.22} /></mesh>
+    <EntranceLane /><Barricades />{!performanceMode && <ArenaRibbon />}{!performanceMode && !toyTest && crowdCount > 0 && <Crowd count={crowdCount} />}<Props />
+    {!performanceMode && <><VoltDomeArchitecture /><Jumbotron /><DynamicSpotlights /><ApronLEDBanners /><RingLasers />
+      <group position={[0, 8.7, 0]}>{[-7.2, 7.2].flatMap((x) => [-5.8, 5.8].map((z) => <group key={`${x}-${z}`} position={[x, 0, z]}><mesh><cylinderGeometry args={[.13, .2, .44, 8]} /><meshStandardMaterial color="#adb8c7" metalness={.8} roughness={.2} /></mesh><pointLight position={[0, -.3, 0]} intensity={1.25} distance={10} color={x * z > 0 ? '#ff3f8f' : '#48e7ff'} /></group>))}</group>
+      <BroadcastSet />
+      <group position={[-10.7, .7, -6.4]}><mesh><boxGeometry args={[4.6, 1.25, .18]} /><meshStandardMaterial color="#272334" emissive="#27105b" emissiveIntensity={.18} /></mesh></group>
+      <group position={[10.7, .7, 6.4]}><mesh><boxGeometry args={[4.6, 1.25, .18]} /><meshStandardMaterial color="#272334" emissive="#5b123a" emissiveIntensity={.18} /></mesh></group>
+      <mesh position={[5.3, 2.3, -5.3]}><cylinderGeometry args={[.22, .3, .26, 16]} /><meshStandardMaterial color="#d7a940" metalness={.8} roughness={.22} /></mesh>
+    </>}
   </>;
 }

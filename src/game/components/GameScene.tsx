@@ -23,7 +23,7 @@ import { physicsLabEnabled } from '../runtime/runtimeModes';
 import { cameraInputBasis, transformCameraRelative, updateStableBasis } from '../input/cameraRelative';
 import type { CameraInputBasis } from '../input/cameraRelative';
 import { getMove } from '../data/moves';
-import { browserRuntimeQuality } from '../runtime/quality';
+import { browserRuntimeQuality, shouldUsePerformanceFallback } from '../runtime/quality';
 import { usePhysicsLabStore } from '../state/physicsLabStore';
 import { pulseConnectedGamepads } from '../input/gamepadHaptics';
 import { renderDiagnostics, resetRenderDiagnostics, sampleRenderDiagnostics } from '../runtime/renderDiagnostics';
@@ -151,10 +151,17 @@ function Simulation({ onPause, onDevice, onFinished, inputEnabled = true }: Prop
   return null;
 }
 
-function RuntimeDiagnosticsSampler() {
+function RuntimeDiagnosticsSampler({ onSustainedSlow }: { onSustainedSlow: () => void }) {
   const { gl } = useThree();
+  const startedAt = useRef(0); const fallbackIssued = useRef(false);
   useEffect(() => { resetRenderDiagnostics(); return resetRenderDiagnostics; }, []);
-  useFrame((_, dt) => sampleRenderDiagnostics(gl, dt));
+  useFrame((state, dt) => {
+    sampleRenderDiagnostics(gl, dt);
+    if (startedAt.current === 0) startedAt.current = state.clock.elapsedTime;
+    if (!fallbackIssued.current && state.clock.elapsedTime - startedAt.current >= 4 && shouldUsePerformanceFallback(renderDiagnostics)) {
+      fallbackIssued.current = true; onSustainedSlow();
+    }
+  });
   return null;
 }
 
@@ -209,13 +216,17 @@ export function GameScene(props: Props) {
   const labRate = usePhysicsLabStore((state) => state.rate); const labDebug = usePhysicsLabStore((state) => state.debug);
   const requiresPhysicalRig = lab && labDebug;
   const graphicsQuality = useSettings((state) => state.graphicsQuality); const reducedMotion = useSettings((state) => state.reducedMotion);
+  const [automaticPerformanceFallback, setAutomaticPerformanceFallback] = useState(false);
+  useEffect(() => { if (graphicsQuality !== 'auto') setAutomaticPerformanceFallback(false); }, [graphicsQuality]);
   // Five articulated rigs, five presentation shells, ropes, props, and a full
   // crowd are a materially different render budget from singles. Auto quality
   // protects control latency first in Battle Royale; an explicit user quality
   // choice still wins. Slow rendering must never turn the match into slow
   // motion or make a held direction feel unregistered.
   const runtimeGraphicsQuality = diagnosticModel.matchMode === 'battle_royale' && graphicsQuality === 'auto' ? 'performance' : graphicsQuality;
-  const quality = useMemo(() => browserRuntimeQuality(runtimeGraphicsQuality, reducedMotion, lab), [lab, reducedMotion, runtimeGraphicsQuality]);
+  const selectedQuality = useMemo(() => browserRuntimeQuality(runtimeGraphicsQuality, reducedMotion, lab), [lab, reducedMotion, runtimeGraphicsQuality]);
+  const fallbackQuality = useMemo(() => browserRuntimeQuality('performance', reducedMotion, lab), [lab, reducedMotion]);
+  const quality = automaticPerformanceFallback && graphicsQuality === 'auto' ? fallbackQuality : selectedQuality;
   const fighterDetail = selectFighterDetail(quality.tier);
   const renderer = useRef<WebGLRenderer | null>(null); const [xrAvailable, setXrAvailable] = useState(false); const [xrPresenting, setXrPresenting] = useState(false); const [xrError, setXrError] = useState('');
   const enterXR = async (): Promise<void> => {
@@ -240,6 +251,7 @@ export function GameScene(props: Props) {
         data-simulation-ready={simulationReady ? 'true' : 'false'}
         data-toy-test={toyTestMode ? 'true' : 'false'}
         data-graphics-tier={quality.tier}
+        data-auto-performance-fallback={automaticPerformanceFallback ? 'true' : 'false'}
         data-physics-bodies={bodyWorksRuntime.metrics.bodyCount}
         data-physics-steps={bodyWorksRuntime.metrics.fixedSteps}
         data-physics-emergency-resets={bodyWorksRuntime.metrics.emergencyResetCount}
@@ -279,7 +291,7 @@ export function GameScene(props: Props) {
             numInternalPgsIterations={2}
             maxCcdSubsteps={2}
           >
-            <Arena crowdCount={quality.crowdCount} />
+            <Arena crowdCount={quality.crowdCount} performanceMode={quality.tier === 'performance'} />
             <Fighters detail={fighterDetail} showPhysical={lab && labDebug} />
             <ReplayDirector />
             <PlayerControlBeacon />
@@ -289,7 +301,7 @@ export function GameScene(props: Props) {
           {lab && labDebug ? <Suspense fallback={null}><BodyWorksDebugOverlay /></Suspense> : null}
           <CameraRig />
           <SpectatorFreeCamera />
-          <RuntimeDiagnosticsSampler />
+          <RuntimeDiagnosticsSampler onSustainedSlow={() => { if (graphicsQuality === 'auto') setAutomaticPerformanceFallback(true); }} />
           <AdaptiveDpr pixelated />
           {quality.bakeShadows && <BakeShadows />}
         </Canvas>

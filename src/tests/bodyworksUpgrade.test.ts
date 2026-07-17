@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { recoveryPose } from '../game/animation/recoveryMotion';
 import { POSES } from '../game/animation/poses';
 import { stepBodyDynamics } from '../game/physics/bodyDynamics';
-import { resolveRuntimeQuality } from '../game/runtime/quality';
+import { resolveRuntimeQuality, shouldUsePerformanceFallback } from '../game/runtime/quality';
 import { createMatch, requestCommand } from '../game/systems/combat';
 
 describe('Bodyworks playability upgrade', () => {
@@ -11,6 +11,12 @@ describe('Bodyworks playability upgrade', () => {
     const quality = resolveRuntimeQuality({ preference: 'quality', width: 1440, devicePixelRatio: 2, hardwareConcurrency: 10, deviceMemoryGb: 16, reducedMotion: false, physicsLab: false });
     expect(constrained.tier).toBe('performance'); expect(constrained.shadows).toBe(false); expect(constrained.crowdCount).toBeLessThan(quality.crowdCount);
     expect(quality.tier).toBe('quality'); expect(quality.antialias).toBe(true);
+  });
+
+  it('drops decorative rendering only after sustained unreadable frame timing', () => {
+    expect(shouldUsePerformanceFallback({ sampleCount: 5, frameP95Ms: 120, frameP99Ms: 180, framesOver100Ms: 4 })).toBe(false);
+    expect(shouldUsePerformanceFallback({ sampleCount: 60, frameP95Ms: 18, frameP99Ms: 30, framesOver100Ms: 0 })).toBe(false);
+    expect(shouldUsePerformanceFallback({ sampleCount: 12, frameP95Ms: 65, frameP99Ms: 110, framesOver100Ms: 3 })).toBe(true);
   });
 
   it('authors distinct back, front, and side recoveries that converge on the standing stance', () => {

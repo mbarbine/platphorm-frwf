@@ -20,6 +20,17 @@ export interface RuntimeQualityProfile {
   bakeShadows: boolean;
 }
 
+export interface RuntimeFrameHealth {
+  sampleCount: number;
+  frameP95Ms: number;
+  frameP99Ms: number;
+  framesOver100Ms: number;
+}
+
+/** Drops decorative render work when a browser cannot sustain readable combat. */
+export const shouldUsePerformanceFallback = (health: RuntimeFrameHealth): boolean => health.sampleCount >= 6
+  && (health.frameP95Ms >= 55 || health.frameP99Ms >= 90 || health.framesOver100Ms >= 3);
+
 export const resolveRuntimeQuality = (input: RuntimeQualityInput): RuntimeQualityProfile => {
   const mobile = input.width < 900;
   const constrained = input.physicsLab

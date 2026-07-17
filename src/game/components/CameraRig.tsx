@@ -158,8 +158,14 @@ export function CameraRig() {
       );
       sanitizeVector(desired, 0, bootstrapHeight, 12.6);
       sanitizeVector(desiredTarget, bootstrapLookX, 2.25, bootstrapLookZ);
-      camera.position.lerp(desired, 1 - Math.exp(-clampedDt * 12));
-      smoothedTarget.lerp(desiredTarget, 1 - Math.exp(-clampedDt * 12));
+      if (bootstrapFrames.current === 1) {
+        // A slow GPU must not spend several seconds interpolating from the
+        // default camera while the player sees only cropped boots.
+        camera.position.copy(desired); smoothedTarget.copy(desiredTarget);
+      } else {
+        camera.position.lerp(desired, 1 - Math.exp(-clampedDt * 12));
+        smoothedTarget.lerp(desiredTarget, 1 - Math.exp(-clampedDt * 12));
+      }
       lookAtSafe(camera as PerspectiveCamera, smoothedTarget);
       if ('fov' in camera) {
         const perspective = camera as PerspectiveCamera;
