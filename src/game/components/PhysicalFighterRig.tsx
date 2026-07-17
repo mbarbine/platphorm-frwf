@@ -10,6 +10,7 @@ import type { BodySegmentId, BodySegmentSchema } from '../physics/bodySchema';
 import { fighterCollisionGroups } from '../physics/collisionGroups';
 import { bodyWorksRuntime } from '../physics/physicsRuntime';
 import type { FighterKey } from '../physics/physicsRuntime';
+import { strikePoseChain } from '../physics/motorController';
 import { strikeDriveProfile } from '../physics/strikeDynamics';
 import { fighterVisual } from '../presentation/fighterVisuals';
 
@@ -156,7 +157,7 @@ export function PhysicalFighterRig({ runtime, side, showVisuals = true }: Props)
     const strikeProfile = activeAttack && sourceRuntime.moveId ? strikeDriveProfile(sourceRuntime.moveId) : null;
     const directionalStiffArm = sourceRuntime.moveId === 'stiff_arm' || sourceRuntime.moveId === 'rebound';
     const chestLedDive = sourceRuntime.moveId === 'aerial' && ['chest', 'abdomen', 'pelvis', 'leftUpperArm', 'rightUpperArm', 'leftForearm', 'rightForearm', 'leftHand', 'rightHand', 'leftThigh', 'rightThigh', 'leftShin', 'rightShin', 'leftFoot', 'rightFoot'].includes(segment.id);
-    const activeContactLimb = Boolean(strikeProfile && (strikeProfile.source === segment.id
+    const activeContactLimb = Boolean(strikeProfile && (strikePoseChain(strikeProfile.source).includes(segment.id)
       || directionalStiffArm && ['leftForearm', 'rightForearm', 'leftHand', 'rightHand', 'leftUpperArm', 'rightUpperArm'].includes(segment.id)
       || chestLedDive));
     // Shipping damage is emitted only by the move's active physical limb. A
