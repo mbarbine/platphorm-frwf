@@ -660,7 +660,17 @@ export function FighterModel({ runtime, counterpart, fighterId, preview = false,
       rightForearm.current.localToWorld(alignmentPoints.current.rightHand.set(0, -.58, .035));
       leftShin.current.localToWorld(alignmentPoints.current.leftFoot.set(0, -.66, .13));
       rightShin.current.localToWorld(alignmentPoints.current.rightFoot.set(0, -.66, .13));
-      if (reportAlignment) for (const [segment, point] of Object.entries(alignmentPoints.current)) bodyWorksRuntime.setPresentationPoint(side, segment as keyof typeof alignmentPoints.current, point);
+      if (reportAlignment) {
+        // Optimized: Avoid Object.entries to prevent temporary array/string allocations inside high-frequency frames
+        const pts = alignmentPoints.current;
+        bodyWorksRuntime.setPresentationPoint(side, 'pelvis', pts.pelvis);
+        bodyWorksRuntime.setPresentationPoint(side, 'chest', pts.chest);
+        bodyWorksRuntime.setPresentationPoint(side, 'head', pts.head);
+        bodyWorksRuntime.setPresentationPoint(side, 'leftHand', pts.leftHand);
+        bodyWorksRuntime.setPresentationPoint(side, 'rightHand', pts.rightHand);
+        bodyWorksRuntime.setPresentationPoint(side, 'leftFoot', pts.leftFoot);
+        bodyWorksRuntime.setPresentationPoint(side, 'rightFoot', pts.rightFoot);
+      }
 
       const trail = motionTrail.current; const strike = runtime.moveId ? strikeDriveProfile(runtime.moveId) : null;
       const sourcePoint = strike?.source === 'leftHand' || strike?.source === 'leftForearm'
