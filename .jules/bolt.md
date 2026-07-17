@@ -20,3 +20,7 @@
 ## 2026-07-18 - [Stabilized Fighter Presentation Interpolation via Clamped Delta Time]
 **Learning:** Using raw, unclamped frame delta times (`delta` / `dt`) in React Three Fiber `useFrame` render loops for exponential decay calculations (`Math.exp(-delta * rate)`) can cause extreme visual spikes, teleportation, skipping, and jitter on sudden frame drops, tab suspensions, or garbage collection pauses.
 **Action:** Always pre-clamp frame delta times (`clampedDelta = Math.min(delta, 0.1)`) inside presentation-layer loops (such as the `useFrame` loop in `FighterModel.tsx`) before performing exponential decay or interpolation calculations, preserving perfect smoothness and interpolation stability under all framerate conditions.
+
+## 2026-07-19 - [Avoid Object.entries/Object.keys inside hot frame loops]
+**Learning:** Calling reflection functions like `Object.entries` or `Object.keys` inside high-frequency frame loops (e.g. `useFrame` in React Three Fiber) allocates temporary arrays of keys/entries on every single frame, causing significant garbage collection pressure and micro-stutters during intense scenes.
+**Action:** For hot-path frame iterations with pre-known keys, unroll the loop into direct property accesses or utilize static key sets rather than dynamically re-allocating entry arrays.
