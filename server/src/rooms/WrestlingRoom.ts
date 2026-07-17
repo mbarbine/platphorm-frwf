@@ -57,13 +57,32 @@ export class WrestlingRoom extends Room<MatchRoomStateSchema> {
 
   async onCreate(options: { ruleset?: string; difficulty?: string; private?: boolean }): Promise<void> {
     this.setState(new MatchRoomStateSchema());
-    this.state.ruleset = options.ruleset ?? 'standard';
-    this.state.difficulty = options.difficulty ?? 'normal';
+
+    // Defensive validation of room creation options to prevent crash/DoS vectors
+    let ruleset = 'standard';
+    let difficulty = 'normal';
+    let isPrivate = false;
+
+    if (options && typeof options === 'object') {
+      const opt = options as Record<string, unknown>;
+      if (typeof opt.ruleset === 'string' && ['standard', 'chaos'].includes(opt.ruleset)) {
+        ruleset = opt.ruleset;
+      }
+      if (typeof opt.difficulty === 'string' && ['normal', 'hard'].includes(opt.difficulty)) {
+        difficulty = opt.difficulty;
+      }
+      if (typeof opt.private === 'boolean') {
+        isPrivate = opt.private;
+      }
+    }
+
+    this.state.ruleset = ruleset;
+    this.state.difficulty = difficulty;
     this.state.seed = Math.floor(Math.random() * 0xFFFFFF);
     this.state.serverVersion = PROTOCOL_VERSION;
     this.state.phase = 'lobby';
 
-    if (options.private) this.setPrivate(true);
+    if (isPrivate) this.setPrivate(true);
 
     this.clock.start();
 
@@ -85,15 +104,29 @@ export class WrestlingRoom extends Room<MatchRoomStateSchema> {
   }
 
   async onJoin(client: Client, options: { fighterId?: FighterId; spectate?: boolean }): Promise<void> {
+    // Defensively parse join options to prevent crashes due to null/undefined or malformed inputs
+    let spectate = false;
+    let fighterId: unknown = undefined;
+
+    if (options && typeof options === 'object') {
+      const opt = options as Record<string, unknown>;
+      if (typeof opt.spectate === 'boolean') {
+        spectate = opt.spectate;
+      } else if (opt.spectate != null) {
+        spectate = !!opt.spectate;
+      }
+      fighterId = opt.fighterId;
+    }
+
     const activePlayers = [...this.sessions.values()].filter(s => s.role !== 'spectator' && s.connected);
-    const role: PlayerRole = options.spectate || activePlayers.length >= 2
+    const role: PlayerRole = spectate || activePlayers.length >= 2
       ? 'spectator'
       : activePlayers.length === 0 ? 'player1' : 'player2';
 
     const session: PlayerSession = {
       sessionId: client.sessionId,
       role,
-      fighterId: this.validatedFighterId(options.fighterId),
+      fighterId: this.validatedFighterId(fighterId),
       ready: false,
       connected: true,
       lastCommandSeq: 0,

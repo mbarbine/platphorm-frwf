@@ -109,6 +109,46 @@ describe('authoritative server contract', () => {
     }
   });
 
+  it('safely handles null, undefined, or malformed options in onCreate and onJoin without crashing', async () => {
+    class TestWrestlingRoom extends WrestlingRoom {
+      constructor() {
+        super();
+        this.clock = {
+          start: () => {},
+          setInterval: () => ({ clear: () => {} }),
+          setTimeout: () => ({ clear: () => {} }),
+          currentTime: 0,
+          elapsedTime: 0,
+        } as unknown as typeof this.clock;
+      }
+      override setPrivate() {
+        return Promise.resolve();
+      }
+    }
+
+    const room = new TestWrestlingRoom();
+
+    // Verify onCreate handles various types of options safely
+    expect(() => room.onCreate(null as unknown as { ruleset?: string })).not.toThrow();
+    expect(() => room.onCreate(undefined as unknown as { ruleset?: string })).not.toThrow();
+    expect(() => room.onCreate({ ruleset: 123, difficulty: { foo: 'bar' }, private: 'yes' } as unknown as { ruleset?: string })).not.toThrow();
+
+    // Check fallback to defaults
+    expect(room.state.ruleset).toBe('standard');
+    expect(room.state.difficulty).toBe('normal');
+
+    // Verify onJoin handles various types of options safely
+    const mockClient = {
+      sessionId: 'test-session-join',
+      send: () => {},
+      leave: () => {},
+    } as unknown as Parameters<WrestlingRoom['onJoin']>[0];
+
+    expect(() => room.onJoin(mockClient, null as unknown as { fighterId?: unknown })).not.toThrow();
+    expect(() => room.onJoin(mockClient, undefined as unknown as { fighterId?: unknown })).not.toThrow();
+    expect(() => room.onJoin(mockClient, { fighterId: { nested: true }, spectate: 'maybe' } as unknown as { fighterId?: unknown })).not.toThrow();
+  });
+
   it('applies two sequenced clients to authoritative movement and swept strike contact', async () => {
     type MockHandler = (client: MockClient, msg?: unknown) => void;
     interface MockClient { sessionId: string; send: ReturnType<typeof vi.fn>; leave: ReturnType<typeof vi.fn> }
