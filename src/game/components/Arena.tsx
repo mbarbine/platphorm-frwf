@@ -29,11 +29,14 @@ function Crowd({ count }: { count: number }) {
       const baseY = 1.15 + row * .62;
       const cosAngle = Math.cos(angle);
       const sinAngle = Math.sin(angle);
+      const yaw = -angle + Math.PI / 2;
       layout.push({
         baseY,
         cosAngleRadius: cosAngle * radius,
         sinAngleRadius: sinAngle * radius,
-        yaw: -angle + Math.PI / 2,
+        yaw,
+        yawCos: Math.cos(yaw),
+        yawSin: Math.sin(yaw),
         scaleX: .38 + (index % 4) * .025,
         scaleY: .62 + (index % 3) * .1,
         headScaleY: .82 + (index % 3) * .1,
@@ -79,10 +82,8 @@ function Crowd({ count }: { count: number }) {
 
       if (sticks.current) {
         if (index % 3 !== 0) {
-          const yawCos = Math.cos(item.yaw);
-          const yawSin = Math.sin(item.yaw);
-          const handX = item.cosAngleRadius + yawCos * 0.28 - yawSin * 0.15;
-          const handZ = item.sinAngleRadius + yawSin * 0.28 + yawCos * 0.15;
+          const handX = item.cosAngleRadius + item.yawCos * 0.28 - item.yawSin * 0.15;
+          const handZ = item.sinAngleRadius + item.yawSin * 0.28 + item.yawCos * 0.15;
           const handY = item.baseY + bounce + 0.35 + Math.abs(wave) * 0.12;
 
           dummy.position.set(handX, handY, handZ);
