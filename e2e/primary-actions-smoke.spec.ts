@@ -58,7 +58,7 @@ test('punch, kick, guard, block, and miss remain visually distinct and contact-t
     minimumPlanar: Number(await lab.getAttribute('data-lab-min-strike-planar')),
     minimumVertical: Number(await lab.getAttribute('data-lab-min-strike-vertical')),
     lastContact: await hud.locator('[data-physics-last-contact]').getAttribute('data-physics-last-contact'),
-  })), { timeout: 8_000 }).not.toContain('"health":100');
+  }), { timeout: 8_000 }).not.toContain('"health":100');
 
   await expect(lab.getByRole('button', { name: 'BLOCK WINDOW' })).toBeEnabled({ timeout: 5_000 });
   await lab.getByRole('button', { name: 'BLOCK WINDOW' }).click();

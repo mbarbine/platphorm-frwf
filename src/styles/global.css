@@ -23,7 +23,7 @@ html, body, #root { width: 100%; height: 100%; margin: 0; overflow: hidden; }
 body { background: #080610; }
 button, input { font: inherit; }
 button { color: inherit; }
-button:focus-visible, input:focus-visible { outline: 3px solid var(--cyan); outline-offset: 3px; }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid var(--cyan); outline-offset: 3px; }
 
 .app { position: relative; width: 100%; height: 100%; min-width: 320px; min-height: 320px; isolation: isolate; font-size: calc(1rem * var(--ui-scale)); }
 .backdrop { position: absolute; inset: 0; z-index: -2; overflow: hidden; background: radial-gradient(circle at 70% 20%, #24184a 0, #090712 45%, #05040a 100%); }
