@@ -1416,7 +1416,13 @@ export class BodyWorksRuntime {
     const center = this.rigPlanarCenter(rig);
     const reflectedX = contact.axis === 'x' ? -contact.side * Math.max(releaseSpeed, Math.abs(center.velocityX)) : center.velocityX;
     const reflectedZ = contact.axis === 'z' ? -contact.side * Math.max(releaseSpeed, Math.abs(center.velocityZ)) : center.velocityZ;
-    const key = FIGHTER_SLOTS.find((candidate) => model[candidate] === fighter) ?? 'player'; const opponent = model[model.targets[key]];
+    const key = model.player === fighter ? 'player'
+      : model.opponent === fighter ? 'opponent'
+      : model.rival1 === fighter ? 'rival1'
+      : model.rival2 === fighter ? 'rival2'
+      : model.rival3 === fighter ? 'rival3'
+      : 'player';
+    const opponent = model[model.targets[key]];
     const targetX = opponent.position.x - center.x; const targetZ = opponent.position.z - center.z; const targetDistance = Math.hypot(targetX, targetZ);
     // A wrestling rebound is intentional locomotion, not a billiard-bank
     // shot. An in-ring opponent supplies the intentional lane, while the pure
