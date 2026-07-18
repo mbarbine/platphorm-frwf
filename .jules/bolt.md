@@ -24,3 +24,6 @@
 ## 2026-07-19 - [Avoid Object.entries/Object.keys inside hot frame loops]
 **Learning:** Calling reflection functions like `Object.entries` or `Object.keys` inside high-frequency frame loops (e.g. `useFrame` in React Three Fiber) allocates temporary arrays of keys/entries on every single frame, causing significant garbage collection pressure and micro-stutters during intense scenes.
 **Action:** For hot-path frame iterations with pre-known keys, unroll the loop into direct property accesses or utilize static key sets rather than dynamically re-allocating entry arrays.
+## 2026-07-22 - [Avoid Inline Array Allocation in Physics Inner Loops]
+**Learning:** Instantiating arrays inline (e.g., `['chest', 'abdomen', 'pelvis', 'head']`) inside deeply nested physics or collision processing loops generates unnecessary temporary allocations on every tick, increasing garbage collection (GC) pressure and degrading simulation performance over time.
+**Action:** Extract inline arrays into static, module-level constant arrays (e.g., `const CORE_SEGMENTS = [...]`) to prevent repetitive GC allocations in hot-path simulation frames.

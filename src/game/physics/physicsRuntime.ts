@@ -4,7 +4,7 @@ import type { FrameInput } from '../systems/combat';
 import { AI_FIGHTER_SLOTS, FALL_REASONS, FIGHTER_SLOTS } from '../types/game';
 import type { AttackPhase, BodyRegion, FighterRuntime, FighterSlot, GameCommand, MatchModel, PropRuntime, RecoveryOrientation, Vec2 } from '../types/game';
 import { clamp } from '../utils/math';
-import { HEAD_COLLIDER_RADIUS } from './bodySchema';
+import { CORE_SEGMENTS, HEAD_COLLIDER_RADIUS } from './bodySchema';
 import type { BodySegmentId } from './bodySchema';
 import { chasePoseAngularVelocity, computeMotorTorque, strikePoseChain } from './motorController';
 import { PhysicsReplayBuffer } from './replayBuffer';
@@ -581,7 +581,7 @@ export class BodyWorksRuntime {
         // A real boot/forearm glance redirects that limb instead of converting
         // it into fake torso damage. The connected core keeps its committed
         // downward momentum and must still create its own solved manifold.
-        for (const segment of ['chest', 'abdomen', 'pelvis', 'head'] as const) {
+        for (const segment of CORE_SEGMENTS) {
           const core = rig?.bodies[segment]; if (!core?.isValid()) continue;
           const downwardSpeed = segment === 'chest' ? 1.05 : segment === 'abdomen' ? .75 : .48;
           core.applyImpulse({ x: 0, y: -core.mass() * downwardSpeed, z: 0 }, true);
@@ -1992,7 +1992,7 @@ export class BodyWorksRuntime {
       let recorded = false;
       for (const surface of surfaces) {
         if (!surface.body.isValid()) continue;
-        for (const segment of ['chest', 'abdomen', 'pelvis', 'head'] as const) {
+        for (const segment of CORE_SEGMENTS) {
           const body = rig.bodies[segment]; if (!body?.isValid() || body.numColliders() === 0) continue;
           const sourceCollider = body.collider(0);
           for (let index = 0; index < surface.body.numColliders(); index += 1) {
@@ -2007,7 +2007,7 @@ export class BodyWorksRuntime {
             if (totalImpulse <= .0001) continue;
             const position = point ?? body.translation(); const velocity = body.linvel(); const fixedVelocity = surface.body.linvel();
             this.recordContact({
-              time: model.elapsed, sourceFighter: defender, sourceSegment: segment, targetFighter: null, targetSegment: null, targetRegion: segment === 'abdomen' ? 'ribs' : segment,
+              time: model.elapsed, sourceFighter: defender, sourceSegment: segment, targetFighter: null, targetSegment: null, targetRegion: segment === 'abdomen' ? 'ribs' : (segment as BodyRegion),
               totalForce: totalImpulse / Math.max(1 / 240, this.currentFixedDt), maximumForce: maximumImpulse / Math.max(1 / 240, this.currentFixedDt),
               forceDirection: [direction.x, direction.y, direction.z], point: [position.x, position.y, position.z],
               relativeSpeed: Math.hypot(velocity.x - fixedVelocity.x, velocity.y - fixedVelocity.y, velocity.z - fixedVelocity.z),
