@@ -133,7 +133,8 @@ function Simulation({ onPause, onDevice, onFinished, inputEnabled = true, online
       const middleZ = activeSlots.reduce((sum, slot) => sum + model[slot].position.z, 0) / Math.max(1, activeSlots.length);
       const candidate = cameraInputBasis({ x: camera.position.x, z: camera.position.z }, { x: middleX, z: middleZ });
       if (!inputBasis.current) inputBasis.current = candidate;
-      const inputHeld = Math.hypot(raw.move.x, raw.move.z) > .08;
+      // Optimized: Avoid Math.hypot inside the frame loop by using flat arithmetic or direct Math.sqrt/squared sums
+      const inputHeld = (raw.move.x * raw.move.x + raw.move.z * raw.move.z) > 0.0064; // 0.08 * 0.08 = 0.0064
       const playerInGrapple = Boolean(model.grapple && (model.grapple.attacker === 'player' || model.grapple.defender === 'player'));
       const cinematic = useMatchStore.getState().replayActive || playerInGrapple || model.player.moveId !== null || ['grappling', 'grabbed', 'climbing', 'airborne', 'jumping', 'pinning', 'pinned'].includes(model.player.state);
       inputBasis.current = updateStableBasis(inputBasis.current, candidate, inputHeld, cinematic, fixedStep);
@@ -145,7 +146,7 @@ function Simulation({ onPause, onDevice, onFinished, inputEnabled = true, online
         // move even after a camera cut or when players occupy opposite sides.
         const sourceDirection = { x: event.direction.x, z: event.direction.y };
         const direction = ['move', 'run', 'guard'].includes(event.action) ? transformCameraRelative(sourceDirection, stableBasis) : sourceDirection;
-        const magnitude = Math.max(1, Math.hypot(direction.x, direction.z));
+        const magnitude = Math.max(1, Math.sqrt(direction.x * direction.x + direction.z * direction.z));
         return { ...event, direction: { x: direction.x / magnitude, y: direction.z / magnitude } };
       });
       if (model.networkAuthority && onlineRole !== 'spectator') {
@@ -234,7 +235,8 @@ function PlayerControlBeacon() {
   useFrame(({ clock }) => {
     const group = beacon.current; if (!group) return;
     const intent = bodyWorksRuntime.intentSnapshot('player'); const model = useMatchStore.getState().model;
-    const magnitude = Math.hypot(intent.move.x, intent.move.z);
+    // Optimized: Replaced Math.hypot with Math.sqrt to avoid performance overhead in frame updates
+    const magnitude = Math.sqrt(intent.move.x * intent.move.x + intent.move.z * intent.move.z);
     const controllable = ['idle', 'locomotion'].includes(model.player.state) && !model.paused && !model.resolved;
     const battleIdentity = model.matchMode === 'battle_royale' && !['defeated', 'victorious'].includes(model.player.state) && !model.resolved;
     group.visible = battleIdentity || controllable;
