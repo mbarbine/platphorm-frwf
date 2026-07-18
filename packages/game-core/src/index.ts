@@ -2,7 +2,7 @@
  * RINGFALL game-core — deterministic simulation layer.
  *
  * This package contains all game rules, move definitions, AI logic, and match
- * state management. It has zero dependency on React, Three.js, Rapier, DOM
+ * state management. It has zero dependency on React, Three.ts, Rapier, DOM
  * APIs, or browser storage. Both the browser client and the authoritative
  * Colyseus server import from here.
  *
@@ -33,16 +33,16 @@ export type {
 } from '@frwf/game-protocol';
 
 // Utilities
-export * from './utils/math.js';
+export * from './utils/math.ts';
 
 // Data
-export { BALANCE } from './data/balance.js';
+export { BALANCE } from './data/balance.ts';
 
 // Deterministic server authority for online movement, attack windows, swept
 // collider contact, resources, grapples, and match resolution.
-export * from './onlineSimulation.js';
+export * from './onlineSimulation.ts';
 
 // Simulation API — the primary integration surface for both client and server
 // TODO: uncomment as extraction completes
-// export { createMatch, createFighterRuntime, advanceMatch, requestCommand } from './combat/combat.js';
-// export type { FrameInput, MatchModel, FighterRuntime } from './combat/types.js';
+// export { createMatch, createFighterRuntime, advanceMatch, requestCommand } from './combat/combat.ts';
+// export type { FrameInput, MatchModel, FighterRuntime } from './combat/types.ts';
