@@ -30,3 +30,6 @@
 **Failed/Successful Optimization**: Successful Optimization
 **Learning**: Array `.find()` with anonymous arrow functions is exceptionally slow within critical loops (like high-frequency physics `useFrame` callbacks or fixed-step solvers). A benchmark showed `FIGHTER_SLOTS.find` running 80x slower than a chained ternary operator sequence directly checking properties on `model`.
 **Action**: Replaced the `.find()` lookup with a deterministic fallback checking each slot property explicitly (`model.player === fighter ? 'player' : ...`).
+### 2025-02-24: Optimize Math.hypot calls in physics loop
+**Learning:** `Math.hypot` is computationally expensive and commonly impacts performance within tight, high-frequency physics loops such as applying velocity constraints or limits.
+**Action:** Replaced `Math.hypot` inside `capRigVelocity` (`src/game/physics/physicsRuntime.ts`) with squared magnitude checks (e.g., `x*x + y*y + z*z > threshold*threshold`). This change avoided executing `Math.sqrt` unless absolutely necessary, significantly reducing loop execution time (from ~26s to ~4.6s per 150M iterations in micro-benchmarks).
