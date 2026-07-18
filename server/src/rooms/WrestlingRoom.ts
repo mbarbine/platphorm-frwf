@@ -7,7 +7,6 @@ import type { ActionEvent, FighterId, PlayerRole } from '@frwf/game-protocol';
 import { applyOnlineAction, createOnlineMatch, stepOnlineMatch } from '@frwf/game-core';
 import type { OnlineMatchState } from '@frwf/game-core';
 import { z } from 'zod';
-import { randomInt } from 'crypto';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Internal session record — not part of the synchronized state.
