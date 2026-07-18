@@ -7,6 +7,7 @@ import type { ActionEvent, FighterId, PlayerRole } from '@frwf/game-protocol';
 import { applyOnlineAction, createOnlineMatch, stepOnlineMatch } from '@frwf/game-core';
 import type { OnlineMatchState } from '@frwf/game-core';
 import { z } from 'zod';
+import { randomInt } from 'crypto';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Internal session record — not part of the synchronized state.
@@ -59,7 +60,7 @@ export class WrestlingRoom extends Room<MatchRoomStateSchema> {
     this.setState(new MatchRoomStateSchema());
     this.state.ruleset = options.ruleset ?? 'standard';
     this.state.difficulty = options.difficulty ?? 'normal';
-    this.state.seed = Math.floor(Math.random() * 0xFFFFFF);
+    this.state.seed = randomInt(0xFFFFFF);
     this.state.serverVersion = PROTOCOL_VERSION;
     this.state.phase = 'lobby';
 
