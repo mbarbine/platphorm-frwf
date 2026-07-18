@@ -11,7 +11,7 @@ export const SERVER_CONFIG = {
   HOSTNAME: process.env.HOSTNAME || '0.0.0.0',
   NODE_ENV: (process.env.NODE_ENV ?? 'development') as 'development' | 'production' | 'test',
   REDIS_URL: process.env.REDIS_URL ?? null,
-  CORS_ORIGIN: process.env.CORS_ORIGIN ?? '*',
+  CORS_ORIGIN: process.env.CORS_ORIGIN ?? 'http://localhost:5173',
 
   /** Rate at which the server runs the authoritative simulation (Hz). */
   SERVER_TICK_RATE: 30,
