@@ -430,7 +430,12 @@ function animationFor(runtime: FighterRuntime | undefined, preview: boolean): An
       ? 'grappleEntry'
       : move.animationKey;
   }
-  if (runtime.state === 'locomotion') return Math.hypot(runtime.velocity.x, runtime.velocity.z) > 3.8 ? 'run' : 'walk';
+  // OPTIMIZATION: Replacing Math.hypot with a zero-allocation squared magnitude comparison to avoid slow square root computations entirely.
+  if (runtime.state === 'locomotion') {
+    const vx = runtime.velocity.x;
+    const vz = runtime.velocity.z;
+    return (vx * vx + vz * vz) > 14.44 ? 'run' : 'walk'; // 3.8 * 3.8 = 14.44
+  }
   if (runtime.state === 'blocking') return 'block';
   if (runtime.state === 'jumping') return 'aerial';
   if (runtime.state === 'climbing') return 'climb';
@@ -526,7 +531,13 @@ export function FighterModel({ runtime, counterpart, fighterId, preview = false,
     const runtimeStaminaCap = runtime ? safeNumber(runtime.staminaCap, 1) : 1;
     const fatigue = runtime ? Math.max(0, 1 - runtimeStamina / Math.max(1, runtimeStaminaCap)) : 0;
     const tempo = profile.motionTempo * (key === 'run' ? 1.18 : 1);
-    const movementSpeed = runtime ? Math.hypot(safeNumber(runtime.velocity?.x, 0), safeNumber(runtime.velocity?.z, 0)) : 0;
+    // OPTIMIZATION: Replacing Math.hypot with standard Math.sqrt to prevent CPU-intensive dynamic scaling logic.
+    let movementSpeed = 0;
+    if (runtime) {
+      const vx = safeNumber(runtime.velocity?.x, 0);
+      const vz = safeNumber(runtime.velocity?.z, 0);
+      movementSpeed = Math.sqrt(vx * vx + vz * vz);
+    }
     const speedScale = key === 'run' ? Math.min(1.35, .85 + movementSpeed * .07) : 1;
     const poseResponse = runtime?.attackPhase === 'active' ? 38 : runtime?.attackPhase === 'anticipation' ? 21 : runtime?.attackPhase === 'recovery' ? 11 : 14 * profile.motionTempo;
     const smooth = 1 - Math.exp(-clampedDelta * poseResponse);
@@ -637,8 +648,11 @@ export function FighterModel({ runtime, counterpart, fighterId, preview = false,
       const runtimeX = safeNumber(runtime.position?.x, shell.current.position.x);
       const runtimeZ = safeNumber(runtime.position?.z, shell.current.position.z);
       const targetY = safeNumber(3.0775 - .645 * height + safeNumber(runtime.body?.verticalOffset, 0), 3.0775 - .645 * height);
+      // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt.
+      const dx = runtimeX - shell.current.position.x;
+      const dz = runtimeZ - shell.current.position.z;
       const planarError = Number.isFinite(runtimeX) && Number.isFinite(runtimeZ)
-        ? Math.hypot(runtimeX - shell.current.position.x, runtimeZ - shell.current.position.z)
+        ? Math.sqrt(dx * dx + dz * dz)
         : Number.POSITIVE_INFINITY;
       if (!presentationInitialized.current || planarError > 2.2) {
         shell.current.position.set(runtimeX, targetY, runtimeZ); shell.current.rotation.y = safeNumber(runtime.facing, 0); presentationInitialized.current = true;
