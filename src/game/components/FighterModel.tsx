@@ -485,11 +485,11 @@ export function FighterModel({ runtime, counterpart, fighterId, preview = false,
   const safeNumber = (value: unknown, fallback: number): number => isFiniteNumber(value) ? value : fallback;
 
   useFrame((_, delta) => {
-    elapsed.current += delta;
-    if (!shell.current || !root.current || !torso.current || !head.current || !leftArm.current || !rightArm.current || !leftForearm.current || !rightForearm.current || !leftLeg.current || !rightLeg.current || !leftShin.current || !rightShin.current) return;
-    const t = elapsed.current;
     // Clamp delta time to protect against sudden frame drops, preventing presentation spikes and teleportation
     const clampedDelta = Math.min(delta, 0.1);
+    elapsed.current += clampedDelta;
+    if (!shell.current || !root.current || !torso.current || !head.current || !leftArm.current || !rightArm.current || !leftForearm.current || !rightForearm.current || !leftLeg.current || !rightLeg.current || !leftShin.current || !rightShin.current) return;
+    const t = elapsed.current;
     const movement = runtime ? locomotionPresentation(runtime) : null;
     const combatOrientation = runtime ? resolveCombatOrientation(runtime, counterpart) : null;
     let key = animationFor(runtime, preview);

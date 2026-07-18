@@ -7,8 +7,8 @@ export type StrikeButton = 'quick' | 'heavy';
 // One shared collar-and-elbow entry range keeps rules, AI, and every control
 // surface honest. Rapier still has to pull the hands onto real body anchors
 // before the grapple can progress beyond reach/acquire.
-// BLOCKBUSTER: Increased range from 1.65 to 2.15 for much more forgiving lockups.
-export const GRAPPLE_ACQUISITION_RANGE = 2.15;
+// Decreased range from 2.15 to 1.65 to prevent visual teleportation and sliding.
+export const GRAPPLE_ACQUISITION_RANGE = 1.65;
 
 export const combatDirection = (direction: Vec2): CombatDirection => {
   if (Math.hypot(direction.x, direction.z) < .35) return 'neutral';

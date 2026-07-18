@@ -12,6 +12,8 @@ export type ColliderRole = 'body' | 'strike' | 'grip' | 'support';
 export const BODY_SEGMENT_COUNT = 16;
 export const HEAD_COLLIDER_RADIUS = .235;
 
+export const CORE_SEGMENTS: readonly BodySegmentId[] = ['chest', 'abdomen', 'pelvis', 'head'] as const;
+
 export interface BodySegmentSchema {
   id: BodySegmentId;
   side: SegmentSide;
