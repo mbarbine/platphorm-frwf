@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { keyboardTargetCycle, primaryGamepad, readGamepadDirection } from '../game/input/useGameInput';
+import { pulseConnectedGamepads } from '../game/input/gamepadHaptics';
+import { vi } from 'vitest';
 
 const gamepadWithAxes = (axes: readonly number[]): Gamepad => ({ axes }) as unknown as Gamepad;
 
@@ -27,5 +29,39 @@ describe('desktop and XR gamepad normalization', () => {
   it('uses a connected controller even when browser slot zero is empty', () => {
     const connected = { connected: true, buttons: [], axes: [] } as unknown as Gamepad;
     expect(primaryGamepad([null, connected])).toBe(connected);
+  });
+});
+
+describe('pulseConnectedGamepads', () => {
+  it('swallows unhandled exceptions from playEffect', () => {
+    const mockPlayEffect = vi.fn().mockRejectedValue(new Error('Haptic feedback failed'));
+    vi.stubGlobal('navigator', {
+      ...globalThis.navigator,
+      getGamepads: () => [{
+        vibrationActuator: {
+          playEffect: mockPlayEffect
+        }
+      } as unknown as Gamepad]
+    });
+
+    expect(() => pulseConnectedGamepads({ kind: 'heavy', intensity: 10 })).not.toThrow();
+
+    vi.unstubAllGlobals();
+  });
+
+  it('swallows unhandled exceptions from pulse', () => {
+    const mockPulse = vi.fn().mockRejectedValue(new Error('Haptic feedback failed'));
+    vi.stubGlobal('navigator', {
+      ...globalThis.navigator,
+      getGamepads: () => [{
+        vibrationActuator: {
+          pulse: mockPulse
+        }
+      } as unknown as Gamepad]
+    });
+
+    expect(() => pulseConnectedGamepads({ kind: 'heavy', intensity: 10 })).not.toThrow();
+
+    vi.unstubAllGlobals();
   });
 });
