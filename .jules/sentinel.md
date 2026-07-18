@@ -11,3 +11,20 @@
 **Vulnerability**: The application had a wildcard (`*`) as the default for `CORS_ORIGIN` if the environment variable was not provided. This could accidentally allow malicious sites to make cross-origin requests to the server, potentially exposing sensitive data or executing unauthorized actions if deployed in environments where environment variables are not strictly set.
 **Learning**: Ensure that sensitive security configurations have safe, restricted defaults for local development. Never default to wildcard patterns for network configurations like CORS.
 **Prevention**: Always restrict default CORS settings to local development origins (like `http://localhost:5173`) or specific domains required by the application, never a wildcard.
+## 2024-07-17
+
+**Title:** Fixed Overly Permissive Default CORS Configuration
+
+**Vulnerability:**
+The `CORS_ORIGIN` default in `server/src/config.ts` was set to a wildcard (`*`). This is a security vulnerability because it allows any origin to send cross-origin requests and read the responses, potentially exposing sensitive game data or allowing malicious sites to interact with the game server on behalf of users.
+
+**Learning:**
+Default configuration variables should restrict sensitive endpoints (like WebSockets and API routes in a multiplayer context) to known origins only. Wildcards are dangerous in both production and development when dealing with shared or exposed backend services.
+
+**Prevention:**
+The default `CORS_ORIGIN` now restricts to the standard frontend port (`http://localhost:5173`) in development and blocks access by default in production (`''`), requiring explicit configuration of the allowed frontend origin in production environments.
+
+## 2025-02-14 - [Insecure Randomness Source in Match Seeding]
+**Vulnerability:** Game match seeding was vulnerable to predictability due to using `Math.random()`, which is a pseudorandom number generator (PRNG) that doesn't produce cryptographically secure values.
+**Learning:** For deterministic logic such as generating an unpredictable match seed, developers must use cryptographically secure random number generators instead of simple `Math.random()`.
+**Prevention:** Use `randomInt` from the built-in Node.js `crypto` module (or `crypto.getRandomValues` in browsers) to ensure unpredictability.
