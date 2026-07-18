@@ -18,3 +18,8 @@ Default configuration variables should restrict sensitive endpoints (like WebSoc
 
 **Prevention:**
 The default `CORS_ORIGIN` now restricts to the standard frontend port (`http://localhost:5173`) in development and blocks access by default in production (`''`), requiring explicit configuration of the allowed frontend origin in production environments.
+
+## 2025-02-14 - [Insecure Randomness Source in Match Seeding]
+**Vulnerability:** Game match seeding was vulnerable to predictability due to using `Math.random()`, which is a pseudorandom number generator (PRNG) that doesn't produce cryptographically secure values.
+**Learning:** For deterministic logic such as generating an unpredictable match seed, developers must use cryptographically secure random number generators instead of simple `Math.random()`.
+**Prevention:** Use `randomInt` from the built-in Node.js `crypto` module (or `crypto.getRandomValues` in browsers) to ensure unpredictability.
