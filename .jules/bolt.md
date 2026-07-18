@@ -25,6 +25,13 @@
 **Learning:** Calling reflection functions like `Object.entries` or `Object.keys` inside high-frequency frame loops (e.g. `useFrame` in React Three Fiber) allocates temporary arrays of keys/entries on every single frame, causing significant garbage collection pressure and micro-stutters during intense scenes.
 **Action:** For hot-path frame iterations with pre-known keys, unroll the loop into direct property accesses or utilize static key sets rather than dynamically re-allocating entry arrays.
 
+### 2024-07-17
+
+**Title:** Mocking React Three Fiber Environments for UI Tests
+
+**Learning:** When asserting pure UI behavior (such as button rendering and API interactions like `navigator.xr`) inside heavily 3D-dependent components like `GameScene`, standard testing tools like `@testing-library/react` will fail inside `jsdom` due to missing WebGL and physics engines.
+
+**Action:** Extensively mock dependencies (`@react-three/fiber`, `@react-three/rapier`, `@react-three/drei`) alongside game-specific heavy dependencies (like `bodyWorksRuntime` and match state stores). Ensure the mocked canvas calls lifecycle initialization logic (e.g. `onCreated` in `<Canvas>`) if required to set up specific internal state, avoiding the need to execute the main game loop during tests.
 ## 2025-02-28 - Avoid Object.entries() in Physics Loops
 * **Optimization:** Replaced 12 instances of `Object.entries(rig.bodies)` and `Object.entries(bodies)` with simple `for...in` loops in `physicsRuntime.ts`.
 * **Issue:** `Object.entries()` creates an array of arrays on every call. In nested fixed-step physics ticks evaluating many bodies per frame, this allocates thousands of small tuples per second, driving up garbage collection (GC) churn and triggering micro-stutters.
