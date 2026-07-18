@@ -1,5 +1,6 @@
 import { Room } from 'colyseus';
 import type { Client, Delayed } from 'colyseus';
+import { randomInt } from 'node:crypto';
 import { MatchRoomStateSchema, FighterStateSchema } from './WrestlingRoomState';
 import { SERVER_CONFIG } from '../config';
 import { PROTOCOL_VERSION } from '@frwf/game-protocol';
@@ -78,7 +79,8 @@ export class WrestlingRoom extends Room<MatchRoomStateSchema> {
 
     this.state.ruleset = ruleset;
     this.state.difficulty = difficulty;
-    this.state.seed = Math.floor(Math.random() * 0xFFFFFF);
+    // Use cryptographically secure pseudorandom number generator for match seeding
+    this.state.seed = randomInt(0, 0xFFFFFF + 1);
     this.state.serverVersion = PROTOCOL_VERSION;
     this.state.phase = 'lobby';
 
