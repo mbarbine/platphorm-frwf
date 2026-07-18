@@ -1481,10 +1481,10 @@ export class BodyWorksRuntime {
     for (const body of Object.values(rig.bodies)) {
       if (!body?.isValid()) continue;
       body.resetForces(true); body.resetTorques(true);
-      const linear = body.linvel(); const linearSpeed = Math.hypot(linear.x, linear.y, linear.z);
-      if (linearSpeed > 12) { const scale = 12 / linearSpeed; body.setLinvel({ x: linear.x * scale, y: linear.y * scale, z: linear.z * scale }, true); }
-      const angular = body.angvel(); const angularSpeed = Math.hypot(angular.x, angular.y, angular.z);
-      if (angularSpeed > 24) { const scale = 24 / angularSpeed; body.setAngvel({ x: angular.x * scale, y: angular.y * scale, z: angular.z * scale }, true); }
+      const linear = body.linvel(); const linearSq = linear.x * linear.x + linear.y * linear.y + linear.z * linear.z;
+      if (linearSq > 144) { const scale = 12 / Math.sqrt(linearSq); body.setLinvel({ x: linear.x * scale, y: linear.y * scale, z: linear.z * scale }, true); }
+      const angular = body.angvel(); const angularSq = angular.x * angular.x + angular.y * angular.y + angular.z * angular.z;
+      if (angularSq > 576) { const scale = 24 / Math.sqrt(angularSq); body.setAngvel({ x: angular.x * scale, y: angular.y * scale, z: angular.z * scale }, true); }
     }
   }
 
