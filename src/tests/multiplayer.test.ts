@@ -125,12 +125,46 @@ describe('ColyseusClient', () => {
   });
 
   it('handles connection error in joinOrCreate', async () => {
+    const onStatusChange = vi.fn();
+    client.setEventHandlers({ onStatusChange });
+
     const error = new Error('Connection failed');
     mockJoinOrCreate.mockRejectedValueOnce(error);
 
     await expect(client.joinOrCreate('wrestling')).rejects.toThrow('Connection failed');
     expect(client.currentStatus).toBe('error');
     expect(client.isConnected).toBe(false);
+    expect(onStatusChange).toHaveBeenCalledWith('connecting');
+    expect(onStatusChange).toHaveBeenCalledWith('error');
+  });
+
+  it('connects via joinRoom', async () => {
+    const onStatusChange = vi.fn();
+    client.setEventHandlers({ onStatusChange });
+
+    await client.joinRoom('wrestling', { fighterId: 'atlas' });
+
+    expect(client.currentStatus).toBe('connected');
+    expect(client.isConnected).toBe(true);
+    expect(client.roomId).toBe('mock-room-id');
+    expect(client.sessionId).toBe('mock-session-id');
+
+    expect(mockJoinOrCreate).toHaveBeenCalledWith('wrestling', { fighterId: 'atlas' });
+    expect(mockSend).toHaveBeenCalledWith('version', expect.any(Object));
+  });
+
+  it('handles connection error in joinRoom', async () => {
+    const onStatusChange = vi.fn();
+    client.setEventHandlers({ onStatusChange });
+
+    const error = new Error('Connection failed');
+    mockJoinOrCreate.mockRejectedValueOnce(error);
+
+    await expect(client.joinRoom('wrestling')).rejects.toThrow('Connection failed');
+    expect(client.currentStatus).toBe('error');
+    expect(client.isConnected).toBe(false);
+    expect(onStatusChange).toHaveBeenCalledWith('connecting');
+    expect(onStatusChange).toHaveBeenCalledWith('error');
   });
 
   it('connects via joinByRoomId', async () => {
@@ -140,11 +174,16 @@ describe('ColyseusClient', () => {
   });
 
   it('handles connection error in joinByRoomId', async () => {
+    const onStatusChange = vi.fn();
+    client.setEventHandlers({ onStatusChange });
+
     const error = new Error('Join ID failed');
     mockJoinById.mockRejectedValueOnce(error);
 
     await expect(client.joinByRoomId('room123')).rejects.toThrow('Join ID failed');
     expect(client.currentStatus).toBe('error');
+    expect(onStatusChange).toHaveBeenCalledWith('connecting');
+    expect(onStatusChange).toHaveBeenCalledWith('error');
   });
 
   it('creates private room', async () => {
@@ -155,11 +194,16 @@ describe('ColyseusClient', () => {
   });
 
   it('handles connection error in createPrivateRoom', async () => {
+    const onStatusChange = vi.fn();
+    client.setEventHandlers({ onStatusChange });
+
     const error = new Error('Create failed');
     mockCreate.mockRejectedValueOnce(error);
 
     await expect(client.createPrivateRoom()).rejects.toThrow('Create failed');
     expect(client.currentStatus).toBe('error');
+    expect(onStatusChange).toHaveBeenCalledWith('connecting');
+    expect(onStatusChange).toHaveBeenCalledWith('error');
   });
 
   it('dispatches client action messages', async () => {

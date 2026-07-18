@@ -340,14 +340,14 @@ function PhysicalProp({ prop, initialPosition }: { prop: PropRuntime; initialPos
   }, [prop.id, prop.kind]);
   useFrame(() => {
     const rigidBody = body.current; if (!rigidBody) return;
-    const liveProp = useMatchStore.getState().model.props.find((candidate) => candidate.id === prop.id);
+    const liveProp = useMatchStore.getState().model.propsById[prop.id];
     if (!liveProp?.heldBy && rigidBody.translation().y < -2) {
       rigidBody.setTranslation({ x: liveProp?.position.x ?? initialPosition[0], y: initialPosition[1], z: liveProp?.position.z ?? initialPosition[2] }, true);
       rigidBody.setLinvel({ x: 0, y: 0, z: 0 }, true); rigidBody.setAngvel({ x: 0, y: 0, z: 0 }, true);
     }
   });
   const onContactForce = (payload: ContactForcePayload): void => {
-    const model = useMatchStore.getState().model; const liveProp = model.props.find((candidate) => candidate.id === prop.id); const heldBy = liveProp?.heldBy;
+    const model = useMatchStore.getState().model; const liveProp = model.propsById[prop.id]; const heldBy = liveProp?.heldBy;
     const released = heldBy ? null : bodyWorksRuntime.propAttackSource(prop.id, model.elapsed); const source = heldBy ?? released?.owner; if (!source) return;
     const actor = model[source]; const targetData = payload.other.rigidBodyObject?.userData;
     const moveId = heldBy ? 'prop' : released?.moveId; const attackInstanceId = heldBy ? actor.attackInstanceId : released?.attackInstanceId;

@@ -111,6 +111,19 @@ export class ColyseusClient {
     }
   }
 
+  async joinRoom(roomName: string, options: { fighterId?: string } = {}): Promise<void> {
+    this.setStatus('connecting');
+    try {
+      this.room = await this.sdk.joinOrCreate<ClientRoomState>(roomName, options);
+      this.setStatus('connected');
+      this.attachRoomListeners();
+      this.room.send('version', { protocolVersion: PROTOCOL_VERSION, clientVersion: PROTOCOL_VERSION });
+    } catch (err) {
+      this.setStatus('error');
+      throw err;
+    }
+  }
+
   async joinByRoomId(roomId: string, options: { fighterId?: string } = {}): Promise<void> {
     this.intentionalLeave = false;
     this.setStatus('connecting');
