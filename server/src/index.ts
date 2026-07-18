@@ -22,6 +22,7 @@ async function bootstrap(): Promise<void> {
   const app = express();
 
   // ── Defensive Security Hardening ──────────────────────────────────────────
+
   app.disable('x-powered-by'); // Avoid disclosing server technology stack
 
   app.use((_req, res, next) => {

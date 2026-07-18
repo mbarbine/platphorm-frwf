@@ -75,9 +75,7 @@ export const createMatch = (playerId: FighterId, opponentId: FighterId, ruleset:
   const rivalIds = [remaining[0] ?? 'vex', remaining[1] ?? 'brick', remaining[2] ?? 'chad'] as const;
   const playerStats = EMPTY_STATS(); const opponentStats = EMPTY_STATS();
   const fighterStats: Record<FighterSlot, MatchStats> = { player: playerStats, opponent: opponentStats, rival1: EMPTY_STATS(), rival2: EMPTY_STATS(), rival3: EMPTY_STATS() };
-  const props = initialProps(ruleset === 'chaos');
-  const propsById: Record<string, PropRuntime> = {};
-  for (const p of props) { propsById[p.id] = p; }
+  const props = initialProps(ruleset === 'chaos'); const propsById = Object.fromEntries(props.map((p) => [p.id, p]));
   return {
     toyTestMode: false, labMode: false, matchMode, ruleset, difficulty, elapsed: 0, paused: false, physicsAuthority: false, networkAuthority: false, resolved: false,
     player: createFighterRuntime(playerId, { x: -3.25, z: 0 }, playerBeers), opponent: createFighterRuntime(resolvedOpponentId, { x: 3.25, z: 0 }, opponentBeers),
@@ -308,8 +306,7 @@ export const applyMoveHit = (model: MatchModel, actorKey: FighterSlot, targetKey
     if (move.category === 'prop') stats.propImpacts += 1;
   }
   if (move.category === 'prop' && (actor.heldPropId || contact?.sourceObjectId)) {
-    const propId = actor.heldPropId ?? contact?.sourceObjectId;
-    const prop = propId ? model.propsById[propId] : undefined;
+    const propId = actor.heldPropId ?? contact?.sourceObjectId; const prop = propId ? model.propsById[propId] : undefined;
     if (prop) {
       prop.durability -= 1;
       if (prop.durability <= 0) { prop.broken = true; prop.heldBy = null; actor.heldPropId = null; }
@@ -475,7 +472,7 @@ const useProp = (model: MatchModel, actorKey: FighterSlot, direction: Vec2): boo
   if (!resolution.legalState) return false;
   if (resolution.actionId === 'swing_held_prop') return startMove(actor, target, getMove('prop'));
   if (resolution.actionId === 'throw_held_prop' && actor.heldPropId) {
-    const prop = model.propsById[actor.heldPropId];
+    const prop = actor.heldPropId ? model.propsById[actor.heldPropId] : undefined;
     const started = startMove(actor, target, getMove('prop_throw')); if (!started) return false;
     const throwDirection = normalize(direction);
     if (prop) { prop.heldBy = null; prop.position = { x: actor.position.x + throwDirection.x * 2.5, z: actor.position.z + throwDirection.z * 2.5 }; }
@@ -485,12 +482,12 @@ const useProp = (model: MatchModel, actorKey: FighterSlot, direction: Vec2): boo
   }
   if (resolution.actionId === 'drop_held_prop' && actor.heldPropId) {
     if (!startMove(actor, target, getMove('prop_drop'))) return false;
-    const prop = model.propsById[actor.heldPropId];
+    const prop = actor.heldPropId ? model.propsById[actor.heldPropId] : undefined;
     if (prop) { prop.heldBy = null; prop.position = { x: actor.position.x + Math.sin(actor.facing) * .75, z: actor.position.z + Math.cos(actor.facing) * .75 }; }
     actor.heldPropId = null; model.announcement = 'PROP DROPPED'; model.announcementTimer = .65; return true;
   }
   if (resolution.actionId === 'pick_up_prop' && resolution.target) {
-    const prop = model.propsById[resolution.target];
+    const prop = resolution.target ? model.propsById[resolution.target] : undefined;
     if (!prop) return false;
     if (!startMove(actor, target, getMove('prop_pickup'))) return false;
     actor.heldPropId = prop.id; prop.heldBy = actorKey; model.announcement = `${prop.kind.toUpperCase()} READY`; model.announcementTimer = .65; return true;
@@ -975,9 +972,8 @@ const updateChaos = (model: MatchModel, dt: number): void => {
   model.announcement = `CHAOS EVENT — ${type}`; model.announcementTimer = 2.5;
   if (type === 'PROP DROP') {
     const kind: PropRuntime['kind'] = roll > .68 ? 'chair' : roll > .34 ? 'trash' : 'sign';
-    const prop: PropRuntime = { id: `${kind}-${model.impactSequence + 9}`, kind, position: { x: (roll - .5) * 8, z: -5.6 }, durability: kind === 'trash' ? 4 : 2, stress: 0, failureStage: 'intact', heldBy: null, broken: false };
-    model.props.push(prop);
-    model.propsById[prop.id] = prop;
+    const newProp: PropRuntime = { id: `${kind}-${model.impactSequence + 9}`, kind, position: { x: (roll - .5) * 8, z: -5.6 }, durability: kind === 'trash' ? 4 : 2, stress: 0, failureStage: 'intact', heldBy: null, broken: false };
+    model.props.push(newProp); model.propsById[newProp.id] = newProp;
   }
 };
 
