@@ -1424,7 +1424,7 @@ export class BodyWorksRuntime {
   private syncPhysicalProps(world: World, model: MatchModel): void {
     const jointData = this.jointData; if (!jointData) return;
     for (const [propId, registration] of this.props) {
-      const prop = model.props.find((candidate) => candidate.id === propId);
+      const prop = model.propsById[propId];
       const existing = this.propGrips.get(propId);
       if (!prop || prop.broken) {
         if (existing) this.releasePropGrip(world, existing, null);
