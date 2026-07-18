@@ -303,7 +303,10 @@ export class BodyWorksRuntime {
   registerFighter(fighter: FighterKey, bodies: Partial<Record<BodySegmentId, RapierRigidBody>>, jointCount: number): () => void {
     const pelvisPosition = bodies.pelvis?.translation() ?? { x: 0, y: 3.02, z: 0 };
     const restOffsets: Partial<Record<BodySegmentId, Vector3Value>> = {};
-    for (const [segment, body] of Object.entries(bodies) as [BodySegmentId, RapierRigidBody][]) {
+    for (const _segment in bodies) {
+      const segment = _segment as BodySegmentId;
+      const body = bodies[segment] as RapierRigidBody;
+      if (!body) continue;
       const position = body.translation();
       restOffsets[segment] = { x: position.x - pelvisPosition.x, y: position.y - pelvisPosition.y, z: position.z - pelvisPosition.z };
     }
@@ -534,7 +537,10 @@ export class BodyWorksRuntime {
         : orientation === 'left' ? quaternionFromEuler([0, facing, -Math.PI / 2])
           : quaternionFromEuler([0, facing, Math.PI / 2]);
     const origin = pelvis.translation(); const anchorY = 2.13;
-    for (const [segment, body] of Object.entries(rig.bodies) as [BodySegmentId, RapierRigidBody][]) {
+    for (const _segment in rig.bodies) {
+      const segment = _segment as BodySegmentId;
+      const body = rig.bodies[segment] as RapierRigidBody;
+      if (!body) continue;
       const offset = rig.restOffsets[segment]; if (!body?.isValid() || !offset) continue;
       const rotated = rotateByQuaternion(offset, rootRotation);
       body.setEnabledRotations(true, true, true, true);
@@ -547,7 +553,10 @@ export class BodyWorksRuntime {
   private placeFighter(fighter: FighterKey, target: Vec2): void {
     const rig = this.rigs.get(fighter); const pelvis = rig?.bodies.pelvis; if (!rig || !pelvis) return;
     const placementPelvisY = rig.restPelvisY - (isRingside(target) ? 1.46 : 0);
-    for (const [segment, body] of Object.entries(rig.bodies) as [BodySegmentId, RapierRigidBody][]) {
+    for (const _segment in rig.bodies) {
+      const segment = _segment as BodySegmentId;
+      const body = rig.bodies[segment] as RapierRigidBody;
+      if (!body) continue;
       if (!body?.isValid()) continue;
       const offset = rig.restOffsets[segment] ?? { x: 0, y: 0, z: 0 };
       // Placement invalidates the cached rotation-authority signature. Start
@@ -706,7 +715,10 @@ export class BodyWorksRuntime {
           z: clamp(desiredZ - center.velocityZ, -.38, .38),
         });
       }
-      for (const [segment, body] of Object.entries(rig.bodies) as [BodySegmentId, RapierRigidBody][]) {
+      for (const _segment in rig.bodies) {
+      const segment = _segment as BodySegmentId;
+      const body = rig.bodies[segment] as RapierRigidBody;
+      if (!body) continue;
         if (!body?.isValid()) continue;
         // Pull distal limbs behind the falling core so a table spot lands on a
         // shoulder/chest instead of letting boots touch first and lever the
@@ -1019,7 +1031,10 @@ export class BodyWorksRuntime {
     }
     const signature = `${profile.rootMode}:${[...dynamic].sort().join(',')}`;
     if (signature === rig.rotationSignature) return;
-    for (const [segment, body] of Object.entries(rig.bodies) as [BodySegmentId, RapierRigidBody][]) {
+    for (const _segment in rig.bodies) {
+      const segment = _segment as BodySegmentId;
+      const body = rig.bodies[segment] as RapierRigidBody;
+      if (!body) continue;
       if (!body?.isValid() || segment === 'pelvis') continue;
       const active = dynamic.has(segment); body.setEnabledRotations(active, active, active, true);
       if (!active) body.setAngvel({ x: 0, y: 0, z: 0 }, true);
@@ -1266,7 +1281,10 @@ export class BodyWorksRuntime {
       z: sourceLinearVelocity.z + sourceForce.z / sourceMass * this.currentFixedDt,
     };
     const pendingKey = `${sourceFighter}:${targetFighter}:${fighter.attackInstanceId}`;
-    for (const [targetSegment, targetBody] of Object.entries(targetRig.bodies) as [BodySegmentId, RapierRigidBody][]) {
+    for (const _segment in targetRig.bodies) {
+      const targetSegment = _segment as BodySegmentId;
+      const targetBody = targetRig.bodies[targetSegment] as RapierRigidBody;
+      if (!targetBody) continue;
       if (targetSegments && !targetSegments.includes(targetSegment)) continue;
       if (!targetBody?.isValid() || targetBody.numColliders() === 0) continue;
       const targetCollider = targetBody.collider(0); const targetForce = targetBody.userForce(); const targetMass = Math.max(.001, targetBody.mass());
@@ -1790,7 +1808,10 @@ export class BodyWorksRuntime {
     }
     const strike = fighter.moveId ? strikeDriveProfile(fighter.moveId) : null;
     const strikeSegments = strike ? strikePoseChain(strike.source) : [];
-    for (const [segment, body] of Object.entries(rig.bodies) as [BodySegmentId, RapierRigidBody][]) {
+    for (const _segment in rig.bodies) {
+      const segment = _segment as BodySegmentId;
+      const body = rig.bodies[segment] as RapierRigidBody;
+      if (!body) continue;
       if (fighter.state === 'downed' && fighter.stateElapsed > .22) continue;
       // Locked neutral limbs are constraint-stabilized and need no motor. A
       // motor fighting a disabled rotation cannot animate the limb; it only
@@ -1914,7 +1935,10 @@ export class BodyWorksRuntime {
           const sourceBody = sourceRig.bodies[sourceSegment];
           if (!sourceBody?.isValid() || sourceBody.numColliders() === 0) continue;
           const sourceCollider = sourceBody.collider(0);
-          for (const [targetSegment, targetBody] of Object.entries(targetRig.bodies) as [BodySegmentId, RapierRigidBody][]) {
+          for (const _segment in targetRig.bodies) {
+      const targetSegment = _segment as BodySegmentId;
+      const targetBody = targetRig.bodies[targetSegment] as RapierRigidBody;
+      if (!targetBody) continue;
             if (!targetBody?.isValid() || targetBody.numColliders() === 0) continue;
             const targetCollider = targetBody.collider(0); let touching = false; let totalImpulse = 0; let maximumImpulse = 0;
             let point: Vector3Value | null = null; let direction: Vector3Value = { x: 0, y: 0, z: 0 };
@@ -2102,7 +2126,10 @@ export class BodyWorksRuntime {
     for (const rig of this.rigs.values()) {
       rig.settlingFrames += 1;
       let bodyFault: NumericalFault | null = null;
-      for (const [segment, body] of Object.entries(rig.bodies) as [BodySegmentId, RapierRigidBody][]) {
+      for (const _segment in rig.bodies) {
+      const segment = _segment as BodySegmentId;
+      const body = rig.bodies[segment] as RapierRigidBody;
+      if (!body) continue;
         if (!body?.isValid()) continue;
         bodyFault = inspectNumericalBody({ segment, position: body.translation(), rotation: body.rotation(), linearVelocity: body.linvel(), angularVelocity: body.angvel() });
         if (bodyFault) break;
@@ -2169,7 +2196,10 @@ export class BodyWorksRuntime {
         const anchorX = clamp(Number.isFinite(pelvisPosition.x) ? rig.lastSafeCenter.x : modelPosition.x, -maximumX, maximumX);
         const anchorZ = clamp(Number.isFinite(pelvisPosition.z) ? rig.lastSafeCenter.z : modelPosition.z, -maximumZ, maximumZ);
         const anchorY = rig.restPelvisY - (isRingside({ x: anchorX, z: anchorZ }) ? 1.48 : 0);
-        for (const [segment, body] of Object.entries(rig.bodies) as [BodySegmentId, RapierRigidBody][]) {
+        for (const _segment in rig.bodies) {
+      const segment = _segment as BodySegmentId;
+      const body = rig.bodies[segment] as RapierRigidBody;
+      if (!body) continue;
           if (!body?.isValid()) continue;
           const offset = rig.restOffsets[segment] ?? { x: 0, y: 0, z: 0 };
           body.setTranslation({ x: anchorX + offset.x, y: anchorY + offset.y, z: anchorZ + offset.z }, true);
@@ -2224,7 +2254,10 @@ export class BodyWorksRuntime {
     const fighters = { player: {}, opponent: {}, rival1: {}, rival2: {}, rival3: {} } as Record<FighterKey, Partial<Record<BodySegmentId, { position: Vector3Value; rotation: QuaternionValue }>>>;
     for (const key of FIGHTER_SLOTS) {
       const rig = this.rigs.get(key); if (!rig) continue;
-      for (const [segment, body] of Object.entries(rig.bodies) as [BodySegmentId, RapierRigidBody][]) {
+      for (const _segment in rig.bodies) {
+      const segment = _segment as BodySegmentId;
+      const body = rig.bodies[segment] as RapierRigidBody;
+      if (!body) continue;
         if (!body.isValid()) continue;
         const position = body.translation(); const rotation = body.rotation();
         fighters[key][segment] = { position: { x: position.x, y: position.y, z: position.z }, rotation: { x: rotation.x, y: rotation.y, z: rotation.z, w: rotation.w } };
@@ -2329,7 +2362,10 @@ export class BodyWorksRuntime {
     const keys: readonly FighterKey[] = key ? [key] : FIGHTER_SLOTS;
     let total = 0; let count = 0; let maximumError = 0; let maximumSegment: BodySegmentId | null = null;
     for (const fighter of keys) {
-      for (const [segment, presentation] of Object.entries(this.presentationPoints[fighter]) as [BodySegmentId, Vector3Value][]) {
+      for (const _segment in this.presentationPoints[fighter]) {
+      const segment = _segment as BodySegmentId;
+      const presentation = this.presentationPoints[fighter][segment] as Vector3Value;
+      if (!presentation) continue;
         const physical = this.segmentSnapshot(fighter, segment)?.position;
         if (!physical) continue;
         const error = Math.hypot(presentation.x - physical.x, presentation.y - physical.y, presentation.z - physical.z);
