@@ -90,6 +90,6 @@ export default defineConfig(({ mode }) => {
       ],
     } } },
   },
-  test: { environment: 'node', include: ['src/tests/**/*.test.ts'] },
+  test: { environment: 'jsdom', include: ['src/tests/**/*.test.ts'] },
   };
 });
