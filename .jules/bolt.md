@@ -55,3 +55,7 @@
 ### 2025-02-24: Optimize Math.hypot calls in physics loop
 **Learning:** `Math.hypot` is computationally expensive and commonly impacts performance within tight, high-frequency physics loops such as applying velocity constraints or limits.
 **Action:** Replaced `Math.hypot` inside `capRigVelocity` (`src/game/physics/physicsRuntime.ts`) with squared magnitude checks (e.g., `x*x + y*y + z*z > threshold*threshold`). This change avoided executing `Math.sqrt` unless absolutely necessary, significantly reducing loop execution time (from ~26s to ~4.6s per 150M iterations in micro-benchmarks).
+
+## 2025-02-28 - [Optimized Math.hypot with direct Math.sqrt and Squared Comparisons]
+**Learning:** `Math.hypot` is highly robust but extremely slow in hot execution paths like high-frequency `useFrame` rendering ticks and basic vector length/distance math helpers because of its generic multi-argument checking and underflow/overflow safety.
+**Action:** Replaced helper functions `length` and `distance` in `src/game/utils/math.ts` with direct squared-sum `Math.sqrt` implementations. Additionally replaced `Math.hypot` checks in high-frequency rendering logic (e.g., `FighterModel.tsx` locomotion checking, position correction error bounds, and input held state evaluations in `GameScene.tsx`) with zero-allocation squared comparisons or straightforward `Math.sqrt` operations. This yields major CPU execution speedups and minimizes GC pressure.

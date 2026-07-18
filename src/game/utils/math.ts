@@ -1,8 +1,14 @@
 import type { Vec2 } from '../types/game';
 
 export const clamp = (value: number, minimum: number, maximum: number): number => Math.min(maximum, Math.max(minimum, value));
-export const length = (value: Vec2): number => Math.hypot(value.x, value.z);
-export const distance = (a: Vec2, b: Vec2): number => Math.hypot(a.x - b.x, a.z - b.z);
+// Optimized: Math.hypot is computationally expensive in hot paths.
+// Replacing with Math.sqrt and simple multiplication dramatically improves performance.
+export const length = (value: Vec2): number => Math.sqrt(value.x * value.x + value.z * value.z);
+export const distance = (a: Vec2, b: Vec2): number => {
+  const dx = a.x - b.x;
+  const dz = a.z - b.z;
+  return Math.sqrt(dx * dx + dz * dz);
+};
 export const normalize = (value: Vec2): Vec2 => {
   const magnitude = length(value);
   return magnitude > 0.0001 ? { x: value.x / magnitude, z: value.z / magnitude } : { x: 0, z: 0 };
