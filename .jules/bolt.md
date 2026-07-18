@@ -24,3 +24,9 @@
 ## 2026-07-19 - [Avoid Object.entries/Object.keys inside hot frame loops]
 **Learning:** Calling reflection functions like `Object.entries` or `Object.keys` inside high-frequency frame loops (e.g. `useFrame` in React Three Fiber) allocates temporary arrays of keys/entries on every single frame, causing significant garbage collection pressure and micro-stutters during intense scenes.
 **Action:** For hot-path frame iterations with pre-known keys, unroll the loop into direct property accesses or utilize static key sets rather than dynamically re-allocating entry arrays.
+
+## 2025-02-28
+**Title**: Optimize FighterSlot Lookups in Physics Simulation
+**Failed/Successful Optimization**: Successful Optimization
+**Learning**: Array `.find()` with anonymous arrow functions is exceptionally slow within critical loops (like high-frequency physics `useFrame` callbacks or fixed-step solvers). A benchmark showed `FIGHTER_SLOTS.find` running 80x slower than a chained ternary operator sequence directly checking properties on `model`.
+**Action**: Replaced the `.find()` lookup with a deterministic fallback checking each slot property explicitly (`model.player === fighter ? 'player' : ...`).
