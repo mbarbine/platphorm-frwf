@@ -7,6 +7,10 @@
 **Learning:** Colyseus message handler callbacks are executed directly within the room context. Any unhandled TypeError within these callbacks can disrupt room stability. Standardizing defensive object type checks on all msg arguments mitigates this risk.
 **Prevention:** Always validate that incoming payload variables (`msg`) are non-null objects and have expected types (`typeof msg === 'object' && msg !== null`) before accessing their nested fields.
 
+## 2025-02-14 - [Defensive Room Creation and Client Connection Validation]
+**Vulnerability:** Colyseus server room methods `onCreate` and `onJoin` are called with arbitrary arguments provided by client request payloads. Missing validations of the `options` argument allowed `null`, `undefined`, or malformed objects to propagate, causing `TypeError`s (such as property access on undefined) that crashed the whole server process (Denial of Service).
+**Learning:** Colyseus does not validate room options or client join payloads against the TypeScript types at runtime. Safe, defensive type checks (`typeof options === 'object'`) and whitelisting logic must be manually applied to safeguard server stability.
+**Prevention:** Always assume `options` can be `null`, `undefined`, or of an unexpected type. Extract and sanitize each property with whitelisted fallbacks before assigning them to any schema or state object.
 ## 2025-02-27 - [Missing Server Header Disablement]
 **Vulnerability:** The Express server initialization was missing the disablement of the `X-Powered-By` header, which broadcasts the underlying server technology stack (Express) to clients. This could be used by malicious actors to gather intelligence for targeted exploits.
 **Learning:** Security hardening must be implemented at the very start of server instantiation to reduce the attack surface. Disclosing internal technology stacks unnecessarily provides potential attackers with a vector to find matching CVEs or framework-specific exploits.
