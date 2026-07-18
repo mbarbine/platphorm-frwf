@@ -162,33 +162,33 @@ pnpm test:e2e
 
 The Vite development server also surfaces browser console errors in its terminal, which is used during live gameplay smoke testing.
 
-## Vercel deployment
+## Deployment
 
-`vercel.json` declares the Vite framework, clean URLs, build output, XR policy, and security headers. Static public discovery includes health, OpenAPI, LLM, sitemap, feed, manifest, security, trust, agent, and honest unsupported-MCP declarations.
+`Deployment config` declares the Vite framework, clean URLs, build output, XR policy, and security headers. Static public discovery includes health, OpenAPI, LLM, sitemap, feed, manifest, security, trust, agent, and honest unsupported-MCP declarations.
 
 ```bash
-pnpm exec vercel link --yes --project platphorm-frwf
-pnpm exec vercel pull --yes --environment=preview
-pnpm exec vercel build
-pnpm exec vercel deploy --prebuilt
+pnpm exec deployctl link --yes --project platphorm-frwf
+pnpm exec deployctl pull --yes --environment=preview
+pnpm exec deployctl build
+pnpm exec deployctl deploy --prebuilt
 # Verify the immutable preview, then:
-pnpm exec vercel promote <preview-url>
-pnpm exec vercel inspect <production-url>
-pnpm exec vercel logs <production-url> --since 1h --level error
+pnpm exec deployctl promote <preview-url>
+pnpm exec deployctl inspect <production-url>
+pnpm exec deployctl logs <production-url> --since 1h --level error
 ```
 
 For a direct production rebuild, keep the prebuild and deploy targets aligned:
 
 ```bash
-pnpm exec vercel pull --yes --environment=production
-pnpm exec vercel build --prod
-pnpm exec vercel deploy --prebuilt --prod
+pnpm exec deployctl pull --yes --environment=production
+pnpm exec deployctl build --prod
+pnpm exec deployctl deploy --prebuilt --prod
 ```
 
-The game intentionally does not install Vercel Analytics, Speed Insights, databases, flags, queues, functions, or Marketplace storage: each would add runtime behavior or telemetry that conflicts with this product's no-backend/no-runtime-network contract. Vercel is used for immutable static delivery, routing, headers, previews, promotion, and release inspection.
+The game intentionally avoids Analytics, speed insight tooling, databases, flags, queues, functions, or marketplace storage: each would add runtime behavior or telemetry that conflicts with this product's no-backend/no-runtime-network contract. The host is used for immutable static delivery, routing, headers, previews, promotion, and release inspection.
 
 ## PlatPhorm contract
 
-RINGFALL remains a game first. Public discovery files report real static capabilities and honest `unsupported`/`degraded` states for backend health, MCP execution, trace propagation, protected mutations, Vercel request metadata, and authentication. There are no fake runs, fake counts, fake APIs, or simulated downstream integrations.
+RINGFALL remains a game first. Public discovery files report real static capabilities and honest `unsupported`/`degraded` states for backend health, MCP execution, trace propagation, protected mutations, deployment request metadata, and authentication. There are no fake runs, fake counts, fake APIs, or simulated downstream integrations.
 
 The detailed Bodyworks baseline, architecture, attached-contract audit, capability matrix, tuning, performance, test, release, device, platform, and fun-audit documents live in [`docs/bodyworks/`](docs/bodyworks/).
