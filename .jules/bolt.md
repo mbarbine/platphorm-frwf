@@ -24,3 +24,7 @@
 ## 2026-07-19 - [Avoid Object.entries/Object.keys inside hot frame loops]
 **Learning:** Calling reflection functions like `Object.entries` or `Object.keys` inside high-frequency frame loops (e.g. `useFrame` in React Three Fiber) allocates temporary arrays of keys/entries on every single frame, causing significant garbage collection pressure and micro-stutters during intense scenes.
 **Action:** For hot-path frame iterations with pre-known keys, unroll the loop into direct property accesses or utilize static key sets rather than dynamically re-allocating entry arrays.
+
+## 2026-07-20 - [Optimized Action Processing using ID Maps]
+**Learning:** Using `.find()` inside high-frequency input handler resolution logic (e.g. `combat.ts`) to lookup entities like props iterates over the array linearly and allocates a callback function for every evaluation, generating CPU load and Garbage Collection (GC) pressure.
+**Action:** Replace `O(N)` linear searches and callback-based methods inside high-frequency frame or input routines with a direct key-value dictionary lookup (e.g., `model.propsById[id]`) which operates in `O(1)` time with zero dynamic allocations.
