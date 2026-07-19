@@ -33,14 +33,14 @@ export type {
 } from '@frwf/game-protocol';
 
 // Utilities
-export * from './utils/math.ts';
+export * from './utils/math.js';
 
 // Data
-export { BALANCE } from './data/balance.ts';
+export { BALANCE } from './data/balance.js';
 
 // Deterministic server authority for online movement, attack windows, swept
 // collider contact, resources, grapples, and match resolution.
-export * from './onlineSimulation.ts';
+export * from './onlineSimulation.js';
 
 // Simulation API — the primary integration surface for both client and server
 // TODO: uncomment as extraction completes

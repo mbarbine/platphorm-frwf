@@ -144,9 +144,9 @@ describe('authoritative server contract', () => {
       leave: () => {},
     } as unknown as Parameters<WrestlingRoom['onJoin']>[0];
 
-    expect(() => room.onJoin(mockClient, null as unknown as { fighterId?: unknown })).not.toThrow();
-    expect(() => room.onJoin(mockClient, undefined as unknown as { fighterId?: unknown })).not.toThrow();
-    expect(() => room.onJoin(mockClient, { fighterId: { nested: true }, spectate: 'maybe' } as unknown as { fighterId?: unknown })).not.toThrow();
+    expect(() => room.onJoin(mockClient, null as unknown as Parameters<WrestlingRoom['onJoin']>[1])).not.toThrow();
+    expect(() => room.onJoin(mockClient, undefined as unknown as Parameters<WrestlingRoom['onJoin']>[1])).not.toThrow();
+    expect(() => room.onJoin(mockClient, { fighterId: { nested: true }, spectate: 'maybe' } as unknown as Parameters<WrestlingRoom['onJoin']>[1])).not.toThrow();
   });
 
   it('applies two sequenced clients to authoritative movement and swept strike contact', async () => {
