@@ -1,0 +1,21 @@
+{
+  "policy": {
+    "version": "2026-01-01",
+    "scope": "global",
+    "allowedAgents": [
+      "chatgpt",
+      "claude",
+      "openai",
+      "gemini",
+      "grok",
+      "copilot"
+    ],
+    "privacy": "No PII intentionally stored by default.",
+    "rateLimits": [
+      "Standard public throttling",
+      "Respect robots and trust policy"
+    ],
+    "usage": "General web and discovery access only"
+  },
+  "generatedAt": "2026-07-19T01:55:18.2074780Z"
+}

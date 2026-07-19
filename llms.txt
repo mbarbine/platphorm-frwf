@@ -1,0 +1,4 @@
+# LLMs.txt for this repository
+
+Standard machine-readable discovery metadata.
+

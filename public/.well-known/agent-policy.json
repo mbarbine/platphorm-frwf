@@ -1,0 +1,34 @@
+{
+    "aiUsagePolicy":  "Public pages and APIs are available for discovery and indexing with clear attribution.",
+    "updatedAt":  "2026-07-19T01:53:51Z",
+    "allowedCrawlers":  [
+                            "GPTBot",
+                            "ChatGPT-User",
+                            "Claude-Web",
+                            "PerplexityBot",
+                            "PerplexityUser",
+                            "Google-Extended",
+                            "Copilot-User",
+                            "Bingbot",
+                            "Applebot",
+                            "Anthropic",
+                            "CCBot",
+                            "OAI-SearchBot",
+                            "BingPreview",
+                            "Amazonbot",
+                            "Grok"
+                        ],
+    "service":  "Frwf",
+    "disallow":  [
+                     "/api/admin",
+                     "/admin",
+                     "/private",
+                     "/api/private",
+                     "/internal",
+                     "/debug",
+                     "/_next"
+                 ],
+    "website":  "https://platphorm-frwf.platphormnews.com",
+    "mode":  "allow-indexing",
+    "version":  "1.1.0"
+}

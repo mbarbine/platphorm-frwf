@@ -1,11 +1,11 @@
-# RINGFALL: CHAOS CIRCUIT
+# Frwf
 
-RINGFALL is an original browser wrestling game. Its default mode is a five-wrestler Battle Royale free-for-all with one player, four rule-bound AI wrestlers, live target cycling, elimination, last-wrestler-standing resolution, and spectator controls after player elimination; Singles remains available. It offers five original procedural fighters, Standard and Chaos Circuit rules, Normal and Hard utility-based AI, deterministic phase-based combat, directional high and low strikes, paired 16-body physical grapples and slams, guard and counters, orientation-specific get-ups and a downed kick-up, staged turnbuckle climbing, three top-rope attacks, a physical corner rail shot, elastic rope rebounds, stiff-arm knockdowns, center-rope traversal, pinfall, knockout, signatures, props, arena events, HRTF procedural spatial audio, touch/gamepad controls, standards-based WebXR entry, adaptive graphics settings, results, and rematch.
-
-The expanded Volt Dome includes a larger playable ringside floor, fixed safety rails with damped movable impact panels, physical steel steps, grippable chairs/signs/trash cans, an entrance lane, reactive perimeter lighting, a commentary desk that collapses only from a measured physical landing, and a multi-mode camera director for broadcast, wide, ringside, desk, aerial, grapple, and replay action. The articulated physics controller uses mass-weighted center-of-mass locomotion and full-body throw/dive impulses to avoid pelvis stretch and idle vibration.
-
-Deterministic production-preview browser scenarios cover standing stability, rope rebound stiff-arms, corner dives, apron return, table collapse, standard gamepad control, WebXR capability discovery, and portrait/landscape touch. A 50-match deterministic bot soak checks completion and state bounds. A bounded six-rematch soak checks Rapier body/joint cleanup, emergency resets, rolling fixed-step cost, and browser heap growth where the browser exposes it.
-
-The site is a static Vite application. Game state stays in memory; accessibility and tutorial preferences use localStorage. It makes no runtime network requests and has no backend, authentication, telemetry, trace export, or MCP execution surface. Those capabilities are reported as unsupported or degraded rather than simulated.
-
-Public discovery routes: /api/health, /api/v1/health, /api/docs, /openapi.yaml, /llms.txt, /llms-full.txt, /llms-index.json, /robots.txt, /sitemap.xml, /sitemap-index.xml, /rss.xml, /feed.xml, /manifest.webmanifest, /.well-known/mcp.json, /.well-known/agents.json, /.well-known/security.txt, /.well-known/trust.json.
+Service endpoints:
+- https://platphorm-frwf.platphormnews.com/
+- https://platphorm-frwf.platphormnews.com/api/health
+- https://platphorm-frwf.platphormnews.com/.well-known/mcp.json
+- https://platphorm-frwf.platphormnews.com/openapi.json
+- https://platphorm-frwf.platphormnews.com/rss.xml
+- https://platphorm-frwf.platphormnews.com/sitemap.xml
+- https://platphorm-frwf.platphormnews.com/manifest.webmanifest
+- https://platphorm-frwf.platphormnews.com/robots.txt

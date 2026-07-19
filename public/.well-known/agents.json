@@ -1,1 +1,51 @@
-{"name":"RINGFALL: CHAOS CIRCUIT","purpose":"Original browser arcade wrestling game whose default mode is a five-wrestler Battle Royale free-for-all, with articulated physics, expanded arena interaction, adaptive quality, and stable cinematic cameras","humanPlayable":true,"inputModes":["keyboard","standard-gamepad","touch","WebXR-gamepad"],"playabilityProofs":["default five-wrestler Battle Royale","Battle Royale target cycling","last-wrestler-standing bot soak","spectator target filtering","standing stability","rope stiff-arm","corner dive","apron return","table collapse","gamepad emulation","touch orientation","50-match bot soak","bounded six-rematch soak"],"xr":{"mode":"immersive-vr","referenceSpace":"local-floor","availability":"browser-and-device-dependent"},"agentOperable":false,"reason":"Direct gameplay is intentionally human-controlled; deterministic pure systems and browser journeys are testable locally."}
+{
+    "version":  "1.0.0",
+    "service":  "platphorm-frwf",
+    "publicOperations":  [
+                             {
+                                 "method":  "read",
+                                 "path":  "/",
+                                 "note":  "Read public pages and documentation"
+                             },
+                             {
+                                 "method":  "head",
+                                 "path":  "/",
+                                 "note":  "Health checks and URL probing"
+                             },
+                             {
+                                 "method":  "get",
+                                 "path":  "/status",
+                                 "note":  "Read public status pages"
+                             },
+                             {
+                                 "method":  "get",
+                                 "path":  "/api/health",
+                                 "note":  "Read health endpoint"
+                             }
+                         ],
+    "protectedOperations":  [
+                                {
+                                    "method":  "post",
+                                    "path":  "/api/admin",
+                                    "note":  "Protected admin operations"
+                                }
+                            ],
+    "disallowedOperations":  [
+                                 {
+                                     "method":  "delete",
+                                     "path":  "/*",
+                                     "note":  "Not allowed for anonymous agents"
+                                 },
+                                 {
+                                     "method":  "patch",
+                                     "path":  "/*",
+                                     "note":  "Not allowed for anonymous agents"
+                                 },
+                                 {
+                                     "method":  "post",
+                                     "path":  "/*",
+                                     "note":  "Write actions require auth"
+                                 }
+                             ],
+    "aiUsagePolicy":  "Use public operations for discovery and read-only research."
+}

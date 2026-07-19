@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>Frwf</title>
+  <link href="https://platphorm-frwf.platphormnews.com/atom.xml" rel="self"/>
+  <updated>2026-07-19T01:53:51.5512142Z</updated>
+  <author><name>Platphorm</name></author>
+  <id>https://platphorm-frwf.platphormnews.com</id>
+  <entry>
+    <title>Frwf status</title>
+    <id>https://platphorm-frwf.platphormnews.com/status</id>
+    <updated>2026-07-19T01:53:51.5512142Z</updated>
+    <content type="html">Service discovery and feed entry.</content>
+  </entry>
+</feed>

@@ -1,1 +1,8 @@
-{"service":"ringfall-chaos-circuit","auth":{"scheme":"PLATPHORM_API_KEY","implemented":false,"reason":"No mutations or backend routes exist."},"publicReadAccess":true,"protectedActions":[],"trustedDomains":["*.platphormnews.com"],"dataExposure":{"runtimeNetworkRequests":false,"telemetry":false,"localStorage":["settings","tutorial completion"]},"routeStandard":{"status":"partial-static","unsupported":["dynamic health checks","MCP JSON-RPC","trace propagation","protected mutations"]},"policy":"Web dashboard, public-safe discovery, browser-based operations, trusted-domain discovery, standard route compliance, Vercel metadata capture, trace inspection, and agentic workflow discovery are intentionally supported for public read-only debugging and operator workflows. Mutating, administrative, ingestion, replay, fork, remediation, deployment, sync, test-triggering, reporting, and write actions require PLATPHORM_API_KEY."}
+{
+    "version":  "1.0.0",
+    "updatedAt":  "2026-07-19T01:53:51Z",
+    "site":  "platphorm-frwf",
+    "publisher":  "PlatPhorm",
+    "aiDisclosure":  "Public content is intended for indexing with attribution and source integrity checks.",
+    "contact":  "mailto:hello@platphormnews.com"
+}

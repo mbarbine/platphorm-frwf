@@ -1,6 +1,0 @@
-packages:
-  - '.'
-  - 'server'
-  - 'packages/*'
-allowBuilds:
-  msgpackr-extract: true
