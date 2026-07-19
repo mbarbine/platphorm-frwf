@@ -133,7 +133,7 @@ function Simulation({ onPause, onDevice, onFinished, inputEnabled = true, online
       const middleZ = activeSlots.reduce((sum, slot) => sum + model[slot].position.z, 0) / Math.max(1, activeSlots.length);
       const candidate = cameraInputBasis({ x: camera.position.x, z: camera.position.z }, { x: middleX, z: middleZ });
       if (!inputBasis.current) inputBasis.current = candidate;
-      // Optimized: Avoid Math.hypot inside the frame loop by using flat arithmetic or direct Math.sqrt/squared sums
+      // OPTIMIZATION: Replacing Math.hypot with a zero-allocation squared magnitude check to avoid slow square root extraction on a hot path.
       const inputHeld = (raw.move.x * raw.move.x + raw.move.z * raw.move.z) > 0.0064; // 0.08 * 0.08 = 0.0064
       const playerInGrapple = Boolean(model.grapple && (model.grapple.attacker === 'player' || model.grapple.defender === 'player'));
       const cinematic = useMatchStore.getState().replayActive || playerInGrapple || model.player.moveId !== null || ['grappling', 'grabbed', 'climbing', 'airborne', 'jumping', 'pinning', 'pinned'].includes(model.player.state);
@@ -146,6 +146,7 @@ function Simulation({ onPause, onDevice, onFinished, inputEnabled = true, online
         // move even after a camera cut or when players occupy opposite sides.
         const sourceDirection = { x: event.direction.x, z: event.direction.y };
         const direction = ['move', 'run', 'guard'].includes(event.action) ? transformCameraRelative(sourceDirection, stableBasis) : sourceDirection;
+        // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt for rendering and input calculations.
         const magnitude = Math.max(1, Math.sqrt(direction.x * direction.x + direction.z * direction.z));
         return { ...event, direction: { x: direction.x / magnitude, y: direction.z / magnitude } };
       });
@@ -235,16 +236,16 @@ function PlayerControlBeacon() {
   useFrame(({ clock }) => {
     const group = beacon.current; if (!group) return;
     const intent = bodyWorksRuntime.intentSnapshot('player'); const model = useMatchStore.getState().model;
-    // Optimized: Replaced Math.hypot with Math.sqrt to avoid performance overhead in frame updates
-    const magnitude = Math.sqrt(intent.move.x * intent.move.x + intent.move.z * intent.move.z);
+    // OPTIMIZATION: Replacing Math.hypot with a zero-allocation squared magnitude comparison to avoid slow square root extraction entirely.
+    const hasMagnitude = (intent.move.x * intent.move.x + intent.move.z * intent.move.z) > 0.0064; // 0.08 * 0.08 = 0.0064
     const controllable = ['idle', 'locomotion'].includes(model.player.state) && !model.paused && !model.resolved;
     const battleIdentity = model.matchMode === 'battle_royale' && !['defeated', 'victorious'].includes(model.player.state) && !model.resolved;
     group.visible = battleIdentity || controllable;
     if (!group.visible) return;
     group.position.set(model.player.position.x, Math.abs(model.player.position.x) <= 5.82 && Math.abs(model.player.position.z) <= 4.32 ? 1.94 : .08, model.player.position.z);
     group.rotation.y = Math.atan2(intent.move.x, intent.move.z);
-    if (direction.current) direction.current.visible = controllable && magnitude > .08;
-    const pulse = 1 + Math.sin(clock.elapsedTime * 8) * .045; group.scale.setScalar(intent.run && magnitude > .08 ? pulse * 1.1 : pulse);
+    if (direction.current) direction.current.visible = controllable && hasMagnitude;
+    const pulse = 1 + Math.sin(clock.elapsedTime * 8) * .045; group.scale.setScalar(intent.run && hasMagnitude ? pulse * 1.1 : pulse);
   });
   return <group ref={beacon} visible={false}>
     <mesh rotation={[-Math.PI / 2, 0, 0]}><torusGeometry args={[.43, .035, 5, 32]} /><meshBasicMaterial color="#49efff" transparent opacity={.86} depthWrite={false} /></mesh>
