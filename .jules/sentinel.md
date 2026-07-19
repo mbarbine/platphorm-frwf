@@ -40,3 +40,8 @@ The default `CORS_ORIGIN` now restricts to the standard frontend port (`http://l
 **Vulnerability:** Game match seeding was vulnerable to predictability due to using `Math.random()`, which is a pseudorandom number generator (PRNG) that doesn't produce cryptographically secure values.
 **Learning:** For deterministic logic such as generating an unpredictable match seed, developers must use cryptographically secure random number generators instead of simple `Math.random()`.
 **Prevention:** Use `randomInt` from the built-in Node.js `crypto` module (or `crypto.getRandomValues` in browsers) to ensure unpredictability.
+
+## 2025-02-27 - [Predictable Match Seeding via Math.random]
+**Vulnerability:** Game match seeding on the server was using `Math.random()` to generate the seed value. Since `Math.random()` is not cryptographically secure, the resulting seed could be easily predicted by a malicious client, potentially giving them an unfair advantage by knowing random game events in advance.
+**Learning:** For server-side authoritative state setups where random seed integrity is critical, any reliance on `Math.random()` can be exploited. Using standard cryptographic sources of randomness preserves seed integrity and match fairness.
+**Prevention:** Always use `randomInt` from the native Node.js `crypto` module to safely generate cryptographically secure integer seeds.

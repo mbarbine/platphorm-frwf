@@ -35,7 +35,7 @@ export function SpectatorControls() {
   const fighter = fighterById(model[target].definitionId);
   return <aside className="spectator-controls" data-testid="spectator-controls" data-camera-mode={cameraMode} data-spectator-target={target}>
     <header><span>ELIMINATED · MATCH CONTINUES</span><b>SPECTATING {fighter.name}</b></header>
-    <div>{MODES.map((mode) => <button key={mode.id} type="button" className={cameraMode === mode.id ? 'active' : ''} onClick={() => setCameraMode(mode.id)}><kbd>{mode.key}</kbd>{mode.label}</button>)}</div>
+    <div>{MODES.map((mode) => <button key={mode.id} type="button" className={cameraMode === mode.id ? 'active' : ''} aria-pressed={cameraMode === mode.id} onClick={() => setCameraMode(mode.id)}><kbd>{mode.key}</kbd>{mode.label}</button>)}</div>
     <button type="button" className="spectator-next" onClick={() => cycleTarget(model)}>NEXT WRESTLER <kbd>TAB</kbd></button>
     {cameraMode === 'free' && <small>DRAG TO ORBIT · WHEEL TO ZOOM · RIGHT-DRAG TO PAN</small>}
   </aside>;
