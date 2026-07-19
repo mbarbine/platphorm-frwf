@@ -1,10 +1,1 @@
-{
-    "description":  "MCP manifest for Frwf",
-    "updatedAt":  "2026-07-19T01:53:51Z",
-    "name":  "Frwf",
-    "transport":  "https",
-    "discoveryUrl":  "https://platphorm-frwf.platphormnews.com/.well-known/mcp.json",
-    "apiUrl":  "https://platphorm-frwf.platphormnews.com/api/mcp",
-    "protocol":  "json-rpc-2.0",
-    "version":  "1.0.0"
-}
+{"name":"RINGFALL: CHAOS CIRCUIT","mcp":{"supported":false,"status":"unsupported","reason":"The static local-first game has no appropriate remote tool execution surface."},"metadata":"/api/docs"}

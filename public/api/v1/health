@@ -1,11 +1,1 @@
-﻿{
-    "status":  "healthy",
-    "service":  "frwf",
-    "version":  "1.0.0",
-    "checkedAt":  "2026-07-19T01:55:09.6298860Z",
-    "dependencies":  {
-                         "website":  true,
-                         "api":  true
-                     },
-    "message":  "health ok"
-}
+{"ok":true,"data":{"service":"ringfall-chaos-circuit","version":"1.0.0","environment":"development","status":"operational","product":"original browser arcade wrestling","backend":"unsupported","networkRequestsAtRuntime":false,"releaseIdentity":{"applicationVersion":"1.0.0","gitSha":"development","shortGitSha":"development","buildTimestamp":"unbuilt","fighterManifestVersion":"ringfall-fighters-2.0.0","moveManifestVersion":"ringfall-moves-2.1.0","arenaManifestVersion":"volt-dome-2.0.0","assetManifestVersion":"ringfall-assets-2.0.0","presentationRigVersion":"ringfall-humanoid-rig-2.0.0","deploymentEnvironment":"development","fighterCount":5,"moveCount":39,"criticalAssetCount":1}}}

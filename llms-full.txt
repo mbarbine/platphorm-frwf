@@ -1,1 +1,0 @@
-# llms-full.txt`nFull OpenAI/LLM discovery metadata.

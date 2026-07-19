@@ -1,17 +1,1 @@
-﻿{
-    "schema_version":  "v1",
-    "name_for_human":  "frwf API",
-    "name_for_model":  "frwf service",
-    "description_for_human":  "Public discovery and status endpoints for frwf.",
-    "description_for_model":  "Use this endpoint set to access API and metadata for frwf.",
-    "auth":  {
-                 "type":  "none"
-             },
-    "api":  {
-                "type":  "openapi",
-                "url":  "https://frwf.platphormnews.com/openapi.json"
-            },
-    "logo_url":  "https://frwf.platphormnews.com/favicon.ico",
-    "contact_email":  "support@platphormnews.com",
-    "legal_info_url":  "https://frwf.platphormnews.com/.well-known/trust.json"
-}
+{"schema_version":"v1","name_for_human":"RINGFALL: CHAOS CIRCUIT","name_for_model":"ringfall_chaos_circuit","description_for_human":"Original browser arcade wrestling game.","description_for_model":"Static game discovery only. No callable plugin API.","auth":{"type":"none"},"api":{"type":"openapi","url":"https://platphorm-frwf.vercel.app/openapi.yaml"},"logo_url":"","contact_email":"","legal_info_url":""}

@@ -1,5 +1,4 @@
-Contact: mailto:hello@platphormnews.com
+Contact: https://platphormnews.com/
 Preferred-Languages: en
-Canonical: https://platphorm-frwf.platphormnews.com
-Policy: https://www.rfc-editor.org/rfc/rfc9116.txt
-Expires: 2027-07-19T01:53:51Z
+Canonical: https://platphorm-frwf.vercel.app/.well-known/security.txt
+Expires: 2027-07-12T00:00:00Z
