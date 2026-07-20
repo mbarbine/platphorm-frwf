@@ -5,3 +5,7 @@
 ## 2025-02-19 - Semantic Label Pairing and Focus Outline Uniformity
 **Learning:** Dynamic settings values can sometimes be skipped or mis-announced by screen readers if `<label>` wrappers contain too many changing textual elements without a clean programmatic `id`/`htmlFor` pairing. Furthermore, custom `select:focus-visible` states are often left unstyled compared to inputs and buttons, creating a disjointed keyboard navigation cue. Providing matching `id`/`htmlFor` associations across all inputs, checkboxes, and selects, plus standardizing `select:focus-visible` states, yields a seamless, accessible user configuration experience.
 **Action:** Always link form controls with explicit unique IDs and ensure select dropdowns are explicitly covered in custom focus stylesheets.
+
+## 2025-02-20 - Non-Intrusive Clipboard Copy Visual State Feedback
+**Learning:** When users click a button to copy content like multiplayer room lobby codes, the lack of immediate confirmation forces them to repeatedly click or guess if it worked. Introducing a temporary, self-reverting visual transition state (such as changing 'COPY CODE' to 'COPIED!' for 2 seconds) coupled with aria-live="polite" and an explicit aria-label ensures clear, confident feedback for both visual and screen-reader users without introducing screen-blocking notifications.
+**Action:** Use a temporary React state-backed self-reverting label change with aria-live="polite" to give elegant, non-intrusive copy confirmation feedback.
