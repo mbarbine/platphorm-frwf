@@ -30,6 +30,13 @@ export function App() {
   const [beers, setBeers] = useState(0);
   const [runtimePreload, setRuntimePreload] = useState<'idle' | 'loading' | 'ready'>('idle');
   const [joinRoomId, setJoinRoomId] = useState('');
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (!copied) return;
+    const timer = setTimeout(() => setCopied(false), 2000);
+    return () => clearTimeout(timer);
+  }, [copied]);
   const physicsLab = new URLSearchParams(window.location.search).get('physicsLab') === '1';
   const toyTest = new URLSearchParams(window.location.search).get('toyTest') === '1';
   const settings = useSettings(); const configure = useMatchStore((state) => state.configure); const rematch = useMatchStore((state) => state.rematch); const result = useMatchStore((state) => state.model.result); const replayActive = useMatchStore((state) => state.replayActive);
@@ -186,10 +193,20 @@ export function App() {
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem' }}>
               <span style={{ fontSize: '0.8rem', color: '#888' }}>ROOM CODE</span>
               <strong data-testid="multiplayer-room-code" style={{ fontSize: '1.8rem', color: '#ff007b', letterSpacing: '4px', fontFamily: 'monospace' }}>{multiplayerRoomId}</strong>
-              <button className="button button--quiet" style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }} onClick={() => {
-                navigator.clipboard.writeText(multiplayerRoomId || '');
-                audioEngine.play('menu', settings);
-              }}>COPY CODE</button>
+              <div aria-live="polite" style={{ display: 'inline-flex' }}>
+                <button
+                  className="button button--quiet"
+                  style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}
+                  aria-label={copied ? "Room code copied to clipboard" : "Copy room code to clipboard"}
+                  onClick={() => {
+                    navigator.clipboard.writeText(multiplayerRoomId || '');
+                    audioEngine.play('menu', settings);
+                    setCopied(true);
+                  }}
+                >
+                  {copied ? 'COPIED!' : 'COPY CODE'}
+                </button>
+              </div>
             </div>
           </div>
 
