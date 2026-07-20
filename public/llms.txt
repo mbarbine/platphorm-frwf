@@ -1,6 +1,7 @@
-Frwf public docs: https://platphorm-frwf.platphormnews.com
-https://platphorm-frwf.platphormnews.com/
-https://platphorm-frwf.platphormnews.com/api/health
-https://platphorm-frwf.platphormnews.com/.well-known/mcp.json
-https://platphorm-frwf.platphormnews.com/openapi.json
-https://platphorm-frwf.platphormnews.com/rss.xml
+# RINGFALL: CHAOS CIRCUIT
+Original local-first 3D arcade wrestling game with articulated physics, adaptive quality, an expanded interactive Volt Dome, environmental grapples, and a stable multi-mode camera director. Default play is a five-wrestler Battle Royale free-for-all; Singles remains available.
+Public game: /
+Health: /api/health
+API docs: /api/docs
+OpenAPI: /openapi.yaml
+No backend, login, runtime network requests, protected actions, or MCP execution are implemented.

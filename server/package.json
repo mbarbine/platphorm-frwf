@@ -1,0 +1,35 @@
+{
+  "name": "@frwf/game-server",
+  "version": "1.0.0",
+  "description": "RINGFALL authoritative Colyseus game server — runs deterministic simulation, owns match state",
+  "private": true,
+  "type": "commonjs",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "lint": "eslint src --max-warnings 0",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "loadtest": "ts-node src/tools/loadtest.ts"
+  },
+  "dependencies": {
+    "@frwf/game-protocol": "workspace:*",
+    "@frwf/game-core": "workspace:*",
+    "colyseus": "^0.15.0",
+    "@colyseus/schema": "^2.0.0",
+    "@colyseus/monitor": "^0.15.0",
+    "express": "^4.18.0",
+    "cors": "^2.8.5",
+    "zod": "^3.22.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.0",
+    "@types/cors": "^2.8.0",
+    "@types/node": "^20.0.0",
+    "typescript": "6.0.3",
+    "ts-node-dev": "^2.0.0",
+    "vitest": "4.1.10"
+  }
+}

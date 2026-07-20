@@ -1,44 +1,30 @@
-﻿openapi: 3.1.0
+openapi: 3.1.0
 info:
-  title: frwf API
+  title: RINGFALL CHAOS CIRCUIT Public API
   version: 1.0.0
-  description: Public discovery and status endpoints for frwf.
+  description: Read-only discovery for the static browser game. No protected or mutating API is implemented.
 servers:
   - url: https://frwf.platphormnews.com
 paths:
   /api/health:
     get:
-      summary: Health check
-      operationId: getHealth
-      tags:
-        - Health
+      summary: Full public-safe static health declaration
       responses:
         '200':
-          description: Healthy
+          description: Health payload
+          content:
+            application/json:
+              schema:
+                type: object
   /api/v1/health:
     get:
-      summary: Health check v1
-      operationId: getHealthV1
-      tags:
-        - Health
+      summary: Versioned health declaration
       responses:
         '200':
-          description: Healthy
+          description: Health payload
   /api/docs:
     get:
-      summary: OpenAPI specification
-      operationId: getOpenApi
-      tags:
-        - Meta
+      summary: Route and capability documentation
       responses:
         '200':
-          description: OpenAPI specification
-  /api/mcp:
-    get:
-      summary: MCP metadata endpoint
-      operationId: getMcp
-      tags:
-        - MCP
-      responses:
-        '200':
-          description: MCP manifest
+          description: Documentation payload

@@ -1,0 +1,234 @@
+import { getMove, MOVES } from '../data/moves';
+import { BALANCE } from '../data/balance';
+import { distance, seededRandom } from '../utils/math';
+import { FIGHTER_SLOTS } from '../types/game';
+import type { FighterDefinition, FighterSlot, GameCommand, MatchModel } from '../types/game';
+import { GRAPPLE_ACQUISITION_RANGE, selectDirectionalStrike } from '../systems/moveSelection';
+import { isRingside } from '../physics/ringDynamics';
+
+export interface AiDecision { command: GameCommand | null; move: { x: number; z: number }; run: boolean; nextSeed: number }
+
+const grappleDirectionFor = (tendency: FighterDefinition['tendency'], roll: number): { x: number; z: number } => {
+  // Neutral grapple commands establish the dependable default body slam.
+  if (roll < .22) return { x: 0, z: 0 };
+  const r = (roll - .22) / .78;
+  if (tendency === 'aggressive') return r < .65 ? { x: 0, z: -1 } : { x: 0, z: 1 };
+  if (tendency === 'technical') return r < .5 ? { x: -1, z: 0 } : { x: 0, z: 1 };
+  return r < .5 ? { x: 1, z: 0 } : { x: 0, z: -1 };
+};
+
+const strikeDirectionFor = (command: 'quick' | 'heavy', tendency: FighterDefinition['tendency'], roll: number, stamina: number): { x: number; z: number } => {
+  if (command === 'quick') {
+    if (stamina < 8) return { x: 0, z: 0 };
+    if (roll < .28) return { x: 0, z: 0 };    // neutral jab
+    if (roll < .56) return { x: 0, z: -1 };   // high punch
+    if (roll < .78) return { x: 0, z: 1 };    // low kick
+    return { x: tendency === 'aggressive' ? -1 : 1, z: 0 }; // side combo
+  }
+  if (tendency === 'aggressive' && stamina >= 19 && roll < .48) return { x: -1, z: 0 }; // roundhouse
+  if (tendency === 'technical') return roll < .45 ? { x: 0, z: -1 } : { x: 1, z: 0 }; // uppercut or high kick
+  if (roll < .38) return { x: 0, z: 1 }; // front kick
+  return { x: 1, z: 0 }; // high kick
+};
+
+export const isActionLegal = (model: MatchModel, command: GameCommand, actorKey: FighterSlot): boolean => {
+  const actor = model[actorKey];
+  const target = model[model.targets[actorKey]];
+  if (model.paused || model.resolved || actor.state === 'pinned' || actor.state === 'pinning' || actor.state === 'defeated' || actor.state === 'victorious') return false;
+  const targetDistance = distance(actor.position, target.position);
+  const delta = { x: target.position.x - actor.position.x, z: target.position.z - actor.position.z };
+  if (command === 'block') return actor.stamina > 2 && ['idle', 'locomotion', 'blocking', 'staggered'].includes(actor.state);
+  if (command === 'jump') return actor.stamina >= 8 && actor.body.verticalOffset <= .32 && ['idle', 'locomotion'].includes(actor.state);
+  if (actor.state === 'grappling' && actor.attackPhase === 'anticipation' && ['quick', 'heavy', 'grapple'].includes(command)) return true;
+  if (actor.state === 'grappling' && actor.attackPhase === 'anticipation' && command === 'context') {
+    const cornerX = Math.sign(target.position.x || actor.position.x || 1) * 5.35; const cornerZ = Math.sign(target.position.z || actor.position.z || 1) * 3.85;
+    return Math.hypot(target.position.x - cornerX, target.position.z - cornerZ) <= 3.15;
+  }
+  if (actor.state === 'climbing' && actor.climbStage === 3 && (command === 'quick' || command === 'heavy')) {
+    const move = command === 'quick' ? MOVES.aerial_elbow : MOVES.aerial_kick;
+    return Boolean(move && actor.stamina >= move.staminaCost && targetDistance >= move.minimumRange && targetDistance <= move.maximumRange && !['defeated', 'victorious'].includes(target.state));
+  }
+  if (command === 'dodge') return actor.stamina >= (actor.state === 'downed' ? 12 : 8) && ['idle', 'locomotion', 'climbing', 'staggered', 'grabbed', 'downed'].includes(actor.state);
+  if (command === 'taunt') return ['idle', 'locomotion', 'climbing'].includes(actor.state);
+  if (command === 'interact') return model.ruleset === 'chaos' && ['idle', 'locomotion'].includes(actor.state);
+  if (command === 'context') {
+    if (actor.state === 'climbing') return actor.climbStage < 3 || (!['defeated', 'victorious'].includes(target.state) && targetDistance >= getMove('aerial').minimumRange && targetDistance <= getMove('aerial').maximumRange);
+    if (actor.momentum >= 100) return !model.grapple && targetDistance <= getMove('finisher').maximumRange && ['staggered', 'downed'].includes(target.state);
+    const pinEligible = actorKey === 'player' || (model.elapsed >= BALANCE.ai.earliestPinSeconds && target.health <= BALANCE.ai.pinHealthThreshold);
+    const pinInProgress = FIGHTER_SLOTS.some((slot) => model[slot].state === 'pinning' || model[slot].state === 'pinned');
+    if (pinEligible && target.state === 'downed' && targetDistance <= 1.6) return !pinInProgress;
+    const nearCorner = Math.abs(actor.position.x) > 4.35 && Math.abs(actor.position.z) > 2.95;
+    if (nearCorner && ['idle', 'locomotion'].includes(actor.state)) return true;
+    const nearApron = (Math.abs(actor.position.x) > 4.62 && Math.abs(actor.position.x) < 6.9 && Math.abs(actor.position.z) < 3.55)
+      || (Math.abs(actor.position.z) > 3.05 && Math.abs(actor.position.z) < 5.6 && Math.abs(actor.position.x) < 5.15);
+    return nearApron && ['idle', 'locomotion'].includes(actor.state);
+  }
+  if (command === 'grapple' && model.grapple) return false;
+  let selectedMove;
+  if (command === 'quick') {
+    selectedMove = target.state === 'downed' ? MOVES.ground : (MOVES[selectDirectionalStrike(delta, 'quick', actor.comboStep)] || MOVES.jab);
+  } else if (command === 'heavy') {
+    selectedMove = actor.ropeRebound > 0 ? MOVES.stiff_arm : (MOVES[selectDirectionalStrike(delta, 'heavy', actor.comboStep)] || MOVES.heavy);
+  } else {
+    selectedMove = MOVES.slam;
+  }
+  if (!selectedMove) return false;
+  return selectedMove.requiredActorStates.includes(actor.state) && actor.stamina >= selectedMove.staminaCost && (command !== 'grapple' || targetDistance <= GRAPPLE_ACQUISITION_RANGE);
+};
+
+export const chooseAiDecision = (model: MatchModel, definition: FighterDefinition, actorKey: FighterSlot = 'opponent'): AiDecision => {
+  const actor = model[actorKey];
+  const target = model[model.targets[actorKey]];
+  const delta = { x: target.position.x - actor.position.x, z: target.position.z - actor.position.z };
+  const separation = distance(actor.position, target.position);
+  // A raised physical guard establishes glove contact before the torsos reach
+  // ordinary strike distance. Treat that as a legal engagement lane so the AI
+  // throws into the guard instead of pacing forever against the forearms.
+  // The articulated torsos and neutral separation controller establish a real
+  // standing gap around 1.5 m between pelvis centres. Requiring 1.32 m made AI
+  // wrestlers reach visible chest/hand contact and then walk forever because
+  // the physical bodies correctly refused to overlap.
+  const strikingRange = target.state === 'blocking' ? 2.6 : GRAPPLE_ACQUISITION_RANGE;
+  const magnitude = Math.max(.001, Math.hypot(delta.x, delta.z));
+  const toward = { x: delta.x / magnitude, z: delta.z / magnitude };
+  const [roll, nextSeed] = seededRandom(model.seed);
+  const personality = definition.personality;
+  const actorRingside = Math.abs(actor.position.x) > 5.82 || Math.abs(actor.position.z) > 4.32;
+  const targetInRing = Math.abs(target.position.x) <= 5.72 && Math.abs(target.position.z) <= 4.22;
+  const availableRingsideProp = model.ruleset === 'chaos' && !actor.heldPropId && model.props.some((prop) => !prop.broken && !prop.heldBy && prop.kind !== 'table' && isRingside(prop.position));
+  if (actor.state === 'downed') return { command: isActionLegal(model, 'dodge', actorKey) && roll < (model.difficulty === 'hard' ? .72 : .48) ? 'dodge' : null, move: { x: 0, z: 0 }, run: false, nextSeed };
+  if (actor.state === 'climbing') {
+    if (separation < getMove('aerial').minimumRange) {
+      return { command: isActionLegal(model, 'dodge', actorKey) ? 'dodge' : null, move: { x: 0, z: 0 }, run: false, nextSeed };
+    }
+    if (actor.climbStage < 3) return { command: 'context', move: { x: 0, z: 0 }, run: false, nextSeed };
+    const aerialCommand: GameCommand = roll < .4 ? 'quick' : roll < .78 ? 'heavy' : 'context';
+    const legalAerial = isActionLegal(model, aerialCommand, actorKey) ? aerialCommand : isActionLegal(model, 'context', actorKey) ? 'context' : isActionLegal(model, 'dodge', actorKey) ? 'dodge' : null;
+    return { command: legalAerial, move: toward, run: false, nextSeed };
+  }
+  if (actorRingside && targetInRing && !availableRingsideProp && isActionLegal(model, 'context', actorKey)) return { command: 'context', move: { x: 0, z: 0 }, run: false, nextSeed };
+  if (actor.state === 'grappling' && actor.attackPhase === 'anticipation') {
+    if (actor.phaseElapsed > .12) return { command: null, move: { x: 0, z: 0 }, run: false, nextSeed };
+    // Corner smash when opponent near corner
+    if (isActionLegal(model, 'context', actorKey) && roll < .32) return { command: 'context', move: { x: 0, z: 0 }, run: false, nextSeed };
+    const command: GameCommand = roll < .32 ? 'quick' : roll < .68 ? 'heavy' : 'grapple';
+    return { command, move: grappleDirectionFor(definition.tendency, roll), run: false, nextSeed };
+  }
+  const hard = model.difficulty === 'hard';
+  const isSingles = model.matchMode === 'singles';
+  const playerSpamming = isSingles && target.recentMoves.length >= 3 && target.recentMoves.every((mv) => mv === target.recentMoves[0]);
+  const counterMultiplier = playerSpamming ? 1.45 : 1.0;
+  const counterChance = clampChance(((hard ? .58 : .3) + personality.technical * .24 + personality.athletic * .08) * counterMultiplier);
+  const incomingMajor = target.attackPhase === 'anticipation' && target.moveId !== 'jab' && separation < 2.2;
+  if (incomingMajor && roll < counterChance && isActionLegal(model, 'dodge', actorKey)) return { command: 'dodge', move: { x: 0, z: 0 }, run: false, nextSeed };
+  const blockMultiplier = playerSpamming ? 1.25 : 1.0;
+  if (target.attackPhase === 'anticipation' && separation < 2.05 && roll < (hard ? .88 : .67) * blockMultiplier && isActionLegal(model, 'block', actorKey)) return { command: 'block', move: { x: 0, z: 0 }, run: false, nextSeed };
+
+  // Taunt punishment: enrage if player tries to taunt at range
+  if (isSingles && target.moveId === 'taunt' && separation > 1.8) {
+    const enragedCommand: GameCommand | null = isActionLegal(model, 'heavy', actorKey) ? 'heavy' : isActionLegal(model, 'grapple', actorKey) ? 'grapple' : null;
+    if (enragedCommand) return { command: enragedCommand, move: toward, run: true, nextSeed };
+  }
+  if (actor.heldPropId) {
+    if (separation <= 2.2 && isActionLegal(model, 'heavy', actorKey)) return { command: 'heavy', move: { x: 0, z: 0 }, run: false, nextSeed };
+    // Throw prop at distance for chaos-mode projectile attacks
+    if (separation > 2.4 && separation < 9 && isActionLegal(model, 'interact', actorKey) && roll < .44) return { command: 'interact', move: { x: 0, z: 0 }, run: false, nextSeed };
+    return { command: null, move: toward, run: separation > 3.2, nextSeed };
+  }
+  if (actor.ropeRebound > 0 && separation <= 2.4 && isActionLegal(model, 'heavy', actorKey)) return { command: 'heavy', move: toward, run: true, nextSeed };
+  const survivorCount = FIGHTER_SLOTS.filter((slot) => model[slot].state !== 'defeated').length;
+  const battleOvertime = model.matchMode === 'battle_royale' && (survivorCount <= 2 || model.elapsed > 90);
+  if (battleOvertime) {
+    if (target.state === 'downed' && isActionLegal(model, 'context', actorKey)) return { command: 'context', move: toward, run: false, nextSeed };
+    if (separation > strikingRange) return { command: null, move: toward, run: separation > 4 && actor.stamina > 30, nextSeed };
+    // Neutral heavy resolves to the front kick, which has a real minimum
+    // range. At point-blank distance prefer the jab so the last two wrestlers
+    // cannot deadlock while repeatedly requesting an impossible kick.
+    const overtimeCommand: GameCommand | null = separation >= getMove('front_kick').minimumRange && actor.stamina >= 16 && isActionLegal(model, 'heavy', actorKey) ? 'heavy'
+      : isActionLegal(model, 'quick', actorKey) ? 'quick'
+        : isActionLegal(model, 'grapple', actorKey) ? 'grapple' : null;
+    return { command: overtimeCommand, move: { x: 0, z: 0 }, run: false, nextSeed };
+  }
+  const physicallyCompromised = actor.stamina < 24 || actor.body.balance < 34 || actor.body.muscle < .36;
+  if (physicallyCompromised) {
+    // Baiting under low stamina: fakes a retreat but triggers sudden jab counter-strike
+    if (isSingles && actor.stamina >= 8 && actor.stamina < 24 && separation < 2.5 && roll < 0.35 && isActionLegal(model, 'quick', actorKey)) {
+      return { command: 'quick', move: { x: 0, z: 0 }, run: false, nextSeed };
+    }
+    if (actor.stamina < 18) return { command: null, move: separation < 2.6 ? { x: -toward.x * .72, z: -toward.z * .72 } : { x: 0, z: 0 }, run: false, nextSeed };
+    const guard = separation < 2.25 && isActionLegal(model, 'block', actorKey) && roll < .48;
+    return { command: guard ? 'block' : separation < 1.5 && isActionLegal(model, 'dodge', actorKey) ? 'dodge' : null, move: { x: -toward.x * .55, z: -toward.z * .55 }, run: false, nextSeed };
+  }
+  const propTarget = model.ruleset === 'chaos' && !actor.heldPropId
+    ? model.props.filter((prop) => !prop.broken && !prop.heldBy && prop.kind !== 'table').sort((a, b) => distance(actor.position, a.position) - distance(actor.position, b.position))[0]
+    : undefined;
+  const pursuesProp = propTarget && (actorKey === 'opponent' && model.elapsed > .75
+    || model.elapsed > 4 && (actor.health < 98 || model.elapsed > 7 || personality.dirty > .55));
+  if (propTarget && pursuesProp) {
+    const propDistance = distance(actor.position, propTarget.position); const propDelta = { x: propTarget.position.x - actor.position.x, z: propTarget.position.z - actor.position.z }; const propMagnitude = Math.max(.001, Math.hypot(propDelta.x, propDelta.z));
+    const towardProp = { x: propDelta.x / propMagnitude, z: propDelta.z / propMagnitude };
+    const atSideApron = (Math.abs(actor.position.x) > 5.02 && Math.abs(actor.position.x) < 5.82 && Math.abs(actor.position.z) < 2.9)
+      || (Math.abs(actor.position.z) > 3.52 && Math.abs(actor.position.z) < 4.32 && Math.abs(actor.position.x) < 4.25);
+    if (atSideApron && isActionLegal(model, 'context', actorKey)) return { command: 'context', move: { x: 0, z: 0 }, run: false, nextSeed };
+    if (propDistance <= 2.15 && isActionLegal(model, 'interact', actorKey)) return { command: 'interact', move: { x: 0, z: 0 }, run: false, nextSeed };
+    return { command: null, move: towardProp, run: propDistance > 4.2, nextSeed };
+  }
+  const atCorner = Math.abs(actor.position.x) > 4.35 && Math.abs(actor.position.z) > 2.95;
+  const nearRopes = Math.abs(actor.position.x) > 4.1 || Math.abs(actor.position.z) > 3.2;
+
+  // Rope rebound setup: run away from opponent to build a clothesline charge (athletic fighters)
+  if (actor.ropeRebound <= 0 && !nearRopes && !physicallyCompromised && separation > 2.0 && model.elapsed > 5 && target.state === 'staggered') {
+    if (roll < personality.athletic * .22) return { command: null, move: { x: -toward.x, z: -toward.z }, run: true, nextSeed };
+  }
+
+  // Proactive turnbuckle climb: when corner is reachable and opponent is vulnerable
+  if (atCorner && !['climbing', 'grappling', 'attacking'].includes(actor.state) && isActionLegal(model, 'context', actorKey)) {
+    const opponentVulnerable = target.state === 'downed' || (target.state === 'staggered' && separation < 5.5);
+    const climbChance = (.18 + personality.athletic * .38) * (opponentVulnerable ? 2.4 : 1);
+    if (opponentVulnerable && roll < climbChance && model.elapsed > 8) return { command: 'context', move: { x: 0, z: 0 }, run: false, nextSeed };
+  }
+
+  // Aggressive downed opponent pursuit: sprint and finish
+  if (target.state === 'downed') {
+    if (actor.momentum >= 100 && isActionLegal(model, 'context', actorKey)) return { command: 'context', move: toward, run: false, nextSeed };
+    // Showman taunt over downed opponent — personality-driven drama
+    if (actor.health > 65 && separation > 2.5 && roll < personality.showman * .32 && isActionLegal(model, 'taunt', actorKey)) return { command: 'taunt', move: { x: 0, z: 0 }, run: false, nextSeed };
+    if (separation > 1.9) return { command: null, move: toward, run: true, nextSeed };
+    if (separation <= 1.7 && isActionLegal(model, 'context', actorKey)) return { command: 'context', move: { x: 0, z: 0 }, run: false, nextSeed };
+    if (isActionLegal(model, 'quick', actorKey)) return { command: 'quick', move: { x: 0, z: 1 }, run: false, nextSeed }; // low kick / ground stomp
+    return { command: null, move: toward, run: false, nextSeed };
+  }
+
+  // Desperation mode: when very low health, gamble on a piledriver
+  if (actor.health < 28 && actor.stamina > 22 && separation < 1.5 && roll < .52 && isActionLegal(model, 'grapple', actorKey)) {
+    return { command: 'grapple', move: { x: 0, z: 0 }, run: false, nextSeed }; // neutral = body slam lock-up
+  }
+
+  // Full momentum: aggressively pursue finisher setup
+  if (actor.momentum >= 100) {
+    if (isActionLegal(model, 'context', actorKey)) return { command: 'context', move: toward, run: false, nextSeed };
+    return { command: null, move: toward, run: separation > 2.0, nextSeed };
+  }
+  // Commit only after entering physical striking/grip range.
+  if (separation > strikingRange) {
+    // An idle human is still an opponent. Close distance deterministically;
+    // do not replace the fight with repeated corner walks and solo taunts.
+    // Aerial setup remains available above when the target is genuinely
+    // vulnerable, and taunts remain available after a knockdown.
+    return { command: null, move: toward, run: separation > 2.8, nextSeed };
+  }
+  const bias = definition.tendency;
+  // BLOCKBUSTER: Boost grapple selection threshold for all AI fighters (+5% for technical pacing balance)
+  const grappleThreshold = clampChance(.36 + personality.technical * .25 + personality.powerhouse * .16);
+  const heavyThreshold = clampChance(.68 - personality.aggressive * .12 - personality.reckless * .1);
+  const command: GameCommand = bias === 'technical' && roll < grappleThreshold + .16 ? 'grapple'
+    : bias === 'opportunistic' && roll > heavyThreshold ? 'heavy'
+    : bias === 'aggressive' && roll < .36 ? 'grapple' // aggressive fighters grab for a default slam more often
+    : roll < .40 ? 'quick' : roll < .40 + grappleThreshold ? 'grapple' : 'heavy';
+  const legal = isActionLegal(model, command, actorKey) ? command : isActionLegal(model, 'quick', actorKey) ? 'quick' : null;
+  const move = legal === 'grapple' ? grappleDirectionFor(definition.tendency, roll)
+    : legal === 'quick' || legal === 'heavy' ? strikeDirectionFor(legal, definition.tendency, roll, actor.stamina) : { x: 0, z: 0 };
+  return { command: legal, move, run: false, nextSeed };
+};
+
+function clampChance(value: number): number { return Math.max(.05, Math.min(.95, value)); }

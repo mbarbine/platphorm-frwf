@@ -1,14 +1,2 @@
-<?xml version="1.0" encoding="UTF-8" ?>
-<rss version="2.0">
-  <channel>
-    <title>Frwf</title>
-    <link>https://platphorm-frwf.platphormnews.com</link>
-    <description>Feed for the frwf service</description>
-    <lastBuildDate>Sun, 19 Jul 2026 01:53:51 GMT</lastBuildDate>
-    <item>
-      <title>Frwf service status</title>
-      <link>https://platphorm-frwf.platphormnews.com/status</link>
-      <description>Current status and discovery summary.</description>
-    </item>
-  </channel>
-</rss>
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom"><title>RINGFALL: CHAOS CIRCUIT</title><id>https://frwf.platphormnews.com/</id><updated>2026-07-13T00:00:00Z</updated><link href="https://frwf.platphormnews.com/"/><entry><title>RINGFALL BODYWORKS expands The Volt Dome</title><id>ringfall-bodyworks-1.1</id><updated>2026-07-13T00:00:00Z</updated><content>Stable articulated wrestlers, full-body throws and dives, deterministic rope, apron, corner, and table scenarios, a larger interactive arena, smarter cameras, mobile controls, optional WebXR, and bounded rematch performance coverage.</content></entry></feed>

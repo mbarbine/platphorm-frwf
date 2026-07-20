@@ -1,0 +1,12 @@
+node_modules
+dist
+test-results
+playwright-report
+.vercel
+*.tsbuildinfo
+.DS_Store
+coverage
+.env*
+npm-debug.log*
+pnpm-debug.log*
+*.log

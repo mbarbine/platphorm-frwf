@@ -1,0 +1,22 @@
+{
+  "name": "@frwf/game-protocol",
+  "version": "1.0.0",
+  "description": "RINGFALL shared protocol types — browser, server, and tests all import from here",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "6.0.3"
+  }
+}

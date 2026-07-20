@@ -1,10 +1,10 @@
 {
-    "name":  "Frwf",
-    "short_name":  "Frwf",
-    "description":  "Frwf service in PlatPhorm News network",
-    "start_url":  "/",
-    "display":  "standalone",
-    "background_color":  "#0f172a",
-    "theme_color":  "#0f172a",
-    "scope":  "/"
+  "name": "RINGFALL: CHAOS CIRCUIT",
+  "short_name": "RINGFALL",
+  "description": "Original offline-ready 3D neon arcade wrestling with articulated grapples, an expanded interactive arena, cinematic cameras, spatial audio, and optional WebXR.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#080610",
+  "theme_color": "#8d46ff",
+  "icons": []
 }
