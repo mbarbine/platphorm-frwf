@@ -10,7 +10,7 @@ export default function handler(request, response) {
       error: { code: "untrusted_domain", message: "Route compliance is limited to trusted PlatPhormNews sites.", details: { domain: host } },
     })
   }
-  const target = new URL("https://base.platphormnews.com/api/v1/route-compliance")
+  const target = new globalThis.URL("https://base.platphormnews.com/api/v1/route-compliance")
   target.searchParams.set("domain", host)
   target.searchParams.set("mode", "full")
   target.searchParams.set("timeoutMs", String(request.query?.timeoutMs || "1200"))
