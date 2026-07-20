@@ -184,10 +184,18 @@ export class WrestlingRoom extends Room<MatchRoomStateSchema> {
     this.onMessage('ready', (client) => this.handleReady(client));
     this.onMessage<CommandMsg>('command', (client, msg) => this.handleCommand(client, msg));
     this.onMessage('rematch', (client) => this.handleRematch(client));
-    this.onMessage('syncState', (client) => client.send('roomState', this.roomStateMessage()));
+    this.onMessage('syncState', (client) => {
+      const session = this.sessions.get(client.sessionId);
+      if (!session) return;
+      client.send('roomState', this.roomStateMessage());
+    });
     this.onMessage('pause', (client, msg: { paused: boolean }) => {
       // Pause is only respected in single-player practice mode
       if (this.singlePlayerMode()) {
+        const session = this.sessions.get(client.sessionId);
+        // Authorization: Only active player can pause the single-player/practice match
+        if (!session || session.role === 'spectator') return;
+
         // Defensively check that payload is a valid object with boolean property
         if (!msg || typeof msg !== 'object' || typeof msg.paused !== 'boolean') return;
         this.state.phase = msg.paused ? 'lobby' : 'active'; // simple toggle, full impl TBD
@@ -242,6 +250,10 @@ export class WrestlingRoom extends Room<MatchRoomStateSchema> {
 
   private handleRematch(client: Client): void {
     if (this.state.phase !== 'result') return;
+    const session = this.sessions.get(client.sessionId);
+    // Authorization: Only active players can vote for a rematch
+    if (!session || session.role === 'spectator') return;
+
     this.state.rematchVotes.set(client.sessionId, true);
 
     const players = this.activePlayers();
