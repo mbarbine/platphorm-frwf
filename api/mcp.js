@@ -55,6 +55,10 @@ export default function handler(request, response) {
   }
   if (Array.isArray(payload)) {
     if (payload.length === 0) return response.status(400).json(error(null, -32600, "Invalid Request"))
+    // SECURITY ENHANCEMENT: Limit batch request size to prevent DoS from large arrays (CWE-400)
+    if (payload.length > 20) {
+      return response.status(400).json(error(null, -32600, "Batch limit exceeded (maximum 20 requests per batch)"))
+    }
     const responses = payload.map(dispatch).filter(Boolean)
     return responses.length ? response.status(200).json(responses) : response.status(204).end()
   }
