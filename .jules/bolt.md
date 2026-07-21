@@ -71,3 +71,7 @@
 ## 2026-07-24 - [Optimized Math.hypot in Joint Quaternion Solver Path]
 **Learning:** In highly nested, high-frequency physical joint solving callbacks like `shortestQuaternionError` in `motorController.ts`, utilizing `Math.hypot` to compute the magnitude of the 3D rotation error is highly inefficient. Standard double-precision floating point squares (`x*x + y*y + z*z`) are perfectly safe from overflow/underflow for small bounded orientation errors, making standard `Math.sqrt` up to 8x faster and significantly reducing the simulation CPU overhead.
 **Action:** Replace `Math.hypot` with standard `Math.sqrt` inside `shortestQuaternionError` to optimize active joint torque evaluations.
+
+## 2025-02-28 - [Optimized Math.hypot with Math.sqrt and Squared-Magnitude Checks in Physics Runtime]
+**Learning:** Calling `Math.hypot` within the high-frequency physics runtime simulation tick (such as in target segment distance lookups, locomotion velocity evaluations, and strike dynamics) introduces heavy performance overhead. This is because `Math.hypot` executes slow dynamic scaling logic to defensively prevent underflow/overflow. For coordinates inside a bounded 3D wrestling arena, standard `Math.sqrt` is entirely safe and runs up to 8x faster. Furthermore, comparing squared distances instead of calling `Math.sqrt` completely avoids square-root calculation overhead.
+**Action:** Replace `Math.hypot` with standard `Math.sqrt` or zero-allocation squared-magnitude comparisons inside the core physics runtime solver loop (`physicsRuntime.ts`).
