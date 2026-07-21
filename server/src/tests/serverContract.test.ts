@@ -50,6 +50,7 @@ describe('authoritative server contract', () => {
           setTimeout: () => ({ clear: () => {} }),
           currentTime: 0,
           elapsedTime: 0,
+          tick: () => {},
         } as unknown as typeof this.clock;
       }
 
@@ -119,6 +120,7 @@ describe('authoritative server contract', () => {
           setTimeout: () => ({ clear: () => {} }),
           currentTime: 0,
           elapsedTime: 0,
+          tick: () => {},
         } as unknown as typeof this.clock;
       }
       override setPrivate() {
@@ -213,6 +215,7 @@ describe('authoritative server contract', () => {
           },
           currentTime: 0,
           elapsedTime: 0,
+          tick: () => {},
         } as unknown as typeof this.clock;
       }
       override onMessage: WrestlingRoom['onMessage'] = ((type: string | number, callback: unknown) => {
@@ -350,5 +353,63 @@ describe('authoritative server contract', () => {
     expect(room.state.phase).toBe('active'); // Restarted match
   });
 
+  it('enforces JSON-RPC batch limit of 20 in api/mcp.js', async () => {
+    /* eslint-disable @typescript-eslint/no-explicit-any */
+    // @ts-expect-error - JavaScript file lacks type definitions
+    const mcpModule = await import('../../../api/mcp.js');
+    const mcpHandler = mcpModule.default;
+    const req = {
+      method: 'POST',
+      body: Array.from({ length: 21 }, (_, i) => ({
+        jsonrpc: '2.0',
+        id: i,
+        method: 'ping'
+      })),
+    };
+    const res = {
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn(),
+    };
+
+    mcpHandler(req as any, res as any);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: expect.objectContaining({
+          code: -32600,
+          message: expect.stringContaining('Batch limit exceeded'),
+        }),
+      })
+    );
+    /* eslint-enable @typescript-eslint/no-explicit-any */
+  });
+
+  it('Express secure error handling middleware prevents stack trace disclosure', async () => {
+    /* eslint-disable @typescript-eslint/no-explicit-any */
+    const { secureErrorHandler } = await import('../index');
+    const err = new Error('Sensitive database connection failed! Stack trace should not be leaked.');
+    const req = {} as any;
+    const res = {
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn(),
+    } as any;
+    const next = vi.fn();
+
+    // Verify the actual exported production middleware behaves securely
+    secureErrorHandler(err, req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(res.json).toHaveBeenCalledWith({
+      error: {
+        code: 'internal_server_error',
+        message: 'An unexpected error occurred on the server.',
+      },
+    });
+    const jsonCallArgs = res.json.mock.calls[0][0];
+    expect(JSON.stringify(jsonCallArgs)).not.toContain('Sensitive database connection failed');
+    expect(JSON.stringify(jsonCallArgs)).not.toContain('stack');
+    /* eslint-enable @typescript-eslint/no-explicit-any */
+  });
 
 });

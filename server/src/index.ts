@@ -69,6 +69,10 @@ async function bootstrap(): Promise<void> {
     console.log(`🔍 Colyseus monitor: http://localhost:${SERVER_CONFIG.PORT}/colyseus`);
   }
 
+  // ── Secure Error Handling Middleware ───────────────────────────────────────
+  // Custom error handling middleware to catch any unhandled errors and return a standardized secure JSON response, preventing stack trace disclosure (CWE-209).
+  app.use(secureErrorHandler);
+
   // ── Graceful shutdown ──────────────────────────────────────────────────────
   const shutdown = async (signal: string): Promise<void> => {
     console.log(`\n📴 Received ${signal} — draining connections…`);
@@ -90,4 +94,20 @@ async function bootstrap(): Promise<void> {
   console.log(`   Tick:    ${SERVER_CONFIG.SERVER_TICK_RATE} Hz`);
 }
 
-void bootstrap().catch((err) => { console.error('Server failed to start:', err); process.exit(1); });
+if (process.env.NODE_ENV !== 'test' && !process.env.VITEST && typeof globalThis.describe !== 'function') {
+  void bootstrap().catch((err) => { console.error('Server failed to start:', err); process.exit(1); });
+}
+
+/**
+ * Custom error handling middleware to catch any unhandled errors and return a standardized secure JSON response, preventing stack trace disclosure (CWE-209).
+ */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function secureErrorHandler(err: unknown, _req: express.Request, res: express.Response, next: express.NextFunction): void {
+  console.error('Unhandled server error:', err);
+  res.status(500).json({
+    error: {
+      code: 'internal_server_error',
+      message: 'An unexpected error occurred on the server.',
+    },
+  });
+}
