@@ -145,7 +145,28 @@ export function App() {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', padding: '1.5rem', background: 'rgba(255,255,255,0.03)', borderRadius: '8px' }}>
             <label htmlFor="multiplayer-room-code-input" style={{ margin: 0, fontSize: '1.1rem', color: '#ff007b', fontWeight: 'bold', display: 'block' }}>JOIN MATCH</label>
-            <input id="multiplayer-room-code-input" type="text" placeholder="ENTER ROOM CODE..." value={joinRoomId} autoCapitalize="none" autoCorrect="off" spellCheck={false} onChange={(e) => setJoinRoomId(e.target.value.trim())} style={{ padding: '0.75rem', background: 'rgba(0,0,0,0.8)', color: '#fff', border: '2px solid #7000ff', borderRadius: '4px', fontFamily: 'monospace', fontSize: '1.1rem', textAlign: 'center' }} />
+            <input
+              id="multiplayer-room-code-input"
+              type="text"
+              placeholder="ENTER ROOM CODE..."
+              value={joinRoomId}
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              onChange={(e) => setJoinRoomId(e.target.value.trim())}
+              onKeyDown={async (e) => {
+                if (e.key === 'Enter' && joinRoomId) {
+                  e.preventDefault();
+                  audioEngine.play('confirm', settings);
+                  try {
+                    await useMultiplayerStore.getState().joinByRoomId(joinRoomId, { fighterId: selected });
+                  } catch (err) {
+                    console.error('Failed to join room', err);
+                  }
+                }
+              }}
+              style={{ padding: '0.75rem', background: 'rgba(0,0,0,0.8)', color: '#fff', border: '2px solid #7000ff', borderRadius: '4px', fontFamily: 'monospace', fontSize: '1.1rem', textAlign: 'center' }}
+            />
             <button className="button" style={{ width: '100%' }} disabled={!joinRoomId} onClick={async () => {
               audioEngine.play('confirm', settings);
               try {
@@ -258,7 +279,7 @@ export function App() {
 
 function BeerLocker({ fighterId, beers, onChange }: { fighterId: FighterId; beers: number; onChange: (value: number) => void }) {
   return <div className="locker-room">
-    <div><span>LOCKER ROOM · FIVE-BEER ALLOTMENT</span><b>{beers} / {BALANCE.stamina.beersPerFighter} DRUNK</b><small>Each beer adds {BALANCE.stamina.beerCapBoost} stamina for this match. {fighterId === 'chad' ? 'The Claw starts with the lowest gas tank—beer brings the brawl back.' : 'Unopened cans stay on the bench.'}</small></div>
+    <div><span>LOCKER ROOM · FIVE-BEER ALLOTMENT</span><b aria-live="polite">{beers} / {BALANCE.stamina.beersPerFighter} DRUNK</b><small>Each beer adds {BALANCE.stamina.beerCapBoost} stamina for this match. {fighterId === 'chad' ? 'The Claw starts with the lowest gas tank—beer brings the brawl back.' : 'Unopened cans stay on the bench.'}</small></div>
     <div className="beer-cans" aria-label={`${beers} of five beers consumed`}>{Array.from({ length: BALANCE.stamina.beersPerFighter }, (_, index) => <i key={index} aria-hidden="true" className={index < beers ? 'beer beer--drunk' : 'beer'}>RF</i>)}</div>
     <div><button className="button button--quiet" disabled={beers === 0} onClick={() => onChange(Math.max(0, beers - 1))}>PUT ONE BACK</button><button className="button" disabled={beers >= BALANCE.stamina.beersPerFighter} onClick={() => onChange(Math.min(BALANCE.stamina.beersPerFighter, beers + 1))}>DRINK A BEER</button></div>
   </div>;

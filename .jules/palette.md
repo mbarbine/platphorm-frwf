@@ -9,3 +9,7 @@
 ## 2025-02-20 - Non-Intrusive Clipboard Copy Visual State Feedback
 **Learning:** When users click a button to copy content like multiplayer room lobby codes, the lack of immediate confirmation forces them to repeatedly click or guess if it worked. Introducing a temporary, self-reverting visual transition state (such as changing 'COPY CODE' to 'COPIED!' for 2 seconds) coupled with aria-live="polite" and an explicit aria-label ensures clear, confident feedback for both visual and screen-reader users without introducing screen-blocking notifications.
 **Action:** Use a temporary React state-backed self-reverting label change with aria-live="polite" to give elegant, non-intrusive copy confirmation feedback.
+
+## 2025-02-21 - Seamless Keyboard Form Submission and Polite Aria-Live Count Announcements
+**Learning:** For a truly inclusive keyboard and screen-reader experience, forms containing key text fields (such as multiplayer room lobbies) must support implicit submission on Enter keypresses to prevent users from having to traverse the tab loop to hit a submission action. Additionally, incremental controls (such as the locker room beer intake counter) benefit significantly from `aria-live="polite"` tags directly on the dynamic label wrapper, ensuring screen-reader users receive clear and immediate updates about value adjustments without disrupting focus.
+**Action:** Implement form submission keydown handlers for Enter keys in interactive input fields and use explicit politely live nodes for real-time value tracking.

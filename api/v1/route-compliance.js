@@ -13,7 +13,18 @@ export default function handler(request, response) {
   const target = new globalThis.URL("https://base.platphormnews.com/api/v1/route-compliance")
   target.searchParams.set("domain", host)
   target.searchParams.set("mode", "full")
-  target.searchParams.set("timeoutMs", String(request.query?.timeoutMs || "1200"))
+
+  // Defensively validate and sanitize timeoutMs query parameter to prevent downstream parsing failures, DoS, or parameter injection
+  let timeoutMs = "1200"
+  const rawTimeout = request.query?.timeoutMs
+  if (rawTimeout !== undefined) {
+    const parsed = parseInt(String(rawTimeout), 10)
+    if (!isNaN(parsed) && parsed >= 100 && parsed <= 10000) {
+      timeoutMs = String(parsed)
+    }
+  }
+  target.searchParams.set("timeoutMs", timeoutMs)
+
   response.setHeader("Location", target.toString())
   return response.status(307).end()
 }
