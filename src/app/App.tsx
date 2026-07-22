@@ -1,4 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { FIGHTERS, fighterById, opponentFor } from '../game/data/fighters';
 import { BALANCE } from '../game/data/balance';
 import { useMatchStore } from '../game/state/matchStore';
@@ -104,6 +105,33 @@ export function App() {
     rematch(); setPaused(false); confirm('match'); audioEngine.play('bell', settings);
   };
 
+  const handleRosterKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    const selectedIndex = FIGHTERS.findIndex((f) => f.id === selected);
+    if (selectedIndex === -1) return;
+    let nextIndex = selectedIndex;
+
+    if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
+      event.preventDefault();
+      nextIndex = (selectedIndex + 1) % FIGHTERS.length;
+    } else if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
+      event.preventDefault();
+      nextIndex = (selectedIndex - 1 + FIGHTERS.length) % FIGHTERS.length;
+    }
+
+    if (nextIndex !== selectedIndex) {
+      const candidate = FIGHTERS[nextIndex];
+      if (candidate) {
+        setSelected(candidate.id);
+        setBeers(0);
+        audioEngine.play('menu', settings);
+        const btn = document.querySelector(`[data-fighter-select-id="${candidate.id}"]`) as HTMLButtonElement | null;
+        if (btn) {
+          btn.focus();
+        }
+      }
+    }
+  };
+
   const menuBackdrop = screen !== 'match' && <div className="backdrop"><div className="backdrop__ring" /><div className="backdrop__beam backdrop__beam--a" /><div className="backdrop__beam backdrop__beam--b" /></div>;
   return <main className={`app app--${screen}${toyTest ? ' app--toy-test' : ''}`}>
     {menuBackdrop}
@@ -113,7 +141,7 @@ export function App() {
       <article><b>1 · MOVE WITH PURPOSE</b><p>Use WASD to circle your opponent. Hold Shift only when you want to sprint or hit the ropes.</p></article><article><b>2 · STRIKE CLEANLY</b><p>J throws the fast strike. K throws the power strike. Your direction changes the exact punch or kick without adding another button.</p></article><article><b>3 · WRESTLE UP CLOSE</b><p>Get chest-to-chest and press L for a collar lock. Then use J, K, or L with a direction to choose a takedown, slam, or throw.</p></article><article><b>4 · DEFEND</b><p>Hold I to guard. Tap Space to dodge or reverse during the counter window. Space also helps you recover when down.</p></article><article><b>5 · FOLLOW THE ACTION PROMPT</b><p>F only appears when it matters: pin a downed rival, use a finisher, climb a corner, or move through the ropes.</p></article><article><b>6 · ADVANCED TOOLS</b><p>C jumps, E handles props, and Q taunts. Learn those after the five core controls feel natural.</p></article>
     </div><button className="button" onClick={() => confirm('main')}>BACK TO MENU</button></section>}
     {screen === 'settings' && <Suspense fallback={<div className="canvas-fallback"><b>OPENING CONTROL ROOM</b></div>}><SettingsPanel onBack={() => confirm('main')} /></Suspense>}
-    {screen === 'select' && <section className="select-screen"><div className="section-heading"><span>CHOOSE YOUR SIGNAL</span><h2>FIGHTER SELECT</h2></div><div className="select-layout"><div className="roster" role="list">{FIGHTERS.map((candidate) => <button key={candidate.id} className={candidate.id === selected ? 'roster-card roster-card--active' : 'roster-card'} aria-pressed={candidate.id === selected} onClick={() => { setSelected(candidate.id); setBeers(0); audioEngine.play('menu', settings); }}><span style={{ background: candidate.palette.primary }} /><div><b>{candidate.name}</b><small>{candidate.archetype}</small></div></button>)}</div><Suspense fallback={<div className="fighter-preview preview-loading">ASSEMBLING FIGHTER…</div>}><FighterPreview fighterId={selected} /></Suspense><article className="fighter-dossier"><span>{fighter.nickname}</span><h3>{fighter.name}</h3><b>{fighter.archetype}</b><p>{fighter.bio}</p><div className="stats">{Object.entries(fighter.stats).map(([label, value]) => <div key={label}><span>{label}</span><i><u style={{ width: `${value}%` }} /></i><b>{value}</b></div>)}</div><div className="signature"><span>SIGNATURE FINISHER</span><b>{fighter.signature}</b></div></article></div><div className="button-row"><button className="button button--quiet" onClick={() => confirm('main')}>BACK</button><button className="button button--hero" onClick={() => confirm('rules')}>LOCK IN {fighter.name}</button></div></section>}
+    {screen === 'select' && <section className="select-screen"><div className="section-heading"><span>CHOOSE YOUR SIGNAL</span><h2>FIGHTER SELECT</h2></div><div className="select-layout"><div className="roster" role="list" onKeyDown={handleRosterKeyDown}>{FIGHTERS.map((candidate) => <button key={candidate.id} data-fighter-select-id={candidate.id} className={candidate.id === selected ? 'roster-card roster-card--active' : 'roster-card'} aria-pressed={candidate.id === selected} onClick={() => { setSelected(candidate.id); setBeers(0); audioEngine.play('menu', settings); }}><span style={{ background: candidate.palette.primary }} /><div><b>{candidate.name}</b><small>{candidate.archetype}</small></div></button>)}</div><Suspense fallback={<div className="fighter-preview preview-loading">ASSEMBLING FIGHTER…</div>}><FighterPreview fighterId={selected} /></Suspense><article className="fighter-dossier"><span>{fighter.nickname}</span><h3>{fighter.name}</h3><b>{fighter.archetype}</b><p>{fighter.bio}</p><div className="stats">{Object.entries(fighter.stats).map(([label, value]) => <div key={label}><span>{label}</span><i><u style={{ width: `${value}%` }} /></i><b>{value}</b></div>)}</div><div className="signature"><span>SIGNATURE FINISHER</span><b>{fighter.signature}</b></div></article></div><div aria-live="polite" style={{ position: 'absolute', width: '1px', height: '1px', padding: 0, margin: '-1px', overflow: 'hidden', clip: 'rect(0, 0, 0, 0)', border: 0 }}>Selected {fighter.name}, {fighter.archetype}. Signature: {fighter.signature}</div><div className="button-row"><button className="button button--quiet" onClick={() => confirm('main')}>BACK</button><button className="button button--hero" onClick={() => confirm('rules')}>LOCK IN {fighter.name}</button></div></section>}
     {screen === 'rules' && <section className="panel rules-screen"><div className="section-heading"><span>TALE OF THE TAPE</span><h2>MATCH SETUP</h2></div><div className="versus"><div><span style={{ color: fighter.palette.primary }}>YOU</span><b>{fighter.name}</b><small>{fighter.archetype}</small></div><strong>{matchMode === 'battle_royale' ? 'VS ALL' : 'VS'}</strong><div><span style={{ color: opponent.palette.primary }}>{matchMode === 'battle_royale' ? 'FULL ROSTER' : 'CPU'}</span><b>{matchMode === 'battle_royale' ? 'FOUR RIVALS' : opponent.name}</b><small>{matchMode === 'battle_royale' ? 'Every wrestler · no teams' : opponent.archetype}</small></div></div><div className="option-grid"><fieldset><legend>MATCH MODE</legend><button className={matchMode === 'singles' ? 'option active' : 'option'} aria-pressed={matchMode === 'singles'} onClick={() => setMatchMode('singles')}><b>SINGLES · RECOMMENDED</b><span>Readable one-on-one wrestling · pin or knockout</span></button><button data-testid="battle-royale-mode" className={matchMode === 'battle_royale' ? 'option active' : 'option'} aria-pressed={matchMode === 'battle_royale'} onClick={() => setMatchMode('battle_royale')}><b>BATTLE ROYALE</b><span>Five-wrestler free-for-all for experienced players</span></button></fieldset><fieldset><legend>RULESET</legend><button className={rules === 'standard' ? 'option active' : 'option'} aria-pressed={rules === 'standard'} onClick={() => setRules('standard')}><b>STANDARD</b><span>Pure competition · no starting weapons · balanced Momentum</span></button><button className={rules === 'chaos' ? 'option active' : 'option'} aria-pressed={rules === 'chaos'} onClick={() => setRules('chaos')}><b>CHAOS CIRCUIT</b><span>Props · arena events · faster Momentum · hotter environment</span></button></fieldset><fieldset><legend>RIVAL AI</legend><button className={difficulty === 'normal' ? 'option active' : 'option'} aria-pressed={difficulty === 'normal'} onClick={() => setDifficulty('normal')}><b>NORMAL</b><span>Readable reactions · strategic mistakes · first-session friendly</span></button><button className={difficulty === 'hard' ? 'option active' : 'option'} aria-pressed={difficulty === 'hard'} onClick={() => setDifficulty('hard')}><b>HARD</b><span>Sharper spacing · stronger counters · fair shared stats</span></button></fieldset></div><BeerLocker fighterId={selected} beers={beers} onChange={setBeers} /><div className="prematch-strip"><span>CONTROL DEVICE <b>{device.toUpperCase()}</b></span><span>VENUE <b>THE VOLT DOME</b></span><span>WIN CONDITION <b>{matchMode === 'battle_royale' ? 'LAST WRESTLER STANDING' : 'PIN OR KO'}</b></span></div><div className="button-row"><button className="button button--quiet" onClick={() => confirm('select')}>CHANGE FIGHTER</button><button className="button button--hero" onClick={start}>{physicsLab || matchMode === 'singles' ? 'START MATCH' : 'START MATCH · BATTLE ROYALE'}</button></div></section>}
     {screen === 'multiplayer_lobby' && <section className="panel rules-screen multiplayer-lobby">
       <div className="section-heading"><span>CONNECT WITH RIVALS</span><h2>ONLINE MULTIPLAYER</h2></div>
