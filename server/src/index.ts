@@ -24,6 +24,7 @@ async function bootstrap(): Promise<void> {
   // ── Defensive Security Hardening ──────────────────────────────────────────
 
   app.disable('x-powered-by'); // Avoid disclosing server technology stack
+  app.use(rateLimiter); // Protect Express endpoints from brute-force/DoS attacks (CWE-307)
 
   app.use((_req, res, next) => {
     // Prevent MIME-sniffing vulnerability
@@ -110,4 +111,48 @@ export function secureErrorHandler(err: unknown, _req: express.Request, res: exp
       message: 'An unexpected error occurred on the server.',
     },
   });
+}
+
+// ── Defensive Rate Limiting Middleware ───────────────────────────────────────
+export const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
+export const LIMIT_WINDOW_MS = 60000; // 1 minute
+export const MAX_REQUESTS = 100; // max requests per minute
+
+export function rateLimiter(req: express.Request, res: express.Response, next: express.NextFunction): void {
+  const ip = req.ip || req.socket.remoteAddress || 'unknown';
+  const now = Date.now();
+  const rateData = rateLimitMap.get(ip);
+
+  if (!rateData || now > rateData.resetTime) {
+    rateLimitMap.set(ip, { count: 1, resetTime: now + LIMIT_WINDOW_MS });
+    next();
+  } else {
+    rateData.count++;
+    if (rateData.count > MAX_REQUESTS) {
+      res.status(429).json({
+        error: {
+          code: 'too_many_requests',
+          message: 'Rate limit exceeded. Please try again later.',
+        },
+      });
+    } else {
+      next();
+    }
+  }
+}
+
+// Periodically clean up expired rate limit entries to prevent memory leak (CWE-400)
+export const cleanupInterval = setInterval(() => {
+  const now = Date.now();
+  for (const [ip, data] of rateLimitMap.entries()) {
+    if (now > data.resetTime) {
+      rateLimitMap.delete(ip);
+    }
+  }
+}, 60000);
+
+if (process.env.NODE_ENV === 'test' || process.env.VITEST) {
+  clearInterval(cleanupInterval);
+} else if (cleanupInterval.unref) {
+  cleanupInterval.unref();
 }
