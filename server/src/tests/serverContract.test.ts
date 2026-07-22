@@ -412,4 +412,49 @@ describe('authoritative server contract', () => {
     /* eslint-enable @typescript-eslint/no-explicit-any */
   });
 
+  it('rateLimiter middleware allows requests within limit and returns 429 when limit is exceeded', async () => {
+    /* eslint-disable @typescript-eslint/no-explicit-any */
+    const { rateLimiter, rateLimitMap } = await import('../index');
+
+    // Clear any existing rate limit tracking to have a clean slate
+    rateLimitMap.clear();
+
+    const ip = '1.2.3.4';
+    const req = {
+      ip,
+      socket: { remoteAddress: ip },
+    } as any;
+
+    const res = {
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn(),
+    } as any;
+
+    const next = vi.fn();
+
+    // 1. Send 100 requests. All should call next() and not return 429 status.
+    for (let i = 0; i < 100; i++) {
+      rateLimiter(req, res, next);
+    }
+
+    expect(next).toHaveBeenCalledTimes(100);
+    expect(res.status).not.toHaveBeenCalled();
+
+    // 2. The 101st request should be rejected with status 429
+    rateLimiter(req, res, next);
+
+    expect(next).toHaveBeenCalledTimes(100); // Should not have been called a 101st time
+    expect(res.status).toHaveBeenCalledWith(429);
+    expect(res.json).toHaveBeenCalledWith({
+      error: {
+        code: 'too_many_requests',
+        message: 'Rate limit exceeded. Please try again later.',
+      },
+    });
+
+    // Cleanup
+    rateLimitMap.clear();
+    /* eslint-enable @typescript-eslint/no-explicit-any */
+  });
+
 });
