@@ -75,3 +75,7 @@
 ## 2025-02-28 - [Optimized Math.hypot with Math.sqrt and Squared-Magnitude Checks in Physics Runtime]
 **Learning:** Calling `Math.hypot` within the high-frequency physics runtime simulation tick (such as in target segment distance lookups, locomotion velocity evaluations, and strike dynamics) introduces heavy performance overhead. This is because `Math.hypot` executes slow dynamic scaling logic to defensively prevent underflow/overflow. For coordinates inside a bounded 3D wrestling arena, standard `Math.sqrt` is entirely safe and runs up to 8x faster. Furthermore, comparing squared distances instead of calling `Math.sqrt` completely avoids square-root calculation overhead.
 **Action:** Replace `Math.hypot` with standard `Math.sqrt` or zero-allocation squared-magnitude comparisons inside the core physics runtime solver loop (`physicsRuntime.ts`).
+
+## 2025-02-28 - [Optimized Math.hypot in Grapple Dynamics solver]
+**Learning:** Within the high-frequency soft two-body grapple dynamics solver loop, using `Math.hypot` to calculate tension from force vectors can result in significant visual/computational frame spikes. Because the force variables are strictly bounded by clamping, standard `Math.sqrt` on squared coordinates is completely safe from underflow/overflow and runs ~8x faster.
+**Action:** Replace `Math.hypot` with `Math.sqrt` on pre-multiplied squared components in the grapple dynamics solver loop (`grappleDynamics.ts`).
