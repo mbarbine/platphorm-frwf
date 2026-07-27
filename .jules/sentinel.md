@@ -53,7 +53,7 @@ The default `CORS_ORIGIN` now restricts to the standard frontend port (`http://l
 
 ## 2026-07-19 - [Unvalidated Downstream Query Parameter Propagation in Route Compliance Redirect]
 **Vulnerability:** The Vercel serverless redirect route `api/v1/route-compliance.js` was forwarding the `timeoutMs` query parameter directly to a downstream service without validation. This created security exposure to parameter injection, potential downstream Denial of Service (DoS) due to excessive timeout value ranges, or server/parsing crashes if malformed non-integer payloads were passed.
-**Learning:** Any user input from request queries (`request.query`) that is forwarded, proxied, or redirected to internal or external downstream endpoints must be treated as untrusted and validated. Directly stringifying and forwarding query parameters bypasses local type/bound controls.
+**Learning:** Any user input from request queries (`request.query`) that is forwarded, proxies, or redirected to internal or external downstream endpoints must be treated as untrusted and validated. Directly stringifying and forwarding query parameters bypasses local type/bound controls.
 **Prevention:** Always parse, sanitize, and validate the query parameters (such as verifying `timeoutMs` is a valid bounded integer e.g., between 100ms and 10000ms) with a safe default fallback before forwarding it.
 
 ## 2026-07-20 - [Technology Stack and Stack Trace Information Disclosure via Unhandled Express Errors]
@@ -65,3 +65,8 @@ The default `CORS_ORIGIN` now restricts to the standard frontend port (`http://l
 **Vulnerability:** The Express HTTP endpoints (like `/health`, `/ready`, `/version`, and `/colyseus` monitor) had no rate limiting, leaving them susceptible to Denial of Service (DoS) through rapid automated scanning, brute-forcing, or connection/resource exhaustion (CWE-307/CWE-400).
 **Learning:** Even simple, lightweight operational or informational routes should be protected by rate limits to safeguard system availability. Dependency-free custom middlewares with safe periodic map cleanup can implement this effectively.
 **Prevention:** Register a centralized, memory-safe sliding-window rate-limiting middleware early in the middleware stack to restrict requests per IP address, with a clear cleanup routine to prevent memory leaks.
+
+## 2026-07-22 - [Insecure HTTP Request Method Handling in Route Compliance Endpoint]
+**Vulnerability:** The Vercel serverless redirect endpoint `api/v1/route-compliance.js` was processing any incoming HTTP request method (such as POST, PUT, DELETE, PATCH, etc.) instead of strictly allowing only safe methods. This exposed the route compliance and redirection system to unauthorized state queries, caching issues, or potential server payload injection/processing issues.
+**Learning:** Redirect endpoints designed solely to sanitize, format, and forward query parameters should be restricted to read-only HTTP safe methods (`GET` and `HEAD`) at the very start of processing. Failing to enforce allowed request methods expands the API attack surface unnecessarily.
+**Prevention:** Always check `request.method` at the beginning of Vercel serverless redirect handlers. Restrict processing strictly to `GET` and `HEAD` requests, returning a `405 Method Not Allowed` status code along with the appropriate `Allow` response header.
