@@ -65,3 +65,8 @@ The default `CORS_ORIGIN` now restricts to the standard frontend port (`http://l
 **Vulnerability:** The Express HTTP endpoints (like `/health`, `/ready`, `/version`, and `/colyseus` monitor) had no rate limiting, leaving them susceptible to Denial of Service (DoS) through rapid automated scanning, brute-forcing, or connection/resource exhaustion (CWE-307/CWE-400).
 **Learning:** Even simple, lightweight operational or informational routes should be protected by rate limits to safeguard system availability. Dependency-free custom middlewares with safe periodic map cleanup can implement this effectively.
 **Prevention:** Register a centralized, memory-safe sliding-window rate-limiting middleware early in the middleware stack to restrict requests per IP address, with a clear cleanup routine to prevent memory leaks.
+
+## 2026-07-22 - [Insecure Clickjacking Prevention on Vercel Static Assets]
+**Vulnerability:** Static frontend assets hosted on Vercel were vulnerable to Clickjacking (UI redressing) because they lacked clickjacking prevention headers (`X-Frame-Options` and `Content-Security-Policy`).
+**Learning:** Hardening server headers (like Express in `server/src/index.ts`) is insufficient if static frontend assets are served separately (e.g. via Vercel CDN/routing). Security policies must be applied consistently across both the application server and the static CDN.
+**Prevention:** Configure clickjacking prevention headers (`X-Frame-Options: DENY` and `Content-Security-Policy: frame-ancestors 'none'`) inside `vercel.json` to enforce a robust security policy across all hosting environments.
