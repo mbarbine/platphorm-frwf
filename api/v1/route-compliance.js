@@ -3,6 +3,15 @@ function trustedSite(hostname) {
 }
 
 export default function handler(request, response) {
+  // Restrict incoming request methods strictly to safe methods (GET and HEAD) to prevent unauthorized/unsupported method execution (CWE-650 / RFC 7231)
+  if (request.method !== "GET" && request.method !== "HEAD") {
+    response.setHeader("Allow", "GET, HEAD")
+    return response.status(405).json({
+      ok: false,
+      error: { code: "method_not_allowed", message: "Method not allowed. Only GET and HEAD requests are permitted on this endpoint." },
+    })
+  }
+
   const host = String(request.headers["x-forwarded-host"] || request.headers.host || "").split(":")[0].toLowerCase()
   if (!trustedSite(host)) {
     return response.status(400).json({
