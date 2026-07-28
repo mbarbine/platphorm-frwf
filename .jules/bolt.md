@@ -75,3 +75,7 @@
 ## 2025-02-28 - [Optimized Math.hypot with Math.sqrt and Squared-Magnitude Checks in Physics Runtime]
 **Learning:** Calling `Math.hypot` within the high-frequency physics runtime simulation tick (such as in target segment distance lookups, locomotion velocity evaluations, and strike dynamics) introduces heavy performance overhead. This is because `Math.hypot` executes slow dynamic scaling logic to defensively prevent underflow/overflow. For coordinates inside a bounded 3D wrestling arena, standard `Math.sqrt` is entirely safe and runs up to 8x faster. Furthermore, comparing squared distances instead of calling `Math.sqrt` completely avoids square-root calculation overhead.
 **Action:** Replace `Math.hypot` with standard `Math.sqrt` or zero-allocation squared-magnitude comparisons inside the core physics runtime solver loop (`physicsRuntime.ts`).
+
+## 2026-07-28 - [Optimized Swept Path Segment Circle Checks in Online Simulation]
+**Learning:** In online multiplayer tick simulations, frequently performing swept path contact checks via `segmentCircleHit` using standard vector length metrics creates significant CPU overhead due to unnecessary square-root or `Math.hypot` calculations. Utilizing flat coordinate-squared sum checks bypasses all math-scaling and root calculations entirely.
+**Action:** Always prefer direct squared-magnitude comparison (`diffX * diffX + diffZ * diffZ <= radius * radius`) in distance and bounding volume checks within hot simulation paths.

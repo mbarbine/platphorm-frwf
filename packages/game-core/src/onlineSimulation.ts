@@ -99,7 +99,8 @@ export const createOnlineMatch = (
 });
 
 const clamp = (value: number, minimum: number, maximum: number): number => Math.max(minimum, Math.min(maximum, value));
-const length = (x: number, z: number): number => Math.hypot(x, z);
+// OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt to avoid dynamic scaling overhead on a hot execution path.
+const length = (x: number, z: number): number => Math.sqrt(x * x + z * z);
 
 const beginMove = (actor: OnlineFighterState, moveId: keyof typeof MOVES): boolean => {
   const move = MOVES[moveId];
@@ -142,7 +143,10 @@ const segmentCircleHit = (
 ): boolean => {
   const dx = endX - startX; const dz = endZ - startZ; const denominator = dx * dx + dz * dz;
   const t = denominator <= 1e-8 ? 0 : clamp(((centerX - startX) * dx + (centerZ - startZ) * dz) / denominator, 0, 1);
-  return length(centerX - (startX + dx * t), centerZ - (startZ + dz * t)) <= radius;
+  const diffX = centerX - (startX + dx * t);
+  const diffZ = centerZ - (startZ + dz * t);
+  // OPTIMIZATION: Use squared-magnitude comparison to completely bypass Math.sqrt/Math.hypot inside a hot segment contact loop.
+  return (diffX * diffX + diffZ * diffZ) <= radius * radius;
 };
 
 const otherFighter = (match: OnlineMatchState, sourceId: string): OnlineFighterState | null => {
