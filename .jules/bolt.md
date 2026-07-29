@@ -50,7 +50,7 @@
 **Action:** Extensively mock dependencies (`@react-three/fiber`, `@react-three/rapier`, `@react-three/drei`) alongside game-specific heavy dependencies (like `bodyWorksRuntime` and match state stores). Ensure the mocked canvas calls lifecycle initialization logic (e.g. `onCreated` in `<Canvas>`) if required to set up specific internal state, avoiding the need to execute the main game loop during tests.
 ## 2025-02-28 - Avoid Object.entries() in Physics Loops
 * **Optimization:** Replaced 12 instances of `Object.entries(rig.bodies)` and `Object.entries(bodies)` with simple `for...in` loops in `physicsRuntime.ts`.
-* **Issue:** `Object.entries()` creates an array of arrays on every call. In nested fixed-step physics ticks evaluating many bodies per frame, this allocates thousands of small tuples per second, driving up garbage collection (GC) churn and triggering micro-stutters.
+* **Issue:** `Object.entries()` creates an array of arrays on every call. In nested fixed-step physics ticks evaluating many bodies per frame, this allocates thousands of small tuples per second, driving up garbage collection (GC) churn and triggering micro-stutter.
 * **Impact:** Reduced allocations per frame significantly, improving performance and frame consistency during intensive physics phases, particularly the continuous collision handler (CCD) and pose-matching drivers. Benchmarks indicate avoiding `Object.entries` inside the tight loop runs up to ~10x-20x faster.
 ## 2024-03-XX Prop Array Filtering Optimization
 - **Goal:** Optimize O(N) `.find()` lookups on the `props` array inside high-frequency physics ticks and input handlers.
@@ -75,3 +75,7 @@
 ## 2025-02-28 - [Optimized Math.hypot with Math.sqrt and Squared-Magnitude Checks in Physics Runtime]
 **Learning:** Calling `Math.hypot` within the high-frequency physics runtime simulation tick (such as in target segment distance lookups, locomotion velocity evaluations, and strike dynamics) introduces heavy performance overhead. This is because `Math.hypot` executes slow dynamic scaling logic to defensively prevent underflow/overflow. For coordinates inside a bounded 3D wrestling arena, standard `Math.sqrt` is entirely safe and runs up to 8x faster. Furthermore, comparing squared distances instead of calling `Math.sqrt` completely avoids square-root calculation overhead.
 **Action:** Replace `Math.hypot` with standard `Math.sqrt` or zero-allocation squared-magnitude comparisons inside the core physics runtime solver loop (`physicsRuntime.ts`).
+
+## 2025-02-28 - [Optimized Math.hypot with standard Math.sqrt in High-Frequency Presentation and Animation Helpers]
+**Learning:** `Math.hypot` remains a significant bottleneck when called repetitively per-frame inside active animation systems (such as `locomotionPresentation.ts` and `combatOrientation.ts`). In these modules, calculating current velocities, headings, and character-to-opponent distance vectors on every single frame produces unnecessary CPU overhead due to internal overflow protection algorithms in `Math.hypot`.
+**Action:** Replace `Math.hypot` with standard `Math.sqrt(x * x + z * z)` inside `locomotionPresentation` and `resolveCombatOrientation` functions, allowing high-frequency presentation ticks to execute without standard library overhead.

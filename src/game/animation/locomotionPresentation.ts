@@ -14,7 +14,9 @@ const clampUnit = (value: number): number => Math.max(-1, Math.min(1, value));
 
 /** Classifies world-space physical velocity in the wrestler's opponent-facing local basis. */
 export const locomotionPresentation = (fighter: FighterRuntime): LocomotionPresentation => {
-  const speed = Math.hypot(fighter.velocity.x, fighter.velocity.z);
+  // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt.
+  // Standard Math.sqrt calculation avoids unnecessary dynamic scaling overhead on a high-frequency animation path.
+  const speed = Math.sqrt(fighter.velocity.x * fighter.velocity.x + fighter.velocity.z * fighter.velocity.z);
   if (speed < .12) return { state: 'idle', speed, forward: 0, lateral: 0, gaitStrength: 0 };
   const inverseSpeed = 1 / speed;
   const forwardX = Math.sin(fighter.facing); const forwardZ = Math.cos(fighter.facing);
