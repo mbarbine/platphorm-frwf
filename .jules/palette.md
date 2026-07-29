@@ -13,3 +13,7 @@
 ## 2025-02-21 - Seamless Keyboard Form Submission and Polite Aria-Live Count Announcements
 **Learning:** For a truly inclusive keyboard and screen-reader experience, forms containing key text fields (such as multiplayer room lobbies) must support implicit submission on Enter keypresses to prevent users from having to traverse the tab loop to hit a submission action. Additionally, incremental controls (such as the locker room beer intake counter) benefit significantly from `aria-live="polite"` tags directly on the dynamic label wrapper, ensuring screen-reader users receive clear and immediate updates about value adjustments without disrupting focus.
 **Action:** Implement form submission keydown handlers for Enter keys in interactive input fields and use explicit politely live nodes for real-time value tracking.
+
+## 2025-02-22 - Fighter Selection Accessible Keyboard Navigation and Screen Reader Announcer
+**Learning:** In selection-based grid or list layouts (like Fighter Select), screen readers and keyboard-only users can struggle with navigation if they cannot easily move between selectable options with the arrow keys or get immediate, clear feedback of active changes. Integrating bidirectional and wrap-around keyboard event listeners on the roster container alongside an aria-live="polite" text announcer gives keyboard and screen-reader users a seamless, highly informative selection experience.
+**Action:** Always combine ArrowUp/Down/Left/Right focus shifting with aria-live polite announcers to make card selection menus completely accessible.
