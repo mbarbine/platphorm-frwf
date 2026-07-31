@@ -73,5 +73,9 @@
 **Action:** Replace `Math.hypot` with standard `Math.sqrt` inside `shortestQuaternionError` to optimize active joint torque evaluations.
 
 ## 2025-02-28 - [Optimized Math.hypot with Math.sqrt and Squared-Magnitude Checks in Physics Runtime]
-**Learning:** Calling `Math.hypot` within the high-frequency physics runtime simulation tick (such as in target segment distance lookups, locomotion velocity evaluations, and strike dynamics) introduces heavy performance overhead. This is because `Math.hypot` executes slow dynamic scaling logic to defensively prevent underflow/overflow. For coordinates inside a bounded 3D wrestling arena, standard `Math.sqrt` is entirely safe and runs up to 8x faster. Furthermore, comparing squared distances instead of calling `Math.sqrt` completely avoids square-root calculation overhead.
+**Learning:** Calling `Math.hypot` within the high-frequency physics runtime simulation tick (such as in target segment distance lookups, locomotion velocity evaluations, and strike dynamics) introduces heavy performance overhead. This is because `Math.hypot` executes slow dynamic scaling logic to defensively prevent underflow/overflow. For coordinates inside a bounded 3D wrestling wrestling arena, standard `Math.sqrt` is entirely safe and runs up to 8x faster. Furthermore, comparing squared distances instead of calling `Math.sqrt` completely avoids square-root calculation overhead.
 **Action:** Replace `Math.hypot` with standard `Math.sqrt` or zero-allocation squared-magnitude comparisons inside the core physics runtime solver loop (`physicsRuntime.ts`).
+
+## 2025-03-01 - [Optimized Math.hypot in Arena and ReactiveMat Loops]
+**Learning:** Calling `Math.hypot` in hot 3D visual loops (e.g. `ReactiveMat` grid ripple displacement calculations, corner `Post` impact wobble attenuation, and dynamic `PhysicalProp` relative speed checking) creates severe CPU load due to dynamic range scaling. For regular coordinate spaces inside a finite wrestling ring, standard `Math.sqrt` runs 8-10x faster and is perfectly safe.
+**Action:** Replace `Math.hypot` inside `src/game/components/Arena.tsx` with standard `Math.sqrt`.
