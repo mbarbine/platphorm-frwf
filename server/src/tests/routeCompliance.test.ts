@@ -5,6 +5,7 @@ import handler from '../../../api/v1/route-compliance.js';
 describe('Route Compliance Serverless Handler', () => {
   it('redirects to the base domain with sanitized/validated timeoutMs when input is valid', () => {
     const req = {
+      method: 'GET',
       headers: {
         host: 'platphormnews.com',
       },
@@ -30,6 +31,7 @@ describe('Route Compliance Serverless Handler', () => {
 
   it('falls back to default 1200ms when timeoutMs is invalid or missing', () => {
     const req = {
+      method: 'GET',
       headers: {
         host: 'news.platphormnews.com',
       },
@@ -55,6 +57,7 @@ describe('Route Compliance Serverless Handler', () => {
 
   it('rejects untrusted domains with a 400 response', () => {
     const req = {
+      method: 'GET',
       headers: {
         host: 'malicious.com',
       },
@@ -74,6 +77,35 @@ describe('Route Compliance Serverless Handler', () => {
         ok: false,
         error: expect.objectContaining({
           code: 'untrusted_domain',
+        }),
+      })
+    );
+  });
+
+  it('rejects unsafe request methods with a 405 response and Allow header', () => {
+    const req = {
+      method: 'POST',
+      headers: {
+        host: 'platphormnews.com',
+      },
+      query: {},
+    };
+    const res = {
+      status: vi.fn().mockReturnThis(),
+      setHeader: vi.fn(),
+      json: vi.fn(),
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    handler(req as any, res as any);
+
+    expect(res.setHeader).toHaveBeenCalledWith('Allow', 'GET, HEAD');
+    expect(res.status).toHaveBeenCalledWith(405);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ok: false,
+        error: expect.objectContaining({
+          code: 'method_not_allowed',
         }),
       })
     );
