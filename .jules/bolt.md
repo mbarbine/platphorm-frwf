@@ -75,3 +75,7 @@
 ## 2025-02-28 - [Optimized Math.hypot with Math.sqrt and Squared-Magnitude Checks in Physics Runtime]
 **Learning:** Calling `Math.hypot` within the high-frequency physics runtime simulation tick (such as in target segment distance lookups, locomotion velocity evaluations, and strike dynamics) introduces heavy performance overhead. This is because `Math.hypot` executes slow dynamic scaling logic to defensively prevent underflow/overflow. For coordinates inside a bounded 3D wrestling arena, standard `Math.sqrt` is entirely safe and runs up to 8x faster. Furthermore, comparing squared distances instead of calling `Math.sqrt` completely avoids square-root calculation overhead.
 **Action:** Replace `Math.hypot` with standard `Math.sqrt` or zero-allocation squared-magnitude comparisons inside the core physics runtime solver loop (`physicsRuntime.ts`).
+
+## 2026-07-25 - [Optimized Online Simulation Swept Contact and Locomotion Checks]
+**Learning:** In headless online determinism simulators like `onlineSimulation.ts`, dynamic distance computations like `Math.hypot` inside high-frequency step loops introduce heavy CPU overhead. Standard `Math.sqrt` on squared coordinates is highly efficient, and comparing squared magnitudes (e.g. comparing squared delta distance against a pre-squared radius) completely eliminates square root computations.
+**Action:** Replace `Math.hypot` or `Math.sqrt` with squared distance/magnitude comparisons inside high-frequency simulation step calculations and intersection routines.
