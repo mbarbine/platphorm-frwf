@@ -13,3 +13,7 @@
 ## 2025-02-21 - Seamless Keyboard Form Submission and Polite Aria-Live Count Announcements
 **Learning:** For a truly inclusive keyboard and screen-reader experience, forms containing key text fields (such as multiplayer room lobbies) must support implicit submission on Enter keypresses to prevent users from having to traverse the tab loop to hit a submission action. Additionally, incremental controls (such as the locker room beer intake counter) benefit significantly from `aria-live="polite"` tags directly on the dynamic label wrapper, ensuring screen-reader users receive clear and immediate updates about value adjustments without disrupting focus.
 **Action:** Implement form submission keydown handlers for Enter keys in interactive input fields and use explicit politely live nodes for real-time value tracking.
+
+## 2026-08-06 - WCAG Timing Adjustable Pause-on-Interaction Tutorial Overlay
+**Learning:** Timed informational elements like game tutorial overlays, which automatically close after a short duration, can easily violate WCAG 2.2.1 (Timing Adjustable) guidelines if they disappear before users with visual, cognitive, or motor challenges can fully read them. Allowing users to hover (via mouse) or focus (via tab) on the element to completely pause the auto-close timer ensures full readability without requiring heavy, disruptive control configuration.
+**Action:** Attach hover and focus listeners to timed tutorial overlays to conditionally pause auto-dismiss timers, providing accessible reading control.
