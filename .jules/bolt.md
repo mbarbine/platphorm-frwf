@@ -33,31 +33,23 @@
 **Learning:** Instantiating arrays inline (e.g., `['chest', 'abdomen', 'pelvis', 'head']`) inside deeply nested physics or collision processing loops generates unnecessary temporary allocations on every tick, increasing garbage collection (GC) pressure and degrading simulation performance over time.
 **Action:** Extract inline arrays into static, module-level constant arrays (e.g., `const CORE_SEGMENTS = [...]`) to prevent repetitive GC allocations in hot-path simulation frames.
 
-## 2025-02-28
-**Title**: Optimize FighterSlot Lookups in Physics Simulation
-**Failed/Successful Optimization**: Successful Optimization
-**Learning**: Array `.find()` with anonymous arrow functions is exceptionally slow within critical loops (like high-frequency physics `useFrame` callbacks or fixed-step solvers). A benchmark showed `FIGHTER_SLOTS.find` running 80x slower than a chained ternary operator sequence directly checking properties on `model`.
-**Action**: Replaced the `.find()` lookup with a deterministic fallback checking each slot property explicitly (`model.player === fighter ? 'player' : ...`).
+## 2025-02-28 - [Optimize FighterSlot Lookups in Physics Simulation]
+**Learning:** Array `.find()` with anonymous arrow functions is exceptionally slow within critical loops (like high-frequency physics `useFrame` callbacks or fixed-step solvers). A benchmark showed `FIGHTER_SLOTS.find` running 80x slower than a chained ternary operator sequence directly checking properties on `model`.
+**Action:** Replaced the `.find()` lookup with a deterministic fallback checking each slot property explicitly (`model.player === fighter ? 'player' : ...`).
 ## 2026-07-20 - [Optimized Action Processing using ID Maps]
 **Learning:** Using `.find()` inside high-frequency input handler resolution logic (e.g. `combat.ts`) to lookup entities like props iterates over the array linearly and allocates a callback function for every evaluation, generating CPU load and Garbage Collection (GC) pressure.
 **Action:** Replace `O(N)` linear searches and callback-based methods inside high-frequency frame or input routines with a direct key-value dictionary lookup (e.g., `model.propsById[id]`) which operates in `O(1)` time with zero dynamic allocations.
-### 2024-07-17
-
-**Title:** Mocking React Three Fiber Environments for UI Tests
-
+### 2024-07-17 - [Mocking React Three Fiber Environments for UI Tests]
 **Learning:** When asserting pure UI behavior (such as button rendering and API interactions like `navigator.xr`) inside heavily 3D-dependent components like `GameScene`, standard testing tools like `@testing-library/react` will fail inside `jsdom` due to missing WebGL and physics engines.
-
 **Action:** Extensively mock dependencies (`@react-three/fiber`, `@react-three/rapier`, `@react-three/drei`) alongside game-specific heavy dependencies (like `bodyWorksRuntime` and match state stores). Ensure the mocked canvas calls lifecycle initialization logic (e.g. `onCreated` in `<Canvas>`) if required to set up specific internal state, avoiding the need to execute the main game loop during tests.
-## 2025-02-28 - Avoid Object.entries() in Physics Loops
-* **Optimization:** Replaced 12 instances of `Object.entries(rig.bodies)` and `Object.entries(bodies)` with simple `for...in` loops in `physicsRuntime.ts`.
-* **Issue:** `Object.entries()` creates an array of arrays on every call. In nested fixed-step physics ticks evaluating many bodies per frame, this allocates thousands of small tuples per second, driving up garbage collection (GC) churn and triggering micro-stutters.
-* **Impact:** Reduced allocations per frame significantly, improving performance and frame consistency during intensive physics phases, particularly the continuous collision handler (CCD) and pose-matching drivers. Benchmarks indicate avoiding `Object.entries` inside the tight loop runs up to ~10x-20x faster.
-## 2024-03-XX Prop Array Filtering Optimization
-- **Goal:** Optimize O(N) `.find()` lookups on the `props` array inside high-frequency physics ticks and input handlers.
-- **Learning:** Although iterating an array of 5 elements is fast, performing this operation every frame across multiple systems introduces unnecessary closure allocation and branch evaluation overhead. Using an explicit `.find()` generates closure trash and scales poorly as prop count increases.
-- **Action:** Retained the immutable properties of `model.props` array while introducing a mirrored `propsById` O(1) dictionary in the `MatchModel`. Lookups via `model.propsById[id]` replaced explicit `.find()` calls, bypassing array traversal in hot paths and measurably dropping lookup time in synthetic benchmarks from ~90ms to ~2ms per 100K iterations.
+## 2025-02-28 - [Avoid Object.entries() in Physics Loops]
+**Learning:** `Object.entries()` creates an array of arrays on every call. In nested fixed-step physics ticks evaluating many bodies per frame, this allocates thousands of small tuples per second, driving up garbage collection (GC) churn and triggering micro-stutters.
+**Action:** Replaced 12 instances of `Object.entries(rig.bodies)` and `Object.entries(bodies)` with simple `for...in` loops in `physicsRuntime.ts`. Benchmarks indicate avoiding `Object.entries` inside the tight loop runs up to ~10x-20x faster.
+## 2024-03-XX - [Prop Array Filtering Optimization]
+**Learning:** Although iterating an array of 5 elements is fast, performing this operation every frame across multiple systems introduces unnecessary closure allocation and branch evaluation overhead. Using an explicit `.find()` generates closure trash and scales poorly as prop count increases.
+**Action:** Retained the immutable properties of `model.props` array while introducing a mirrored `propsById` O(1) dictionary in the `MatchModel`. Lookups via `model.propsById[id]` replaced explicit `.find()` calls, bypassing array traversal in hot paths and measurably dropping lookup time in synthetic benchmarks from ~90ms to ~2ms per 100K iterations.
 
-### 2025-02-24: Optimize Math.hypot calls in physics loop
+### 2025-02-24 - [Optimize Math.hypot calls in physics loop]
 **Learning:** `Math.hypot` is computationally expensive and commonly impacts performance within tight, high-frequency physics loops such as applying velocity constraints or limits.
 **Action:** Replaced `Math.hypot` inside `capRigVelocity` (`src/game/physics/physicsRuntime.ts`) with squared magnitude checks (e.g., `x*x + y*y + z*z > threshold*threshold`). This change avoided executing `Math.sqrt` unless absolutely necessary, significantly reducing loop execution time (from ~26s to ~4.6s per 150M iterations in micro-benchmarks).
 
@@ -75,3 +67,7 @@
 ## 2025-02-28 - [Optimized Math.hypot with Math.sqrt and Squared-Magnitude Checks in Physics Runtime]
 **Learning:** Calling `Math.hypot` within the high-frequency physics runtime simulation tick (such as in target segment distance lookups, locomotion velocity evaluations, and strike dynamics) introduces heavy performance overhead. This is because `Math.hypot` executes slow dynamic scaling logic to defensively prevent underflow/overflow. For coordinates inside a bounded 3D wrestling arena, standard `Math.sqrt` is entirely safe and runs up to 8x faster. Furthermore, comparing squared distances instead of calling `Math.sqrt` completely avoids square-root calculation overhead.
 **Action:** Replace `Math.hypot` with standard `Math.sqrt` or zero-allocation squared-magnitude comparisons inside the core physics runtime solver loop (`physicsRuntime.ts`).
+
+## 2025-02-28 - [Optimized Bodyworks Numerical Health Validation Paths]
+**Learning:** In highly nested, high-frequency physical state and safety validation checks like `inspectNumericalBody` in `numericalHealth.ts` which runs on every segment of every wrestler (~4,800 calls per second), allocating temporary arrays (e.g., `[position.x, ...]`) and iterating with `.every` puts massive pressure on the Garbage Collector. Furthermore, invoking standard `Math.hypot` inside hot paths is highly slow due to its underflow/overflow defensive checks.
+**Action:** Replace high-frequency array allocations with direct inline scalar checks (like inline `Number.isFinite`), and substitute `Math.hypot` with squared-magnitude comparison thresholds (e.g., comparing squared velocities directly), executing `Math.sqrt` only when error boundary violations are actually detected.
