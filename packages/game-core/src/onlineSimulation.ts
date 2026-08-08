@@ -99,7 +99,10 @@ export const createOnlineMatch = (
 });
 
 const clamp = (value: number, minimum: number, maximum: number): number => Math.max(minimum, Math.min(maximum, value));
-const length = (x: number, z: number): number => Math.hypot(x, z);
+
+// OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt to prevent CPU-intensive dynamic scaling logic.
+// Math.hypot dynamically scales inputs to defend against underflow/overflow, which is unnecessary inside the bounded 10-meter ring.
+const length = (x: number, z: number): number => Math.sqrt(x * x + z * z);
 
 const beginMove = (actor: OnlineFighterState, moveId: keyof typeof MOVES): boolean => {
   const move = MOVES[moveId];
@@ -142,7 +145,10 @@ const segmentCircleHit = (
 ): boolean => {
   const dx = endX - startX; const dz = endZ - startZ; const denominator = dx * dx + dz * dz;
   const t = denominator <= 1e-8 ? 0 : clamp(((centerX - startX) * dx + (centerZ - startZ) * dz) / denominator, 0, 1);
-  return length(centerX - (startX + dx * t), centerZ - (startZ + dz * t)) <= radius;
+  const diffX = centerX - (startX + dx * t);
+  const diffZ = centerZ - (startZ + dz * t);
+  // OPTIMIZATION: Utilizing zero-allocation squared-magnitude comparison to completely avoid slow square root operations.
+  return diffX * diffX + diffZ * diffZ <= radius * radius;
 };
 
 const otherFighter = (match: OnlineMatchState, sourceId: string): OnlineFighterState | null => {
@@ -203,11 +209,19 @@ export const stepOnlineMatch = (match: OnlineMatchState, dt: number): readonly O
       actor.velocityX = 0; actor.velocityZ = 0; continue;
     }
     const target = otherFighter(match, actor.sessionId);
-    if (target && length(target.posX - actor.posX, target.posZ - actor.posZ) < 4.5) actor.facing = Math.atan2(target.posX - actor.posX, target.posZ - actor.posZ);
+    if (target) {
+      const dx = target.posX - actor.posX;
+      const dz = target.posZ - actor.posZ;
+      // OPTIMIZATION: Utilizing zero-allocation squared-magnitude comparison (4.5 * 4.5 = 20.25) to avoid square root operation on a hot path.
+      if (dx * dx + dz * dz < 20.25) {
+        actor.facing = Math.atan2(dx, dz);
+      }
+    }
     if (!actor.moveId && !actor.grappleTarget) {
       const speed = actor.running ? 5.8 : 3.5; actor.velocityX = actor.moveX * speed; actor.velocityZ = actor.moveZ * speed;
       actor.posX = clamp(actor.posX + actor.velocityX * step, -5.55, 5.55); actor.posZ = clamp(actor.posZ + actor.velocityZ * step, -4.05, 4.05);
-      actor.combatState = actor.guarding ? 'blocking' : length(actor.moveX, actor.moveZ) > .05 ? 'locomotion' : 'idle';
+      // OPTIMIZATION: Utilizing zero-allocation squared-magnitude comparison (0.05 * 0.05 = 0.0025) to avoid square root operation.
+      actor.combatState = actor.guarding ? 'blocking' : (actor.moveX * actor.moveX + actor.moveZ * actor.moveZ) > 0.0025 ? 'locomotion' : 'idle';
       continue;
     }
     actor.velocityX = 0; actor.velocityZ = 0;
