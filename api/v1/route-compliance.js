@@ -3,6 +3,15 @@ function trustedSite(hostname) {
 }
 
 export default function handler(request, response) {
+  // Strictly restrict request methods to GET and HEAD to prevent method bypass/CSRF/HTTP method confusion
+  if (request.method !== "GET" && request.method !== "HEAD") {
+    response.setHeader("Allow", "GET, HEAD")
+    return response.status(405).json({
+      ok: false,
+      error: { code: "method_not_allowed", message: "Only GET and HEAD requests are allowed." },
+    })
+  }
+
   const host = String(request.headers["x-forwarded-host"] || request.headers.host || "").split(":")[0].toLowerCase()
   if (!trustedSite(host)) {
     return response.status(400).json({
