@@ -43,7 +43,11 @@ export function selectCameraShot(context: CameraDirectorContext): CameraShot {
   const activeStrike = contactStrike || anticipatedPowerStrike;
   if (activeStrike && context.separation < 3.2) return 'strike';
   if (context.tablePosition) {
-    const tableDistance = Math.hypot(context.middleX - context.tablePosition.x, context.middleZ - context.tablePosition.z);
+    // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt. Math.hypot scales inputs dynamically to avoid overflow/underflow,
+    // which is an unnecessary CPU intensive operation. Math.sqrt is completely safe here since our coordinate space is bounded.
+    const tableDistanceX = context.middleX - context.tablePosition.x;
+    const tableDistanceZ = context.middleZ - context.tablePosition.z;
+    const tableDistance = Math.sqrt(tableDistanceX * tableDistanceX + tableDistanceZ * tableDistanceZ);
     if (tableDistance < 3.35 || context.lastImpactKind === 'table') return 'table';
   }
   if (Math.abs(context.middleZ) > 4.65) return 'ringside-z';
