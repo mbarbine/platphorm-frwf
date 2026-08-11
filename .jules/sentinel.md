@@ -65,3 +65,8 @@ The default `CORS_ORIGIN` now restricts to the standard frontend port (`http://l
 **Vulnerability:** The Express HTTP endpoints (like `/health`, `/ready`, `/version`, and `/colyseus` monitor) had no rate limiting, leaving them susceptible to Denial of Service (DoS) through rapid automated scanning, brute-forcing, or connection/resource exhaustion (CWE-307/CWE-400).
 **Learning:** Even simple, lightweight operational or informational routes should be protected by rate limits to safeguard system availability. Dependency-free custom middlewares with safe periodic map cleanup can implement this effectively.
 **Prevention:** Register a centralized, memory-safe sliding-window rate-limiting middleware early in the middleware stack to restrict requests per IP address, with a clear cleanup routine to prevent memory leaks.
+
+## 2026-07-22 - [Insecure HTTP Methods Allowed on Redirect Handlers]
+**Vulnerability:** The Vercel serverless redirect handler `api/v1/route-compliance.js` did not restrict HTTP request methods. Unsafe HTTP methods (such as POST, PUT, DELETE) were processed and redirected via 307 Temporary Redirect, potentially exposing the handler to HTTP method confusion, CSRF vulnerabilities, or unexpected route execution behaviors.
+**Learning:** Redirect handlers designed for user-facing navigation or GET compliance queries should strictly limit access to safe HTTP methods (GET and HEAD) to adhere to the principle of least privilege.
+**Prevention:** Explicitly check request methods at the handler entry point. Reject other methods with a `405 Method Not Allowed` response and set the appropriate `Allow` header.
