@@ -1,6 +1,6 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import React from 'react';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent, act, cleanup } from '@testing-library/react';
 import { App } from '../app/App';
 
 // Silence console.error from lazy loaded errors or unhandled mock issues
@@ -33,6 +33,10 @@ vi.mock('../game/components/GameScene', () => ({
 describe('Fighter Select Keyboard and ARIA Accessibility', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    cleanup();
   });
 
   it('navigates to fighter select screen and tests wrap-around Arrow key select with ARIA alerts', async () => {
