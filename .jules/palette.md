@@ -13,3 +13,7 @@
 ## 2025-02-21 - Seamless Keyboard Form Submission and Polite Aria-Live Count Announcements
 **Learning:** For a truly inclusive keyboard and screen-reader experience, forms containing key text fields (such as multiplayer room lobbies) must support implicit submission on Enter keypresses to prevent users from having to traverse the tab loop to hit a submission action. Additionally, incremental controls (such as the locker room beer intake counter) benefit significantly from `aria-live="polite"` tags directly on the dynamic label wrapper, ensuring screen-reader users receive clear and immediate updates about value adjustments without disrupting focus.
 **Action:** Implement form submission keydown handlers for Enter keys in interactive input fields and use explicit politely live nodes for real-time value tracking.
+
+## 2025-02-22 - Timed Interactive Component Hover and Focus Pause Support
+**Learning:** Automatically dismissing contextual help components (such as a timed keyboard tutorial overlay) after a fixed duration can violate accessibility standards (e.g., WCAG 2.2.1 Timing Adjustable) and frustrate users who require more time to read, parse, or interact with instructions. Allowing users to temporarily suspend the dismissal countdown by hovering with a mouse or focusing via a keyboard/screen-reader ensures they have full control over the interaction window.
+**Action:** Always implement robust `onMouseEnter`/`onMouseLeave` and `onFocus`/`onBlur` event boundaries to pause and resume timed auto-dismiss countdowns.
