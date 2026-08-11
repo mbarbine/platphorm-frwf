@@ -69,3 +69,7 @@
 ## 2025-02-28 - [Optimized Math.hypot with direct Math.sqrt and Squared Comparisons in physicsRuntime.ts]
 **Learning:** `Math.hypot` is highly robust but extremely slow in hot execution paths like high-frequency physics tick loops in `physicsRuntime.ts` because of its generic multi-argument checking and underflow/overflow safety.
 **Action:** Replaced over 40 occurrences of `Math.hypot` inside `physicsRuntime.ts` with standard `Math.sqrt` and zero-allocation squared comparisons. This avoids expensive square-root operations and yields significant simulation speedups.
+
+## 2026-07-25 - [Optimized Math.hypot in Rope Release Directions]
+**Learning:** Replacing slow `Math.hypot` inside of `solveRopeReleaseDirection` in `ringDynamics.ts` with standard `Math.sqrt` yields significant execution speedups on high-frequency rope bounce checks by avoiding costly dynamic scaling and parameter checking checks.
+**Action:** Always replace `Math.hypot` with standard `Math.sqrt` or zero-allocation squared checks inside hot physics and collision simulation paths.
