@@ -69,8 +69,11 @@ export const resolveContextAction = (model: MatchModel, actorKey: FighterSlot, d
   }
 
   const cornerX = Math.sign(target.position.x || actor.position.x || 1) * 5.35; const cornerZ = Math.sign(target.position.z || actor.position.z || 1) * 3.85;
-  const targetCornerDistance = Math.hypot(target.position.x - cornerX, target.position.z - cornerZ);
-  if (actor.state === 'grappling' && actor.attackPhase === 'anticipation' && model.grapple?.attacker === actorKey && targetCornerDistance <= 3.15) {
+  // OPTIMIZATION: Replaced Math.hypot with a zero-allocation squared-magnitude check (<= 9.9225 equivalent to <= 3.15)
+  const tdx = target.position.x - cornerX;
+  const tdz = target.position.z - cornerZ;
+  const targetCornerDistanceSq = tdx * tdx + tdz * tdz;
+  if (actor.state === 'grappling' && actor.attackPhase === 'anticipation' && model.grapple?.attacker === actorKey && targetCornerDistanceSq <= 9.9225) {
     return resolved('corner_move', getMove('corner_smash').displayName.toUpperCase(), targetKey, 'Secured clinch is inside the corner-call lane', 5);
   }
 
@@ -94,7 +97,8 @@ export const resolveContextAction = (model: MatchModel, actorKey: FighterSlot, d
   }
 
   if (target.state === 'downed' && separation <= 1.7) {
-    const directional = Math.hypot(direction.x, direction.z) >= .35;
+    // OPTIMIZATION: Replaced Math.hypot with a zero-allocation squared-magnitude check (>= 0.1225 equivalent to >= 0.35)
+    const directional = (direction.x * direction.x + direction.z * direction.z) >= 0.1225;
     return rejected(directional ? 'drag_opponent' : 'stand_opponent', directional ? 'DRAG OPPONENT' : 'STAND OPPONENT', directional ? 'Opponent dragging is not implemented yet' : 'Standing an opponent is not implemented yet', directional ? 10 : 9);
   }
   return rejected('ordinary_contextual_action', 'NO CONTEXT ACTION', 'No legal contextual action is in range', 11);
@@ -108,7 +112,8 @@ export const resolvePropAction = (model: MatchModel, actorKey: FighterSlot, dire
     if (distance(actor.position, target.position) <= 2.3 && actor.stamina >= getMove('prop').staminaCost) {
       return resolved('swing_held_prop', getMove('prop').displayName.toUpperCase(), targetKey, 'Held prop and target are in swing range', 1);
     }
-    if (Math.hypot(direction.x, direction.z) >= .35 && actor.stamina >= getMove('prop_throw').staminaCost) {
+    // OPTIMIZATION: Replaced Math.hypot with a zero-allocation squared-magnitude check (>= 0.1225 equivalent to >= 0.35)
+    if ((direction.x * direction.x + direction.z * direction.z) >= 0.1225 && actor.stamina >= getMove('prop_throw').staminaCost) {
       return resolved('throw_held_prop', getMove('prop_throw').displayName.toUpperCase(), targetKey, 'Held prop has a deliberate throw direction', 2);
     }
     return resolved('drop_held_prop', 'DROP PROP', actor.heldPropId, 'Held prop has no legal swing target or throw modifier', 3);
