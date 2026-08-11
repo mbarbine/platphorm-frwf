@@ -135,7 +135,9 @@ export const stepGrappleDynamics = (model: MatchModel, dt: number, playerIntent:
     x: clamp(error.x * stiffness - relativeVelocity.x * damping, -36, 36),
     z: clamp(error.z * stiffness - relativeVelocity.z * damping, -36, 36),
   };
-  grapple.tension = clamp(Math.hypot(force.x, force.z) / 18, 0, 1);
+  // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt. Math.hypot scales inputs dynamically to avoid overflow/underflow,
+  // which is unnecessary and slow on a high-frequency execution path (soft two-body grapple dynamics step).
+  grapple.tension = clamp(Math.sqrt(force.x * force.x + force.z * force.z) / 18, 0, 1);
   grapple.rotation = wrapAngle(Math.atan2(toDefender.x, toDefender.z) - attacker.facing);
   addConstraintVelocity(defender, force, dt, 1);
   addConstraintVelocity(attacker, force, dt, -.62);
