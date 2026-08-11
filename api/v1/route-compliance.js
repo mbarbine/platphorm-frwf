@@ -3,6 +3,14 @@ function trustedSite(hostname) {
 }
 
 export default function handler(request, response) {
+  // Enforce HTTP method compliance: only safe read methods (GET/HEAD) are permitted
+  if (request.method !== "GET" && request.method !== "HEAD") {
+    return response.status(405).json({
+      ok: false,
+      error: { code: "method_not_allowed", message: `Method ${request.method || "unknown"} is not allowed.` },
+    })
+  }
+
   const host = String(request.headers["x-forwarded-host"] || request.headers.host || "").split(":")[0].toLowerCase()
   if (!trustedSite(host)) {
     return response.status(400).json({
