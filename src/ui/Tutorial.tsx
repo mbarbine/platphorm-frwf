@@ -5,11 +5,8 @@ const KEY = 'ringfall-tutorial-complete-v2';
 
 export function Tutorial({ device }: { device: ControlDevice }) {
   const [visible, setVisible] = useState(() => localStorage.getItem(KEY) !== 'true');
+  const [timeRemaining, setTimeRemaining] = useState(13_000);
   const [isPaused, setIsPaused] = useState(false);
-
-  const remainingTimeRef = useRef(13_000);
-  const lastStartTimeRef = useRef<number | null>(null);
-  const timerIdRef = useRef<number | undefined>(undefined);
 
   const close = (): void => {
     localStorage.setItem(KEY, 'true');
@@ -17,47 +14,28 @@ export function Tutorial({ device }: { device: ControlDevice }) {
   };
 
   useEffect(() => {
-    if (!visible) return;
+    if (!visible || isPaused || timeRemaining <= 0) return;
 
-    if (isPaused) {
-      if (timerIdRef.current !== undefined) {
-        window.clearTimeout(timerIdRef.current);
-        timerIdRef.current = undefined;
-      }
-      if (lastStartTimeRef.current !== null) {
-        remainingTimeRef.current = Math.max(0, remainingTimeRef.current - (Date.now() - lastStartTimeRef.current));
-        lastStartTimeRef.current = null;
-      }
-    } else {
-      lastStartTimeRef.current = Date.now();
-      timerIdRef.current = window.setTimeout(() => {
-        close();
-      }, remainingTimeRef.current);
-    }
+    const startTime = Date.now();
+    const timer = window.setTimeout(close, timeRemaining);
 
     return () => {
-      if (timerIdRef.current !== undefined) {
-        window.clearTimeout(timerIdRef.current);
-      }
+      window.clearTimeout(timer);
+      const elapsed = Date.now() - startTime;
+      setTimeRemaining((prev) => Math.max(0, prev - elapsed));
     };
-  }, [visible, isPaused]);
+  }, [visible, isPaused, timeRemaining]);
 
   if (!visible || device === 'touch') return null;
 
   return (
     <aside
       className="tutorial"
+      data-paused={isPaused}
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
       onFocus={() => setIsPaused(true)}
-      onBlur={(e) => {
-        // Only unpause if focus didn't move to another element inside the tutorial aside
-        if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-          setIsPaused(false);
-        }
-      }}
-      tabIndex={0}
-      aria-label="Tutorial guide"
+      onBlur={() => setIsPaused(false)}
     >
       <div>
         <span>CORE CONTROLS</span>

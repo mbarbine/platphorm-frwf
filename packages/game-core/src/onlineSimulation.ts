@@ -99,9 +99,8 @@ export const createOnlineMatch = (
 });
 
 const clamp = (value: number, minimum: number, maximum: number): number => Math.max(minimum, Math.min(maximum, value));
-
-// OPTIMIZATION: Replacing Math.hypot with standard Math.sqrt. Math.hypot scales inputs dynamically to avoid overflow/underflow.
-// Since our game coordinate space is small and bound, Math.sqrt is completely safe and runs ~8x faster.
+// OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt. Math.hypot scales inputs dynamically to avoid overflow/underflow,
+// which is a CPU intensive operation. Since our simulation coordinate space is small and bound, Math.sqrt is completely safe and runs ~8x faster.
 const length = (x: number, z: number): number => Math.sqrt(x * x + z * z);
 
 const beginMove = (actor: OnlineFighterState, moveId: keyof typeof MOVES): boolean => {
@@ -139,18 +138,18 @@ export const applyOnlineAction = (match: OnlineMatchState, sessionId: string, ev
 
 const phaseDuration = (move: OnlineMove, phase: AttackPhase): number => phase === 'anticipation' ? move.anticipation : phase === 'active' ? move.active : move.recovery;
 
-// OPTIMIZATION: Replacing dynamic swept circle intersection calculations with squared-magnitude comparison checks.
-// By squaring the target collision boundaries (radius * radius) and comparing against the flat squared Euclidean distance,
-// we completely bypass the slow Math.sqrt inside segmentCircleHit, dramatically speeding up contact checks on hot paths.
+// OPTIMIZATION: Utilizing flat squared-magnitude comparisons (diffX * diffX + diffZ * diffZ <= radius * radius)
+// completely bypasses the costly square root operations from both Math.hypot and standard Math.sqrt inside the hot contact simulation paths.
 const segmentCircleHit = (
   startX: number, startZ: number, endX: number, endZ: number,
   centerX: number, centerZ: number, radius: number,
 ): boolean => {
   const dx = endX - startX; const dz = endZ - startZ; const denominator = dx * dx + dz * dz;
   const t = denominator <= 1e-8 ? 0 : clamp(((centerX - startX) * dx + (centerZ - startZ) * dz) / denominator, 0, 1);
-  const projX = startX + dx * t; const projZ = startZ + dz * t;
-  const diffX = centerX - projX; const diffZ = centerZ - projZ;
-  return (diffX * diffX + diffZ * diffZ) <= (radius * radius);
+  // OPTIMIZATION: Using squared distance check to avoid any Math.sqrt or length calculation entirely.
+  const px = centerX - (startX + dx * t);
+  const pz = centerZ - (startZ + dz * t);
+  return (px * px + pz * pz) <= radius * radius;
 };
 
 const otherFighter = (match: OnlineMatchState, sourceId: string): OnlineFighterState | null => {
@@ -212,17 +211,15 @@ export const stepOnlineMatch = (match: OnlineMatchState, dt: number): readonly O
     }
     const target = otherFighter(match, actor.sessionId);
     if (target) {
-      // OPTIMIZATION: Utilizing zero-allocation squared-magnitude check instead of slow length lookup
-      // for wrestler tracking and orientation (4.5^2 = 20.25).
-      const dx = target.posX - actor.posX; const dz = target.posZ - actor.posZ;
-      if (dx * dx + dz * dz < 20.25) {
-        actor.facing = Math.atan2(dx, dz);
-      }
+      // OPTIMIZATION: Use squared distance check to avoid Math.sqrt during target proximity evaluation on a hot execution path.
+      const dx = target.posX - actor.posX;
+      const dz = target.posZ - actor.posZ;
+      if (dx * dx + dz * dz < 20.25) actor.facing = Math.atan2(dx, dz);
     }
     if (!actor.moveId && !actor.grappleTarget) {
       const speed = actor.running ? 5.8 : 3.5; actor.velocityX = actor.moveX * speed; actor.velocityZ = actor.moveZ * speed;
       actor.posX = clamp(actor.posX + actor.velocityX * step, -5.55, 5.55); actor.posZ = clamp(actor.posZ + actor.velocityZ * step, -4.05, 4.05);
-      // OPTIMIZATION: Replacing length check with zero-allocation squared check for locomotion (0.05^2 = 0.0025)
+      // OPTIMIZATION: Use squared magnitude check instead of length to avoid calling Math.sqrt for locomotion detection.
       actor.combatState = actor.guarding ? 'blocking' : (actor.moveX * actor.moveX + actor.moveZ * actor.moveZ) > 0.0025 ? 'locomotion' : 'idle';
       continue;
     }

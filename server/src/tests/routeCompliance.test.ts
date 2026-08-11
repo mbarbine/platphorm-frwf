@@ -82,7 +82,7 @@ describe('Route Compliance Serverless Handler', () => {
     );
   });
 
-  it('rejects unsafe request methods with a 405 response and Allow header', () => {
+  it('rejects non-GET and non-HEAD methods with a 405 response', () => {
     const req = {
       method: 'POST',
       headers: {
@@ -99,15 +99,40 @@ describe('Route Compliance Serverless Handler', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     handler(req as any, res as any);
 
-    expect(res.setHeader).toHaveBeenCalledWith('Allow', 'GET, HEAD');
     expect(res.status).toHaveBeenCalledWith(405);
-    expect(res.json).toHaveBeenCalledWith(
-      expect.objectContaining({
-        ok: false,
-        error: expect.objectContaining({
-          code: 'method_not_allowed',
-        }),
-      })
+    expect(res.setHeader).toHaveBeenCalledWith('Allow', 'GET, HEAD');
+    expect(res.json).toHaveBeenCalledWith({
+      ok: false,
+      error: {
+        code: 'method_not_allowed',
+        message: 'Only GET and HEAD methods are allowed.',
+      },
+    });
+  });
+
+  it('allows HEAD method and redirects successfully', () => {
+    const req = {
+      method: 'HEAD',
+      headers: {
+        host: 'platphormnews.com',
+      },
+      query: {
+        timeoutMs: '1200',
+      },
+    };
+    const res = {
+      status: vi.fn().mockReturnThis(),
+      setHeader: vi.fn(),
+      end: vi.fn(),
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    handler(req as any, res as any);
+
+    expect(res.status).toHaveBeenCalledWith(307);
+    expect(res.setHeader).toHaveBeenCalledWith(
+      'Location',
+      'https://base.platphormnews.com/api/v1/route-compliance?domain=platphormnews.com&mode=full&timeoutMs=1200'
     );
   });
 });

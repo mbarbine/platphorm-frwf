@@ -1,100 +1,132 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import React from 'react';
-import { render, fireEvent, act, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent, act, cleanup } from '@testing-library/react';
 import { Tutorial } from '../ui/Tutorial';
 
-describe('Tutorial timing and interaction support', () => {
+describe('Tutorial Component timed overlay with pause-on-hover/focus', () => {
   beforeEach(() => {
     vi.useFakeTimers();
-    localStorage.clear();
+    globalThis.localStorage = {
+      getItem: vi.fn().mockReturnValue(null),
+      setItem: vi.fn(),
+      clear: vi.fn(),
+      removeItem: vi.fn(),
+      length: 0,
+      key: vi.fn(),
+    } as unknown as Storage;
   });
 
   afterEach(() => {
     cleanup();
     vi.useRealTimers();
+    Reflect.deleteProperty(globalThis, 'localStorage');
   });
 
-  it('is initially visible and auto-closes after 13 seconds', () => {
-    const { queryByText } = render(React.createElement(Tutorial, { device: 'keyboard' }));
-    expect(queryByText('CORE CONTROLS')).not.toBeNull();
+  it('renders tutorial when localStorage key is not set to true', () => {
+    render(React.createElement(Tutorial, { device: 'keyboard' }));
+    expect(screen.getByText('CORE CONTROLS')).toBeTruthy();
+  });
 
-    // Fast-forward 13 seconds
+  it('does not render tutorial when localStorage key is true', () => {
+    vi.mocked(globalThis.localStorage.getItem).mockReturnValueOnce('true');
+    const { container } = render(React.createElement(Tutorial, { device: 'keyboard' }));
+    expect(container.firstChild).toBeNull();
+  });
+
+  it('does not render tutorial when device is touch', () => {
+    const { container } = render(React.createElement(Tutorial, { device: 'touch' }));
+    expect(container.firstChild).toBeNull();
+  });
+
+  it('closes tutorial when the close button is clicked', () => {
+    render(React.createElement(Tutorial, { device: 'keyboard' }));
+    const closeBtn = screen.getByLabelText('Close tutorial');
+    fireEvent.click(closeBtn);
+    expect(globalThis.localStorage.setItem).toHaveBeenCalledWith('ringfall-tutorial-complete-v2', 'true');
+    expect(screen.queryByText('CORE CONTROLS')).toBeNull();
+  });
+
+  it('closes tutorial automatically after 13 seconds of unpaused time', () => {
+    render(React.createElement(Tutorial, { device: 'keyboard' }));
+    expect(screen.getByText('CORE CONTROLS')).toBeTruthy();
+
     act(() => {
       vi.advanceTimersByTime(13000);
     });
 
-    expect(queryByText('CORE CONTROLS')).toBeNull();
+    expect(screen.queryByText('CORE CONTROLS')).toBeNull();
   });
 
-  it('pauses the closing timer when mouse enters and resumes when mouse leaves', () => {
-    const { container, queryByText } = render(React.createElement(Tutorial, { device: 'keyboard' }));
-    const aside = container.querySelector('aside');
-    expect(aside).not.toBeNull();
-    if (!aside) return;
+  it('pauses the auto-close timer on hover (mouseenter) and resumes on mouseleave', () => {
+    render(React.createElement(Tutorial, { device: 'keyboard' }));
+    const tutorialAside = screen.getByText('CORE CONTROLS').closest('aside');
+    expect(tutorialAside).toBeTruthy();
 
-    // Advance 5 seconds, still visible
-    act(() => {
-      vi.advanceTimersByTime(5000);
-    });
-    expect(queryByText('CORE CONTROLS')).not.toBeNull();
+    if (!tutorialAside) {
+      throw new Error('tutorialAside is null');
+    }
 
-    // Hover mouse
+    // Advance 3 seconds
     act(() => {
-      fireEvent.mouseEnter(aside);
+      vi.advanceTimersByTime(3000);
     });
 
-    // Advance 10 more seconds (total elapsed would be 15s if unpaused)
+    // Hover (pause)
+    act(() => {
+      fireEvent.mouseEnter(tutorialAside);
+    });
+    expect(tutorialAside.getAttribute('data-paused')).toBe('true');
+
+    // Advance another 15 seconds while paused - should NOT close
+    act(() => {
+      vi.advanceTimersByTime(15000);
+    });
+    expect(screen.getByText('CORE CONTROLS')).toBeTruthy();
+
+    // Unhover (resume)
+    act(() => {
+      fireEvent.mouseLeave(tutorialAside);
+    });
+    expect(tutorialAside.getAttribute('data-paused')).toBe('false');
+
+    // Advance remaining 10 seconds (13s - 3s = 10s) - should close now
     act(() => {
       vi.advanceTimersByTime(10000);
     });
-    expect(queryByText('CORE CONTROLS')).not.toBeNull();
-
-    // Mouse leave - resumes timer. Remaining time should be 8000ms.
-    act(() => {
-      fireEvent.mouseLeave(aside);
-    });
-
-    // Advance 7.9 seconds - should still be there
-    act(() => {
-      vi.advanceTimersByTime(7900);
-    });
-    expect(queryByText('CORE CONTROLS')).not.toBeNull();
-
-    // Advance 0.2 seconds - should close
-    act(() => {
-      vi.advanceTimersByTime(200);
-    });
-    expect(queryByText('CORE CONTROLS')).toBeNull();
+    expect(screen.queryByText('CORE CONTROLS')).toBeNull();
   });
 
-  it('pauses when focused and resumes when blurred', () => {
-    const { container, queryByText } = render(React.createElement(Tutorial, { device: 'keyboard' }));
-    const aside = container.querySelector('aside');
-    expect(aside).not.toBeNull();
-    if (!aside) return;
+  it('pauses the auto-close timer on focus and resumes on blur', () => {
+    render(React.createElement(Tutorial, { device: 'keyboard' }));
+    const tutorialAside = screen.getByText('CORE CONTROLS').closest('aside');
+    expect(tutorialAside).toBeTruthy();
 
-    act(() => {
-      vi.advanceTimersByTime(5000);
-    });
+    if (!tutorialAside) {
+      throw new Error('tutorialAside is null');
+    }
 
-    // Focus aside
+    // Focus (pause)
     act(() => {
-      fireEvent.focus(aside);
+      fireEvent.focus(tutorialAside);
     });
+    expect(tutorialAside.getAttribute('data-paused')).toBe('true');
 
+    // Advance 20 seconds while focused - should NOT close
     act(() => {
-      vi.advanceTimersByTime(10000);
+      vi.advanceTimersByTime(20000);
     });
-    expect(queryByText('CORE CONTROLS')).not.toBeNull();
+    expect(screen.getByText('CORE CONTROLS')).toBeTruthy();
 
-    // Blur aside
+    // Blur (resume)
     act(() => {
-      fireEvent.blur(aside);
+      fireEvent.blur(tutorialAside);
     });
+    expect(tutorialAside.getAttribute('data-paused')).toBe('false');
 
+    // Advance remaining 13 seconds - should close
     act(() => {
-      vi.advanceTimersByTime(8100);
+      vi.advanceTimersByTime(13000);
     });
-    expect(queryByText('CORE CONTROLS')).toBeNull();
+    expect(screen.queryByText('CORE CONTROLS')).toBeNull();
   });
 });

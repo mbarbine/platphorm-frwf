@@ -5,8 +5,6 @@ export interface QuaternionValue { x: number; y: number; z: number; w: number }
 export interface Vector3Value { x: number; y: number; z: number }
 export interface MotorParameters { stiffness: number; damping: number; maxTorque: number; strength: number; fatigue: number }
 
-const magnitude = (value: Vector3Value): number => Math.hypot(value.x, value.y, value.z);
-
 export const shortestQuaternionError = (current: QuaternionValue, target: QuaternionValue): Vector3Value => {
   const inverse = { x: -current.x, y: -current.y, z: -current.z, w: current.w };
   let error = {
@@ -70,17 +68,24 @@ export const strikePoseChain = (source: BodySegmentId): readonly BodySegmentId[]
 export const computeMotorTorque = (current: QuaternionValue, target: QuaternionValue, angularVelocity: Vector3Value, targetAngularVelocity: Vector3Value, parameters: MotorParameters): Vector3Value => {
   const error = shortestQuaternionError(current, target);
   const velocityError = { x: targetAngularVelocity.x - angularVelocity.x, y: targetAngularVelocity.y - angularVelocity.y, z: targetAngularVelocity.z - angularVelocity.z };
-  // A small physical dead band lets settled bodies sleep instead of receiving
-  // alternating sub-degree corrections that render as constant vibration.
-  if (magnitude(error) < .006 && magnitude(velocityError) < .035) return { x: 0, y: 0, z: 0 };
+  // OPTIMIZATION: Check squared magnitude limits to completely avoid calling Math.sqrt for settled joints.
+  // .006 * .006 = 0.000036 and .035 * .035 = 0.001225
+  const errorSq = error.x * error.x + error.y * error.y + error.z * error.z;
+  const velErrorSq = velocityError.x * velocityError.x + velocityError.y * velocityError.y + velocityError.z * velocityError.z;
+  if (errorSq < 0.000036 && velErrorSq < 0.001225) return { x: 0, y: 0, z: 0 };
+
   const strength = availableMotorStrength(parameters.strength, parameters.fatigue);
   const torque = {
     x: (error.x * parameters.stiffness + velocityError.x * parameters.damping) * strength,
     y: (error.y * parameters.stiffness + velocityError.y * parameters.damping) * strength,
     z: (error.z * parameters.stiffness + velocityError.z * parameters.damping) * strength,
   };
-  const length = magnitude(torque);
-  if (length <= parameters.maxTorque || length < 1e-8) return torque;
+  // OPTIMIZATION: Check squared torque magnitude first to completely avoid Math.sqrt when within limits.
+  const torqueSq = torque.x * torque.x + torque.y * torque.y + torque.z * torque.z;
+  const maxTorqueSq = parameters.maxTorque * parameters.maxTorque;
+  if (torqueSq <= maxTorqueSq || torqueSq < 1e-16) return torque;
+
+  const length = Math.sqrt(torqueSq);
   const scale = parameters.maxTorque / length;
   return { x: torque.x * scale, y: torque.y * scale, z: torque.z * scale };
 };
