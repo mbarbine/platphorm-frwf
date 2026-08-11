@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import type { ControlDevice } from '../game/types/game';
 
 const KEY = 'ringfall-tutorial-complete-v2';

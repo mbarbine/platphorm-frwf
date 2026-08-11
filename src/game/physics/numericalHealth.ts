@@ -14,7 +14,7 @@ export interface NumericalFault { code: NumericalFaultCode; segment: BodySegment
 
 export const inspectNumericalBody = (sample: NumericalBodySample, arenaHalfWidth = 16, arenaHalfDepth = 13): NumericalFault | null => {
   const { position, rotation, linearVelocity, angularVelocity } = sample;
-  if (!finite([position.x, position.y, position.z, rotation.x, rotation.y, rotation.z, rotation.w, linearVelocity.x, linearVelocity.y, linearVelocity.z, angularVelocity.x, angularVelocity.y, angularVelocity.z])) return { code: 'non-finite', segment: sample.segment, value: Number.NaN };
+  if (!isFinite(position.x) || !isFinite(position.y) || !isFinite(position.z) || !isFinite(rotation.x) || !isFinite(rotation.y) || !isFinite(rotation.z) || !isFinite(rotation.w) || !isFinite(linearVelocity.x) || !isFinite(linearVelocity.y) || !isFinite(linearVelocity.z) || !isFinite(angularVelocity.x) || !isFinite(angularVelocity.y) || !isFinite(angularVelocity.z)) return { code: 'non-finite', segment: sample.segment, value: Number.NaN };
   // OPTIMIZATION: Use zero-allocation squared magnitude comparisons on hot paths to avoid calling Math.hypot or Math.sqrt.
   // Standard square root Math.sqrt is only extracted in the rare event of a physical runaway fault.
   const linearSpeedSq = linearVelocity.x * linearVelocity.x + linearVelocity.y * linearVelocity.y + linearVelocity.z * linearVelocity.z;

@@ -1,5 +1,4 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
-import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { FIGHTERS, fighterById, opponentFor } from '../game/data/fighters';
 import { BALANCE } from '../game/data/balance';
 import { useMatchStore } from '../game/state/matchStore';
@@ -28,59 +27,11 @@ export function App() {
   const settings = useSettings();
   const [screen, setScreen] = useState<Screen>('init'); const [selected, setSelected] = useState<FighterId>('atlas'); const [rules, setRules] = useState<Ruleset>('standard');
   const [matchMode, setMatchMode] = useState<MatchMode>('singles');
-
-  const handleRosterKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    const currentIndex = FIGHTERS.findIndex((f) => f.id === selected);
-    let nextIndex = currentIndex;
-    if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
-      e.preventDefault();
-      nextIndex = (currentIndex + 1) % FIGHTERS.length;
-    } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
-      e.preventDefault();
-      nextIndex = (currentIndex - 1 + FIGHTERS.length) % FIGHTERS.length;
-    }
-    if (nextIndex !== currentIndex) {
-      const nextFighter = FIGHTERS[nextIndex].id;
-      setSelected(nextFighter);
-      setBeers(0);
-      audioEngine.play('menu', settings);
-      setTimeout(() => {
-        const nextBtn = document.querySelector(`[data-fighter-select-id="${nextFighter}"]`) as HTMLButtonElement | null;
-        if (nextBtn) nextBtn.focus();
-      }, 0);
-    }
-  };
   const [difficulty, setDifficulty] = useState<Difficulty>('normal'); const [device, setDevice] = useState<ControlDevice>('keyboard'); const [paused, setPaused] = useState(false);
   const [beers, setBeers] = useState(0);
   const [runtimePreload, setRuntimePreload] = useState<'idle' | 'loading' | 'ready'>('idle');
   const [joinRoomId, setJoinRoomId] = useState('');
   const [copied, setCopied] = useState(false);
-  const [selectAnnouncement, setSelectAnnouncement] = useState('');
-
-  const handleFighterKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>, index: number) => {
-    const total = FIGHTERS.length;
-    let nextIndex;
-    if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
-      e.preventDefault();
-      nextIndex = (index + 1) % total;
-    } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
-      e.preventDefault();
-      nextIndex = (index - 1 + total) % total;
-    } else {
-      return;
-    }
-    const nextFighter = FIGHTERS[nextIndex];
-    if (nextFighter) {
-      setSelected(nextFighter.id);
-      setBeers(0);
-      setSelectAnnouncement(`Selected ${nextFighter.name}, ${nextFighter.archetype}`);
-      audioEngine.play('menu', settings);
-      setTimeout(() => {
-        const el = document.querySelector(`[data-fighter-select-id="${nextFighter.id}"]`) as HTMLButtonElement | null;
-        if (el) el.focus();
-      }, 0);
-    }
-  };
 
   useEffect(() => {
     if (!copied) return;
@@ -240,33 +191,6 @@ export function App() {
       useMultiplayerStore.getState().voteRematch(); setScreen('multiplayer_lobby'); return;
     }
     rematch(); setPaused(false); confirm('match'); audioEngine.play('bell', settings);
-  };
-
-  const handleRosterKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
-    const selectedIndex = FIGHTERS.findIndex((f) => f.id === selected);
-    if (selectedIndex === -1) return;
-    let nextIndex = selectedIndex;
-
-    if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
-      event.preventDefault();
-      nextIndex = (selectedIndex + 1) % FIGHTERS.length;
-    } else if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
-      event.preventDefault();
-      nextIndex = (selectedIndex - 1 + FIGHTERS.length) % FIGHTERS.length;
-    }
-
-    if (nextIndex !== selectedIndex) {
-      const candidate = FIGHTERS[nextIndex];
-      if (candidate) {
-        setSelected(candidate.id);
-        setBeers(0);
-        audioEngine.play('menu', settings);
-        const btn = document.querySelector(`[data-fighter-select-id="${candidate.id}"]`) as HTMLButtonElement | null;
-        if (btn) {
-          btn.focus();
-        }
-      }
-    }
   };
 
   const menuBackdrop = screen !== 'match' && <div className="backdrop"><div className="backdrop__ring" /><div className="backdrop__beam backdrop__beam--a" /><div className="backdrop__beam backdrop__beam--b" /></div>;
