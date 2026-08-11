@@ -35,34 +35,40 @@ function dispatch(message) {
 }
 
 export default function handler(request, response) {
-  if (request.method === "GET") {
-    return response.status(200).json({
-      ok: true,
-      data: {
-        server: { name: SERVER_NAME, version: "1.1.0" },
-        protocol: "JSON-RPC 2.0",
-        protocolVersion: PROTOCOL_VERSION,
-        status: "introspection_only",
-        capabilities: { tools: [], resources: [], prompts: [] },
-      },
-    })
-  }
-  if (request.method !== "POST") return response.status(405).json(error(null, -32600, "Method not allowed"))
-
-  let payload = request.body
-  if (typeof payload === "string") {
-    try { payload = JSON.parse(payload) } catch { return response.status(400).json(error(null, -32700, "Parse error")) }
-  }
-  if (Array.isArray(payload)) {
-    if (payload.length === 0) return response.status(400).json(error(null, -32600, "Invalid Request"))
-    // SECURITY ENHANCEMENT: Limit batch request size to prevent DoS from large arrays (CWE-400)
-    if (payload.length > 20) {
-      return response.status(400).json(error(null, -32600, "Batch limit exceeded (maximum 20 requests per batch)"))
+  try {
+    if (request.method === "GET") {
+      return response.status(200).json({
+        ok: true,
+        data: {
+          server: { name: SERVER_NAME, version: "1.1.0" },
+          protocol: "JSON-RPC 2.0",
+          protocolVersion: PROTOCOL_VERSION,
+          status: "introspection_only",
+          capabilities: { tools: [], resources: [], prompts: [] },
+        },
+      })
     }
-    const responses = payload.map(dispatch).filter(Boolean)
-    return responses.length ? response.status(200).json(responses) : response.status(204).end()
+    if (request.method !== "POST") return response.status(405).json(error(null, -32600, "Method not allowed"))
+
+    let payload = request.body
+    if (typeof payload === "string") {
+      try { payload = JSON.parse(payload) } catch { return response.status(400).json(error(null, -32700, "Parse error")) }
+    }
+    if (Array.isArray(payload)) {
+      if (payload.length === 0) return response.status(400).json(error(null, -32600, "Invalid Request"))
+      // SECURITY ENHANCEMENT: Limit batch request size to prevent DoS from large arrays (CWE-400)
+      if (payload.length > 20) {
+        return response.status(400).json(error(null, -32600, "Batch limit exceeded (maximum 20 requests per batch)"))
+      }
+      const responses = payload.map(dispatch).filter(Boolean)
+      return responses.length ? response.status(200).json(responses) : response.status(204).end()
+    }
+    const rpcResponse = dispatch(payload)
+    return rpcResponse ? response.status(200).json(rpcResponse) : response.status(204).end()
+  } catch (err) {
+    // Prevent sensitive system detail/stack trace exposure on unhandled exceptions (CWE-209)
+    globalThis.console.error("MCP serverless function unhandled error:", err)
+    return response.status(500).json(error(null, -32603, "Internal error"))
   }
-  const rpcResponse = dispatch(payload)
-  return rpcResponse ? response.status(200).json(rpcResponse) : response.status(204).end()
 }
 
