@@ -135,4 +135,30 @@ describe('Route Compliance Serverless Handler', () => {
       'https://base.platphormnews.com/api/v1/route-compliance?domain=platphormnews.com&mode=full&timeoutMs=1200'
     );
   });
+
+  it('handles unhandled exceptions securely and returns a 500 status without leaking stack traces', () => {
+    const req = {
+      method: 'GET',
+      get headers() {
+        throw new Error('Database or parsing error');
+      },
+      query: {},
+    };
+    const res = {
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn(),
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    handler(req as any, res as any);
+
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(res.json).toHaveBeenCalledWith({
+      ok: false,
+      error: {
+        code: 'internal_error',
+        message: 'An unexpected error occurred.',
+      },
+    });
+  });
 });
