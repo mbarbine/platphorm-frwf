@@ -31,10 +31,15 @@ const keyboardDirection = (keys: ReadonlySet<string>): Vec2 => ({
 export const readGamepadDirection = (gamepad: Gamepad): Vec2 => {
   const axes: readonly number[] = gamepad.axes ?? []; const buttons: readonly GamepadButton[] = gamepad.buttons ?? [];
   const first = { x: axes[0] ?? 0, z: axes[1] ?? 0 }; const second = { x: axes[2] ?? 0, z: axes[3] ?? 0 };
-  const chosen = Math.hypot(second.x, second.z) > Math.hypot(first.x, first.z) ? second : first;
+  // OPTIMIZATION: Use zero-allocation squared comparisons instead of expensive Math.hypot calls.
+  const firstSq = first.x * first.x + first.z * first.z;
+  const secondSq = second.x * second.x + second.z * second.z;
+  const chosen = secondSq > firstSq ? second : first;
   const axisX = chosen.x; const axisY = chosen.z;
-  const magnitude = Math.hypot(axisX, axisY);
-  if (magnitude > .18) {
+  const magnitudeSq = chosen === second ? secondSq : firstSq;
+  if (magnitudeSq > 0.18 * 0.18) {
+    // OPTIMIZATION: Standard Math.sqrt is up to 8x faster than Math.hypot and perfectly safe here.
+    const magnitude = Math.sqrt(magnitudeSq);
     const normalized = Math.min(1, (magnitude - .18) / .82);
     return { x: axisX / magnitude * normalized, z: axisY / magnitude * normalized };
   }
@@ -84,7 +89,8 @@ export const useGameInput = (
   const clearInputState = useCallback((reason: string): void => {
     if (keys.current.size > 0) {
       const timestamp = performance.now(); const direction = keyboardDirection(keys.current);
-      if (Math.hypot(direction.x, direction.z) > .08) onImmediateReleaseRef.current?.(createActionEvent('move', { phase: 'released', source: 'keyboard', direction: { x: 0, z: 0 }, timestamp }));
+      // OPTIMIZATION: Use zero-allocation squared comparison to avoid slow Math.hypot calls.
+      if ((direction.x * direction.x + direction.z * direction.z) > 0.08 * 0.08) onImmediateReleaseRef.current?.(createActionEvent('move', { phase: 'released', source: 'keyboard', direction: { x: 0, z: 0 }, timestamp }));
       if (keys.current.has('ShiftLeft') || keys.current.has('ShiftRight')) onImmediateReleaseRef.current?.(createActionEvent('run', { phase: 'released', source: 'keyboard', direction: { x: 0, z: 0 }, timestamp }));
       if (keys.current.has('KeyI')) onImmediateReleaseRef.current?.(createActionEvent('guard', { phase: 'released', source: 'keyboard', direction: { x: 0, z: 0 }, timestamp }));
     }
@@ -124,7 +130,8 @@ export const useGameInput = (
       const hadKey = keys.current.delete(event.code);
       if (!hadKey || !enabledRef.current) return;
       const timestamp = performance.now(); const direction = keyboardDirection(keys.current);
-      if (DIRECTION_KEYS.has(event.code) && Math.hypot(direction.x, direction.z) <= .08) {
+      // OPTIMIZATION: Use zero-allocation squared comparison to avoid slow Math.hypot calls.
+      if (DIRECTION_KEYS.has(event.code) && (direction.x * direction.x + direction.z * direction.z) <= 0.08 * 0.08) {
         onImmediateReleaseRef.current?.(createActionEvent('move', { phase: 'released', source: 'keyboard', direction: { x: 0, z: 0 }, timestamp }));
       }
       if ((event.code === 'ShiftLeft' || event.code === 'ShiftRight') && !keys.current.has('ShiftLeft') && !keys.current.has('ShiftRight')) {
@@ -183,7 +190,8 @@ export const useGameInput = (
     let heldSource: ActionSource = 'keyboard';
     if (gamepad) {
       const direction = readGamepadDirection(gamepad);
-      if (Math.hypot(direction.x, direction.z) > .18) { x = direction.x; z = direction.z; heldSource = 'gamepad'; setDevice('gamepad'); }
+      // OPTIMIZATION: Use zero-allocation squared comparison to avoid slow Math.hypot calls.
+      if ((direction.x * direction.x + direction.z * direction.z) > 0.18 * 0.18) { x = direction.x; z = direction.z; heldSource = 'gamepad'; setDevice('gamepad'); }
       const gamepadRun = (gamepad.buttons[7]?.value ?? 0) > .35;
       const gamepadBlock = (gamepad.buttons[6]?.value ?? 0) > .35;
       if (gamepadRun || gamepadBlock) heldSource = 'gamepad';
@@ -208,7 +216,9 @@ export const useGameInput = (
         right: xrSources.find((source) => source.handedness === 'right')?.gamepad,
       };
       if (sources.left) {
-        const direction = readGamepadDirection(sources.left); if (Math.hypot(direction.x, direction.z) > .12) { x = direction.x; z = direction.z; }
+        const direction = readGamepadDirection(sources.left);
+        // OPTIMIZATION: Use zero-allocation squared comparison to avoid slow Math.hypot calls.
+        if ((direction.x * direction.x + direction.z * direction.z) > 0.12 * 0.12) { x = direction.x; z = direction.z; }
         run ||= (sources.left.buttons[0]?.value ?? 0) > .35; block ||= (sources.left.buttons[1]?.value ?? 0) > .35;
       }
       for (const [hand, index, action] of XR_BUTTON_ACTIONS) {
@@ -225,15 +235,21 @@ export const useGameInput = (
       actions.push(...(touch.actions ?? []));
     } else {
       const direction = { x, z };
-      const moveEvent = heldActions.current?.update('move', Math.hypot(x, z) > .08, heldSource, direction);
+      // OPTIMIZATION: Use zero-allocation squared comparison to avoid slow Math.hypot calls.
+      const moveEvent = heldActions.current?.update('move', (x * x + z * z) > 0.08 * 0.08, heldSource, direction);
       const runEvent = heldActions.current?.update('run', run, heldSource, direction);
       const guardEvent = heldActions.current?.update('guard', block, heldSource, direction);
       if (moveEvent) actions.push(moveEvent);
       if (runEvent) actions.push(runEvent);
       if (guardEvent) actions.push(guardEvent);
     }
-    const magnitude = Math.hypot(x, z);
-    if (magnitude > 1) { x /= magnitude; z /= magnitude; }
+    // OPTIMIZATION: Use zero-allocation squared comparison to avoid standard Math.sqrt unless absolutely necessary (magnitude > 1).
+    const magnitudeSq = x * x + z * z;
+    if (magnitudeSq > 1) {
+      const magnitude = Math.sqrt(magnitudeSq);
+      x /= magnitude;
+      z /= magnitude;
+    }
     if (actions.length > 0) {
       actionReadCount.current += actions.length;
       const latest = actions[actions.length - 1];
