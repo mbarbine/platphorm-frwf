@@ -1,7 +1,23 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, afterEach } from 'vitest';
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { App } from '../app/App';
+
+vi.mock('../ui/FighterPreview', () => ({
+  FighterPreview: () => React.createElement('div', { 'data-testid': 'fighter-preview' })
+}));
+
+vi.mock('../ui/SettingsPanel', () => ({
+  SettingsPanel: () => React.createElement('div', { 'data-testid': 'settings-panel' })
+}));
+
+vi.mock('../game/components/PhysicsLab', () => ({
+  PhysicsLab: () => React.createElement('div', { 'data-testid': 'physics-lab' })
+}));
+
+vi.mock('../game/components/GameScene', () => ({
+  GameScene: () => React.createElement('div', { 'data-testid': 'game-scene' })
+}));
 
 vi.mock('../game/state/matchStore', () => ({
   useMatchStore: Object.assign(vi.fn((selector) => {
@@ -90,6 +106,10 @@ vi.mock('../game/physics/physicsRuntime', () => ({
 }));
 
 describe('App Fighter Select Keyboard Navigation', () => {
+  afterEach(() => {
+    cleanup();
+  });
+
   it('navigates with arrow keys on the roster', async () => {
     render(React.createElement(App));
 
