@@ -457,4 +457,37 @@ describe('authoritative server contract', () => {
     /* eslint-enable @typescript-eslint/no-explicit-any */
   });
 
+  it('api/mcp.js gracefully handles unhandled errors with a 500 response and logs to console.error', async () => {
+    /* eslint-disable @typescript-eslint/no-explicit-any */
+    // @ts-expect-error - JavaScript file lacks type definitions
+    const mcpModule = await import('../../../api/mcp.js');
+    const mcpHandler = mcpModule.default;
+    const req = {
+      method: 'POST',
+      get body() {
+        throw new Error('Simulated body parsing or dispatch exception');
+      }
+    };
+    const res = {
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn(),
+    };
+    const consoleSpy = vi.spyOn(globalThis.console, 'error').mockImplementation(() => {});
+
+    mcpHandler(req as any, res as any);
+
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(res.json).toHaveBeenCalledWith({
+      jsonrpc: '2.0',
+      id: null,
+      error: {
+        code: -32603,
+        message: 'Internal error',
+      },
+    });
+    expect(consoleSpy).toHaveBeenCalled();
+    consoleSpy.mockRestore();
+    /* eslint-enable @typescript-eslint/no-explicit-any */
+  });
+
 });
