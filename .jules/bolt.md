@@ -69,3 +69,7 @@
 ## 2025-02-28 - [Optimized Math.hypot with direct Math.sqrt and Squared Comparisons in physicsRuntime.ts]
 **Learning:** `Math.hypot` is highly robust but extremely slow in hot execution paths like high-frequency physics tick loops in `physicsRuntime.ts` because of its generic multi-argument checking and underflow/overflow safety.
 **Action:** Replaced over 40 occurrences of `Math.hypot` inside `physicsRuntime.ts` with standard `Math.sqrt` and zero-allocation squared comparisons. This avoids expensive square-root operations and yields significant simulation speedups.
+
+## 2026-07-25 - [Optimized Utility AI Pacing and Eliminated Prop Search Churn]
+**Learning:** Evaluating target distances and searching for props on every high-frequency AI update tick using allocation-heavy `.filter().sort()` chains can cause massive CPU overhead and garbage collection (GC) churn in complex brawling scenarios.
+**Action:** Replaced array-allocation filter/sort chains in the AI's closest prop search with an in-place `O(N)` loop, and substituted `Math.hypot` calls inside range and pacing evaluations with zero-allocation squared comparisons and standard `Math.sqrt`, guaranteeing high-speed simulation with zero GC churn on the AI hot path.
