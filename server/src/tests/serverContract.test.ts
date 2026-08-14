@@ -385,6 +385,37 @@ describe('authoritative server contract', () => {
     /* eslint-enable @typescript-eslint/no-explicit-any */
   });
 
+  it('handles unhandled exceptions in api/mcp.js safely without leaking error details', async () => {
+    /* eslint-disable @typescript-eslint/no-explicit-any */
+    // @ts-expect-error - JavaScript file lacks type definitions
+    const mcpModule = await import('../../../api/mcp.js');
+    const mcpHandler = mcpModule.default;
+
+    const req = {
+      method: 'POST',
+      get body() {
+        throw new Error('Unexpected JSON getter crash');
+      },
+    };
+    const res = {
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn(),
+    };
+
+    mcpHandler(req as any, res as any);
+
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(res.json).toHaveBeenCalledWith({
+      jsonrpc: '2.0',
+      id: null,
+      error: {
+        code: -32603,
+        message: 'Internal error',
+      },
+    });
+    /* eslint-enable @typescript-eslint/no-explicit-any */
+  });
+
   it('Express secure error handling middleware prevents stack trace disclosure', async () => {
     /* eslint-disable @typescript-eslint/no-explicit-any */
     const { secureErrorHandler } = await import('../index');
