@@ -89,6 +89,10 @@ vi.mock('../game/physics/physicsRuntime', () => ({
   }
 }));
 
+vi.mock('../game/components/GameScene', () => ({
+  GameScene: () => React.createElement('div', { 'data-testid': 'game-scene' })
+}));
+
 describe('App Fighter Select Keyboard Navigation', () => {
   it('navigates with arrow keys on the roster', async () => {
     render(React.createElement(App));

@@ -17,3 +17,7 @@
 ## 2025-02-22 - Intuitive Fighter Select Keyboard Navigation and Real-Time Selection Announcements
 **Learning:** Selecting characters on a grid or list using only Tab keys can be tedious for keyboard-bound users. Integrating Arrow key navigation (ArrowUp/ArrowDown/ArrowLeft/ArrowRight) on interactive lists provides a familiar, native-feeling, and accelerated selection flow. Furthermore, wrapping selected details in an offline, visually hidden aria-live="polite" region ensures screen readers immediately announce fighter attributes like Archetype and Signature moves as focus shifts.
 **Action:** Always map standard keyboard directional arrows to roster or select grids and couple selection changes with programmatic aria-live descriptive feedback.
+
+## 2025-02-23 - Context-Aligned Prefixing for Visually Hidden Selection Announcements
+**Learning:** Visually hidden `aria-live` polite regions that dynamically update with user selections can sometimes lead to disjointed speech flow or screen reader confusion if they lack explicit context-aligned labels (e.g. announcing "Selected ATLAS REX..." instead of "Selected fighter: ATLAS REX..."). Inserting brief, context-aligned prefixes ensures screen reader users instantly comprehend the category of the selected item while aligning perfectly with automated regression and accessibility test assertions.
+**Action:** Always prefix dynamic aria-live selection templates with explicit, contextual keywords identifying the option category.
