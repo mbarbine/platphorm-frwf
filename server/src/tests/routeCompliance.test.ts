@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 // @ts-expect-error - JavaScript file lacks type definitions in server
 import handler from '../../../api/v1/route-compliance.js';
+// @ts-expect-error - JavaScript file lacks type definitions in server
+import mcpHandler from '../../../api/mcp.js';
 
 describe('Route Compliance Serverless Handler', () => {
   it('redirects to the base domain with sanitized/validated timeoutMs when input is valid', () => {
@@ -134,5 +136,63 @@ describe('Route Compliance Serverless Handler', () => {
       'Location',
       'https://base.platphormnews.com/api/v1/route-compliance?domain=platphormnews.com&mode=full&timeoutMs=1200'
     );
+  });
+
+  it('catches unhandled exceptions in route-compliance and returns 500 without stack trace disclosure', () => {
+    const req = {
+      method: 'GET',
+      get headers(): never {
+        throw new Error('Unexpected simulated header getter error!');
+      },
+    };
+    const res = {
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn(),
+    };
+
+    const spyConsole = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    handler(req as any, res as any);
+
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(res.json).toHaveBeenCalledWith({
+      ok: false,
+      error: {
+        code: 'internal_server_error',
+        message: 'An unexpected error occurred processing route compliance.',
+      },
+    });
+    expect(spyConsole).toHaveBeenCalled();
+    spyConsole.mockRestore();
+  });
+
+  it('catches unhandled exceptions in api/mcp.js and returns 500 without stack trace disclosure', () => {
+    const req = {
+      get method(): never {
+        throw new Error('Unexpected simulated method getter error!');
+      },
+    };
+    const res = {
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn(),
+    };
+
+    const spyConsole = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    mcpHandler(req as any, res as any);
+
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: expect.objectContaining({
+          code: -32603,
+          message: 'Internal server error',
+        }),
+      })
+    );
+    expect(spyConsole).toHaveBeenCalled();
+    spyConsole.mockRestore();
   });
 });
