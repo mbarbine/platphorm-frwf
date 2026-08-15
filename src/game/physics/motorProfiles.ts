@@ -80,7 +80,8 @@ export const selectMotorProfile = (fighter: FighterRuntime): MotorProfile => {
   if (fighter.state === 'blocking') return MOTOR_PROFILES.blocking;
   if (fighter.state === 'jumping') return MOTOR_PROFILES.airborne;
   if (fighter.state === 'victorious') return MOTOR_PROFILES.victory;
-  if (fighter.state === 'locomotion') return Math.hypot(fighter.velocity.x, fighter.velocity.z) > 3.75 ? MOTOR_PROFILES.running : MOTOR_PROFILES.walking;
+  // OPTIMIZATION: Zero-allocation squared magnitude comparison (14.0625 = 3.75^2) to avoid Math.hypot/Math.sqrt overhead on hot path.
+  if (fighter.state === 'locomotion') return (fighter.velocity.x * fighter.velocity.x + fighter.velocity.z * fighter.velocity.z) > 14.0625 ? MOTOR_PROFILES.running : MOTOR_PROFILES.walking;
   if (fighter.moveId) {
     if (fighter.attackPhase === 'recovery') return MOTOR_PROFILES.neutral;
     if (['grapple_miss', 'prop_pickup', 'prop_drop'].includes(fighter.moveId)) return MOTOR_PROFILES.grappleReach;

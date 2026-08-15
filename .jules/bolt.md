@@ -69,3 +69,7 @@
 ## 2025-02-28 - [Optimized Math.hypot with direct Math.sqrt and Squared Comparisons in physicsRuntime.ts]
 **Learning:** `Math.hypot` is highly robust but extremely slow in hot execution paths like high-frequency physics tick loops in `physicsRuntime.ts` because of its generic multi-argument checking and underflow/overflow safety.
 **Action:** Replaced over 40 occurrences of `Math.hypot` inside `physicsRuntime.ts` with standard `Math.sqrt` and zero-allocation squared comparisons. This avoids expensive square-root operations and yields significant simulation speedups.
+
+## 2026-07-25 - [Optimized Vector Calculations in Physics Runtime Paths]
+**Learning:** `Math.hypot` inside high-frequency physics tick handlers (`selectMotorProfile`, `integrateLocomotion`, and contact force resolution in `PhysicalFighterRig`) creates significant calculation overhead due to internal overflow/underflow checks.
+**Action:** Replace `Math.hypot` with zero-allocation pre-squared comparisons (e.g. `vx*vx + vz*vz > 14.0625` for threshold checks) or standard inline `Math.sqrt` arithmetic without creating inline closure allocations.
