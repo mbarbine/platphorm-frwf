@@ -17,3 +17,7 @@
 ## 2025-02-22 - Intuitive Fighter Select Keyboard Navigation and Real-Time Selection Announcements
 **Learning:** Selecting characters on a grid or list using only Tab keys can be tedious for keyboard-bound users. Integrating Arrow key navigation (ArrowUp/ArrowDown/ArrowLeft/ArrowRight) on interactive lists provides a familiar, native-feeling, and accelerated selection flow. Furthermore, wrapping selected details in an offline, visually hidden aria-live="polite" region ensures screen readers immediately announce fighter attributes like Archetype and Signature moves as focus shifts.
 **Action:** Always map standard keyboard directional arrows to roster or select grids and couple selection changes with programmatic aria-live descriptive feedback.
+
+## 2025-02-23 - Spectator HUD Landmark Accessibility and Dynamic Camera State Announcements
+**Learning:** Spectator control overlays often lack proper ARIA landmark labeling and explicit action descriptions, leaving screen-reader users unable to locate or identify camera mode controls and target switching options when eliminated in battle royale matches. Adding landmark `aria-label="Spectator controls"`, descriptive button `aria-label`s, and a visually hidden `aria-live="polite"` region ensures screen reader users receive immediate announcements when spectated targets or camera modes change.
+**Action:** Always provide landmark aria-labels on spectator overlays and pair camera mode / target toggles with dynamic aria-live feedback regions.

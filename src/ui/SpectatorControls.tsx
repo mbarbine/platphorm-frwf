@@ -33,10 +33,14 @@ export function SpectatorControls() {
 
   if (!spectating) return null;
   const fighter = fighterById(model[target].definitionId);
-  return <aside className="spectator-controls" data-testid="spectator-controls" data-camera-mode={cameraMode} data-spectator-target={target}>
+  const activeMode = MODES.find((m) => m.id === cameraMode);
+  return <aside className="spectator-controls" aria-label="Spectator controls" data-testid="spectator-controls" data-camera-mode={cameraMode} data-spectator-target={target}>
+    <div aria-live="polite" style={{ position: 'absolute', width: '1px', height: '1px', padding: 0, margin: '-1px', overflow: 'hidden', clip: 'rect(0, 0, 0, 0)', border: 0 }}>
+      {`Spectating ${fighter.name}, ${activeMode?.label ?? cameraMode} mode`}
+    </div>
     <header><span>ELIMINATED · MATCH CONTINUES</span><b>SPECTATING {fighter.name}</b></header>
-    <div>{MODES.map((mode) => <button key={mode.id} type="button" className={cameraMode === mode.id ? 'active' : ''} aria-pressed={cameraMode === mode.id} onClick={() => setCameraMode(mode.id)}><kbd>{mode.key}</kbd>{mode.label}</button>)}</div>
-    <button type="button" className="spectator-next" onClick={() => cycleTarget(model)}>NEXT WRESTLER <kbd>TAB</kbd></button>
+    <div>{MODES.map((mode) => <button key={mode.id} type="button" className={cameraMode === mode.id ? 'active' : ''} aria-pressed={cameraMode === mode.id} aria-label={`Switch camera to ${mode.label}`} onClick={() => setCameraMode(mode.id)}><kbd>{mode.key}</kbd>{mode.label}</button>)}</div>
+    <button type="button" className="spectator-next" aria-label="Spectate next wrestler" onClick={() => cycleTarget(model)}>NEXT WRESTLER <kbd>TAB</kbd></button>
     {cameraMode === 'free' && <small>DRAG TO ORBIT · WHEEL TO ZOOM · RIGHT-DRAG TO PAN</small>}
   </aside>;
 }
