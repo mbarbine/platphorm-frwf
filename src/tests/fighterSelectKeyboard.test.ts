@@ -76,6 +76,14 @@ vi.mock('../game/state/settings', () => ({
   }), { getState: vi.fn(() => ({ highContrast: false, lowFlash: false, uiScale: 1.0 })) }),
 }));
 
+vi.mock('../ui/FighterPreview', () => ({
+  FighterPreview: () => React.createElement('div', null, 'FighterPreview'),
+}));
+
+vi.mock('../game/components/GameScene', () => ({
+  GameScene: () => React.createElement('div', null, 'GameScene'),
+}));
+
 vi.mock('../game/physics/physicsRuntime', () => ({
   bodyWorksRuntime: {
     setJointData: vi.fn(),
