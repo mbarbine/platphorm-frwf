@@ -166,13 +166,19 @@ export function PhysicalFighterRig({ runtime, side, showVisuals = true }: Props)
     // released throw is awaiting its landing surface.
     if (target && !activeContactLimb) return;
     if (!target && !landingCandidate) return;
+    const dvx = ownVelocity.x - otherVelocity.x;
+    const dvy = ownVelocity.y - otherVelocity.y;
+    const dvz = ownVelocity.z - otherVelocity.z;
     bodyWorksRuntime.recordContact({
       time: useMatchStore.getState().model.elapsed, sourceFighter: side, sourceSegment: segment.id,
       targetFighter: target?.fighter ?? null, targetSegment: target?.segment ?? null, targetRegion: target?.region ?? segment.bodyRegion,
       totalForce: payload.totalForceMagnitude, maximumForce: payload.maxForceMagnitude,
       forceDirection: [payload.maxForceDirection.x, payload.maxForceDirection.y, payload.maxForceDirection.z],
       point: [ownPosition.x, ownPosition.y, ownPosition.z],
-      relativeSpeed: Math.hypot(ownVelocity.x - otherVelocity.x, ownVelocity.y - otherVelocity.y, ownVelocity.z - otherVelocity.z),
+      // OPTIMIZATION: Replacing multi-argument Math.hypot with standard Math.sqrt on pre-squared coordinate deltas.
+      // Math.hypot dynamically scales inputs to handle overflow/underflow, which incurs severe CPU overhead (~8-10x slower)
+      // during high-frequency contact force callbacks in 3D physics updates.
+      relativeSpeed: Math.sqrt(dvx * dvx + dvy * dvy + dvz * dvz),
       attackInstanceId: activeContactLimb ? sourceRuntime.attackInstanceId : null,
       moveId: activeContactLimb ? sourceRuntime.moveId : null,
       attackPhaseAtContact: activeContactLimb ? 'active' : null,
