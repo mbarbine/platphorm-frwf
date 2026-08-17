@@ -43,10 +43,7 @@ export function selectCameraShot(context: CameraDirectorContext): CameraShot {
   const activeStrike = contactStrike || anticipatedPowerStrike;
   if (activeStrike && context.separation < 3.2) return 'strike';
   if (context.tablePosition) {
-    const dx = context.middleX - context.tablePosition.x;
-    const dz = context.middleZ - context.tablePosition.z;
-    // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt.
-    const tableDistance = Math.sqrt(dx * dx + dz * dz);
+    const tableDistance = Math.hypot(context.middleX - context.tablePosition.x, context.middleZ - context.tablePosition.z);
     if (tableDistance < 3.35 || context.lastImpactKind === 'table') return 'table';
   }
   if (Math.abs(context.middleZ) > 4.65) return 'ringside-z';
