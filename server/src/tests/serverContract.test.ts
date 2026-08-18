@@ -457,4 +457,37 @@ describe('authoritative server contract', () => {
     /* eslint-enable @typescript-eslint/no-explicit-any */
   });
 
+  it('handles unhandled errors gracefully in api/mcp.js without leaking stack trace', async () => {
+    /* eslint-disable @typescript-eslint/no-explicit-any */
+    // @ts-expect-error - JavaScript file lacks type definitions
+    const mcpModule = await import('../../../api/mcp.js');
+    const mcpHandler = mcpModule.default;
+    const req = {
+      method: 'POST',
+      get body() {
+        throw new Error('Unexpected payload failure');
+      },
+    };
+    const res = {
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn(),
+    };
+
+    const spyConsole = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    mcpHandler(req as any, res as any);
+
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: expect.objectContaining({
+          code: -32603,
+          message: 'Internal error',
+        }),
+      })
+    );
+    spyConsole.mockRestore();
+    /* eslint-enable @typescript-eslint/no-explicit-any */
+  });
+
 });
