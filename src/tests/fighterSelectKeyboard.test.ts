@@ -105,6 +105,22 @@ vi.mock('../game/physics/physicsRuntime', () => ({
   }
 }));
 
+vi.mock('../ui/FighterPreview', () => ({
+  FighterPreview: () => React.createElement('div', { 'data-testid': 'fighter-preview' })
+}));
+
+vi.mock('../ui/SettingsPanel', () => ({
+  SettingsPanel: () => React.createElement('div', { 'data-testid': 'settings-panel' })
+}));
+
+vi.mock('../game/components/PhysicsLab', () => ({
+  PhysicsLab: () => React.createElement('div', { 'data-testid': 'physics-lab' })
+}));
+
+vi.mock('../game/components/GameScene', () => ({
+  GameScene: () => React.createElement('div', { 'data-testid': 'game-scene' })
+}));
+
 describe('App Fighter Select Keyboard Navigation', () => {
   afterEach(() => {
     cleanup();

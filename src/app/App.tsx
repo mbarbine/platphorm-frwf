@@ -47,34 +47,24 @@ export function App() {
   useEffect(() => {
     if (screen !== 'select') return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
         e.preventDefault();
-        const currentIndex = FIGHTERS.findIndex((f) => f.id === selected);
-        const prevIndex = (currentIndex - 1 + FIGHTERS.length) % FIGHTERS.length;
-        const prevFighterObj = FIGHTERS[prevIndex];
-        if (prevFighterObj) {
-          const prevFighter = prevFighterObj.id;
-          setSelected(prevFighter);
-          setBeers(0);
-          audioEngine.play('menu', settings);
-          setTimeout(() => {
-            const btn = document.querySelector(`[data-fighter-select-id="${prevFighter}"]`) as HTMLButtonElement | null;
-            if (btn) btn.focus();
-          }, 0);
+        const currentIndex = FIGHTERS.findIndex(f => f.id === selected);
+        let nextIndex = currentIndex;
+        if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
+          nextIndex = (currentIndex + 1) % FIGHTERS.length;
+        } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+          nextIndex = (currentIndex - 1 + FIGHTERS.length) % FIGHTERS.length;
         }
-      } else if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
-        e.preventDefault();
-        const currentIndex = FIGHTERS.findIndex((f) => f.id === selected);
-        const nextIndex = (currentIndex + 1) % FIGHTERS.length;
-        const nextFighterObj = FIGHTERS[nextIndex];
-        if (nextFighterObj) {
-          const nextFighter = nextFighterObj.id;
-          setSelected(nextFighter);
+        const candidate = FIGHTERS[nextIndex];
+        if (candidate) {
+          const nextId = candidate.id;
+          setSelected(nextId);
           setBeers(0);
           audioEngine.play('menu', settings);
           setTimeout(() => {
-            const btn = document.querySelector(`[data-fighter-select-id="${nextFighter}"]`) as HTMLButtonElement | null;
-            if (btn) btn.focus();
+            const btn = document.querySelector(`[data-fighter-select-id="${nextId}"]`) as HTMLButtonElement | null;
+            btn?.focus();
           }, 0);
         }
       }
@@ -106,35 +96,6 @@ export function App() {
     document.documentElement.dataset.lowFlash = settings.lowFlash ? 'true' : 'false';
     audioEngine.configure(settings);
   }, [settings]);
-
-  useEffect(() => {
-    if (screen !== 'select') return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
-        e.preventDefault();
-        const currentIndex = FIGHTERS.findIndex(f => f.id === selected);
-        let nextIndex = currentIndex;
-        if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
-          nextIndex = (currentIndex + 1) % FIGHTERS.length;
-        } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
-          nextIndex = (currentIndex - 1 + FIGHTERS.length) % FIGHTERS.length;
-        }
-        const candidate = FIGHTERS[nextIndex];
-        if (candidate) {
-          const nextId = candidate.id;
-          setSelected(nextId);
-          setBeers(0);
-          audioEngine.play('menu', settings);
-          setTimeout(() => {
-            const btn = document.querySelector(`[data-fighter-select-id="${nextId}"]`) as HTMLButtonElement | null;
-            btn?.focus();
-          }, 0);
-        }
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [screen, selected, settings]);
 
   // Synchronize Multiplayer transition to actual active gameplay
   useEffect(() => {
