@@ -188,8 +188,12 @@ export const useMatchStore = create<MatchStore>((set) => ({
     reconcileNetworkGrapple(model, local, remote);
     model.elapsed = Math.max(model.elapsed, elapsed); model.hype = Math.max(0, Math.min(100, hype));
     if (announcement) { model.announcement = announcement; model.announcementTimer = Math.max(model.announcementTimer, .12); }
-    const controller = model.aiControllers.opponent; const speed = Math.hypot(remote.velocityX, remote.velocityZ);
-    controller.movement = speed > .05 ? { x: remote.velocityX / speed, z: remote.velocityZ / speed } : { x: 0, z: 0 };
+    const controller = model.aiControllers.opponent;
+    // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt for better performance in state reconciliation.
+    const vx = remote.velocityX;
+    const vz = remote.velocityZ;
+    const speed = Math.sqrt(vx * vx + vz * vz);
+    controller.movement = speed > .05 ? { x: vx / speed, z: vz / speed } : { x: 0, z: 0 };
     controller.running = speed > 4.6; controller.blockTimer = remote.combatState === 'blocking' ? .12 : 0; controller.intent = null;
     return { model: { ...model }, revision: state.revision + 1 };
   }),
