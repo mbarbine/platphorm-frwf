@@ -1,6 +1,6 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, afterEach } from 'vitest';
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { App } from '../app/App';
 
 vi.mock('../game/state/matchStore', () => ({
@@ -90,6 +90,10 @@ vi.mock('../game/physics/physicsRuntime', () => ({
 }));
 
 describe('App Fighter Select Keyboard Navigation', () => {
+  afterEach(() => {
+    cleanup();
+  });
+
   it('navigates with arrow keys on the roster', async () => {
     render(React.createElement(App));
 
