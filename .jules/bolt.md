@@ -69,3 +69,7 @@
 ## 2025-02-28 - [Optimized Math.hypot with direct Math.sqrt and Squared Comparisons in physicsRuntime.ts]
 **Learning:** `Math.hypot` is highly robust but extremely slow in hot execution paths like high-frequency physics tick loops in `physicsRuntime.ts` because of its generic multi-argument checking and underflow/overflow safety.
 **Action:** Replaced over 40 occurrences of `Math.hypot` inside `physicsRuntime.ts` with standard `Math.sqrt` and zero-allocation squared comparisons. This avoids expensive square-root operations and yields significant simulation speedups.
+
+## 2026-07-24 - [Optimized Math.hypot in User Input Polling]
+**Learning:** Calling `Math.hypot` inside per-frame input polling routines (such as `useGameInput.ts` read functions) forces dynamic scaling checks and square root computations on every single tick, even when inputs are at rest or within standard unit bounds (`<= 1.0`).
+**Action:** Replace `Math.hypot` in hot input polling loops with zero-allocation squared-magnitude comparisons against pre-squared constants (e.g. `0.0064`, `0.0144`, `0.0324`, `1.0`), performing `Math.sqrt` only when vector clamping/normalization is required.
