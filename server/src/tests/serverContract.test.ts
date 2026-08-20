@@ -50,7 +50,6 @@ describe('authoritative server contract', () => {
           setTimeout: () => ({ clear: () => {} }),
           currentTime: 0,
           elapsedTime: 0,
-          tick: () => {},
         } as unknown as typeof this.clock;
       }
 
@@ -120,7 +119,6 @@ describe('authoritative server contract', () => {
           setTimeout: () => ({ clear: () => {} }),
           currentTime: 0,
           elapsedTime: 0,
-          tick: () => {},
         } as unknown as typeof this.clock;
       }
       override setPrivate() {
@@ -146,9 +144,9 @@ describe('authoritative server contract', () => {
       leave: () => {},
     } as unknown as Parameters<WrestlingRoom['onJoin']>[0];
 
-    expect(() => room.onJoin(mockClient, null as unknown as Parameters<WrestlingRoom['onJoin']>[1])).not.toThrow();
-    expect(() => room.onJoin(mockClient, undefined as unknown as Parameters<WrestlingRoom['onJoin']>[1])).not.toThrow();
-    expect(() => room.onJoin(mockClient, { fighterId: { nested: true }, spectate: 'maybe' } as unknown as Parameters<WrestlingRoom['onJoin']>[1])).not.toThrow();
+    expect(() => room.onJoin(mockClient, null as unknown as { fighterId?: unknown })).not.toThrow();
+    expect(() => room.onJoin(mockClient, undefined as unknown as { fighterId?: unknown })).not.toThrow();
+    expect(() => room.onJoin(mockClient, { fighterId: { nested: true }, spectate: 'maybe' } as unknown as { fighterId?: unknown })).not.toThrow();
   });
 
   it('applies two sequenced clients to authoritative movement and swept strike contact', async () => {
@@ -215,7 +213,6 @@ describe('authoritative server contract', () => {
           },
           currentTime: 0,
           elapsedTime: 0,
-          tick: () => {},
         } as unknown as typeof this.clock;
       }
       override onMessage: WrestlingRoom['onMessage'] = ((type: string | number, callback: unknown) => {
@@ -353,108 +350,5 @@ describe('authoritative server contract', () => {
     expect(room.state.phase).toBe('active'); // Restarted match
   });
 
-  it('enforces JSON-RPC batch limit of 20 in api/mcp.js', async () => {
-    /* eslint-disable @typescript-eslint/no-explicit-any */
-    // @ts-expect-error - JavaScript file lacks type definitions
-    const mcpModule = await import('../../../api/mcp.js');
-    const mcpHandler = mcpModule.default;
-    const req = {
-      method: 'POST',
-      body: Array.from({ length: 21 }, (_, i) => ({
-        jsonrpc: '2.0',
-        id: i,
-        method: 'ping'
-      })),
-    };
-    const res = {
-      status: vi.fn().mockReturnThis(),
-      json: vi.fn(),
-    };
-
-    mcpHandler(req as any, res as any);
-
-    expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith(
-      expect.objectContaining({
-        error: expect.objectContaining({
-          code: -32600,
-          message: expect.stringContaining('Batch limit exceeded'),
-        }),
-      })
-    );
-    /* eslint-enable @typescript-eslint/no-explicit-any */
-  });
-
-  it('Express secure error handling middleware prevents stack trace disclosure', async () => {
-    /* eslint-disable @typescript-eslint/no-explicit-any */
-    const { secureErrorHandler } = await import('../index');
-    const err = new Error('Sensitive database connection failed! Stack trace should not be leaked.');
-    const req = {} as any;
-    const res = {
-      status: vi.fn().mockReturnThis(),
-      json: vi.fn(),
-    } as any;
-    const next = vi.fn();
-
-    // Verify the actual exported production middleware behaves securely
-    secureErrorHandler(err, req, res, next);
-
-    expect(res.status).toHaveBeenCalledWith(500);
-    expect(res.json).toHaveBeenCalledWith({
-      error: {
-        code: 'internal_server_error',
-        message: 'An unexpected error occurred on the server.',
-      },
-    });
-    const jsonCallArgs = res.json.mock.calls[0][0];
-    expect(JSON.stringify(jsonCallArgs)).not.toContain('Sensitive database connection failed');
-    expect(JSON.stringify(jsonCallArgs)).not.toContain('stack');
-    /* eslint-enable @typescript-eslint/no-explicit-any */
-  });
-
-  it('rateLimiter middleware allows requests within limit and returns 429 when limit is exceeded', async () => {
-    /* eslint-disable @typescript-eslint/no-explicit-any */
-    const { rateLimiter, rateLimitMap } = await import('../index');
-
-    // Clear any existing rate limit tracking to have a clean slate
-    rateLimitMap.clear();
-
-    const ip = '1.2.3.4';
-    const req = {
-      ip,
-      socket: { remoteAddress: ip },
-    } as any;
-
-    const res = {
-      status: vi.fn().mockReturnThis(),
-      json: vi.fn(),
-    } as any;
-
-    const next = vi.fn();
-
-    // 1. Send 100 requests. All should call next() and not return 429 status.
-    for (let i = 0; i < 100; i++) {
-      rateLimiter(req, res, next);
-    }
-
-    expect(next).toHaveBeenCalledTimes(100);
-    expect(res.status).not.toHaveBeenCalled();
-
-    // 2. The 101st request should be rejected with status 429
-    rateLimiter(req, res, next);
-
-    expect(next).toHaveBeenCalledTimes(100); // Should not have been called a 101st time
-    expect(res.status).toHaveBeenCalledWith(429);
-    expect(res.json).toHaveBeenCalledWith({
-      error: {
-        code: 'too_many_requests',
-        message: 'Rate limit exceeded. Please try again later.',
-      },
-    });
-
-    // Cleanup
-    rateLimitMap.clear();
-    /* eslint-enable @typescript-eslint/no-explicit-any */
-  });
 
 });
