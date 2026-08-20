@@ -1,5 +1,9 @@
 # Bolt's Journal - Critical Learnings Only
 
+## 2026-07-26 - [Optimized AI Decision Evaluation and Prop Target Selection]
+**Learning:** In high-frequency AI evaluation functions (`src/game/ai/utilityAI.ts`), using `.filter().sort()` to locate nearest props creates temporary array allocations, closure creation, and sorting overhead on every AI decision tick. Refactoring to a single-pass `O(N)` loop using zero-allocation squared distance comparisons (`dx * dx + dz * dz`) eliminates garbage collection pressure and speeds up AI decision evaluation.
+**Action:** Use single-pass loops with pre-squared distance comparisons for entity search in AI decision loops, and replace `Math.hypot` with zero-allocation squared comparisons or standard `Math.sqrt`.
+
 ## 2026-07-25 - [Replacing Math.hypot with Math.sqrt in Hot Loop Mechanics]
 **Learning:** In high-frequency physics checks (like `ringDynamics.ts` rope release direction resolver) and real-time state synchronization ticks (`matchStore.ts`), using the general `Math.hypot` introduces massive performance bottlenecks because it performs runtime safety scaling to prevent floating-point underflow/overflow. For normal/bounded 2D coordinates, standard direct squared additions followed by `Math.sqrt` are mathematically identical, but run up to ~48x faster in modern JS engines.
 **Action:** Replace `Math.hypot(x, y)` with standard algebraic `Math.sqrt(x * x + y * y)` inside all active frame loops, collision calculations, and state synchronization methods.
