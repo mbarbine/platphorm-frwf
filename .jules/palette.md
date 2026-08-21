@@ -21,3 +21,7 @@
 ## 2025-02-23 - Context-Prefix Alignment in Menu Aria-Live Regions
 **Learning:** Screen reader users rely heavily on the precise prefix structure inside visually hidden aria-live regions. A prefix like 'Selected fighter: ' provides immediate context on the type of active item, whereas an un-prefixed or mismatched announcer like 'Selected ' can be ambiguous, hard to parse, and breaks automated accessibility verification checks.
 **Action:** Always include clear context prefixes (such as 'Selected fighter: ') within aria-live region templates to ensure consistent, readable screen reader announcements.
+
+## 2025-02-24 - Accessible Spectator Mode Control Deck and Dynamic Real-Time Announcements
+**Learning:** In multiplayer or Battle Royale modes, when a player gets eliminated and enters spectator mode, camera mode controls and wrestler cycle buttons need explicit ARIA labels indicating keyboard shortcuts (e.g. Shortcut: 1, Shortcut: Tab). Furthermore, active target or camera changes must be accompanied by a visually hidden polite aria-live announcer with a descriptive context prefix (e.g., 'Spectating wrestler: NOVA FANG, first person camera') so screen reader users receive immediate, clear updates as focus or targets shift.
+**Action:** Always add explicit aria-label attributes to shortcut buttons and pair dynamic spectator/target shifts with context-prefixed aria-live updates.
