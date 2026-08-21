@@ -42,7 +42,10 @@ export const isActionLegal = (model: MatchModel, command: GameCommand, actorKey:
   if (actor.state === 'grappling' && actor.attackPhase === 'anticipation' && ['quick', 'heavy', 'grapple'].includes(command)) return true;
   if (actor.state === 'grappling' && actor.attackPhase === 'anticipation' && command === 'context') {
     const cornerX = Math.sign(target.position.x || actor.position.x || 1) * 5.35; const cornerZ = Math.sign(target.position.z || actor.position.z || 1) * 3.85;
-    return Math.hypot(target.position.x - cornerX, target.position.z - cornerZ) <= 3.15;
+    const cornerDx = target.position.x - cornerX;
+    const cornerDz = target.position.z - cornerZ;
+    // OPTIMIZATION: Replacing slow Math.hypot with zero-allocation squared comparison (3.15^2 = 9.9225) on hot AI action checks.
+    return cornerDx * cornerDx + cornerDz * cornerDz <= 9.9225;
   }
   if (actor.state === 'climbing' && actor.climbStage === 3 && (command === 'quick' || command === 'heavy')) {
     const move = command === 'quick' ? MOVES.aerial_elbow : MOVES.aerial_kick;
@@ -89,7 +92,8 @@ export const chooseAiDecision = (model: MatchModel, definition: FighterDefinitio
   // wrestlers reach visible chest/hand contact and then walk forever because
   // the physical bodies correctly refused to overlap.
   const strikingRange = target.state === 'blocking' ? 2.6 : GRAPPLE_ACQUISITION_RANGE;
-  const magnitude = Math.max(.001, Math.hypot(delta.x, delta.z));
+  // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt for 2D vector normalization on high-frequency AI decision ticks.
+  const magnitude = Math.max(.001, Math.sqrt(delta.x * delta.x + delta.z * delta.z));
   const toward = { x: delta.x / magnitude, z: delta.z / magnitude };
   const [roll, nextSeed] = seededRandom(model.seed);
   const personality = definition.personality;
@@ -159,13 +163,29 @@ export const chooseAiDecision = (model: MatchModel, definition: FighterDefinitio
     const guard = separation < 2.25 && isActionLegal(model, 'block', actorKey) && roll < .48;
     return { command: guard ? 'block' : separation < 1.5 && isActionLegal(model, 'dodge', actorKey) ? 'dodge' : null, move: { x: -toward.x * .55, z: -toward.z * .55 }, run: false, nextSeed };
   }
-  const propTarget = model.ruleset === 'chaos' && !actor.heldPropId
-    ? model.props.filter((prop) => !prop.broken && !prop.heldBy && prop.kind !== 'table').sort((a, b) => distance(actor.position, a.position) - distance(actor.position, b.position))[0]
-    : undefined;
+  // OPTIMIZATION: Single-pass O(N) loop replaces filter().sort() chain to avoid array allocations and sort overhead per AI decision tick.
+  let propTarget: (typeof model.props)[number] | undefined;
+  if (model.ruleset === 'chaos' && !actor.heldPropId && model.props.length > 0) {
+    let minDistanceSq = Infinity;
+    for (let i = 0; i < model.props.length; i++) {
+      const prop = model.props[i];
+      if (!prop.broken && !prop.heldBy && prop.kind !== 'table') {
+        const pdx = prop.position.x - actor.position.x;
+        const pdz = prop.position.z - actor.position.z;
+        const distSq = pdx * pdx + pdz * pdz;
+        if (distSq < minDistanceSq) {
+          minDistanceSq = distSq;
+          propTarget = prop;
+        }
+      }
+    }
+  }
   const pursuesProp = propTarget && (actorKey === 'opponent' && model.elapsed > .75
     || model.elapsed > 4 && (actor.health < 98 || model.elapsed > 7 || personality.dirty > .55));
   if (propTarget && pursuesProp) {
-    const propDistance = distance(actor.position, propTarget.position); const propDelta = { x: propTarget.position.x - actor.position.x, z: propTarget.position.z - actor.position.z }; const propMagnitude = Math.max(.001, Math.hypot(propDelta.x, propDelta.z));
+    const propDistance = distance(actor.position, propTarget.position); const propDelta = { x: propTarget.position.x - actor.position.x, z: propTarget.position.z - actor.position.z };
+    // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt.
+    const propMagnitude = Math.max(.001, Math.sqrt(propDelta.x * propDelta.x + propDelta.z * propDelta.z));
     const towardProp = { x: propDelta.x / propMagnitude, z: propDelta.z / propMagnitude };
     const atSideApron = (Math.abs(actor.position.x) > 5.02 && Math.abs(actor.position.x) < 5.82 && Math.abs(actor.position.z) < 2.9)
       || (Math.abs(actor.position.z) > 3.52 && Math.abs(actor.position.z) < 4.32 && Math.abs(actor.position.x) < 4.25);
