@@ -42,7 +42,9 @@ export const isActionLegal = (model: MatchModel, command: GameCommand, actorKey:
   if (actor.state === 'grappling' && actor.attackPhase === 'anticipation' && ['quick', 'heavy', 'grapple'].includes(command)) return true;
   if (actor.state === 'grappling' && actor.attackPhase === 'anticipation' && command === 'context') {
     const cornerX = Math.sign(target.position.x || actor.position.x || 1) * 5.35; const cornerZ = Math.sign(target.position.z || actor.position.z || 1) * 3.85;
-    return Math.hypot(target.position.x - cornerX, target.position.z - cornerZ) <= 3.15;
+    // OPTIMIZATION: Zero-allocation squared comparison (<= 9.9225 is equivalent to <= 3.15) avoids slow Math.hypot.
+    const dx = target.position.x - cornerX; const dz = target.position.z - cornerZ;
+    return dx * dx + dz * dz <= 9.9225;
   }
   if (actor.state === 'climbing' && actor.climbStage === 3 && (command === 'quick' || command === 'heavy')) {
     const move = command === 'quick' ? MOVES.aerial_elbow : MOVES.aerial_kick;
@@ -89,7 +91,8 @@ export const chooseAiDecision = (model: MatchModel, definition: FighterDefinitio
   // wrestlers reach visible chest/hand contact and then walk forever because
   // the physical bodies correctly refused to overlap.
   const strikingRange = target.state === 'blocking' ? 2.6 : GRAPPLE_ACQUISITION_RANGE;
-  const magnitude = Math.max(.001, Math.hypot(delta.x, delta.z));
+  // OPTIMIZATION: Replace Math.hypot with standard Math.sqrt (~8x faster, safe for small coordinate ranges).
+  const magnitude = Math.max(.001, Math.sqrt(delta.x * delta.x + delta.z * delta.z));
   const toward = { x: delta.x / magnitude, z: delta.z / magnitude };
   const [roll, nextSeed] = seededRandom(model.seed);
   const personality = definition.personality;
@@ -159,13 +162,27 @@ export const chooseAiDecision = (model: MatchModel, definition: FighterDefinitio
     const guard = separation < 2.25 && isActionLegal(model, 'block', actorKey) && roll < .48;
     return { command: guard ? 'block' : separation < 1.5 && isActionLegal(model, 'dodge', actorKey) ? 'dodge' : null, move: { x: -toward.x * .55, z: -toward.z * .55 }, run: false, nextSeed };
   }
-  const propTarget = model.ruleset === 'chaos' && !actor.heldPropId
-    ? model.props.filter((prop) => !prop.broken && !prop.heldBy && prop.kind !== 'table').sort((a, b) => distance(actor.position, a.position) - distance(actor.position, b.position))[0]
-    : undefined;
+  // OPTIMIZATION: Single-pass O(N) loop with squared-distance comparison replaces array allocations (.filter & .sort).
+  let propTarget: (typeof model.props)[number] | undefined;
+  let minPropDistSq = Infinity;
+  if (model.ruleset === 'chaos' && !actor.heldPropId) {
+    for (let i = 0; i < model.props.length; i++) {
+      const prop = model.props[i];
+      if (!prop.broken && !prop.heldBy && prop.kind !== 'table') {
+        const dx = actor.position.x - prop.position.x;
+        const dz = actor.position.z - prop.position.z;
+        const sq = dx * dx + dz * dz;
+        if (sq < minPropDistSq) {
+          minPropDistSq = sq;
+          propTarget = prop;
+        }
+      }
+    }
+  }
   const pursuesProp = propTarget && (actorKey === 'opponent' && model.elapsed > .75
     || model.elapsed > 4 && (actor.health < 98 || model.elapsed > 7 || personality.dirty > .55));
   if (propTarget && pursuesProp) {
-    const propDistance = distance(actor.position, propTarget.position); const propDelta = { x: propTarget.position.x - actor.position.x, z: propTarget.position.z - actor.position.z }; const propMagnitude = Math.max(.001, Math.hypot(propDelta.x, propDelta.z));
+    const propDistance = Math.sqrt(minPropDistSq); const propDelta = { x: propTarget.position.x - actor.position.x, z: propTarget.position.z - actor.position.z }; const propMagnitude = Math.max(.001, propDistance);
     const towardProp = { x: propDelta.x / propMagnitude, z: propDelta.z / propMagnitude };
     const atSideApron = (Math.abs(actor.position.x) > 5.02 && Math.abs(actor.position.x) < 5.82 && Math.abs(actor.position.z) < 2.9)
       || (Math.abs(actor.position.z) > 3.52 && Math.abs(actor.position.z) < 4.32 && Math.abs(actor.position.x) < 4.25);
