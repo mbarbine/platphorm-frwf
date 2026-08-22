@@ -135,4 +135,32 @@ describe('Route Compliance Serverless Handler', () => {
       'https://base.platphormnews.com/api/v1/route-compliance?domain=platphormnews.com&mode=full&timeoutMs=1200'
     );
   });
+
+  it('rejects chained X-Forwarded-Host headers when the initial untrusted domain is spoofed', () => {
+    const req = {
+      method: 'GET',
+      headers: {
+        'x-forwarded-host': 'attacker.com, platphormnews.com',
+      },
+      query: {},
+    };
+    const res = {
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn(),
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    handler(req as any, res as any);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ok: false,
+        error: expect.objectContaining({
+          code: 'untrusted_domain',
+          details: { domain: 'attacker.com' },
+        }),
+      })
+    );
+  });
 });
