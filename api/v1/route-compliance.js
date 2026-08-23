@@ -13,7 +13,9 @@ export default function handler(request, response) {
       })
     }
 
-    const host = String(request.headers["x-forwarded-host"] || request.headers.host || "").split(":")[0].toLowerCase()
+    // Extract first host from comma-separated X-Forwarded-Host header before port stripping to prevent chained proxy domain bypass (CWE-290/CWE-346)
+    const rawForwarded = String(request.headers["x-forwarded-host"] || request.headers.host || "").split(",")[0].trim()
+    const host = rawForwarded.split(":")[0].toLowerCase()
     if (!trustedSite(host)) {
       return response.status(400).json({
         ok: false,
