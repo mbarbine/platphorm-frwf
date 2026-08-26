@@ -82,6 +82,34 @@ describe('Route Compliance Serverless Handler', () => {
     );
   });
 
+  it('rejects chained x-forwarded-host starting with an untrusted host', () => {
+    const req = {
+      method: 'GET',
+      headers: {
+        'x-forwarded-host': 'attacker.com, foo.platphormnews.com',
+      },
+      query: {},
+    };
+    const res = {
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn(),
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    handler(req as any, res as any);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ok: false,
+        error: expect.objectContaining({
+          code: 'untrusted_domain',
+          details: { domain: 'attacker.com' },
+        }),
+      })
+    );
+  });
+
   it('rejects non-GET and non-HEAD methods with a 405 response', () => {
     const req = {
       method: 'POST',
