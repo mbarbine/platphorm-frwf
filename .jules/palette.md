@@ -21,3 +21,7 @@
 ## 2025-02-23 - Context-Prefix Alignment in Menu Aria-Live Regions
 **Learning:** Screen reader users rely heavily on the precise prefix structure inside visually hidden aria-live regions. A prefix like 'Selected fighter: ' provides immediate context on the type of active item, whereas an un-prefixed or mismatched announcer like 'Selected ' can be ambiguous, hard to parse, and breaks automated accessibility verification checks.
 **Action:** Always include clear context prefixes (such as 'Selected fighter: ') within aria-live region templates to ensure consistent, readable screen reader announcements.
+
+## 2025-02-24 - Explicit ARIA Labels for Controls with Embedded Markup
+**Learning:** Interactive control elements (such as HUD target buttons) containing child elements like `<kbd>` badges or `<small>` subtext can be announced as confusing concatenated text strings by screen readers. Supplying an explicit `aria-label` ensures screen readers speak a clear, cohesive action description and key shortcut intent.
+**Action:** Always provide explicit `aria-label` attributes on interactive elements containing nested visual markup like `<kbd>` or `<small>`.
