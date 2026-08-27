@@ -21,3 +21,7 @@
 ## 2025-02-23 - Context-Prefix Alignment in Menu Aria-Live Regions
 **Learning:** Screen reader users rely heavily on the precise prefix structure inside visually hidden aria-live regions. A prefix like 'Selected fighter: ' provides immediate context on the type of active item, whereas an un-prefixed or mismatched announcer like 'Selected ' can be ambiguous, hard to parse, and breaks automated accessibility verification checks.
 **Action:** Always include clear context prefixes (such as 'Selected fighter: ') within aria-live region templates to ensure consistent, readable screen reader announcements.
+
+## 2025-02-24 - Documenting Controls in Nested Visual Markup and Live Announcements
+**Learning:** Interactive controls containing nested shortcut badges (like `<kbd>1</kbd> FIRST PERSON`) are read by screen readers as concatenated text without clear context on keyboard shortcut intent. Providing explicit `aria-label` attributes to document mode names and keyboard shortcuts, coupled with an `aria-live="polite"` region prefixed with context (`Spectating wrestler: {name}, {mode} camera`), delivers a clear, accessible experience during live match spectating.
+**Action:** Always provide explicit `aria-label`s on buttons containing `<kbd>` elements and announce live UI updates via context-prefixed polite aria-live regions.
