@@ -21,3 +21,7 @@
 ## 2025-02-23 - Context-Prefix Alignment in Menu Aria-Live Regions
 **Learning:** Screen reader users rely heavily on the precise prefix structure inside visually hidden aria-live regions. A prefix like 'Selected fighter: ' provides immediate context on the type of active item, whereas an un-prefixed or mismatched announcer like 'Selected ' can be ambiguous, hard to parse, and breaks automated accessibility verification checks.
 **Action:** Always include clear context prefixes (such as 'Selected fighter: ') within aria-live region templates to ensure consistent, readable screen reader announcements.
+
+## 2025-02-24 - Accessibility and Real-Time Announcements for Spectator Camera Controls
+**Learning:** Spectator controls in active gameplay overlays often rely on visual shortcut badges (`<kbd>`) without programmatic labels or real-time feedback for screen readers when camera modes or targets change dynamically. Providing explicit `aria-label` attributes on camera mode and target cycling buttons (incorporating shortcut keys), alongside a visually hidden `aria-live="polite"` region, guarantees an inclusive and informative spectator experience.
+**Action:** Add descriptive `aria-label` attributes to overlay control buttons and pair dynamic camera/target state changes with a visually hidden `aria-live="polite"` region.
