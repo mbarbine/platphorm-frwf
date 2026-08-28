@@ -25,6 +25,32 @@ describe('Route Compliance Serverless Handler', () => {
     expect(res.status).toHaveBeenCalledWith(307);
     expect(res.setHeader).toHaveBeenCalledWith(
       'Location',
+      'https://base.platphormnews.com/api/v1/route-compliance?domain=platphormnews.com&mode=full&timeoutMs=1200'
+    );
+  });
+
+  it('correctly handles comma-separated x-forwarded-host header values from proxy chains', () => {
+    const req = {
+      method: 'GET',
+      headers: {
+        'x-forwarded-host': 'platphormnews.com:443, proxy2.domain.com',
+      },
+      query: {
+        timeoutMs: '1200',
+      },
+    };
+    const res = {
+      status: vi.fn().mockReturnThis(),
+      setHeader: vi.fn(),
+      end: vi.fn(),
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    handler(req as any, res as any);
+
+    expect(res.status).toHaveBeenCalledWith(307);
+    expect(res.setHeader).toHaveBeenCalledWith(
+      'Location',
       'https://base.platphormnews.com/api/v1/route-compliance?domain=platphormnews.com&mode=full&timeoutMs=1500'
     );
   });
