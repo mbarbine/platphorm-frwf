@@ -22,6 +22,6 @@
 **Learning:** Screen reader users rely heavily on the precise prefix structure inside visually hidden aria-live regions. A prefix like 'Selected fighter: ' provides immediate context on the type of active item, whereas an un-prefixed or mismatched announcer like 'Selected ' can be ambiguous, hard to parse, and breaks automated accessibility verification checks.
 **Action:** Always include clear context prefixes (such as 'Selected fighter: ') within aria-live region templates to ensure consistent, readable screen reader announcements.
 
-## 2025-02-24 - Explicit Action Intent for Multi-Element Interactive Badges
-**Learning:** Interactive controls in UI components (such as the target switch button in `src/ui/HUD.tsx`) that contain nested shortcut badges (`<kbd>`) or visual subtext will often be mis-announced by screen readers as concatenated text (e.g., 'SWITCH TARGET TAB GAMEPAD VIEW'). Specifying an explicit `aria-label` ensures screen readers announce clear action intent rather than raw visual markup.
-**Action:** Always specify explicit `aria-label` attributes on buttons that contain shortcut badges or complex nested text nodes.
+## 2025-02-24 - Accessibility and Real-Time Announcements for Spectator Camera Controls
+**Learning:** Spectator controls in active gameplay overlays often rely on visual shortcut badges (`<kbd>`) without programmatic labels or real-time feedback for screen readers when camera modes or targets change dynamically. Providing explicit `aria-label` attributes on camera mode and target cycling buttons (incorporating shortcut keys), alongside a visually hidden `aria-live="polite"` region, guarantees an inclusive and informative spectator experience.
+**Action:** Add descriptive `aria-label` attributes to overlay control buttons and pair dynamic camera/target state changes with a visually hidden `aria-live="polite"` region.
