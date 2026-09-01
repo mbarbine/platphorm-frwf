@@ -189,4 +189,57 @@ describe('Route Compliance Serverless Handler', () => {
       'https://base.platphormnews.com/api/v1/route-compliance?domain=platphormnews.com&mode=full&timeoutMs=1200'
     );
   });
+
+  it('rejects chained x-forwarded-host header with an untrusted first domain', () => {
+    const req = {
+      method: 'GET',
+      headers: {
+        'x-forwarded-host': 'evil.com, sub.platphormnews.com',
+      },
+      query: {},
+    };
+    const res = {
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn(),
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    handler(req as any, res as any);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ok: false,
+        error: expect.objectContaining({
+          code: 'untrusted_domain',
+        }),
+      })
+    );
+  });
+
+  it('accepts chained x-forwarded-host header when the first domain is trusted', () => {
+    const req = {
+      method: 'GET',
+      headers: {
+        'x-forwarded-host': 'sub.platphormnews.com:8080, proxy.internal',
+      },
+      query: {
+        timeoutMs: '1200',
+      },
+    };
+    const res = {
+      status: vi.fn().mockReturnThis(),
+      setHeader: vi.fn(),
+      end: vi.fn(),
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    handler(req as any, res as any);
+
+    expect(res.status).toHaveBeenCalledWith(307);
+    expect(res.setHeader).toHaveBeenCalledWith(
+      'Location',
+      'https://base.platphormnews.com/api/v1/route-compliance?domain=sub.platphormnews.com&mode=full&timeoutMs=1200'
+    );
+  });
 });
