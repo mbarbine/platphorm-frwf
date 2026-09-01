@@ -22,6 +22,6 @@
 **Learning:** Screen reader users rely heavily on the precise prefix structure inside visually hidden aria-live regions. A prefix like 'Selected fighter: ' provides immediate context on the type of active item, whereas an un-prefixed or mismatched announcer like 'Selected ' can be ambiguous, hard to parse, and breaks automated accessibility verification checks.
 **Action:** Always include clear context prefixes (such as 'Selected fighter: ') within aria-live region templates to ensure consistent, readable screen reader announcements.
 
-## 2025-02-24 - Explicit ARIA Labels for Controls with Embedded Markup
-**Learning:** Interactive control elements (such as HUD target buttons) containing child elements like `<kbd>` badges or `<small>` subtext can be announced as confusing concatenated text strings by screen readers. Supplying an explicit `aria-label` ensures screen readers speak a clear, cohesive action description and key shortcut intent.
-**Action:** Always provide explicit `aria-label` attributes on interactive elements containing nested visual markup like `<kbd>` or `<small>`.
+## 2025-02-24 - Explicit Action Intent for Mode-Specific Switch Controls
+**Learning:** Interactive controls that display uppercase action text alongside keybindings (e.g. `SWITCH TARGET <kbd>TAB</kbd>`) or adapt visually for small screens can be read ambiguously by screen readers if left without explicit ARIA labels. Providing an explicit `aria-label="Switch target wrestler"` ensures screen-reader users immediately understand the control's purpose regardless of viewport size or visual styling.
+**Action:** Always add descriptive `aria-label` attributes to custom HUD action buttons and mode-specific switches.
