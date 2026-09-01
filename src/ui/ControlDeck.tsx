@@ -40,12 +40,11 @@ export function buildControlLabels(player: FighterRuntime, opponent: FighterRunt
   const labels: Record<ControlId, string> = { ...BASE_LABELS };
   const nearCorner = Math.abs(player.position.x) > 4.35 && Math.abs(player.position.z) > 2.95;
   const ringside = Math.abs(player.position.x) > 5.82 || Math.abs(player.position.z) > 4.32;
-  // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt for clinch corner distance checks
+  // OPTIMIZATION: Replacing Math.hypot with zero-allocation squared magnitude checks to avoid slow square root extraction
   const clinchCornerDx = opponent.position.x - Math.sign(opponent.position.x || player.position.x || 1) * 5.35;
   const clinchCornerDz = opponent.position.z - Math.sign(opponent.position.z || player.position.z || 1) * 3.85;
-  const clinchCornerDistance = Math.sqrt(clinchCornerDx * clinchCornerDx + clinchCornerDz * clinchCornerDz);
-  // OPTIMIZATION: Replacing Math.hypot with zero-allocation pre-squared magnitude check (> 0.0064 equivalent to > 0.08)
-  const effectiveDirection = direction.x * direction.x + direction.z * direction.z > 0.0064
+  const clinchCornerDistanceSq = clinchCornerDx * clinchCornerDx + clinchCornerDz * clinchCornerDz;
+  const effectiveDirection = (direction.x * direction.x + direction.z * direction.z) > 0.0064
     ? direction
     : speed > .08 ? player.velocity : direction;
   const directionId = combatDirection(effectiveDirection);
@@ -94,8 +93,8 @@ export function buildControlReadout(player: FighterRuntime, opponent: FighterRun
   const isInLift = player.state === 'grappling' && player.moveId !== null && liftMoveIds.has(player.moveId)
     && player.attackPhase === 'anticipation'
     && player.phaseElapsed > getMove(player.moveId).anticipationDuration * .36;
-  // OPTIMIZATION: Replacing Math.hypot with zero-allocation pre-squared magnitude check (> 0.0064 equivalent to > 0.08)
-  const movementHeld = direction.x * direction.x + direction.z * direction.z > 0.0064;
+  // OPTIMIZATION: Replacing Math.hypot with zero-allocation squared comparison (> 0.0064 corresponds to > 0.08)
+  const movementHeld = (direction.x * direction.x + direction.z * direction.z) > 0.0064;
   if (player.state === 'locomotion' || movementHeld) active.add(runHeld || speed > 3.75 ? 'run' : 'move');
   if (player.state === 'jumping' || player.state === 'airborne') active.add('jump');
   if (player.state === 'blocking') active.add('block');
@@ -130,10 +129,9 @@ export function buildControlReadout(player: FighterRuntime, opponent: FighterRun
   const keys = DEVICE_KEYS[device]; const actionKey = keys.context; const directionId = combatDirection(direction).toUpperCase();
   const nearCorner = Math.abs(player.position.x) > 4.35 && Math.abs(player.position.z) > 2.95;
   const ringside = Math.abs(player.position.x) > 5.82 || Math.abs(player.position.z) > 4.32;
-  // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt for clinch corner distance checks
-  const clinchCornerDx2 = opponent.position.x - Math.sign(opponent.position.x || player.position.x || 1) * 5.35;
-  const clinchCornerDz2 = opponent.position.z - Math.sign(opponent.position.z || player.position.z || 1) * 3.85;
-  const clinchCornerDistance = Math.sqrt(clinchCornerDx2 * clinchCornerDx2 + clinchCornerDz2 * clinchCornerDz2);
+  const readoutClinchCornerDx = opponent.position.x - Math.sign(opponent.position.x || player.position.x || 1) * 5.35;
+  const readoutClinchCornerDz = opponent.position.z - Math.sign(opponent.position.z || player.position.z || 1) * 3.85;
+  const clinchCornerDistanceSq = readoutClinchCornerDx * readoutClinchCornerDx + readoutClinchCornerDz * readoutClinchCornerDz;
   let callout = distance > 5.5
     ? `${keys.quick} ${labels.quick} WHIFF · ${keys.heavy} ${labels.heavy} WHIFF · ${keys.grapple} COLLAR REACH · MOVE IN FOR CONTACT`
     : `${keys.quick} ${labels.quick} · ${keys.heavy} ${labels.heavy} · ${keys.grapple} COLLAR LOCK · ${keys.jump} JUMP · ${keys.block} GUARD`;
