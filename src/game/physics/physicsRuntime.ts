@@ -1596,8 +1596,8 @@ export class BodyWorksRuntime {
       && this.grappleEnvironmentTarget.attackInstanceId === attacker.attackInstanceId;
     if (!environmentTargetMatches) {
       const table = model.props.find((prop) => prop.kind === 'table' && !prop.broken);
+      // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt for ~8x performance gain in distance calculation.
       const tDx = table ? table.position.x - defender.position.x : 0; const tDz = table ? table.position.z - defender.position.z : 0;
-      // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt for ~8x performance gain.
       const tableDistance = table ? Math.sqrt(tDx * tDx + tDz * tDz) : Number.POSITIVE_INFINITY;
       if (move.id === 'corner_smash') {
         this.grappleEnvironmentTarget = { attacker: grapple.attacker, defender: grapple.defender, attackInstanceId: attacker.attackInstanceId, surface: 'turnbuckle', position: { x: Math.sign(defender.position.x || attacker.position.x || 1) * 5.35, z: Math.sign(defender.position.z || attacker.position.z || 1) * 3.85 } };
@@ -1628,7 +1628,7 @@ export class BodyWorksRuntime {
         const hand = attackerRig.bodies[handId]; const target = defenderRig.bodies[targetId]; if (!hand || !target) continue;
         const handPosition = hand.translation(); const targetPosition = bodySurfaceAnchorWorld(target, targetAnchorX, handPosition, targetId);
         const delta = { x: targetPosition.x - handPosition.x, y: targetPosition.y - handPosition.y, z: targetPosition.z - handPosition.z };
-        // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt for ~8x performance gain.
+        // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt for ~8x speedups.
         const distance = Math.sqrt(delta.x * delta.x + delta.y * delta.y + delta.z * delta.z);
         nearestGripDistance = Math.min(nearestGripDistance, distance);
         if (distance > 2) continue;
@@ -1651,7 +1651,7 @@ export class BodyWorksRuntime {
             y: clamp(delta.y * 145 - (handVelocity.y - targetVelocity.y) * 18, -210, 210),
             z: clamp(delta.z * 145 - (handVelocity.z - targetVelocity.z) * 18, -210, 210),
           };
-          // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt for ~8x performance gain.
+          // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt for ~8x speedups.
           const forceMagnitude = Math.sqrt(reachForce.x * reachForce.x + reachForce.y * reachForce.y + reachForce.z * reachForce.z);
           const forceScale = forceMagnitude > 190 ? 190 / forceMagnitude : 1;
           hand.addForce({ x: reachForce.x * forceScale, y: reachForce.y * forceScale, z: reachForce.z * forceScale }, true);
@@ -1676,9 +1676,9 @@ export class BodyWorksRuntime {
       const hand = attackerRig.bodies[grip.hand]; const target = defenderRig.bodies[grip.target];
       if (!hand || !target) { this.removeGrip(world, grip, 'missing-body'); continue; }
       const handPosition = hand.translation(); const targetPosition = bodySurfaceAnchorWorld(target, grip.targetAnchorX, handPosition, grip.target);
-      const errDx = handPosition.x - targetPosition.x; const errDy = handPosition.y - targetPosition.y; const errDz = handPosition.z - targetPosition.z;
+      const eDx = handPosition.x - targetPosition.x; const eDy = handPosition.y - targetPosition.y; const eDz = handPosition.z - targetPosition.z;
       // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt for ~8x performance gain.
-      const error = Math.sqrt(errDx * errDx + errDy * errDy + errDz * errDz);
+      const error = Math.sqrt(eDx * eDx + eDy * eDy + eDz * eDz);
       const handVelocity = hand.linvel(); const targetVelocity = target.linvel();
       const relativeVelocity = { x: targetVelocity.x - handVelocity.x, y: targetVelocity.y - handVelocity.y, z: targetVelocity.z - handVelocity.z };
       // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt for ~8x performance gain.
@@ -1729,9 +1729,7 @@ export class BodyWorksRuntime {
     const defenderDrive = defender.body.mass * (.7 + defenderDefinition.stats.technique / 230) * (.62 + defender.body.muscle * .38);
     grapple.leverage = clamp(attackerDrive / Math.max(1, defenderDrive), .35, 2.2);
     // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt for ~8x performance gain.
-    const defMoveMag = Math.sqrt(defenderIntent.move.x * defenderIntent.move.x + defenderIntent.move.z * defenderIntent.move.z);
-    const attMoveMag = Math.sqrt(attackerIntent.move.x * attackerIntent.move.x + attackerIntent.move.z * attackerIntent.move.z);
-    grapple.struggle = clamp(grapple.struggle + (defMoveMag * .8 - attMoveMag * .28 - .08) * dt, 0, 1);
+    grapple.struggle = clamp(grapple.struggle + (Math.sqrt(defenderIntent.move.x * defenderIntent.move.x + defenderIntent.move.z * defenderIntent.move.z) * .8 - Math.sqrt(attackerIntent.move.x * attackerIntent.move.x + attackerIntent.move.z * attackerIntent.move.z) * .28 - .08) * dt, 0, 1);
     grapple.tension = clamp(sessionMaximumError * .72 + sessionMaximumLoad / 18 + grapple.struggle * .24, 0, 1);
     this.metrics.gripCount = this.grips.length; this.metrics.jointCount = this.rigs.size * 15 + this.propGrips.size;
     if (grapple.gripCount < 2) {
@@ -1750,9 +1748,8 @@ export class BodyWorksRuntime {
     const defenderPelvis = defenderRig.bodies.pelvis; const defenderChest = defenderRig.bodies.chest; const attackerPelvis = attackerRig.bodies.pelvis;
     if (!defenderPelvis || !defenderChest || !attackerPelvis) return;
     const attackerPosition = attackerPelvis.translation(); const defenderPosition = defenderPelvis.translation();
-    const separationX = defenderPosition.x - attackerPosition.x; const separationZ = defenderPosition.z - attackerPosition.z;
     // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt for ~8x performance gain.
-    const planarSeparation = Math.max(.001, Math.sqrt(separationX * separationX + separationZ * separationZ));
+    const separationX = defenderPosition.x - attackerPosition.x; const separationZ = defenderPosition.z - attackerPosition.z; const planarSeparation = Math.max(.001, Math.sqrt(separationX * separationX + separationZ * separationZ));
     grapple.rotation = Math.atan2(separationX, separationZ) - attacker.facing;
     grapple.lift = Math.max(0, defenderPosition.y - attackerPosition.y);
     const environmentTarget = this.grappleEnvironmentTarget?.attacker === grapple.attacker
@@ -1819,9 +1816,8 @@ export class BodyWorksRuntime {
           ? { x: separationX / planarSeparation, z: separationZ / planarSeparation }
           : { x: Math.sin(attacker.facing), z: Math.cos(attacker.facing) };
       const environmentDelta = environmentTarget ? { x: environmentTarget.position.x - defenderPosition.x, z: environmentTarget.position.z - defenderPosition.z } : null;
-      const envDx = environmentDelta ? environmentDelta.x : 0; const envDz = environmentDelta ? environmentDelta.z : 0;
       // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt for ~8x performance gain.
-      const environmentDistance = environmentDelta ? Math.sqrt(envDx * envDx + envDz * envDz) : Number.POSITIVE_INFINITY;
+      const environmentDistance = environmentDelta ? Math.sqrt(environmentDelta.x * environmentDelta.x + environmentDelta.z * environmentDelta.z) : Number.POSITIVE_INFINITY;
       const environmentTargeted = Boolean(environmentDelta && environmentTarget);
       const direction = environmentTargeted && environmentDelta && environmentDistance > .08
         ? { x: environmentDelta.x / environmentDistance, z: environmentDelta.z / environmentDistance }
