@@ -108,11 +108,11 @@ describe('Route Compliance Serverless Handler', () => {
     );
   });
 
-  it('correctly extracts the first entry from chained X-Forwarded-Host headers', () => {
+  it('rejects chained x-forwarded-host starting with an untrusted host', () => {
     const req = {
       method: 'GET',
       headers: {
-        'x-forwarded-host': 'malicious.com:8080, trusted.platphormnews.com',
+        'x-forwarded-host': 'attacker.com, foo.platphormnews.com',
       },
       query: {},
     };
@@ -130,7 +130,7 @@ describe('Route Compliance Serverless Handler', () => {
         ok: false,
         error: expect.objectContaining({
           code: 'untrusted_domain',
-          details: { domain: 'malicious.com' },
+          details: { domain: 'attacker.com' },
         }),
       })
     );
