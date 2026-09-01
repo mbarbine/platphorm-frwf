@@ -412,6 +412,26 @@ describe('authoritative server contract', () => {
     /* eslint-enable @typescript-eslint/no-explicit-any */
   });
 
+  it('vercel.json header configuration contains valid JSON and no duplicate header keys', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const vercelJsonPath = path.resolve(process.cwd(), 'vercel.json');
+    const rawContent = fs.readFileSync(vercelJsonPath, 'utf-8');
+    const parsed = JSON.parse(rawContent);
+
+    expect(Array.isArray(parsed.headers)).toBe(true);
+    for (const routeHeader of parsed.headers) {
+      expect(Array.isArray(routeHeader.headers)).toBe(true);
+      const keysSeen = new Set<string>();
+      for (const headerObj of routeHeader.headers) {
+        expect(typeof headerObj.key).toBe('string');
+        const keyLower = headerObj.key.toLowerCase();
+        expect(keysSeen.has(keyLower)).toBe(false);
+        keysSeen.add(keyLower);
+      }
+    }
+  });
+
   it('rateLimiter middleware allows requests within limit and returns 429 when limit is exceeded', async () => {
     /* eslint-disable @typescript-eslint/no-explicit-any */
     const { rateLimiter, rateLimitMap } = await import('../index');
