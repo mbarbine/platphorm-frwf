@@ -25,3 +25,7 @@
 ## 2025-02-24 - Accessible Spectator Mode Control Shortcuts and Announcements
 **Learning:** When users spectate matches (e.g., following elimination in Battle Royale), control buttons that map to single-key shortcuts (like 1, 2, 3, or Tab) lack accessibility clarity if they rely solely on `<kbd>` elements for visually displayed text. Adding explicit `aria-label` descriptions that mention the shortcut key and implementing a context-prefixed `aria-live="polite"` region (e.g., 'Spectating wrestler: {name}, {mode} camera') provides screen reader users with immediate feedback and effortless navigation.
 **Action:** Always complement icon/keyboard-shortcut buttons with explicit `aria-label` attributes and provide context-prefixed live regions for dynamic camera/target shifts.
+
+## 2025-02-28 - Standardized Progressbar ARIA Semantics on HUD Meters
+**Learning:** Status indicators and gauges (such as health, stamina, balance, and momentum meters) that display numerical values visually can be difficult for screen readers to convey as quantifiable progress bars unless explicitly annotated with progressbar ARIA semantics. Adding `role="progressbar"`, `aria-label`, `aria-valuenow`, `aria-valuemin`, and `aria-valuemax` attributes ensures assistive technologies announce current values and ranges cleanly.
+**Action:** Always annotate custom graphical meters/bars with `role="progressbar"` and appropriate `aria-value*` attributes.
