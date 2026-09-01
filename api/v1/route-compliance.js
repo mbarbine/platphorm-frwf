@@ -13,9 +13,8 @@ export default function handler(request, response) {
       })
     }
 
-    // Extract first domain if X-Forwarded-Host contains a comma-separated proxy chain to prevent header spoofing or bypass (CWE-290 / CWE-346)
-    const rawHostHeader = String(request.headers["x-forwarded-host"] || request.headers.host || "").split(",")[0].trim()
-    const host = rawHostHeader.split(":")[0].toLowerCase()
+    const rawHost = String(request.headers["x-forwarded-host"] || request.headers.host || "").split(",")[0].trim()
+    const host = rawHost.split(":")[0].toLowerCase()
     if (!trustedSite(host)) {
       return response.status(400).json({
         ok: false,
