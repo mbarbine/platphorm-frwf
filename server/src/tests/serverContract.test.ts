@@ -392,6 +392,7 @@ describe('authoritative server contract', () => {
     const req = {} as any;
     const res = {
       status: vi.fn().mockReturnThis(),
+      setHeader: vi.fn(),
       json: vi.fn(),
     } as any;
     const next = vi.fn();
@@ -447,6 +448,7 @@ describe('authoritative server contract', () => {
 
     const res = {
       status: vi.fn().mockReturnThis(),
+      setHeader: vi.fn(),
       json: vi.fn(),
     } as any;
 
@@ -464,6 +466,7 @@ describe('authoritative server contract', () => {
     rateLimiter(req, res, next);
 
     expect(next).toHaveBeenCalledTimes(100); // Should not have been called a 101st time
+    expect(res.setHeader).toHaveBeenCalledWith('Retry-After', expect.any(String));
     expect(res.status).toHaveBeenCalledWith(429);
     expect(res.json).toHaveBeenCalledWith({
       error: {
