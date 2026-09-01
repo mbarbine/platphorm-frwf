@@ -129,6 +129,9 @@ export function rateLimiter(req: express.Request, res: express.Response, next: e
   } else {
     rateData.count++;
     if (rateData.count > MAX_REQUESTS) {
+      // RFC 6585 compliance & DoS mitigation: provide Retry-After header indicating seconds remaining (CWE-307/CWE-400)
+      const retryAfterSeconds = Math.max(1, Math.ceil((rateData.resetTime - now) / 1000));
+      res.setHeader('Retry-After', String(retryAfterSeconds));
       res.status(429).json({
         error: {
           code: 'too_many_requests',
