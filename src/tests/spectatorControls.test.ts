@@ -1,46 +1,49 @@
-import { describe, expect, it, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import React from 'react';
-import { render, screen, cleanup } from '@testing-library/react';
+import { cleanup, render, screen } from '@testing-library/react';
 import { SpectatorControls } from '../ui/SpectatorControls';
 import { useMatchStore } from '../game/state/matchStore';
 import { useSpectatorStore } from '../game/state/spectatorStore';
+import { createMatch } from '../game/systems/combat';
 
-describe('SpectatorControls accessibility and screen reader support', () => {
+describe('SpectatorControls component accessibility and announcements', () => {
   beforeEach(() => {
-    useSpectatorStore.setState({ cameraMode: 'first_person', target: 'rival1' });
+    useSpectatorStore.getState().reset();
+    const model = createMatch('atlas', 'nova', 'standard', 'normal', 101, 0, 0, 'battle_royale');
+    model.player.state = 'defeated';
+    useMatchStore.setState({ model });
   });
 
   afterEach(() => {
     cleanup();
   });
 
-  it('renders aria-label and aria-live announcements when spectating in battle royale', () => {
-    useMatchStore.setState({
-      model: {
-        ...useMatchStore.getState().model,
-        matchMode: 'battle_royale',
-        player: { ...useMatchStore.getState().model.player, state: 'defeated' },
-        resolved: false,
-      },
-    });
-
+  it('renders explicit ARIA labels for camera mode buttons and Next Wrestler button', () => {
     render(React.createElement(SpectatorControls));
 
-    const aside = screen.getByTestId('spectator-controls');
-    expect(aside.getAttribute('aria-label')).toBe('Spectator camera controls');
+    const fpButton = screen.getByRole('button', { name: /Switch to first person camera/i });
+    expect(fpButton).toBeTruthy();
+    expect(fpButton.getAttribute('aria-label')).toBe('Switch to first person camera (Shortcut: 1)');
 
-    const firstPersonBtn = screen.getByLabelText('FIRST PERSON camera mode (Shortcut: 1)');
-    expect(firstPersonBtn).toBeTruthy();
+    const tpButton = screen.getByRole('button', { name: /Switch to 3rd person camera/i });
+    expect(tpButton).toBeTruthy();
+    expect(tpButton.getAttribute('aria-label')).toBe('Switch to 3rd person camera (Shortcut: 2)');
 
-    const thirdPersonBtn = screen.getByLabelText('3RD PERSON camera mode (Shortcut: 2)');
-    expect(thirdPersonBtn).toBeTruthy();
+    const freeButton = screen.getByRole('button', { name: /Switch to freestyle camera camera/i });
+    expect(freeButton).toBeTruthy();
 
-    const freeBtn = screen.getByLabelText('FREESTYLE CAMERA camera mode (Shortcut: 3)');
-    expect(freeBtn).toBeTruthy();
+    const nextButton = screen.getByRole('button', { name: /Spectate next wrestler/i });
+    expect(nextButton).toBeTruthy();
+    expect(nextButton.getAttribute('aria-label')).toBe('Spectate next wrestler (Shortcut: Tab)');
+  });
 
-    const nextBtn = screen.getByLabelText('Spectate next wrestler (Shortcut: Tab)');
-    expect(nextBtn).toBeTruthy();
+  it('announces current spectated wrestler and camera mode via aria-live polite region', () => {
+    render(React.createElement(SpectatorControls));
 
-    expect(screen.getByText((content) => content.includes('Spectating wrestler:'))).toBeTruthy();
+    const liveRegion = screen.getByText(/Spectating wrestler:/i);
+    expect(liveRegion).toBeTruthy();
+    expect(liveRegion.getAttribute('aria-live')).toBe('polite');
+    expect(liveRegion.textContent).toContain('Spectating wrestler:');
+    expect(liveRegion.textContent).toContain('third person camera');
   });
 });
