@@ -166,17 +166,13 @@ export function PhysicalFighterRig({ runtime, side, showVisuals = true }: Props)
     // released throw is awaiting its landing surface.
     if (target && !activeContactLimb) return;
     if (!target && !landingCandidate) return;
-    const dvx = ownVelocity.x - otherVelocity.x;
-    const dvy = ownVelocity.y - otherVelocity.y;
-    const dvz = ownVelocity.z - otherVelocity.z;
     bodyWorksRuntime.recordContact({
       time: useMatchStore.getState().model.elapsed, sourceFighter: side, sourceSegment: segment.id,
       targetFighter: target?.fighter ?? null, targetSegment: target?.segment ?? null, targetRegion: target?.region ?? segment.bodyRegion,
       totalForce: payload.totalForceMagnitude, maximumForce: payload.maxForceMagnitude,
       forceDirection: [payload.maxForceDirection.x, payload.maxForceDirection.y, payload.maxForceDirection.z],
       point: [ownPosition.x, ownPosition.y, ownPosition.z],
-      // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt for ~8x performance gain on 3D relative speed calculation during physics contacts.
-      relativeSpeed: Math.sqrt(dvx * dvx + dvy * dvy + dvz * dvz),
+      relativeSpeed: Math.hypot(ownVelocity.x - otherVelocity.x, ownVelocity.y - otherVelocity.y, ownVelocity.z - otherVelocity.z),
       attackInstanceId: activeContactLimb ? sourceRuntime.attackInstanceId : null,
       moveId: activeContactLimb ? sourceRuntime.moveId : null,
       attackPhaseAtContact: activeContactLimb ? 'active' : null,
