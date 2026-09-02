@@ -81,3 +81,7 @@
 ## 2026-07-25 - [Optimized Math.hypot in Input Processing and Camera Basis Calculations]
 **Learning:** `Math.hypot` is highly robust but extremely slow inside high-frequency user input polling (`useGameInput.ts`) and camera basis conversions (`cameraRelative.ts`) because of its dynamic scaling calculations. Replacing it with flat zero-allocation squared-magnitude comparisons (`dx * dx + dz * dz > thresholdSq`) completely avoids square root extraction, and standard `Math.sqrt` calculations are nearly 8x faster and perfectly safe from overflow/underflow hazards for bounded input/distance metrics.
 **Action:** Replace `Math.hypot` in input update loops with zero-allocation squared-magnitude checks, and utilize standard `Math.sqrt` instead of `Math.hypot` for camera-relative framing and normalized gamepad inputs.
+
+## 2026-08-26 - [Zero-Allocation Squared Comparisons in Mobile Controls & Touch Input]
+**Learning:** Touch event handlers and mobile input polling routines (`MobileControls.tsx` and `mobileInput.ts`) evaluate movement thresholds and stick clamping on every touch drag event and physics read frame. Using `Math.hypot` in these handlers causes unnecessary CPU dynamic scaling; replacing threshold checks with zero-allocation squared comparisons (`x * x + z * z > limit * limit`) completely bypasses square root extraction.
+**Action:** Use zero-allocation squared-magnitude comparisons for magnitude limit checks in high-frequency mobile touch input polling loops.
