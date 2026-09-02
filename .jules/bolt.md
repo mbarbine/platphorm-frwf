@@ -1,16 +1,3 @@
-# Bolt's Journal - Critical Learnings Only
-
-## 2026-07-25 - [Replacing Math.hypot with Math.sqrt in Hot Loop Mechanics]
-**Learning:** In high-frequency physics checks (like `ringDynamics.ts` rope release direction resolver) and real-time state synchronization ticks (`matchStore.ts`), using the general `Math.hypot` introduces massive performance bottlenecks because it performs runtime safety scaling to prevent floating-point underflow/overflow. For normal/bounded 2D coordinates, standard direct squared additions followed by `Math.sqrt` are mathematically identical, but run up to ~48x faster in modern JS engines.
-**Action:** Replace `Math.hypot(x, y)` with standard algebraic `Math.sqrt(x * x + y * y)` inside all active frame loops, collision calculations, and state synchronization methods.
-
-## 2026-08-25 - [Optimized Math.hypot in Control Deck UI Rendering]
-**Learning:** `ControlDeck.tsx` builds active control readouts and movement labels on every render frame, evaluating `Math.hypot` for movement vector direction thresholds and clinch corner distance. Replacing `Math.hypot` with zero-allocation squared comparisons (`x*x + z*z > 0.0064`) completely avoids square root extraction, while standard `Math.sqrt` for distance calculations provides an ~8x execution speedup without losing precision.
-**Action:** Replace `Math.hypot` with zero-allocation squared-magnitude comparisons for magnitude thresholds, and standard `Math.sqrt` for distance calculations in high-frequency UI deck routines.
-
-## 2026-07-22 - [Aligning Workspace Cleanliness with Sanitized Main Branch]
-**Learning:** In a workflow where the upstream `main` branch has been stripped of the primary codebase for compliance, merging or basing development directly on older commits can lead to git staging/PR reports attempting to restore thousands of deleted files.
-**Action:** Always verify changes and run tests locally by checking out the fully-populated merge commits first, then reset/base your clean PR branch on the sanitized upstream HEAD, adding only the targeted optimized file to prevent code pollution.
 ## 2025-02-18 - [Optimized Crowd and Reactive Mat Layout Computations]
 **Learning:** In a highly animated React Three Fiber application, performing repetitive trigonometric operations (Math.sin/cos), coordinate division/modulo arithmetic, and string allocation/concatenation for hundreds of instances per frame inside `useFrame` is a major CPU bottleneck.
 **Action:** Always precompute static layout offsets, static rotations, and static scaling factors in a `useMemo` block that only updates when configuration parameters (e.g., `count`, `rows`, `columns`) change. This keeps the render loop extremely lightweight and maximizes the frame rate.
@@ -41,25 +28,31 @@
 **Learning:** Instantiating arrays inline (e.g., `['chest', 'abdomen', 'pelvis', 'head']`) inside deeply nested physics or collision processing loops generates unnecessary temporary allocations on every tick, increasing garbage collection (GC) pressure and degrading simulation performance over time.
 **Action:** Extract inline arrays into static, module-level constant arrays (e.g., `const CORE_SEGMENTS = [...]`) to prevent repetitive GC allocations in hot-path simulation frames.
 
-## 2025-02-28 - [Optimize FighterSlot Lookups in Physics Simulation]
-**Learning:** Array `.find()` with anonymous arrow functions is exceptionally slow within critical loops (like high-frequency physics `useFrame` callbacks or fixed-step solvers). A benchmark showed `FIGHTER_SLOTS.find` running 80x slower than a chained ternary operator sequence directly checking properties on `model`.
-**Action:** Replaced the `.find()` lookup with a deterministic fallback checking each slot property explicitly (`model.player === fighter ? 'player' : ...`).
+## 2025-02-28
+**Title**: Optimize FighterSlot Lookups in Physics Simulation
+**Failed/Successful Optimization**: Successful Optimization
+**Learning**: Array `.find()` with anonymous arrow functions is exceptionally slow within critical loops (like high-frequency physics `useFrame` callbacks or fixed-step solvers). A benchmark showed `FIGHTER_SLOTS.find` running 80x slower than a chained ternary operator sequence directly checking properties on `model`.
+**Action**: Replaced the `.find()` lookup with a deterministic fallback checking each slot property explicitly (`model.player === fighter ? 'player' : ...`).
 ## 2026-07-20 - [Optimized Action Processing using ID Maps]
 **Learning:** Using `.find()` inside high-frequency input handler resolution logic (e.g. `combat.ts`) to lookup entities like props iterates over the array linearly and allocates a callback function for every evaluation, generating CPU load and Garbage Collection (GC) pressure.
 **Action:** Replace `O(N)` linear searches and callback-based methods inside high-frequency frame or input routines with a direct key-value dictionary lookup (e.g., `model.propsById[id]`) which operates in `O(1)` time with zero dynamic allocations.
-### 2024-07-17 - [Mocking React Three Fiber Environments for UI Tests]
+### 2024-07-17
+
+**Title:** Mocking React Three Fiber Environments for UI Tests
+
 **Learning:** When asserting pure UI behavior (such as button rendering and API interactions like `navigator.xr`) inside heavily 3D-dependent components like `GameScene`, standard testing tools like `@testing-library/react` will fail inside `jsdom` due to missing WebGL and physics engines.
+
 **Action:** Extensively mock dependencies (`@react-three/fiber`, `@react-three/rapier`, `@react-three/drei`) alongside game-specific heavy dependencies (like `bodyWorksRuntime` and match state stores). Ensure the mocked canvas calls lifecycle initialization logic (e.g. `onCreated` in `<Canvas>`) if required to set up specific internal state, avoiding the need to execute the main game loop during tests.
 ## 2025-02-28 - Avoid Object.entries() in Physics Loops
 * **Optimization:** Replaced 12 instances of `Object.entries(rig.bodies)` and `Object.entries(bodies)` with simple `for...in` loops in `physicsRuntime.ts`.
-* **Issue:** `Object.entries()` creates an array of arrays on every call. In nested fixed-step physics ticks evaluating many bodies per frame, this allocates thousands of small tuples per second, driving up garbage collection (GC) churn and triggering micro-stutter.
+* **Issue:** `Object.entries()` creates an array of arrays on every call. In nested fixed-step physics ticks evaluating many bodies per frame, this allocates thousands of small tuples per second, driving up garbage collection (GC) churn and triggering micro-stutters.
 * **Impact:** Reduced allocations per frame significantly, improving performance and frame consistency during intensive physics phases, particularly the continuous collision handler (CCD) and pose-matching drivers. Benchmarks indicate avoiding `Object.entries` inside the tight loop runs up to ~10x-20x faster.
 ## 2024-03-XX Prop Array Filtering Optimization
 - **Goal:** Optimize O(N) `.find()` lookups on the `props` array inside high-frequency physics ticks and input handlers.
 - **Learning:** Although iterating an array of 5 elements is fast, performing this operation every frame across multiple systems introduces unnecessary closure allocation and branch evaluation overhead. Using an explicit `.find()` generates closure trash and scales poorly as prop count increases.
 - **Action:** Retained the immutable properties of `model.props` array while introducing a mirrored `propsById` O(1) dictionary in the `MatchModel`. Lookups via `model.propsById[id]` replaced explicit `.find()` calls, bypassing array traversal in hot paths and measurably dropping lookup time in synthetic benchmarks from ~90ms to ~2ms per 100K iterations.
 
-### 2025-02-24 - [Optimize Math.hypot calls in physics loop]
+### 2025-02-24: Optimize Math.hypot calls in physics loop
 **Learning:** `Math.hypot` is computationally expensive and commonly impacts performance within tight, high-frequency physics loops such as applying velocity constraints or limits.
 **Action:** Replaced `Math.hypot` inside `capRigVelocity` (`src/game/physics/physicsRuntime.ts`) with squared magnitude checks (e.g., `x*x + y*y + z*z > threshold*threshold`). This change avoided executing `Math.sqrt` unless absolutely necessary, significantly reducing loop execution time (from ~26s to ~4.6s per 150M iterations in micro-benchmarks).
 
@@ -67,17 +60,5 @@
 **Learning:** `Math.hypot` is significantly slower than standard `Math.sqrt` (by a factor of ~8x) because it dynamically scales inputs to handle overflow/underflow. In a game simulation where coordinates are bounded and normal, this overhead is completely unnecessary and places a severe CPU burden on high-frequency rendering and physics systems.
 **Action:** Replace `Math.hypot` inside common vector utility math (`length` and `distance` helpers) with standard `Math.sqrt`, and replace logic check paths inside active render/input loops (`GameScene` and `FighterModel`) with zero-allocation squared-magnitude checks.
 ## 2025-02-28 - [Optimized Math.hypot with direct Math.sqrt and Squared Comparisons]
-**Learning:** `Math.hypot` is highly robust but extremely slow in hot paths like high-frequency `useFrame` rendering ticks and basic vector length/distance math helpers because of its generic multi-argument checking and underflow/overflow safety.
+**Learning:** `Math.hypot` is highly robust but extremely slow in hot execution paths like high-frequency `useFrame` rendering ticks and basic vector length/distance math helpers because of its generic multi-argument checking and underflow/overflow safety.
 **Action:** Replaced helper functions `length` and `distance` in `src/game/utils/math.ts` with direct squared-sum `Math.sqrt` implementations. Additionally replaced `Math.hypot` checks in high-frequency rendering logic (e.g., `FighterModel.tsx` locomotion checking, position correction error bounds, and input held state evaluations in `GameScene.tsx`) with zero-allocation squared comparisons or straightforward `Math.sqrt` operations. This yields major CPU execution speedups and minimizes GC pressure.
-
-## 2026-07-24 - [Optimized Math.hypot in Joint Quaternion Solver Path]
-**Learning:** In highly nested, high-frequency physical joint solving callbacks like `shortestQuaternionError` in `motorController.ts`, utilizing `Math.hypot` to compute the magnitude of the 3D rotation error is highly inefficient. Standard double-precision floating point squares (`x*x + y*y + z*z`) are perfectly safe from overflow/underflow for small bounded orientation errors, making standard `Math.sqrt` up to 8x faster and significantly reducing the simulation CPU overhead.
-**Action:** Replace `Math.hypot` with standard `Math.sqrt` inside `shortestQuaternionError` to optimize active joint torque evaluations.
-
-## 2025-02-28 - [Optimized Math.hypot with direct Math.sqrt and Squared Comparisons in physicsRuntime.ts]
-**Learning:** `Math.hypot` is highly robust but extremely slow in hot execution paths like high-frequency physics tick loops in `physicsRuntime.ts` because of its generic multi-argument checking and underflow/overflow safety.
-**Action:** Replaced over 40 occurrences of `Math.hypot` inside `physicsRuntime.ts` with standard `Math.sqrt` and zero-allocation squared comparisons. This avoids expensive square-root operations and yields significant simulation speedups.
-
-## 2026-07-25 - [Optimized Math.hypot in Input Processing and Camera Basis Calculations]
-**Learning:** `Math.hypot` is highly robust but extremely slow inside high-frequency user input polling (`useGameInput.ts`) and camera basis conversions (`cameraRelative.ts`) because of its dynamic scaling calculations. Replacing it with flat zero-allocation squared-magnitude comparisons (`dx * dx + dz * dz > thresholdSq`) completely avoids square root extraction, and standard `Math.sqrt` calculations are nearly 8x faster and perfectly safe from overflow/underflow hazards for bounded input/distance metrics.
-**Action:** Replace `Math.hypot` in input update loops with zero-allocation squared-magnitude checks, and utilize standard `Math.sqrt` instead of `Math.hypot` for camera-relative framing and normalized gamepad inputs.

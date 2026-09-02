@@ -239,9 +239,8 @@ export const applyMoveHit = (model: MatchModel, actorKey: FighterSlot, targetKey
   const damage = Math.round(scaledDamage * 10) / 10;
   const baseImpact = calculateImpact(actor, target, move, model.impactSequence);
   const planarDirection = contact ? normalize({ x: contact.forceDirection[0], z: contact.forceDirection[2] }) : baseImpact.direction;
-  // OPTIMIZATION: Replaced Math.hypot with a zero-allocation squared-magnitude check (> 0.0001 equivalent to > 0.01)
   const calculatedImpact = contact ? {
-    ...baseImpact, region: contact.targetRegion ?? baseImpact.region, direction: (planarDirection.x * planarDirection.x + planarDirection.z * planarDirection.z) > 0.0001 ? planarDirection : baseImpact.direction,
+    ...baseImpact, region: contact.targetRegion ?? baseImpact.region, direction: Math.hypot(planarDirection.x, planarDirection.z) > .01 ? planarDirection : baseImpact.direction,
     force: clamp(contact.maximumForce / 115 + contact.relativeSpeed * 1.25, .4, 24),
     torque: clamp((contact.forceDirection[0] - contact.forceDirection[2]) * contact.maximumForce / 1400, -3.2, 3.2),
     closingSpeed: contact.relativeSpeed,
@@ -537,8 +536,7 @@ export const requestCommand = (model: MatchModel, actorKey: FighterSlot, command
   }
   // Mid-lift throw: while opponent is held overhead, quick press hurls them in movement direction
   if (actor.state === 'grappling' && model.grapple?.phase === 'lift' && model.grapple?.attacker === actorKey && command === 'quick') {
-    // OPTIMIZATION: Replaced Math.hypot with a zero-allocation squared-magnitude check (> 0.0144 equivalent to > 0.12)
-    const throwDir = (direction.x * direction.x + direction.z * direction.z) > 0.0144
+    const throwDir = Math.hypot(direction.x, direction.z) > .12
       ? normalize(direction)
       : { x: Math.sin(actor.facing), z: Math.cos(actor.facing) };
     releaseGrapple(model, 'idle');
@@ -654,15 +652,13 @@ export const requestCommand = (model: MatchModel, actorKey: FighterSlot, command
     return started;
   }
   if (command === 'heavy') {
-    // OPTIMIZATION: Replaced Math.hypot with a zero-allocation squared-magnitude check (> 12.96 equivalent to > 3.6)
     const moveId = actor.heldPropId ? 'prop'
       : actor.ropeRebound > 0 ? direction.x < 0 ? 'rebound' : 'stiff_arm'
-        : running && (actor.velocity.x * actor.velocity.x + actor.velocity.z * actor.velocity.z) > 12.96 ? 'stiff_arm'
+        : running && Math.hypot(actor.velocity.x, actor.velocity.z) > 3.6 ? 'stiff_arm'
           : selectDirectionalStrike(direction, 'heavy', actor.comboStep);
     return startMove(actor, target, getMove(moveId));
   }
-  // OPTIMIZATION: Replaced Math.hypot with a zero-allocation squared-magnitude check (> 14.0625 equivalent to > 3.75)
-  if (running && (actor.velocity.x * actor.velocity.x + actor.velocity.z * actor.velocity.z) > 14.0625 && target.state !== 'downed') return startMove(actor, target, getMove('spear'));
+  if (running && Math.hypot(actor.velocity.x, actor.velocity.z) > 3.75 && target.state !== 'downed') return startMove(actor, target, getMove('spear'));
   if (target.state === 'blocking') {
     target.stamina = clamp(target.stamina - BALANCE.block.grappleStaminaCost, 0, target.staminaCap);
     if (target.stamina > 0) {
@@ -908,14 +904,12 @@ const updateFighter = (model: MatchModel, actorKey: FighterSlot, dt: number, mov
   }
 
   const canMove = ['idle', 'locomotion'].includes(actor.state);
-  // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt for ~8x performance gain
-  const inputLength = Math.sqrt(movement.x * movement.x + movement.z * movement.z);
+  const inputLength = Math.hypot(movement.x, movement.z);
   if (canMove) {
     const running = run && actor.stamina > 3 && inputLength > .08;
     integrateLocomotion(actor, definition, movement, running, dt);
     const targetDistance = distance(actor.position, target.position);
-    // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt for ~8x performance gain
-    const physicalSpeed = Math.sqrt(actor.velocity.x * actor.velocity.x + actor.velocity.z * actor.velocity.z);
+    const physicalSpeed = Math.hypot(actor.velocity.x, actor.velocity.z);
     if (actor.ropeRebound > 0 && physicalSpeed > 1.2) actor.facing = Math.atan2(actor.velocity.x, actor.velocity.z);
     else if (!running && targetDistance < 4.8) {
       const desiredFacing = Math.atan2(target.position.x - actor.position.x, target.position.z - actor.position.z);
@@ -936,8 +930,7 @@ const updateFighter = (model: MatchModel, actorKey: FighterSlot, dt: number, mov
   }
   const ropeX = 5.65; const ropeZ = 4.15;
   const outside = Math.abs(actor.position.x) > ropeX + .2 || Math.abs(actor.position.z) > ropeZ + .2;
-  // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt for ~8x performance gain
-  const impactSpeed = Math.sqrt(actor.velocity.x * actor.velocity.x + actor.velocity.z * actor.velocity.z);
+  const impactSpeed = Math.hypot(actor.velocity.x, actor.velocity.z);
   const deliberateRingOut = (actor.state === 'downed' || actor.state === 'staggered') && impactSpeed > 2.7;
   const rebound = model.chaosEvent?.type === 'OVERDRIVE ROPES' ? 1.18 : .88;
   if (!model.physicsAuthority && !outside && !deliberateRingOut && Math.abs(actor.position.x) > ropeX) {
