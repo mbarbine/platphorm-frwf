@@ -25,3 +25,7 @@
 ## 2025-02-24 - Accessible Spectator Mode Control Shortcuts and Announcements
 **Learning:** When users spectate matches (e.g., following elimination in Battle Royale), control buttons that map to single-key shortcuts (like 1, 2, 3, or Tab) lack accessibility clarity if they rely solely on `<kbd>` elements for visually displayed text. Adding explicit `aria-label` descriptions that mention the shortcut key and implementing a context-prefixed `aria-live="polite"` region (e.g., 'Spectating wrestler: {name}, {mode} camera') provides screen reader users with immediate feedback and effortless navigation.
 **Action:** Always complement icon/keyboard-shortcut buttons with explicit `aria-label` attributes and provide context-prefixed live regions for dynamic camera/target shifts.
+
+## 2025-02-25 - Action-Prefixed ARIA Labels for Dynamic Mobile Action Controls
+**Learning:** In dynamic mobile action overlays, buttons displaying dynamic move names (such as 'CIRCUIT JAB' or 'VOLTAGE SLAM') can be ambiguous for screen reader users if announced without action category context. Prefixing `aria-label` attributes with the explicit control category (e.g. 'Quick strike: CIRCUIT JAB' or 'Prop action: PICK UP CHAIR') provides screen reader users with immediate clarity on both the action category and the dynamic move intent.
+**Action:** Always prefix dynamic move or contextual action labels with explicit action category names in ARIA labels on touch and mobile control buttons.
