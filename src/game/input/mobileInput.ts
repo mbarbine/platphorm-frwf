@@ -41,7 +41,8 @@ export const mobileInput = {
   read(): FrameInput & { active: boolean } {
     const actions = state.actions.drain();
     const timestamp = performance.now();
-    const moveEvent = state.held.update('move', Math.hypot(state.move.x, state.move.z) > .08, 'touch', state.move, timestamp);
+    // OPTIMIZATION: Replacing slow Math.hypot with zero-allocation squared comparison for movement threshold evaluation on hot touch input reading.
+    const moveEvent = state.held.update('move', (state.move.x * state.move.x + state.move.z * state.move.z) > .0064, 'touch', state.move, timestamp);
     const runEvent = state.held.update('run', state.run, 'touch', state.move, timestamp);
     const guardEvent = state.held.update('guard', state.block, 'touch', state.move, timestamp);
     if (moveEvent) actions.push(moveEvent);
