@@ -81,3 +81,7 @@
 ## 2026-07-25 - [Optimized Math.hypot in Input Processing and Camera Basis Calculations]
 **Learning:** `Math.hypot` is highly robust but extremely slow inside high-frequency user input polling (`useGameInput.ts`) and camera basis conversions (`cameraRelative.ts`) because of its dynamic scaling calculations. Replacing it with flat zero-allocation squared-magnitude comparisons (`dx * dx + dz * dz > thresholdSq`) completely avoids square root extraction, and standard `Math.sqrt` calculations are nearly 8x faster and perfectly safe from overflow/underflow hazards for bounded input/distance metrics.
 **Action:** Replace `Math.hypot` in input update loops with zero-allocation squared-magnitude checks, and utilize standard `Math.sqrt` instead of `Math.hypot` for camera-relative framing and normalized gamepad inputs.
+
+## 2026-07-26 - [Optimized Combat System Math.hypot with Zero-Allocation Comparisons]
+**Learning:** In `src/game/systems/combat.ts`, calling `Math.hypot` inside hot-path functions like `updateFighter`, `requestCommand`, and `applyMoveHit` incurs significant dynamic scaling overhead (~8x slower than `Math.sqrt`). Replacing threshold checks with flat zero-allocation squared-magnitude comparisons (e.g. `x*x + z*z > threshold*threshold`) bypasses square-root extraction entirely during combat updates.
+**Action:** Use squared magnitude comparisons for threshold checks in high-frequency state machine and input resolution loops.
