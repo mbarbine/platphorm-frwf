@@ -39,7 +39,26 @@ const Meter = ({ label, value, kind, max = 100 }: { label: string; value: number
   }, [kind, value]);
   const pct = Math.max(0, Math.min(100, value / max * 100));
   const ghostPct = kind === 'health' ? Math.max(0, Math.min(100, ghost / max * 100)) : pct;
-  return <div className={`meter meter--${kind}`}><div className="meter__label"><span>{label}</span><b>{Math.round(value)}{max !== 100 ? ` / ${Math.round(max)}` : ''}</b></div><div className="meter__track"><b className="meter__ghost" style={{ width: `${ghostPct}%` }} /><i style={{ width: `${pct}%` }} /></div></div>;
+  const roundedVal = Math.round(Math.max(0, Math.min(max, value)));
+  return (
+    <div
+      className={`meter meter--${kind}`}
+      role="progressbar"
+      aria-label={label}
+      aria-valuenow={roundedVal}
+      aria-valuemin={0}
+      aria-valuemax={Math.round(max)}
+    >
+      <div className="meter__label">
+        <span>{label}</span>
+        <b>{roundedVal}{max !== 100 ? ` / ${Math.round(max)}` : ''}</b>
+      </div>
+      <div className="meter__track">
+        <b className="meter__ghost" style={{ width: `${ghostPct}%` }} />
+        <i style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
 };
 
 const ImpactReadout = ({ impact }: { impact: ImpactEvent | null }) => {
