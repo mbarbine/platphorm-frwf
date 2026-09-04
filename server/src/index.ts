@@ -129,6 +129,8 @@ export function rateLimiter(req: express.Request, res: express.Response, next: e
   } else {
     rateData.count++;
     if (rateData.count > MAX_REQUESTS) {
+      const retryAfterSeconds = Math.max(1, Math.ceil((rateData.resetTime - now) / 1000));
+      res.setHeader('Retry-After', retryAfterSeconds);
       res.status(429).json({
         error: {
           code: 'too_many_requests',
