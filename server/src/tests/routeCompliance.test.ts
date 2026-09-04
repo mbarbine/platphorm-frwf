@@ -25,7 +25,7 @@ describe('Route Compliance Serverless Handler', () => {
     expect(res.status).toHaveBeenCalledWith(307);
     expect(res.setHeader).toHaveBeenCalledWith(
       'Location',
-      'https://base.platphormnews.com/api/v1/route-compliance?domain=platphormnews.com&mode=full&timeoutMs=1200'
+      'https://base.platphormnews.com/api/v1/route-compliance?domain=platphormnews.com&mode=full&timeoutMs=1500'
     );
   });
 
@@ -51,7 +51,7 @@ describe('Route Compliance Serverless Handler', () => {
     expect(res.status).toHaveBeenCalledWith(307);
     expect(res.setHeader).toHaveBeenCalledWith(
       'Location',
-      'https://base.platphormnews.com/api/v1/route-compliance?domain=platphormnews.com&mode=full&timeoutMs=1500'
+      'https://base.platphormnews.com/api/v1/route-compliance?domain=platphormnews.com&mode=full&timeoutMs=1200'
     );
   });
 

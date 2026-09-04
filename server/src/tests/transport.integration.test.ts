@@ -1,3 +1,4 @@
+// @vitest-environment node
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { Server } from 'colyseus';
