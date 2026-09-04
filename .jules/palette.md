@@ -25,3 +25,7 @@
 ## 2025-02-24 - Accessible Spectator Mode Control Shortcuts and Announcements
 **Learning:** When users spectate matches (e.g., following elimination in Battle Royale), control buttons that map to single-key shortcuts (like 1, 2, 3, or Tab) lack accessibility clarity if they rely solely on `<kbd>` elements for visually displayed text. Adding explicit `aria-label` descriptions that mention the shortcut key and implementing a context-prefixed `aria-live="polite"` region (e.g., 'Spectating wrestler: {name}, {mode} camera') provides screen reader users with immediate feedback and effortless navigation.
 **Action:** Always complement icon/keyboard-shortcut buttons with explicit `aria-label` attributes and provide context-prefixed live regions for dynamic camera/target shifts.
+
+## 2025-02-25 - Avoid Duplicate Live Regions in Spectator Controls
+**Learning:** Having multiple identical `aria-live` elements in a component tree causes screen readers to redundantly announce updates twice every time state changes (such as target or camera angle switching), creating auditory clutter and causing `TestingLibraryElementError` in unit testing suites. Ensuring a single, clean `aria-live` region per component delivers clear, unified announcements.
+**Action:** Audit component markup to verify only one `aria-live` container is rendered per dynamic status context.

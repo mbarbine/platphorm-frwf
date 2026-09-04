@@ -40,6 +40,5 @@ export function SpectatorControls() {
     <button type="button" className="spectator-next" aria-label="Spectate next wrestler (Tab key)" onClick={() => cycleTarget(model)}>NEXT WRESTLER <kbd>TAB</kbd></button>
     <div aria-live="polite" style={{ position: 'absolute', width: '1px', height: '1px', padding: 0, margin: '-1px', overflow: 'hidden', clip: 'rect(0, 0, 0, 0)', border: 0 }}>Spectating wrestler: {fighter.name}, {modeName} camera</div>
     {cameraMode === 'free' && <small>DRAG TO ORBIT · WHEEL TO ZOOM · RIGHT-DRAG TO PAN</small>}
-    <div aria-live="polite" style={{ position: 'absolute', width: '1px', height: '1px', padding: 0, margin: '-1px', overflow: 'hidden', clip: 'rect(0, 0, 0, 0)', border: 0 }}>Spectating wrestler: {fighter.name}, {modeName} camera</div>
   </aside>;
 }
