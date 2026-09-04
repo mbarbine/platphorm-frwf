@@ -447,6 +447,7 @@ describe('authoritative server contract', () => {
 
     const res = {
       status: vi.fn().mockReturnThis(),
+      setHeader: vi.fn(),
       json: vi.fn(),
     } as any;
 
@@ -460,10 +461,11 @@ describe('authoritative server contract', () => {
     expect(next).toHaveBeenCalledTimes(100);
     expect(res.status).not.toHaveBeenCalled();
 
-    // 2. The 101st request should be rejected with status 429
+    // 2. The 101st request should be rejected with status 429 and set Retry-After header
     rateLimiter(req, res, next);
 
     expect(next).toHaveBeenCalledTimes(100); // Should not have been called a 101st time
+    expect(res.setHeader).toHaveBeenCalledWith('Retry-After', expect.any(Number));
     expect(res.status).toHaveBeenCalledWith(429);
     expect(res.json).toHaveBeenCalledWith({
       error: {
