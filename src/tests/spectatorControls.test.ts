@@ -43,9 +43,9 @@ describe('SpectatorControls component', () => {
     expect(nextBtn).toBeTruthy();
 
     // Verify aria-live region content prefix
-    const liveRegion = screen.getByText(/Spectating wrestler:/i);
-    expect(liveRegion).toBeTruthy();
-    expect(liveRegion.textContent).toContain('Spectating wrestler:');
+    const liveRegions = screen.getAllByText(/Spectating wrestler:/i);
+    expect(liveRegions.length).toBeGreaterThan(0);
+    expect(liveRegions[0]?.textContent).toContain('Spectating wrestler:');
   });
 
   it('updates camera mode when mode button is clicked', () => {
@@ -67,7 +67,8 @@ describe('SpectatorControls component', () => {
 
     expect(useSpectatorStore.getState().cameraMode).toBe('first_person');
 
-    const liveRegion = screen.getByText(/Spectating wrestler:/i);
-    expect(liveRegion.textContent).toContain('first person camera');
+    const liveRegions = screen.getAllByText(/Spectating wrestler:/i);
+    expect(liveRegions.length).toBeGreaterThan(0);
+    expect(liveRegions[0]?.textContent).toContain('first person camera');
   });
 });
