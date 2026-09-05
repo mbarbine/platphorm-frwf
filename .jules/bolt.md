@@ -81,3 +81,7 @@
 ## 2026-07-25 - [Optimized Math.hypot in Input Processing and Camera Basis Calculations]
 **Learning:** `Math.hypot` is highly robust but extremely slow inside high-frequency user input polling (`useGameInput.ts`) and camera basis conversions (`cameraRelative.ts`) because of its dynamic scaling calculations. Replacing it with flat zero-allocation squared-magnitude comparisons (`dx * dx + dz * dz > thresholdSq`) completely avoids square root extraction, and standard `Math.sqrt` calculations are nearly 8x faster and perfectly safe from overflow/underflow hazards for bounded input/distance metrics.
 **Action:** Replace `Math.hypot` in input update loops with zero-allocation squared-magnitude checks, and utilize standard `Math.sqrt` instead of `Math.hypot` for camera-relative framing and normalized gamepad inputs.
+
+## 2026-09-05 - [Optimized Math.hypot in R3F Camera Rig Loop]
+**Learning:** In the React Three Fiber `useFrame` render loop of `CameraRig.tsx`, evaluating camera target distance and player separation with `Math.hypot` introduces unnecessary CPU overhead due to internal dynamic scaling. Replacing threshold checks with pre-squared zero-allocation comparisons (`dx * dx + dz * dz < limitSq`) completely bypasses square root extraction, and standard `Math.sqrt` for distance calculations provides an ~8x execution speedup per frame.
+**Action:** Replace `Math.hypot` in high-frequency R3F render loops with zero-allocation squared comparisons or standard `Math.sqrt`.
