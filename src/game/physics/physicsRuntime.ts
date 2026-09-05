@@ -2265,10 +2265,9 @@ export class BodyWorksRuntime {
         if (!body?.isValid()) continue;
         const position = body.translation();
         const dx = position.x - pelvisPosition.x; const dz = position.z - pelvisPosition.z;
-        // OPTIMIZATION: Replacing slow Math.hypot with zero-allocation squared comparison (3.1^2 = 9.61) on hot physics tick.
+        // OPTIMIZATION: Replacing slow Math.hypot with zero-allocation squared-magnitude check.
         if (![position.x, position.y, position.z].every(Number.isFinite)
-          // OPTIMIZATION: Replacing slow Math.hypot with zero-allocation squared-magnitude check.
-          || ((position.x - pelvisPosition.x) * (position.x - pelvisPosition.x) + (position.z - pelvisPosition.z) * (position.z - pelvisPosition.z)) > 3.1 * 3.1
+          || (dx * dx + dz * dz) > 3.1 * 3.1
           || Math.abs(position.y - pelvisPosition.y) > 3.4) { brokenTree = true; break; }
       }
       if (brokenTree) {
