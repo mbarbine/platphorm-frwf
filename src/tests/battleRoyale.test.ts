@@ -89,4 +89,16 @@ describe('battle royale rules', () => {
     expect(model.playerTargetLock).toBeCloseTo(4.5);
     expect(model.announcement).toContain('TARGET LOCK');
   });
+
+  it('updates the active target wrestler and maintains valid target state when cycling', () => {
+    const model = createMatch('atlas', 'nova', 'standard', 'normal', 18, 0, 0, 'battle_royale');
+    const initialTargetSlot = model.targets.player;
+
+    cyclePlayerTarget(model);
+    const updatedTargetSlot = model.targets.player;
+
+    expect(updatedTargetSlot).not.toBe(initialTargetSlot);
+    expect(model[updatedTargetSlot].definitionId).toBeTruthy();
+    expect(model[updatedTargetSlot].state).not.toBe('defeated');
+  });
 });

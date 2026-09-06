@@ -81,18 +81,11 @@ export const solveRopeReleaseDirection = (
   side: RopeResponse['side'],
   targetIsRingside: boolean,
 ): Vec2 => {
-  // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt. Math.hypot scales inputs dynamically to avoid overflow/underflow,
-  // which is unnecessary for normal game coordinates and adds dynamic check overhead.
-  const rx = reflected.x;
-  const rz = reflected.z;
-  const reflectedMagnitude = Math.max(.001, Math.sqrt(rx * rx + rz * rz));
-  const reflectedDirection = { x: rx / reflectedMagnitude, z: rz / reflectedMagnitude };
-
-  const tx = targetDelta.x;
-  const tz = targetDelta.z;
-  const targetDistance = Math.sqrt(tx * tx + tz * tz);
+  const reflectedMagnitude = Math.max(.001, Math.hypot(reflected.x, reflected.z));
+  const reflectedDirection = { x: reflected.x / reflectedMagnitude, z: reflected.z / reflectedMagnitude };
+  const targetDistance = Math.hypot(targetDelta.x, targetDelta.z);
   if (targetIsRingside || targetDistance <= .001) return reflectedDirection;
-  const targetDirection = { x: tx / targetDistance, z: tz / targetDistance };
+  const targetDirection = { x: targetDelta.x / targetDistance, z: targetDelta.z / targetDistance };
   const inwardProjection = axis === 'x' ? targetDirection.x * -side : targetDirection.z * -side;
   return inwardProjection >= .12 ? targetDirection : reflectedDirection;
 };

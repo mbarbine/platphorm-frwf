@@ -54,16 +54,13 @@ export interface AiSoakReport {
 }
 
 const toward = (from: Vec2, to: Vec2): Vec2 => {
-  // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt for AI soak orientation vector calculation.
-  const x = to.x - from.x; const z = to.z - from.z; const magnitude = Math.max(.001, Math.sqrt(x * x + z * z));
+  const x = to.x - from.x; const z = to.z - from.z; const magnitude = Math.max(.001, Math.hypot(x, z));
   return { x: x / magnitude, z: z / magnitude };
 };
 
 const playerBotInput = (model: MatchModel, step: number): FrameInput => {
   const actor = model.player; const target = model[model.targets.player]; const direction = toward(actor.position, target.position);
-  // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt for separation in AI soak step loop.
-  const dx = target.position.x - actor.position.x; const dz = target.position.z - actor.position.z;
-  const separation = Math.sqrt(dx * dx + dz * dz);
+  const separation = Math.hypot(target.position.x - actor.position.x, target.position.z - actor.position.z);
   const cadence = step % 11 === 0; let command: GameCommand | null = null;
   const nearApron = (Math.abs(actor.position.x) > 4.62 && Math.abs(actor.position.x) < 6.9 && Math.abs(actor.position.z) < 3.55)
     || (Math.abs(actor.position.z) > 3.05 && Math.abs(actor.position.z) < 5.6 && Math.abs(actor.position.x) < 5.15);

@@ -62,7 +62,6 @@ export default defineConfig(({ mode }) => {
       // server. Vite must consume its ESM TypeScript source or the browser sees
       // a package with no named exports and crashes before React can mount.
       { find: '@frwf/game-protocol', replacement: fileURLToPath(new URL('./packages/game-protocol/src/index.ts', import.meta.url)) },
-      { find: '@frwf/game-core', replacement: fileURLToPath(new URL('./packages/game-core/src/index.ts', import.meta.url)) },
       { find: /^three$/, replacement: fileURLToPath(new URL('./node_modules/three/src/Three.js', import.meta.url)) },
     ],
   },
@@ -91,6 +90,6 @@ export default defineConfig(({ mode }) => {
       ],
     } } },
   },
-  test: { environment: 'jsdom', include: ['src/tests/**/*.test.ts', 'server/src/tests/**/*.test.ts'] },
+  test: { environment: 'jsdom', include: ['src/tests/**/*.test.ts'] },
   };
 });

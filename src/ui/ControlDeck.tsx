@@ -40,12 +40,8 @@ export function buildControlLabels(player: FighterRuntime, opponent: FighterRunt
   const labels: Record<ControlId, string> = { ...BASE_LABELS };
   const nearCorner = Math.abs(player.position.x) > 4.35 && Math.abs(player.position.z) > 2.95;
   const ringside = Math.abs(player.position.x) > 5.82 || Math.abs(player.position.z) > 4.32;
-  // OPTIMIZATION: Replacing slow Math.hypot with zero-allocation squared-magnitude check (<= 9.9225 equivalent to <= 3.15)
-  const cornerDx = opponent.position.x - Math.sign(opponent.position.x || player.position.x || 1) * 5.35;
-  const cornerDz = opponent.position.z - Math.sign(opponent.position.z || player.position.z || 1) * 3.85;
-  const clinchCornerDistanceSq = cornerDx * cornerDx + cornerDz * cornerDz;
-  // OPTIMIZATION: Replacing slow Math.hypot with zero-allocation squared-magnitude check (> 0.0064 equivalent to > 0.08)
-  const effectiveDirection = direction.x * direction.x + direction.z * direction.z > 0.0064
+  const clinchCornerDistance = Math.hypot(opponent.position.x - Math.sign(opponent.position.x || player.position.x || 1) * 5.35, opponent.position.z - Math.sign(opponent.position.z || player.position.z || 1) * 3.85);
+  const effectiveDirection = Math.hypot(direction.x, direction.z) > .08
     ? direction
     : speed > .08 ? player.velocity : direction;
   const directionId = combatDirection(effectiveDirection);
@@ -61,7 +57,7 @@ export function buildControlLabels(player: FighterRuntime, opponent: FighterRunt
     labels.quick = moveLabel(selectDirectionalGrapple(direction, 'quick'));
     labels.heavy = moveLabel(selectDirectionalGrapple(direction, 'heavy'));
     labels.grapple = moveLabel(selectDirectionalGrapple(direction, 'grapple'));
-    labels.context = clinchCornerDistanceSq <= 9.9225 ? moveLabel('corner_smash') : 'DRAG CLINCH TO CORNER';
+    labels.context = clinchCornerDistance <= 3.15 ? moveLabel('corner_smash') : 'DRAG CLINCH TO CORNER';
   } else if (player.state === 'climbing') {
     if (player.climbStage === 3) {
       labels.quick = moveLabel('aerial_elbow'); labels.heavy = moveLabel('aerial_kick'); labels.grapple = 'NO LOCK-UP';
@@ -94,8 +90,7 @@ export function buildControlReadout(player: FighterRuntime, opponent: FighterRun
   const isInLift = player.state === 'grappling' && player.moveId !== null && liftMoveIds.has(player.moveId)
     && player.attackPhase === 'anticipation'
     && player.phaseElapsed > getMove(player.moveId).anticipationDuration * .36;
-  // OPTIMIZATION: Replacing slow Math.hypot with zero-allocation squared-magnitude check (> 0.0064 equivalent to > 0.08)
-  const movementHeld = direction.x * direction.x + direction.z * direction.z > 0.0064;
+  const movementHeld = Math.hypot(direction.x, direction.z) > .08;
   if (player.state === 'locomotion' || movementHeld) active.add(runHeld || speed > 3.75 ? 'run' : 'move');
   if (player.state === 'jumping' || player.state === 'airborne') active.add('jump');
   if (player.state === 'blocking') active.add('block');
@@ -130,10 +125,7 @@ export function buildControlReadout(player: FighterRuntime, opponent: FighterRun
   const keys = DEVICE_KEYS[device]; const actionKey = keys.context; const directionId = combatDirection(direction).toUpperCase();
   const nearCorner = Math.abs(player.position.x) > 4.35 && Math.abs(player.position.z) > 2.95;
   const ringside = Math.abs(player.position.x) > 5.82 || Math.abs(player.position.z) > 4.32;
-  // OPTIMIZATION: Replacing slow Math.hypot with zero-allocation squared-magnitude check (<= 9.9225 equivalent to <= 3.15)
-  const calloutCornerDx = opponent.position.x - Math.sign(opponent.position.x || player.position.x || 1) * 5.35;
-  const calloutCornerDz = opponent.position.z - Math.sign(opponent.position.z || player.position.z || 1) * 3.85;
-  const calloutClinchCornerDistanceSq = calloutCornerDx * calloutCornerDx + calloutCornerDz * calloutCornerDz;
+  const clinchCornerDistance = Math.hypot(opponent.position.x - Math.sign(opponent.position.x || player.position.x || 1) * 5.35, opponent.position.z - Math.sign(opponent.position.z || player.position.z || 1) * 3.85);
   let callout = distance > 5.5
     ? `${keys.quick} ${labels.quick} WHIFF · ${keys.heavy} ${labels.heavy} WHIFF · ${keys.grapple} COLLAR REACH · MOVE IN FOR CONTACT`
     : `${keys.quick} ${labels.quick} · ${keys.heavy} ${labels.heavy} · ${keys.grapple} COLLAR LOCK · ${keys.jump} JUMP · ${keys.block} GUARD`;
@@ -148,7 +140,7 @@ export function buildControlReadout(player: FighterRuntime, opponent: FighterRun
   else if (player.climbStage > 0 && player.climbStage < 3) callout = `${actionKey} AGAIN · CLIMB TO ${player.climbStage === 1 ? 'MIDDLE' : 'TOP'} ROPE · ${keys.counter} DOWN`;
   else if (player.climbStage === 3) callout = `${keys.quick} ELBOW · ${keys.heavy} MISSILE KICK · ${actionKey} DOMEFALL · ${keys.taunt} POSE`;
   else if (isInLift) callout = `${keys.quick} THROW · WASD WALK CARRYING · ${keys.heavy} POWER SLAM`;
-  else if (player.state === 'grappling') callout = calloutClinchCornerDistanceSq <= 9.9225
+  else if (player.state === 'grappling') callout = clinchCornerDistance <= 3.15
     ? `${actionKey} ${labels.context} · ${directionId} CLINCH · ${keys.quick} / ${keys.heavy} / ${keys.grapple} THROW`
     : `${directionId} CLINCH · ${keys.quick} ${labels.quick} · ${keys.heavy} ${labels.heavy} · ${keys.grapple} ${labels.grapple}`;
   else if (player.momentum >= 100 && ['staggered', 'downed'].includes(opponent.state) && distance < 2.2) callout = `${actionKey} · SIGNATURE FINISHER READY`;

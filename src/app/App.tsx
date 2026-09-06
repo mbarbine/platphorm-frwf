@@ -24,54 +24,16 @@ const PhysicsLab = lazy(async () => ({ default: (await import('../game/component
 type Screen = 'init' | 'main' | 'how' | 'settings' | 'select' | 'rules' | 'match' | 'results' | 'multiplayer_lobby';
 
 export function App() {
-  const settings = useSettings();
   const [screen, setScreen] = useState<Screen>('init'); const [selected, setSelected] = useState<FighterId>('atlas'); const [rules, setRules] = useState<Ruleset>('standard');
   const [matchMode, setMatchMode] = useState<MatchMode>('singles');
   const [difficulty, setDifficulty] = useState<Difficulty>('normal'); const [device, setDevice] = useState<ControlDevice>('keyboard'); const [paused, setPaused] = useState(false);
   const [beers, setBeers] = useState(0);
   const [runtimePreload, setRuntimePreload] = useState<'idle' | 'loading' | 'ready'>('idle');
   const [joinRoomId, setJoinRoomId] = useState('');
-  const [copied, setCopied] = useState(false);
-
-  useEffect(() => {
-    if (!copied) return;
-    const timer = setTimeout(() => setCopied(false), 2000);
-    return () => clearTimeout(timer);
-  }, [copied]);
-
   const physicsLab = new URLSearchParams(window.location.search).get('physicsLab') === '1';
   const toyTest = new URLSearchParams(window.location.search).get('toyTest') === '1';
-  const configure = useMatchStore((state) => state.configure); const rematch = useMatchStore((state) => state.rematch); const result = useMatchStore((state) => state.model.result); const replayActive = useMatchStore((state) => state.replayActive);
+  const settings = useSettings(); const configure = useMatchStore((state) => state.configure); const rematch = useMatchStore((state) => state.rematch); const result = useMatchStore((state) => state.model.result); const replayActive = useMatchStore((state) => state.replayActive);
   const opponentId = opponentFor(selected); const fighter = fighterById(selected); const opponent = fighterById(opponentId);
-
-  useEffect(() => {
-    if (screen !== 'select') return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
-        e.preventDefault();
-        const currentIndex = FIGHTERS.findIndex(f => f.id === selected);
-        let nextIndex = currentIndex;
-        if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
-          nextIndex = (currentIndex + 1) % FIGHTERS.length;
-        } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
-          nextIndex = (currentIndex - 1 + FIGHTERS.length) % FIGHTERS.length;
-        }
-        const candidate = FIGHTERS[nextIndex];
-        if (candidate) {
-          const nextId = candidate.id;
-          setSelected(nextId);
-          setBeers(0);
-          audioEngine.play('menu', settings);
-          setTimeout(() => {
-            const btn = document.querySelector(`[data-fighter-select-id="${nextId}"]`) as HTMLButtonElement | null;
-            btn?.focus();
-          }, 0);
-        }
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [screen, selected, settings]);
 
   // Multiplayer hooks
   const multiplayerStatus = useMultiplayerStore((state) => state.status);
@@ -115,25 +77,6 @@ export function App() {
   }, [screen, multiplayerStatus, multiplayerRoomPhase, multiplayerMyRole, multiplayerRoles, multiplayerFightersMap, configure, settings]);
 
   const confirm = (next: Screen): void => { audioEngine.play('confirm', settings); setScreen(next); };
-  const handleRosterKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (e.key !== 'ArrowUp' && e.key !== 'ArrowLeft' && e.key !== 'ArrowDown' && e.key !== 'ArrowRight') {
-      return;
-    }
-    e.preventDefault();
-    const offset = (e.key === 'ArrowUp' || e.key === 'ArrowLeft') ? -1 : 1;
-    const currentIndex = FIGHTERS.findIndex((f) => f.id === selected);
-    const nextIndex = (currentIndex + offset + FIGHTERS.length) % FIGHTERS.length;
-    const nextCandidate = FIGHTERS[nextIndex];
-    if (nextCandidate) {
-      setSelected(nextCandidate.id);
-      setBeers(0);
-      audioEngine.play('menu', settings);
-      setTimeout(() => {
-        const btn = document.querySelector(`[data-fighter-select-id="${nextCandidate.id}"]`) as HTMLButtonElement | null;
-        btn?.focus();
-      }, 0);
-    }
-  };
   const preloadRuntime = useCallback((): void => {
     if (runtimePreload !== 'idle') return;
     setRuntimePreload('loading');
@@ -163,7 +106,7 @@ export function App() {
       <article><b>1 · MOVE WITH PURPOSE</b><p>Use WASD to circle your opponent. Hold Shift only when you want to sprint or hit the ropes.</p></article><article><b>2 · STRIKE CLEANLY</b><p>J throws the fast strike. K throws the power strike. Your direction changes the exact punch or kick without adding another button.</p></article><article><b>3 · WRESTLE UP CLOSE</b><p>Get chest-to-chest and press L for a collar lock. Then use J, K, or L with a direction to choose a takedown, slam, or throw.</p></article><article><b>4 · DEFEND</b><p>Hold I to guard. Tap Space to dodge or reverse during the counter window. Space also helps you recover when down.</p></article><article><b>5 · FOLLOW THE ACTION PROMPT</b><p>F only appears when it matters: pin a downed rival, use a finisher, climb a corner, or move through the ropes.</p></article><article><b>6 · ADVANCED TOOLS</b><p>C jumps, E handles props, and Q taunts. Learn those after the five core controls feel natural.</p></article>
     </div><button className="button" onClick={() => confirm('main')}>BACK TO MENU</button></section>}
     {screen === 'settings' && <Suspense fallback={<div className="canvas-fallback"><b>OPENING CONTROL ROOM</b></div>}><SettingsPanel onBack={() => confirm('main')} /></Suspense>}
-    {screen === 'select' && <section className="select-screen"><div className="section-heading"><span>CHOOSE YOUR SIGNAL</span><h2>FIGHTER SELECT</h2></div><div className="select-layout"><div className="roster" role="list" onKeyDown={handleRosterKeyDown}>{FIGHTERS.map((candidate) => <button key={candidate.id} data-fighter-select-id={candidate.id} className={candidate.id === selected ? 'roster-card roster-card--active' : 'roster-card'} aria-pressed={candidate.id === selected} onClick={() => { setSelected(candidate.id); setBeers(0); audioEngine.play('menu', settings); }}><span style={{ background: candidate.palette.primary }} /><div><b>{candidate.name}</b><small>{candidate.archetype}</small></div></button>)}</div><Suspense fallback={<div className="fighter-preview preview-loading">ASSEMBLING FIGHTER…</div>}><FighterPreview fighterId={selected} /></Suspense><article className="fighter-dossier"><span>{fighter.nickname}</span><h3>{fighter.name}</h3><b>{fighter.archetype}</b><p>{fighter.bio}</p><div className="stats">{Object.entries(fighter.stats).map(([label, value]) => <div key={label}><span>{label}</span><i><u style={{ width: `${value}%` }} /></i><b>{value}</b></div>)}</div><div className="signature"><span>SIGNATURE FINISHER</span><b>{fighter.signature}</b></div></article></div><div aria-live="polite" style={{ position: 'absolute', width: '1px', height: '1px', padding: 0, margin: '-1px', overflow: 'hidden', clip: 'rect(0, 0, 0, 0)', border: 0 }}>Selected fighter: {fighter.name}, {fighter.archetype}. Signature: {fighter.signature}</div><div className="button-row"><button className="button button--quiet" onClick={() => confirm('main')}>BACK</button><button className="button button--hero" onClick={() => confirm('rules')}>LOCK IN {fighter.name}</button></div></section>}
+    {screen === 'select' && <section className="select-screen"><div className="section-heading"><span>CHOOSE YOUR SIGNAL</span><h2>FIGHTER SELECT</h2></div><div className="select-layout"><div className="roster" role="list">{FIGHTERS.map((candidate) => <button key={candidate.id} className={candidate.id === selected ? 'roster-card roster-card--active' : 'roster-card'} aria-pressed={candidate.id === selected} onClick={() => { setSelected(candidate.id); setBeers(0); audioEngine.play('menu', settings); }}><span style={{ background: candidate.palette.primary }} /><div><b>{candidate.name}</b><small>{candidate.archetype}</small></div></button>)}</div><Suspense fallback={<div className="fighter-preview preview-loading">ASSEMBLING FIGHTER…</div>}><FighterPreview fighterId={selected} /></Suspense><article className="fighter-dossier"><span>{fighter.nickname}</span><h3>{fighter.name}</h3><b>{fighter.archetype}</b><p>{fighter.bio}</p><div className="stats">{Object.entries(fighter.stats).map(([label, value]) => <div key={label}><span>{label}</span><i><u style={{ width: `${value}%` }} /></i><b>{value}</b></div>)}</div><div className="signature"><span>SIGNATURE FINISHER</span><b>{fighter.signature}</b></div></article></div><div className="button-row"><button className="button button--quiet" onClick={() => confirm('main')}>BACK</button><button className="button button--hero" onClick={() => confirm('rules')}>LOCK IN {fighter.name}</button></div></section>}
     {screen === 'rules' && <section className="panel rules-screen"><div className="section-heading"><span>TALE OF THE TAPE</span><h2>MATCH SETUP</h2></div><div className="versus"><div><span style={{ color: fighter.palette.primary }}>YOU</span><b>{fighter.name}</b><small>{fighter.archetype}</small></div><strong>{matchMode === 'battle_royale' ? 'VS ALL' : 'VS'}</strong><div><span style={{ color: opponent.palette.primary }}>{matchMode === 'battle_royale' ? 'FULL ROSTER' : 'CPU'}</span><b>{matchMode === 'battle_royale' ? 'FOUR RIVALS' : opponent.name}</b><small>{matchMode === 'battle_royale' ? 'Every wrestler · no teams' : opponent.archetype}</small></div></div><div className="option-grid"><fieldset><legend>MATCH MODE</legend><button className={matchMode === 'singles' ? 'option active' : 'option'} aria-pressed={matchMode === 'singles'} onClick={() => setMatchMode('singles')}><b>SINGLES · RECOMMENDED</b><span>Readable one-on-one wrestling · pin or knockout</span></button><button data-testid="battle-royale-mode" className={matchMode === 'battle_royale' ? 'option active' : 'option'} aria-pressed={matchMode === 'battle_royale'} onClick={() => setMatchMode('battle_royale')}><b>BATTLE ROYALE</b><span>Five-wrestler free-for-all for experienced players</span></button></fieldset><fieldset><legend>RULESET</legend><button className={rules === 'standard' ? 'option active' : 'option'} aria-pressed={rules === 'standard'} onClick={() => setRules('standard')}><b>STANDARD</b><span>Pure competition · no starting weapons · balanced Momentum</span></button><button className={rules === 'chaos' ? 'option active' : 'option'} aria-pressed={rules === 'chaos'} onClick={() => setRules('chaos')}><b>CHAOS CIRCUIT</b><span>Props · arena events · faster Momentum · hotter environment</span></button></fieldset><fieldset><legend>RIVAL AI</legend><button className={difficulty === 'normal' ? 'option active' : 'option'} aria-pressed={difficulty === 'normal'} onClick={() => setDifficulty('normal')}><b>NORMAL</b><span>Readable reactions · strategic mistakes · first-session friendly</span></button><button className={difficulty === 'hard' ? 'option active' : 'option'} aria-pressed={difficulty === 'hard'} onClick={() => setDifficulty('hard')}><b>HARD</b><span>Sharper spacing · stronger counters · fair shared stats</span></button></fieldset></div><BeerLocker fighterId={selected} beers={beers} onChange={setBeers} /><div className="prematch-strip"><span>CONTROL DEVICE <b>{device.toUpperCase()}</b></span><span>VENUE <b>THE VOLT DOME</b></span><span>WIN CONDITION <b>{matchMode === 'battle_royale' ? 'LAST WRESTLER STANDING' : 'PIN OR KO'}</b></span></div><div className="button-row"><button className="button button--quiet" onClick={() => confirm('select')}>CHANGE FIGHTER</button><button className="button button--hero" onClick={start}>{physicsLab || matchMode === 'singles' ? 'START MATCH' : 'START MATCH · BATTLE ROYALE'}</button></div></section>}
     {screen === 'multiplayer_lobby' && <section className="panel rules-screen multiplayer-lobby">
       <div className="section-heading"><span>CONNECT WITH RIVALS</span><h2>ONLINE MULTIPLAYER</h2></div>
@@ -195,28 +138,7 @@ export function App() {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', padding: '1.5rem', background: 'rgba(255,255,255,0.03)', borderRadius: '8px' }}>
             <label htmlFor="multiplayer-room-code-input" style={{ margin: 0, fontSize: '1.1rem', color: '#ff007b', fontWeight: 'bold', display: 'block' }}>JOIN MATCH</label>
-            <input
-              id="multiplayer-room-code-input"
-              type="text"
-              placeholder="ENTER ROOM CODE..."
-              value={joinRoomId}
-              autoCapitalize="none"
-              autoCorrect="off"
-              spellCheck={false}
-              onChange={(e) => setJoinRoomId(e.target.value.trim())}
-              onKeyDown={async (e) => {
-                if (e.key === 'Enter' && joinRoomId) {
-                  e.preventDefault();
-                  audioEngine.play('confirm', settings);
-                  try {
-                    await useMultiplayerStore.getState().joinByRoomId(joinRoomId, { fighterId: selected });
-                  } catch (err) {
-                    console.error('Failed to join room', err);
-                  }
-                }
-              }}
-              style={{ padding: '0.75rem', background: 'rgba(0,0,0,0.8)', color: '#fff', border: '2px solid #7000ff', borderRadius: '4px', fontFamily: 'monospace', fontSize: '1.1rem', textAlign: 'center' }}
-            />
+            <input id="multiplayer-room-code-input" type="text" placeholder="ENTER ROOM CODE..." value={joinRoomId} autoCapitalize="none" autoCorrect="off" spellCheck={false} onChange={(e) => setJoinRoomId(e.target.value.trim())} style={{ padding: '0.75rem', background: 'rgba(0,0,0,0.8)', color: '#fff', border: '2px solid #7000ff', borderRadius: '4px', fontFamily: 'monospace', fontSize: '1.1rem', textAlign: 'center' }} />
             <button className="button" style={{ width: '100%' }} disabled={!joinRoomId} onClick={async () => {
               audioEngine.play('confirm', settings);
               try {
@@ -264,20 +186,10 @@ export function App() {
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem' }}>
               <span style={{ fontSize: '0.8rem', color: '#888' }}>ROOM CODE</span>
               <strong data-testid="multiplayer-room-code" style={{ fontSize: '1.8rem', color: '#ff007b', letterSpacing: '4px', fontFamily: 'monospace' }}>{multiplayerRoomId}</strong>
-              <div aria-live="polite" style={{ display: 'inline-flex' }}>
-                <button
-                  className="button button--quiet"
-                  style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}
-                  aria-label={copied ? "Room code copied to clipboard" : "Copy room code to clipboard"}
-                  onClick={() => {
-                    navigator.clipboard.writeText(multiplayerRoomId || '');
-                    audioEngine.play('menu', settings);
-                    setCopied(true);
-                  }}
-                >
-                  {copied ? 'COPIED!' : 'COPY CODE'}
-                </button>
-              </div>
+              <button className="button button--quiet" style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }} onClick={() => {
+                navigator.clipboard.writeText(multiplayerRoomId || '');
+                audioEngine.play('menu', settings);
+              }}>COPY CODE</button>
             </div>
           </div>
 
@@ -327,11 +239,11 @@ export function App() {
   </main>;
 }
 
-export function BeerLocker({ fighterId, beers, onChange }: { fighterId: FighterId; beers: number; onChange: (value: number) => void }) {
+function BeerLocker({ fighterId, beers, onChange }: { fighterId: FighterId; beers: number; onChange: (value: number) => void }) {
   return <div className="locker-room">
-    <div><span>LOCKER ROOM · FIVE-BEER ALLOTMENT</span><b aria-live="polite">{beers} / {BALANCE.stamina.beersPerFighter} DRUNK</b><small>Each beer adds {BALANCE.stamina.beerCapBoost} stamina for this match. {fighterId === 'chad' ? 'The Claw starts with the lowest gas tank—beer brings the brawl back.' : 'Unopened cans stay on the bench.'}</small></div>
+    <div><span>LOCKER ROOM · FIVE-BEER ALLOTMENT</span><b>{beers} / {BALANCE.stamina.beersPerFighter} DRUNK</b><small>Each beer adds {BALANCE.stamina.beerCapBoost} stamina for this match. {fighterId === 'chad' ? 'The Claw starts with the lowest gas tank—beer brings the brawl back.' : 'Unopened cans stay on the bench.'}</small></div>
     <div className="beer-cans" aria-label={`${beers} of five beers consumed`}>{Array.from({ length: BALANCE.stamina.beersPerFighter }, (_, index) => <i key={index} aria-hidden="true" className={index < beers ? 'beer beer--drunk' : 'beer'}>RF</i>)}</div>
-    <div><button className="button button--quiet" disabled={beers === 0} aria-label={`Put one beer back (currently ${beers} of ${BALANCE.stamina.beersPerFighter} drunk)`} onClick={() => onChange(Math.max(0, beers - 1))}>PUT ONE BACK</button><button className="button" disabled={beers >= BALANCE.stamina.beersPerFighter} aria-label={`Drink a beer (currently ${beers} of ${BALANCE.stamina.beersPerFighter} drunk)`} onClick={() => onChange(Math.min(BALANCE.stamina.beersPerFighter, beers + 1))}>DRINK A BEER</button></div>
+    <div><button className="button button--quiet" disabled={beers === 0} onClick={() => onChange(Math.max(0, beers - 1))}>PUT ONE BACK</button><button className="button" disabled={beers >= BALANCE.stamina.beersPerFighter} onClick={() => onChange(Math.min(BALANCE.stamina.beersPerFighter, beers + 1))}>DRINK A BEER</button></div>
   </div>;
 }
 

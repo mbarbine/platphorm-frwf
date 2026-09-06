@@ -3,9 +3,7 @@ import type { Vec2 } from '../types/game';
 export interface CameraInputBasis { forward: Vec2; right: Vec2 }
 
 export const cameraInputBasis = (camera: Vec2, focus: Vec2): CameraInputBasis => {
-  const dx = focus.x - camera.x; const dz = focus.z - camera.z;
-  // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt for input and rendering loops.
-  const magnitude = Math.max(.001, Math.sqrt(dx * dx + dz * dz));
+  const dx = focus.x - camera.x; const dz = focus.z - camera.z; const magnitude = Math.max(.001, Math.hypot(dx, dz));
   const forward = { x: dx / magnitude, z: dz / magnitude };
   return { forward, right: { x: -forward.z, z: forward.x } };
 };
@@ -14,8 +12,7 @@ export const updateStableBasis = (current: CameraInputBasis, candidate: CameraIn
   if (inputHeld || cinematic) return current;
   const amount = 1 - Math.exp(-dt * 5.2);
   const x = current.forward.x + (candidate.forward.x - current.forward.x) * amount; const z = current.forward.z + (candidate.forward.z - current.forward.z) * amount;
-  // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt for input and rendering loops.
-  const magnitude = Math.max(.001, Math.sqrt(x * x + z * z)); const forward = { x: x / magnitude, z: z / magnitude };
+  const magnitude = Math.max(.001, Math.hypot(x, z)); const forward = { x: x / magnitude, z: z / magnitude };
   return { forward, right: { x: -forward.z, z: forward.x } };
 };
 
