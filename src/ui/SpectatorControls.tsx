@@ -38,7 +38,6 @@ export function SpectatorControls() {
     <header><span>ELIMINATED · MATCH CONTINUES</span><b>SPECTATING {fighter.name}</b></header>
     <div>{MODES.map((mode) => <button key={mode.id} type="button" className={cameraMode === mode.id ? 'active' : ''} aria-pressed={cameraMode === mode.id} aria-label={`${mode.label} mode (Key ${mode.key})`} onClick={() => setCameraMode(mode.id)}><kbd>{mode.key}</kbd>{mode.label}</button>)}</div>
     <button type="button" className="spectator-next" aria-label="Spectate next wrestler (Tab key)" onClick={() => cycleTarget(model)}>NEXT WRESTLER <kbd>TAB</kbd></button>
-    <div aria-live="polite" style={{ position: 'absolute', width: '1px', height: '1px', padding: 0, margin: '-1px', overflow: 'hidden', clip: 'rect(0, 0, 0, 0)', border: 0 }}>Spectating wrestler: {fighter.name}, {modeName} camera</div>
     {cameraMode === 'free' && <small>DRAG TO ORBIT · WHEEL TO ZOOM · RIGHT-DRAG TO PAN</small>}
     <div aria-live="polite" style={{ position: 'absolute', width: '1px', height: '1px', padding: 0, margin: '-1px', overflow: 'hidden', clip: 'rect(0, 0, 0, 0)', border: 0 }}>Spectating wrestler: {fighter.name}, {modeName} camera</div>
   </aside>;

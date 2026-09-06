@@ -45,7 +45,10 @@ export function MobileControls({ onPause, paused }: MobileControlsProps) {
   const opponent = model[model.targets.player];
   const contextResolution = resolveContextAction(model, 'player', stick);
   const propResolution = resolvePropAction(model, 'player', stick);
-  const targetDistance = Math.hypot(player.position.x - opponent.position.x, player.position.z - opponent.position.z);
+  const dx = player.position.x - opponent.position.x;
+  const dz = player.position.z - opponent.position.z;
+  // OPTIMIZATION: Replaced Math.hypot with a zero-allocation squared-magnitude comparison (<= 0.81 equivalent to <= GRAPPLE_ACQUISITION_RANGE)
+  const inGrappleRange = (dx * dx + dz * dz) <= (GRAPPLE_ACQUISITION_RANGE * GRAPPLE_ACQUISITION_RANGE);
   const contextLabel = contextResolution.displayName;
   const quickMove = player.state === 'grappling' ? selectDirectionalGrapple(stick, 'quick')
     : player.state === 'climbing' && player.climbStage === 3 ? 'aerial_elbow'
@@ -58,7 +61,7 @@ export function MobileControls({ onPause, paused }: MobileControlsProps) {
   const powerLabel = player.state === 'downed' ? 'NO STRIKE' : getMove(heavyMove).displayName.toUpperCase();
   const grappleLabel = player.state === 'climbing' || player.state === 'downed' || player.state === 'pinned' ? 'NO LOCK'
     : grappleMove ? getMove(grappleMove).displayName.toUpperCase()
-      : targetDistance <= GRAPPLE_ACQUISITION_RANGE ? 'VOLTAGE SLAM' : 'COLLAR REACH (MISS)';
+      : inGrappleRange ? 'VOLTAGE SLAM' : 'COLLAR REACH (MISS)';
   const strikeLocked = player.state === 'downed' || player.state === 'pinned' || (player.state === 'climbing' && player.climbStage < 3);
   const grappleLocked = player.state === 'downed' || player.state === 'pinned' || player.state === 'climbing';
 
@@ -73,8 +76,13 @@ export function MobileControls({ onPause, paused }: MobileControlsProps) {
     const radius = Math.max(34, Math.min(rect.width, rect.height) * .38);
     let x = (clientX - (rect.left + rect.width / 2)) / radius;
     let z = (clientY - (rect.top + rect.height / 2)) / radius;
-    const magnitude = Math.hypot(x, z);
-    if (magnitude > 1) { x /= magnitude; z /= magnitude; }
+    // OPTIMIZATION: Avoid Math.hypot and only calculate Math.sqrt when magnitude > 1
+    const magSq = x * x + z * z;
+    if (magSq > 1) {
+      const magnitude = Math.sqrt(magSq);
+      x /= magnitude;
+      z /= magnitude;
+    }
     const next = { x, z };
     setStick(next);
     mobileInput.setMove(next);
