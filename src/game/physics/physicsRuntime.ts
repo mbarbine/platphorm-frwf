@@ -2264,6 +2264,7 @@ export class BodyWorksRuntime {
       for (const body of Object.values(rig.bodies)) {
         if (!body?.isValid()) continue;
         const position = body.translation();
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const dx = position.x - pelvisPosition.x; const dz = position.z - pelvisPosition.z;
         // OPTIMIZATION: Replacing slow Math.hypot with zero-allocation squared comparison (3.1^2 = 9.61) on hot physics tick.
         if (![position.x, position.y, position.z].every(Number.isFinite)
