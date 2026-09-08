@@ -420,9 +420,35 @@ it('lands an outdoor table spot on the registered wooden surface before breaking
       stepGrappleHarness(world, runtime, model);
       landedOnTable ||= runtime.metrics.lastContactPair === 'chest>table';
     }
-    expect(landedOnTable).toBe(true); expect(table.broken).toBe(true);
+    expect(landedOnTable).toBe(true); expect(table.broken, JSON.stringify({ table, impact: model.lastImpact, stats: model.playerStats, metrics: runtime.metrics })).toBe(true);
     expect(model.opponent.health).toBeLessThan(100); expect(model.playerStats.grapples).toBe(1);
     expect(runtime.pendingLandingCount()).toBe(0); expect(runtime.metrics.emergencyResetCount).toBe(0);
     expect(model.highlights.some(h => h.label === 'Wooden Table Crash')).toBe(true);
+  } finally { runtime.reset(); world.free(); }
+});
+
+it.each([
+  { name: 'suplex', direction: { x: 1, z: 0 }, button: 'grapple' as const },
+  { name: 'side_toss', direction: { x: 1, z: 0 }, button: 'quick' as const },
+  { name: 'powerbomb', direction: { x: 0, z: -1 }, button: 'grapple' as const },
+])('lands the distinct $name through real grips and a solved torso contact', ({ name, direction, button }) => {
+  const { world, runtime, model } = makeGrappleHarness('yard');
+  try {
+    for (let frame = 0; frame < 45; frame++) stepGrappleHarness(world, runtime, model);
+    expect(requestCommand(model, 'player', 'grapple')).toBe(true);
+    expect(requestCommand(model, 'player', button, direction)).toBe(true);
+    expect(model.player.moveId).toBe(name);
+    let airborneBeforeDamage = false;
+    for (let frame = 0; frame < 540 && model.opponent.health === 100; frame++) {
+      stepGrappleHarness(world, runtime, model);
+      airborneBeforeDamage ||= runtime.pendingLandingCount() > 0 && model.opponent.health === 100;
+    }
+    expect(airborneBeforeDamage).toBe(true);
+    expect(runtime.metrics.gripCreateCount).toBeGreaterThanOrEqual(2);
+    expect(model.playerStats.grapples, JSON.stringify({ state: model.opponent.state, metrics: runtime.metrics })).toBe(1);
+    expect(model.opponent.health).toBeLessThan(100);
+    expect(model.lastImpact?.contactPoint?.every(Number.isFinite)).toBe(true);
+    expect(runtime.metrics.emergencyResetCount).toBe(0);
+    expect(runtime.metrics.numericalFaultCount).toBe(0);
   } finally { runtime.reset(); world.free(); }
 });

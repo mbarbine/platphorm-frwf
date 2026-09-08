@@ -142,3 +142,9 @@ Release checks and exact deployment identity are recorded in `docs/SHOWGROUND_RE
 Implemented the next layer of the open-world wrestling direction: three physical combat venues, six explorable encounter hosts, device-local circuit reputation and mastery, encounter tracking, harder unlocked rivals, breakable wooden tables and Arcade-aware mobile labels. Venue rules now govern physical floor height, boundaries, rope/corner availability, AI traversal, camera and ground marker. See [the circuit release report](CIRCUIT_UPGRADE_RELEASE.md) for validation and limitations.
 
 The next structural milestone is sharing the world scene and physical simulation so fights can begin without scene handoff. Character motion quality remains a separate major workstream: authored paired throws and recoveries need continued visual review before real human motion clips are introduced. Local progression must remain clearly separate from future account-backed progression and leaderboards.
+
+## Wrestling motion and arena polish — FRWF 1.3.0
+
+This pass addresses action/visual disagreement directly: the defender's authored half of paired grapples now reaches the physical motor controller; release profiles distinguish slams, backward suplexes, lateral throws and power drops; eight-way movement follows solved travel relative to facing; and a brief secured-clinch decision beat precedes the player lift. Release prompts use the actual physical phase. Contact effects preserve the 3D collision point instead of inventing a height.
+
+The Volt Dome now has a continuous woven/scuffed branded canvas, padded corners, restrained rope lighting and articulated instanced crowd silhouettes. This is procedural physical animation and art; character fidelity, hand-placement tolerance, physical device acceptance and seamless world combat remain open. Validation and deployment evidence belong in `WRESTLING_POLISH_RELEASE.md`.

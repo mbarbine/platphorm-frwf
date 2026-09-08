@@ -17,6 +17,8 @@ import { applyBodyLanguage } from '../animation/bodyLanguage';
 import { POSES } from '../animation/poses';
 import type { Pose } from '../animation/poses';
 import { recoveryPose } from '../animation/recoveryMotion';
+import { locomotionPose } from '../animation/locomotion';
+import { throwDirection, throwMotionFor } from './throwMotion';
 import type { QuaternionValue, Vector3Value } from './motorController';
 import { apronTransitionTarget, isRingside, RING_HARD_LIMIT, ROPE_REBOUND_ENTRY_SPEED, shouldReleaseRopeRebound, solveRopeReleaseDirection, solveRopeResponse } from './ringDynamics';
 import { computeStrikeForce, guardInterceptDriveProfile, guardInterceptSurfaceTarget, strikeDriveProfile, strikePelvisAcceleration } from './strikeDynamics';
@@ -714,9 +716,10 @@ export class BodyWorksRuntime {
       // articulated fall.  Giving the whole rig a shared target velocity
       // preserves every joint while still requiring a real torso/mat contact
       // before damage can score.
-      const rising = age < .16;
-      const fallAge = Math.max(0, age - .16);
-      const targetVerticalVelocity = rising ? 2.7 : -Math.min(9.2, 1.1 + fallAge * 16);
+      const motion = throwMotionFor(landing.targetPosition ? 'slam' : landing.moveId);
+      const rising = age < motion.clearanceTime;
+      const fallAge = Math.max(0, age - motion.clearanceTime);
+      const targetVerticalVelocity = rising ? motion.riseSpeed : -Math.min(9.2, 1.1 + fallAge * 16);
       if (landing.targetPosition) {
         const center = this.rigPlanarCenter(rig); const dx = landing.targetPosition.x - center.x; const dz = landing.targetPosition.z - center.z;
         // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt for ~8x speedups.
@@ -762,7 +765,7 @@ export class BodyWorksRuntime {
         targetId: model.targets[key],
         moveId: move.id,
         attackInstanceId: fighter.attackInstanceId,
-        maximumDuration: move.anticipationDuration + move.activeDuration + move.recoveryDuration + 1.6
+        maximumDuration: move.anticipationDuration + move.activeDuration + move.recoveryDuration + 2.2
           // Grip acquisition has its own 2.25 s fail-fast. The outer task is a
           // wider bounded watchdog so a valid lift/landing is not cancelled by
           // a slow but progressing ringside or corner traversal.
@@ -1021,8 +1024,16 @@ export class BodyWorksRuntime {
     this.applyFootPlantDrive(rig, fighter, { x: desiredX, z: desiredZ }, inputLength);
     if (BODYWORKS_FLAGS.ropes) this.applyRopeController(rig, fighter, model);
     if (BODYWORKS_FLAGS.contactStrikes) this.applyPhysicalStrike(key, rig, fighter, model);
-    const tableLandingPose = this.pendingLandings.get(key)?.targetSurface === 'table' ? POSES.downed : undefined;
-    this.applyPoseDrive(rig, fighter, motorProfile, tableLandingPose);
+    const held = model.grapple?.defender === key ? model.grapple : null;
+    const carrier = held ? model[held.attacker] : null;
+    const landing = this.pendingLandings.get(key);
+    // Both halves of the authored move drive the real linked bodies. Previously
+    // a grabbed defender used combat idle, then the unrelated diving pose.
+    const pairedPose = carrier?.moveId && fighter.state === 'grabbed'
+      ? getPairedPose(getMove(carrier.moveId), 'victim', carrier.attackPhase, carrier.phaseElapsed, carrier.definitionId) ?? undefined
+      : landing ? getPairedPose(getMove(landing.moveId), 'victim', 'recovery', getMove(landing.moveId).anticipationDuration + getMove(landing.moveId).activeDuration + Math.min(.3, model.elapsed - landing.releasedAt), model[landing.attacker].definitionId) ?? POSES.downed
+        : undefined;
+    this.applyPoseDrive(rig, fighter, motorProfile, pairedPose);
     if (fighter.state === 'downed' && fighter.stateElapsed > .22 && !this.pendingLandings.has(key)) {
       // Once the real landing has been absorbed, let the ragdoll rest instead
       // of continuously feeding tiny motor/contact corrections into the mat.
@@ -1822,11 +1833,12 @@ export class BodyWorksRuntime {
     else if (progress < .56) grapple.phase = 'load';
     else if (attacker.attackPhase === 'anticipation') {
       grapple.phase = 'lift';
+      grapple.liftElapsed = (grapple.liftElapsed ?? 0) + dt;
       const liftDrive = liftDriveForMove(move.id) * liftFeasibility;
       // Lift toward the carrier's shoulder instead of accelerating upward for
       // the entire anticipation window. The old open-loop drive launched a
       // body-slam victim more than three metres above its standing height.
-      const liftHeight = clamp(.92 * liftDrive, .7, 1.2);
+      const liftHeight = clamp(throwMotionFor(environmentTarget ? 'slam' : move.id).liftHeight * liftDrive, .7, 1.2);
       const liftError = attackerPosition.y + liftHeight - defenderPosition.y;
       const liftAcceleration = clamp(18 + liftError * 72 - defenderPelvis.linvel().y * 14, -30, 76);
       this.applyRigAcceleration(defenderRig, { x: 0, y: liftAcceleration, z: 0 });
@@ -1845,16 +1857,10 @@ export class BodyWorksRuntime {
       grapple.phase = 'release';
       this.releaseAllGrips(world);
       // A held direction during the release is the player's throw direction.
-      // Fall back to the live clinch axis for a neutral throw; animated facing
-      // can auto-turn during a load and is not physical authority here.
-      // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt for ~8x speedup.
-      const inputLength = Math.sqrt(attackerIntent.move.x * attackerIntent.move.x + attackerIntent.move.z * attackerIntent.move.z);
-      const liveSeparation = Math.sqrt(separationX * separationX + separationZ * separationZ);
-      const inputDirection = inputLength > .25
-        ? { x: attackerIntent.move.x / inputLength, z: attackerIntent.move.z / inputLength }
-        : liveSeparation > .15
-          ? { x: separationX / planarSeparation, z: separationZ / planarSeparation }
-          : { x: Math.sin(attacker.facing), z: Math.cos(attacker.facing) };
+      // A neutral throw uses its own lane relative to the live clinch axis.
+      // Deliberate steering takes priority over that authored direction.
+      const motion = throwMotionFor(environmentTarget ? 'slam' : move.id);
+      const inputDirection = throwDirection({ x: separationX, z: separationZ }, attackerIntent.move, move.id);
       const environmentDelta = environmentTarget ? { x: environmentTarget.position.x - defenderPosition.x, z: environmentTarget.position.z - defenderPosition.z } : null;
       // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt for ~8x speedup.
       const environmentDistance = environmentDelta ? Math.sqrt(environmentDelta.x * environmentDelta.x + environmentDelta.z * environmentDelta.z) : Number.POSITIVE_INFINITY;
@@ -1862,20 +1868,20 @@ export class BodyWorksRuntime {
       const direction = environmentTargeted && environmentDelta && environmentDistance > .08
         ? { x: environmentDelta.x / environmentDistance, z: environmentDelta.z / environmentDistance }
         : inputDirection;
-      const horizontalReleaseSpeed = environmentTargeted ? clamp(environmentDistance / (environmentTarget?.surface === 'turnbuckle' ? .64 : .48), .06, environmentTarget?.surface === 'turnbuckle' ? 6.8 : 7.5) : .9;
+      const horizontalReleaseSpeed = environmentTargeted ? clamp(environmentDistance / (environmentTarget?.surface === 'turnbuckle' ? .64 : .48), .06, environmentTarget?.surface === 'turnbuckle' ? 6.8 : 7.5) : motion.speed;
       // Release into a brief upward clearance and one shared angular velocity.
       // The pending-landing controller owns the subsequent fall, so feet do
       // not catch the mat before the torso can rotate through the impact.
       for (const body of Object.values(defenderRig.bodies)) {
         if (!body?.isValid()) continue;
         const mass = body.mass(); const velocity = body.linvel();
-        body.applyImpulse({ x: (direction.x * horizontalReleaseSpeed - velocity.x) * mass, y: (2.8 - velocity.y) * mass, z: (direction.z * horizontalReleaseSpeed - velocity.z) * mass }, true);
+        body.applyImpulse({ x: (direction.x * horizontalReleaseSpeed - velocity.x) * mass, y: (motion.riseSpeed - velocity.y) * mass, z: (direction.z * horizontalReleaseSpeed - velocity.z) * mass }, true);
       }
       const fallTorque = { x: direction.z, z: -direction.x };
       for (const body of Object.values(defenderRig.bodies)) {
         if (!body?.isValid()) continue;
         const spin = body.angvel();
-        body.setAngvel({ x: fallTorque.x * 5.6 + spin.x * .12, y: spin.y * .12, z: fallTorque.z * 5.6 + spin.z * .12 }, true);
+        body.setAngvel({ x: fallTorque.x * motion.rotationSpeed + spin.x * .12, y: spin.y * .12, z: fallTorque.z * motion.rotationSpeed + spin.z * .12 }, true);
       }
       const attackerVelocity = attackerPelvis.linvel();
       attackerPelvis.setLinvel({ x: attackerVelocity.x * .28, y: Math.max(0, attackerVelocity.y * .2), z: attackerVelocity.z * .28 }, true);
@@ -2604,21 +2610,7 @@ const uprightFromRotation = (rotation: QuaternionValue): number => {
 
 const withYaw = (yaw: QuaternionValue, euler: readonly [number, number, number]): QuaternionValue => quaternionMultiply(yaw, quaternionFromEuler(euler));
 
-const locomotionPoseFor = (fighter: FighterRuntime): Pose => {
-  // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt for ~8x speedup.
-  const speed = Math.sqrt(fighter.velocity.x * fighter.velocity.x + fighter.velocity.z * fighter.velocity.z); const running = speed > 3.75; const phase = fighter.body.gaitPhase;
-  const swing = Math.sin(phase); const trailing = Math.cos(phase); const stride = running ? .72 : .38; const armDrive = running ? .88 : .46;
-  const leftKnee = Math.max(0, -swing) * (running ? 1.05 : .42); const rightKnee = Math.max(0, swing) * (running ? 1.05 : .42);
-  return {
-    ...POSES[running ? 'run' : 'walk'],
-    torso: [running ? .2 + Math.abs(trailing) * .035 : .07, 0, swing * (running ? .035 : .02)],
-    leftArm: [-swing * armDrive, 0, -.24 - Math.abs(swing) * .12], rightArm: [swing * armDrive, 0, .24 + Math.abs(swing) * .12],
-    leftForearm: [-.32 - leftKnee * .58, 0, 0], rightForearm: [-.32 - rightKnee * .58, 0, 0],
-    leftLeg: [swing * stride, 0, 0], rightLeg: [-swing * stride, 0, 0],
-    leftShin: [-leftKnee, 0, 0], rightShin: [-rightKnee, 0, 0],
-    rootY: Math.abs(trailing) * (running ? .085 : .035), rootTilt: running ? .16 : .045, rootRoll: swing * (running ? .045 : .022),
-  };
-};
+const locomotionPoseFor = (fighter: FighterRuntime): Pose => locomotionPose(fighter.velocity, fighter.facing, fighter.body.gaitPhase);
 
 const climbPoseFor = (fighter: FighterRuntime): Pose => {
   const stage = fighter.climbStage || 1;

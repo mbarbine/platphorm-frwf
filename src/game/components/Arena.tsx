@@ -5,116 +5,14 @@ import { useEffect, useMemo, useRef } from 'react';
 import { Color, Object3D, AdditiveBlending, DoubleSide } from 'three';
 import type { Group, InstancedMesh, MeshStandardMaterial } from 'three';
 import { useMatchStore } from '../state/matchStore';
-import { useSettings } from '../state/settings';
 import { arenaCollisionGroups, propCollisionGroups } from '../physics/collisionGroups';
 import { bodyWorksRuntime } from '../physics/physicsRuntime';
 import type { FighterKey } from '../physics/physicsRuntime';
 import type { BodySegmentId } from '../physics/bodySchema';
 import type { PropRuntime } from '../types/game';
+import { Spectators as Crowd } from './Spectators';
+import { WrestlingMat } from './WrestlingMat';
 import { VOLT_DOME } from '../data/arena';
-
-function Crowd({ count }: { count: number }) {
-  const bodies = useRef<InstancedMesh>(null);
-  const heads = useRef<InstancedMesh>(null);
-  const sticks = useRef<InstancedMesh>(null);
-  const dummy = useMemo(() => new Object3D(), []);
-  const elapsed = useRef(0);
-
-  // Precalculate static layout properties for the crowd instanced mesh
-  const crowdLayout = useMemo(() => {
-    const layout = [];
-    for (let index = 0; index < count; index += 1) {
-      const row = Math.floor(index / 42); const col = index % 42; const angle = (col / 42) * Math.PI * 2 + row * .055;
-      const radius = 13.9 + row * 1.28;
-      const baseY = 1.15 + row * .62;
-      const cosAngle = Math.cos(angle);
-      const sinAngle = Math.sin(angle);
-      const yaw = -angle + Math.PI / 2;
-      layout.push({
-        baseY,
-        cosAngleRadius: cosAngle * radius,
-        sinAngleRadius: sinAngle * radius,
-        yaw,
-        yawCos: Math.cos(yaw),
-        yawSin: Math.sin(yaw),
-        scaleX: .38 + (index % 4) * .025,
-        scaleY: .62 + (index % 3) * .1,
-        headScaleY: .82 + (index % 3) * .1,
-      });
-    }
-    return layout;
-  }, [count]);
-
-  const stickColors = useMemo(() => {
-    const colors = [];
-    const hexes = ['#00ffff', '#ff00ff', '#00ff00', '#ffff00', '#ff0055'];
-    for (let i = 0; i < count; i++) {
-      colors.push(new Color(hexes[i % hexes.length]));
-    }
-    return colors;
-  }, [count]);
-
-  useEffect(() => {
-    if (!sticks.current) return;
-    for (let i = 0; i < count; i++) {
-      const col = stickColors[i];
-      if (col) {
-        sticks.current.setColorAt(i, col);
-      }
-    }
-    if (sticks.current.instanceColor) {
-      sticks.current.instanceColor.needsUpdate = true;
-    }
-  }, [count, stickColors]);
-
-  useFrame((_, dt) => {
-    elapsed.current += dt;
-    if (!bodies.current || !heads.current) return;
-    const hype = useMatchStore.getState().model.hype;
-    for (let index = 0; index < count; index += 1) {
-      const item = crowdLayout[index];
-      if (!item) continue;
-      const wave = Math.sin(elapsed.current * (2 + hype / 30) + index * .71); const bounce = wave * (.035 + hype / 680);
-      dummy.position.set(item.cosAngleRadius, item.baseY + bounce, item.sinAngleRadius);
-      dummy.rotation.set(wave * .025, item.yaw, wave * .035); dummy.scale.set(item.scaleX, item.scaleY, .29); dummy.updateMatrix(); bodies.current.setMatrixAt(index, dummy.matrix);
-      dummy.position.set(item.cosAngleRadius, item.baseY + item.headScaleY + bounce, item.sinAngleRadius);
-      dummy.rotation.set(0, item.yaw, wave * .03); dummy.scale.set(.22, .22, .21); dummy.updateMatrix(); heads.current.setMatrixAt(index, dummy.matrix);
-
-      if (sticks.current) {
-        if (index % 3 !== 0) {
-          const handX = item.cosAngleRadius + item.yawCos * 0.28 - item.yawSin * 0.15;
-          const handZ = item.sinAngleRadius + item.yawSin * 0.28 + item.yawCos * 0.15;
-          const handY = item.baseY + bounce + 0.35 + Math.abs(wave) * 0.12;
-
-          dummy.position.set(handX, handY, handZ);
-          const stickWaveX = Math.sin(elapsed.current * (3 + hype / 25) + index * 1.2) * (0.15 + hype / 250);
-          const stickWaveZ = Math.cos(elapsed.current * (2.5 + hype / 25) + index * 0.8) * (0.15 + hype / 250);
-          dummy.rotation.set(stickWaveX, item.yaw + wave * 0.15, stickWaveZ);
-          dummy.scale.set(0.038, 0.42, 0.038);
-        } else {
-          dummy.position.set(0, -10, 0);
-          dummy.scale.set(0, 0, 0);
-        }
-        dummy.updateMatrix();
-        sticks.current.setMatrixAt(index, dummy.matrix);
-      }
-    }
-    bodies.current.instanceMatrix.needsUpdate = true;
-    heads.current.instanceMatrix.needsUpdate = true;
-    if (sticks.current) {
-      sticks.current.instanceMatrix.needsUpdate = true;
-    }
-  });
-
-  return <group>
-    <instancedMesh ref={bodies} args={[undefined, undefined, count]} castShadow={false} receiveShadow={false}><capsuleGeometry args={[.52, .72, 4, 7]} /><meshStandardMaterial color="#342d5a" emissive="#6b42c9" emissiveIntensity={.16} roughness={.76} /></instancedMesh>
-    <instancedMesh ref={heads} args={[undefined, undefined, count]} castShadow={false} receiveShadow={false}><sphereGeometry args={[1, 7, 5]} /><meshStandardMaterial color="#805f65" emissive="#47264f" emissiveIntensity={.08} roughness={.82} /></instancedMesh>
-    <instancedMesh ref={sticks} args={[undefined, undefined, count]} castShadow={false} receiveShadow={false}>
-      <cylinderGeometry args={[0.4, 0.4, 1.0, 5]} />
-      <meshStandardMaterial roughness={0.1} metalness={0.1} emissive="#ffffff" emissiveIntensity={2.5} />
-    </instancedMesh>
-  </group>;
-}
 
 function ArenaRibbon() {
   const cyan = useRef<MeshStandardMaterial>(null); const pink = useRef<MeshStandardMaterial>(null); const elapsed = useRef(0);
@@ -173,63 +71,13 @@ function RopeSide({ axis, side, color, emissive }: { axis: 'x' | 'z'; side: -1 |
       }
     }
     rope.current.instanceMatrix.needsUpdate = true;
-    if (material.current) material.current.emissiveIntensity = overdrive ? 2.6 : .78 + compression * 1.2;
+    if (material.current) material.current.emissiveIntensity = overdrive ? 1.2 : .08 + compression * .25;
   });
   return <instancedMesh ref={rope} args={[undefined, undefined, segmentCount * ropeCount]} position={axis === 'x' ? [side * 5.75, 0, 0] : [0, 0, side * 4.25]} castShadow><boxGeometry args={axis === 'x' ? [.075, .075, segmentLength + .06] : [segmentLength + .06, .075, .075]} /><meshStandardMaterial ref={material} color={color} emissive={emissive} emissiveIntensity={.78} roughness={.3} metalness={.28} /></instancedMesh>;
 }
 
 function Ropes() {
   return <><RopeSide axis="z" side={-1} color="#5cf8ff" emissive="#39d8ff" /><RopeSide axis="z" side={1} color="#ff4fa3" emissive="#ff298d" /><RopeSide axis="x" side={-1} color="#d9ff47" emissive="#a6ed2f" /><RopeSide axis="x" side={1} color="#ff763b" emissive="#ff4b28" /></>;
-}
-
-function ReactiveMat() {
-  const mat = useRef<InstancedMesh>(null); const dummy = useMemo(() => new Object3D(), []); const lastImpactId = useRef(0); const impactAge = useRef(10); const amplitude = useRef(0); const epicenter = useRef({ x: 0, z: 0 });
-  const reducedMotion = useSettings((state) => state.reducedMotion); const lab = useMemo(() => new URLSearchParams(window.location.search).get('physicsLab') === '1', []); const columns = lab ? 6 : 12; const rows = lab ? 5 : 9; const count = columns * rows; const width = 11.3; const depth = 8.3; const tileWidth = width / columns; const tileDepth = depth / rows;
-
-  // Precalculate static layout grid coordinates (x and z offsets) for the ReactiveMat tiles
-  const matLayout = useMemo(() => {
-    const layout = [];
-    for (let row = 0; row < rows; row += 1) {
-      for (let column = 0; column < columns; column += 1) {
-        const x = -width / 2 + tileWidth * (column + .5);
-        const z = -depth / 2 + tileDepth * (row + .5);
-        layout.push({ x, z });
-      }
-    }
-    return layout;
-  }, [rows, columns, tileWidth, tileDepth]);
-
-  useFrame((_, dt) => {
-    const mesh = mat.current; if (!mesh) return;
-    const impact = useMatchStore.getState().model.lastImpact;
-    if (impact && impact.id !== lastImpactId.current && Math.abs(impact.position.x) < 6.1 && Math.abs(impact.position.z) < 4.6) {
-      lastImpactId.current = impact.id; impactAge.current = 0; epicenter.current = impact.position;
-      const hierarchy = impact.kind === 'finisher' || impact.kind === 'ko' ? .24 : impact.kind === 'grapple' ? .17 : impact.kind === 'heavy' || impact.kind === 'weapon' ? .1 : impact.kind === 'light' || impact.kind === 'blocked' ? .035 : .07;
-      amplitude.current = hierarchy * Math.min(1.45, .55 + impact.intensity * .42) * (reducedMotion ? .38 : 1);
-    }
-    impactAge.current += dt;
-    const decay = Math.exp(-impactAge.current * 4.8); const waveFront = impactAge.current * 8.5;
-    for (let index = 0; index < count; index += 1) {
-      const tile = matLayout[index];
-      if (!tile) continue;
-      const { x, z } = tile;
-      const dx = x - epicenter.current.x;
-      const dz = z - epicenter.current.z;
-      const distanceSq = dx * dx + dz * dz;
-      // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt. Math.hypot has dynamic scaling overhead to prevent
-      // underflow/overflow which is completely unnecessary inside the bounded wrestling ring. This standard square root operation
-      // runs ~8x faster and avoids redundant squared calculations for contactDimple.
-      const distance = Math.sqrt(distanceSq);
-      const contactDimple = -amplitude.current * Math.exp(-distanceSq * 1.15) * Math.exp(-impactAge.current * 8);
-      const travellingWave = amplitude.current * .38 * Math.sin((waveFront - distance) * 2.1) * Math.exp(-Math.abs(waveFront - distance) * .48) * decay;
-      const displacement = contactDimple + travellingWave;
-      dummy.position.set(x, displacement, z); dummy.rotation.set((dz) * displacement * .025, 0, -(dx) * displacement * .025); dummy.scale.set(1, 1 + Math.abs(displacement) * 1.8, 1); dummy.updateMatrix(); mesh.setMatrixAt(index, dummy.matrix);
-    }
-    mesh.instanceMatrix.needsUpdate = true;
-  });
-  return <instancedMesh ref={mat} args={[undefined, undefined, count]} position={[0, 1.86, 0]} receiveShadow>
-    <boxGeometry args={[tileWidth + .012, .08, tileDepth + .012]} /><meshStandardMaterial color="#8890a8" emissive="#150b2b" emissiveIntensity={.16} roughness={.78} metalness={.04} />
-  </instancedMesh>;
 }
 
 function Post({ x, z }: { x: number; z: number }) {
@@ -258,7 +106,7 @@ function Post({ x, z }: { x: number; z: number }) {
     <CuboidCollider args={[.5, .13, .5]} position={[x > 0 ? -.28 : .28, 1.56, z > 0 ? -.24 : .24]} friction={1.2} restitution={.02} />
     <group ref={visual}>
       <mesh castShadow><cylinderGeometry args={[.19, .23, 3.5, 10]} /><meshStandardMaterial color="#161321" metalness={.85} roughness={.2} /></mesh>
-      {[.3, .85, 1.4].map((y) => <group key={y} position={[x > 0 ? -.22 : .22, y, z > 0 ? -.18 : .18]}><mesh castShadow scale={[.58, .31, .34]}><sphereGeometry args={[1, 12, 7]} /><meshStandardMaterial color="#a34dff" emissive="#6d22df" emissiveIntensity={.9} metalness={.25} roughness={.35} /></mesh><mesh position={[0, 0, .31]}><boxGeometry args={[.31, .1, .04]} /><meshStandardMaterial color="#f5eaff" emissive="#d067ff" emissiveIntensity={1.2} /></mesh></group>)}
+      {[.3, .85, 1.4].map((y) => <group key={y} position={[x > 0 ? -.22 : .22, y, z > 0 ? -.18 : .18]}><mesh castShadow scale={[.82, .38, .48]}><boxGeometry /><meshStandardMaterial color="#35203f" roughness={.86} /></mesh><mesh position={[0, 0, .31]}><boxGeometry args={[.31, .1, .04]} /><meshStandardMaterial color="#f5eaff" emissive="#d067ff" emissiveIntensity={1.2} /></mesh></group>)}
       <mesh position={[0, 1.83, 0]}><octahedronGeometry args={[.25, 0]} /><meshStandardMaterial ref={jewel} color="#f2f5ff" emissive={x * z > 0 ? '#ff3c91' : '#42e8ff'} emissiveIntensity={1.8} metalness={.65} roughness={.2} /></mesh>
 
       {/* Neon vertical post spine */}
@@ -813,14 +661,8 @@ export function Arena({ crowdCount = 156, performanceMode = false }: { crowdCoun
     <directionalLight castShadow position={[4, 12, 6]} intensity={spotlight ? .35 : 2.2} color="#f0f6ff" shadow-mapSize={[1024, 1024]} />
     <spotLight position={[-7, 11, -5]} intensity={spotlight ? 8 : 3} color="#4be7ff" angle={.42} penumbra={.65} castShadow />
     <spotLight position={[7, 10, 4]} intensity={spotlight ? 8 : 3} color="#ff3a95" angle={.42} penumbra={.7} />
-    <RigidBody ref={ringSurface} type="fixed" colliders="cuboid" position={[0, 1.52, 0]} collisionGroups={arenaCollisionGroups} solverGroups={arenaCollisionGroups} userData={{ surface: true, kind: 'ring' }}><mesh receiveShadow><boxGeometry args={[12, .65, 9]} /><meshStandardMaterial color="#202437" roughness={.68} /></mesh></RigidBody>
-    <ReactiveMat />
-    <group position={[0, 1.915, 0]}>
-      <mesh position={[0, 0, -3.78]}><boxGeometry args={[10.7, .025, .045]} /><meshStandardMaterial color="#48e7ff" emissive="#48e7ff" emissiveIntensity={1.25} /></mesh><mesh position={[0, 0, 3.78]}><boxGeometry args={[10.7, .025, .045]} /><meshStandardMaterial color="#ff3f8f" emissive="#ff3f8f" emissiveIntensity={1.25} /></mesh>
-      <mesh position={[-5.12, 0, 0]}><boxGeometry args={[.045, .025, 7.55]} /><meshStandardMaterial color="#dcff46" emissive="#a8dc2c" emissiveIntensity={1.1} /></mesh><mesh position={[5.12, 0, 0]}><boxGeometry args={[.045, .025, 7.55]} /><meshStandardMaterial color="#ff6e32" emissive="#ff4c2b" emissiveIntensity={1.1} /></mesh>
-    </group>
-    <mesh position={[0, 1.89, 0]} rotation={[-Math.PI / 2, 0, 0]}><torusGeometry args={[2.1, .06, 8, 48]} /><meshStandardMaterial color="#662bff" emissive="#662bff" emissiveIntensity={1.2} /></mesh>
-    <mesh position={[0, 1.9, 0]} rotation={[-Math.PI / 2, 0, -.18]}><boxGeometry args={[3.1, .12, .025]} /><meshStandardMaterial color="#ff3d93" emissive="#ff3d93" emissiveIntensity={1} /></mesh>
+    <RigidBody ref={ringSurface} type="fixed" colliders={false} position={[0, 1.52, 0]} collisionGroups={arenaCollisionGroups} solverGroups={arenaCollisionGroups} userData={{ surface: true, kind: 'ring' }}><CuboidCollider args={[6, .325, 4.5]} /><mesh receiveShadow><boxGeometry args={[12, .55, 9]} /><meshStandardMaterial color="#202437" roughness={.68} /></mesh></RigidBody>
+    <WrestlingMat />
     <group>
       <mesh position={[0, 1.46, -4.55]}><boxGeometry args={[11.7, .78, .18]} /><meshStandardMaterial color="#11101c" metalness={.35} roughness={.44} /></mesh>
       <mesh position={[0, 1.46, 4.55]}><boxGeometry args={[11.7, .78, .18]} /><meshStandardMaterial color="#11101c" metalness={.35} roughness={.44} /></mesh>

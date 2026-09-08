@@ -1,0 +1,31 @@
+import type { Vec2 } from '../types/game';
+import { POSES, type Pose } from './poses';
+
+/** Gait follows solved travel in the wrestler's facing space, including backsteps. */
+export function locomotionPose(velocity: Vec2, facing: number, phase: number, combat = true): Pose {
+  const speed = Math.hypot(velocity.x, velocity.z);
+  const amount = Math.min(1, speed / 1.8);
+  const run = Math.max(0, Math.min(1, (speed - 3.5) / 2));
+  const forward = speed > .001 ? (velocity.x * Math.sin(facing) + velocity.z * Math.cos(facing)) / speed : 0;
+  const lateral = speed > .001 ? (velocity.x * Math.cos(facing) - velocity.z * Math.sin(facing)) / speed : 0;
+  const step = Math.sin(phase);
+  const stride = (.3 + run * .22) * amount;
+  const knee = (.4 + run * .35) * amount;
+  const leftSwing = Math.max(0, -step);
+  const rightSwing = Math.max(0, step);
+  const guard = combat ? 1 - run * .65 : 0;
+  return {
+    ...POSES.combatIdle,
+    torso: [.035 + run * .09, step * forward * .035 * amount, step * .012 * amount],
+    leftLeg: [step * stride * forward, 0, step * stride * lateral * .65],
+    rightLeg: [-step * stride * forward, 0, -step * stride * lateral * .65],
+    leftShin: [-leftSwing * knee, 0, 0], rightShin: [-rightSwing * knee, 0, 0],
+    leftArm: [-.42 * guard - step * forward * (.2 + run * .26) * amount, 0, -.16],
+    rightArm: [-.42 * guard + step * forward * (.2 + run * .26) * amount, 0, .16],
+    leftForearm: [-.18 - guard * .72 - run * .5, 0, 0],
+    rightForearm: [-.18 - guard * .72 - run * .5, 0, 0],
+    rootY: Math.abs(Math.cos(phase)) * (.018 + run * .024) * amount,
+    rootTilt: forward * (.025 + run * .1) * amount,
+    rootRoll: -lateral * .045 * amount,
+  };
+}

@@ -2,7 +2,7 @@ import type { ControlStyle } from '../game/input/playerController';
 import { getMove } from '../game/data/moves';
 import { canTransitionThroughRopes } from '../game/systems/combat';
 import { combatDirection, GRAPPLE_ACQUISITION_RANGE, selectDirectionalGrapple, selectDirectionalStrike, selectGrappleEntryMove } from '../game/systems/moveSelection';
-import type { ControlDevice, FighterRuntime, Vec2 } from '../game/types/game';
+import type { ControlDevice, FighterRuntime, GrappleRuntime, Vec2 } from '../game/types/game';
 import type { ControlDeckMode } from '../game/state/settings';
 
 type ControlId = 'move' | 'run' | 'quick' | 'heavy' | 'grapple' | 'block' | 'counter' | 'jump' | 'interact' | 'context' | 'taunt';
@@ -89,14 +89,11 @@ export function buildControlLabels(player: FighterRuntime, opponent: FighterRunt
   return labels;
 }
 
-export function buildControlReadout(player: FighterRuntime, opponent: FighterRuntime, speed: number, distance: number, paused: boolean, device: ControlDevice = 'keyboard', direction: Vec2 = { x: 0, z: 0 }, runHeld = false, controlStyle: ControlStyle = 'technical', hasRing = true): ControlReadout {
+export function buildControlReadout(player: FighterRuntime, opponent: FighterRuntime, speed: number, distance: number, paused: boolean, device: ControlDevice = 'keyboard', direction: Vec2 = { x: 0, z: 0 }, runHeld = false, controlStyle: ControlStyle = 'technical', hasRing = true, grapplePhase: GrappleRuntime['phase'] | null = null): ControlReadout {
   const active = new Set<ControlId>();
-  const labels = buildControlLabels(player, opponent, speed, distance, direction, runHeld, controlStyle, hasRing);
-  // Detect lift phase so the throw command is discoverable
-  const liftMoveIds = new Set(['slam', 'piledriver', 'powerbomb', 'skyhook', 'mountain_drop', 'suplex']);
-  const isInLift = player.state === 'grappling' && player.moveId !== null && liftMoveIds.has(player.moveId)
-    && player.attackPhase === 'anticipation'
-    && player.phaseElapsed > getMove(player.moveId).anticipationDuration * .56;
+  const labels = { ...buildControlLabels(player, opponent, speed, distance, direction, runHeld, controlStyle, hasRing) };
+  const isInLift = player.state === 'grappling' && grapplePhase === 'lift' && player.attackPhase === 'anticipation';
+  if (isInLift) labels.quick = 'RELEASE THROW';
   // OPTIMIZATION: Replacing slow Math.hypot with zero-allocation squared-magnitude check (> 0.0064 equivalent to > 0.08)
   const movementHeld = direction.x * direction.x + direction.z * direction.z > 0.0064;
   if (player.state === 'locomotion' || movementHeld) active.add(runHeld || speed > 3.75 ? 'run' : 'move');
@@ -180,8 +177,8 @@ export const buildVisibleControls = (readout: ControlReadout, device: ControlDev
   }));
 };
 
-export function ControlDeck({ device, player, opponent, speed, distance, paused, mode = 'full', direction = { x: 0, z: 0 }, runHeld = false, contextPreview, propPreview, controlStyle = 'technical', hasRing = true }: { device: ControlDevice; player: FighterRuntime; opponent: FighterRuntime; speed: number; distance: number; paused: boolean; mode?: Extract<ControlDeckMode, 'full' | 'compact'>; direction?: Vec2; runHeld?: boolean; contextPreview?: string; propPreview?: string; controlStyle?: ControlStyle; hasRing?: boolean }) {
-  const readout = buildControlReadout(player, opponent, speed, distance, paused, device, direction, runHeld, controlStyle, hasRing);
+export function ControlDeck({ device, player, opponent, speed, distance, paused, mode = 'full', direction = { x: 0, z: 0 }, runHeld = false, contextPreview, propPreview, controlStyle = 'technical', hasRing = true, grapplePhase = null }: { device: ControlDevice; player: FighterRuntime; opponent: FighterRuntime; speed: number; distance: number; paused: boolean; mode?: Extract<ControlDeckMode, 'full' | 'compact'>; direction?: Vec2; runHeld?: boolean; contextPreview?: string; propPreview?: string; controlStyle?: ControlStyle; hasRing?: boolean; grapplePhase?: GrappleRuntime['phase'] | null }) {
+  const readout = buildControlReadout(player, opponent, speed, distance, paused, device, direction, runHeld, controlStyle, hasRing, grapplePhase);
   const controls = buildVisibleControls(readout, device, mode, contextPreview, propPreview);
   const keys = DEVICE_KEYS[device];
 

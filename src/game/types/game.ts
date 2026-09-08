@@ -194,6 +194,7 @@ export interface MatchResult {
 
 export interface ImpactEvent {
   id: number;
+  contactPoint?: readonly [number, number, number];
   position: Vec2;
   kind: 'light' | 'heavy' | 'blocked' | 'counter' | 'grapple' | 'weapon' | 'finisher' | 'table' | 'nearfall' | 'ko' | 'rope';
   intensity: number;
@@ -207,6 +208,7 @@ export interface ImpactEvent {
 }
 
 export interface GrappleRuntime {
+  liftElapsed?: number;
   attacker: FighterSlot;
   defender: FighterSlot;
   position: GrapplePosition;

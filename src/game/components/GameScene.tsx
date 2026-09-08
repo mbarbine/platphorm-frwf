@@ -238,9 +238,9 @@ function PlayerControlBeacon() {
     const hasMagnitude = (intent.move.x * intent.move.x + intent.move.z * intent.move.z) > 0.0064; // 0.08 * 0.08 = 0.0064
     const controllable = ['idle', 'locomotion'].includes(model.player.state) && !model.paused && !model.resolved;
     const battleIdentity = model.matchMode === 'battle_royale' && !['defeated', 'victorious'].includes(model.player.state) && !model.resolved;
-    group.visible = battleIdentity || controllable;
+    group.visible = battleIdentity || (!model.resolved && !model.paused && model.player.state !== 'defeated');
     if (!group.visible) return;
-    group.position.set(model.player.position.x, (!venueFor(model).hasRing || (Math.abs(model.player.position.x) <= 5.82 && Math.abs(model.player.position.z) <= 4.32)) ? 1.94 : .08, model.player.position.z);
+    group.position.set(model.player.position.x, (!venueFor(model).hasRing || (Math.abs(model.player.position.x) <= 5.82 && Math.abs(model.player.position.z) <= 4.32)) ? 1.88 : .43, model.player.position.z);
     group.rotation.y = Math.atan2(intent.move.x, intent.move.z);
     if (direction.current) direction.current.visible = controllable && hasMagnitude;
     const pulse = 1 + Math.sin(clock.elapsedTime * 8) * .045; group.scale.setScalar(intent.run && hasMagnitude ? pulse * 1.1 : pulse);
@@ -248,8 +248,7 @@ function PlayerControlBeacon() {
   return <group ref={beacon} visible={false}>
     <mesh rotation={[-Math.PI / 2, 0, 0]}><torusGeometry args={[.43, .035, 5, 32]} /><meshBasicMaterial color="#49efff" transparent opacity={.86} depthWrite={false} /></mesh>
     <group ref={direction}><mesh position={[0, .028, .5]} rotation={[Math.PI / 2, 0, 0]}><coneGeometry args={[.15, .4, 3]} /><meshBasicMaterial color="#dfff38" transparent opacity={.96} depthWrite={false} /></mesh></group>
-    <mesh position={[0, 2.62, 0]} rotation={[0, 0, Math.PI]}><coneGeometry args={[.22, .62, 4]} /><meshBasicMaterial color="#dfff38" transparent opacity={.94} depthWrite={false} /></mesh>
-    <mesh position={[0, 2.95, 0]} rotation={[-Math.PI / 2, 0, 0]}><torusGeometry args={[.3, .045, 5, 28]} /><meshBasicMaterial color="#49efff" transparent opacity={.92} depthWrite={false} /></mesh>
+    <mesh position={[0, 2.42, 0]} rotation={[0, 0, Math.PI]}><coneGeometry args={[.1, .22, 3]} /><meshBasicMaterial color="#dfff38" transparent opacity={.94} depthWrite={false} /></mesh>
   </group>;
 }
 

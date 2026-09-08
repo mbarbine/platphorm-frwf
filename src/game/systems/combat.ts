@@ -163,6 +163,7 @@ export const startMove = (actor: FighterRuntime, target: FighterRuntime, move: M
 };
 
 interface ImpactMetadata {
+  contactPoint?: ImpactEvent['contactPoint'];
   region?: ImpactEvent['region'];
   force?: number;
   torque?: number;
@@ -178,6 +179,7 @@ const addImpact = (model: MatchModel, position: Vec2, kind: ImpactEvent['kind'],
   model.lastImpact = {
     id: model.impactSequence,
     position: { ...position },
+    contactPoint: metadata.contactPoint,
     kind,
     intensity,
     region: metadata.region,
@@ -256,7 +258,7 @@ export const applyMoveHit = (model: MatchModel, actorKey: FighterSlot, targetKey
       target.momentum = clamp(target.momentum + 15, 0, 100);
       model.hype = clamp(model.hype + 12, 0, 100);
       model.announcement = 'PERFECT PARRY!'; model.announcementTimer = 1.0;
-      addImpact(model, impactPosition, 'counter', 1.1, { region: calculatedImpact.region, force: calculatedImpact.force * 0.5, torque: calculatedImpact.torque, outcome: 'stagger', moveId: move.id, sourceFighter: targetKey, targetFighter: actorKey });
+      addImpact(model, impactPosition, 'counter', 1.1, { contactPoint: contact?.point, region: calculatedImpact.region, force: calculatedImpact.force * 0.5, torque: calculatedImpact.torque, outcome: 'stagger', moveId: move.id, sourceFighter: targetKey, targetFighter: actorKey });
       return true;
     }
     if (move.category === 'aerial' && target.stamina > Math.max(6, move.damage * .45)) {
@@ -268,7 +270,7 @@ export const applyMoveHit = (model: MatchModel, actorKey: FighterSlot, targetKey
       actor.body.verticalOffset = 0; actor.body.verticalVelocity = 0; actor.recoveryOrientation = 'back';
       model.hype = clamp(model.hype + 12, 0, 100);
       model.announcement = 'BLOCK CATCH!'; model.announcementTimer = .95;
-      addImpact(model, impactPosition, 'counter', 1.05, { region: calculatedImpact.region, force: calculatedImpact.force * .84, torque: calculatedImpact.torque, outcome: 'spin', moveId: move.id, sourceFighter: targetKey, targetFighter: actorKey });
+      addImpact(model, impactPosition, 'counter', 1.05, { contactPoint: contact?.point, region: calculatedImpact.region, force: calculatedImpact.force * .84, torque: calculatedImpact.torque, outcome: 'spin', moveId: move.id, sourceFighter: targetKey, targetFighter: actorKey });
       return true;
     }
     actor.hitTargets.push(hitToken);
@@ -282,9 +284,9 @@ export const applyMoveHit = (model: MatchModel, actorKey: FighterSlot, targetKey
       target.state = 'staggered'; target.stateElapsed = -BALANCE.block.guardBreakStagger;
       model.announcement = 'GUARD BREAK!'; model.announcementTimer = 1.1;
       model.hype = clamp(model.hype + 5, 0, 100);
-      addImpact(model, impactPosition, 'heavy', 1.15, { region: calculatedImpact.region, force: guardedImpact.force, torque: guardedImpact.torque, outcome: 'stagger', moveId: move.id, sourceFighter: actorKey, targetFighter: targetKey });
+      addImpact(model, impactPosition, 'heavy', 1.15, { contactPoint: contact?.point, region: calculatedImpact.region, force: guardedImpact.force, torque: guardedImpact.torque, outcome: 'stagger', moveId: move.id, sourceFighter: actorKey, targetFighter: targetKey });
     } else {
-      addImpact(model, impactPosition, 'blocked', .72, { region: calculatedImpact.region, force: guardedImpact.force, torque: guardedImpact.torque, outcome: 'absorbed', moveId: move.id, sourceFighter: actorKey, targetFighter: targetKey });
+      addImpact(model, impactPosition, 'blocked', .72, { contactPoint: contact?.point, region: calculatedImpact.region, force: guardedImpact.force, torque: guardedImpact.torque, outcome: 'absorbed', moveId: move.id, sourceFighter: actorKey, targetFighter: targetKey });
     }
     if (!model.toyTestMode && target.health <= 0 && (majorImpactMove || model.matchMode === 'battle_royale')) resolveMatch(model, actorKey, 'KNOCKOUT', targetKey);
     return true;
@@ -368,6 +370,7 @@ export const applyMoveHit = (model: MatchModel, actorKey: FighterSlot, targetKey
     : move.category === 'prop' ? 'weapon' : move.category === 'aerial' ? 'aerial' : move.id === 'rebound' ? 'rope' : 'strike';
   const highlightScore = Math.round((impact.force * 4 + move.hypeValue + (collisionOutcome === 'launch' ? 18 : 0) + (move.category === 'finisher' ? 28 : 0)) * 10) / 10;
   addImpact(model, impactPosition, kind, move.category === 'finisher' ? 2.2 : Math.max(.6, move.damage / 13), {
+    contactPoint: contact?.point,
     region: impact.region,
     force: impact.force,
     torque: impact.torque,
@@ -874,7 +877,17 @@ const updateFighter = (model: MatchModel, actorKey: FighterSlot, dt: number, mov
   if (actor.moveId) {
     const move = getMove(actor.moveId);
     const waitingForPhysicalGrip = model.physicsAuthority && actor.attackPhase === 'anticipation' && (move.category === 'grapple' || move.category === 'finisher') && model.grapple?.attacker === actorKey && (model.grapple.phase === 'reach' || model.grapple.phase === 'acquire') && model.grapple.gripCount < 2;
-    actor.phaseElapsed = waitingForPhysicalGrip ? Math.min(actor.phaseElapsed + dt, move.anticipationDuration * .46) : actor.phaseElapsed + dt;
+    // Give the secured collar tie a readable decision beat before loading the lift.
+    // A neutral press still completes its slam automatically; J/K/L can change
+    // the throw while the hands remain coupled, and the defender can reverse.
+    const choosingThrow = model.physicsAuthority && actorKey === 'player' && actor.attackPhase === 'anticipation'
+      && model.grapple?.attacker === actorKey && model.grapple.gripCount >= 2
+      && model.grapple.age < .5 && ['clinch', 'load', 'acquire', 'reach'].includes(model.grapple.phase);
+    const holdingLift = model.physicsAuthority && actorKey === 'player' && actor.attackPhase === 'anticipation'
+      && model.grapple?.attacker === actorKey && model.grapple.phase === 'lift' && (model.grapple.liftElapsed ?? 0) < .7;
+    actor.phaseElapsed = waitingForPhysicalGrip ? Math.min(actor.phaseElapsed + dt, move.anticipationDuration * .28)
+      : choosingThrow ? Math.min(actor.phaseElapsed + dt, move.anticipationDuration * .32)
+        : holdingLift ? Math.min(actor.phaseElapsed + dt, move.anticipationDuration * .76) : actor.phaseElapsed + dt;
     actor.attackPhase = getAttackPhase(move, actor.phaseElapsed);
     if (!model.physicsAuthority && move.category === 'aerial' && actor.phaseElapsed > move.anticipationDuration * .22) {
       const chase = normalize({ x: target.position.x - actor.position.x, z: target.position.z - actor.position.z });
@@ -1129,8 +1142,11 @@ const applyPhysicalTableStress = (model: MatchModel, contact: BodyWorksContact, 
   const table = model.props.find((prop) => prop.kind === 'table' && !prop.broken); if (!table) return;
   // A committed human landing is the table-collapse trigger. The physical
   // force still grades lighter bumps, while a completed slam/finisher supplies
-  // the structural impulse needed to break a wrestling commentary table.
-  const structuralImpulse = move.category === 'finisher' ? 72 : move.category === 'grapple' ? 58 : move.category === 'aerial' ? 38 : 0;
+  // the structural impulse needed to break a wrestling table. Lightweight
+  // wooden venue tables give way more readily than the reinforced arena desk.
+  const structuralImpulse = move.category === 'finisher' ? 72
+    : move.category === 'grapple' ? venueFor(model).hasRing ? 58 : 70
+      : move.category === 'aerial' ? 38 : 0;
   const addedStress = contact.maximumForce * .38 + contact.relativeSpeed * 7 + structuralImpulse;
   table.stress = Math.round((table.stress + addedStress) * 10) / 10;
   const nextStage = table.stress >= 82 ? 'failed' : table.stress >= 50 ? 'cracked' : table.stress >= 24 ? 'stressed' : 'intact';
@@ -1138,7 +1154,7 @@ const applyPhysicalTableStress = (model: MatchModel, contact: BodyWorksContact, 
   table.failureStage = nextStage;
   if (nextStage === 'failed') {
     table.broken = true; model.hype = clamp(model.hype + 28, 0, 100);
-    addImpact(model, table.position, 'table', 2.1, { force: contact.maximumForce, outcome: 'fall', highlight: { label: venueFor(model).hasRing ? 'Commentary Desk Collapse' : 'Wooden Table Crash', score: Math.round(table.stress + move.hypeValue + 24), kind: 'table' } });
+    addImpact(model, table.position, 'table', 2.1, { contactPoint: contact.point, force: contact.maximumForce, outcome: 'fall', highlight: { label: venueFor(model).hasRing ? 'Commentary Desk Collapse' : 'Wooden Table Crash', score: Math.round(table.stress + move.hypeValue + 24), kind: 'table' } });
     model.announcement = venueFor(model).hasRing ? 'COMMENTARY DESK — WRECKED!' : 'WOODEN TABLE — SHATTERED!'; model.announcementTimer = 2;
   } else {
     model.hype = clamp(model.hype + (nextStage === 'cracked' ? 12 : 5), 0, 100);
