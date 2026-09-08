@@ -113,9 +113,8 @@ export function PhysicsLab() {
     // Run away from the opponent into the near rope; return through the
     // opponent's lane. Running through the opponent first tests obstruction.
     else if (scenario.id === 'ropeStrike') useMatchStore.getState().prepareLabScenario({ x: -2.8, z: .08 }, { x: 0, z: .08 });
-    // Two .235 m head spheres need a non-overlapping but genuinely reachable
-    // lane. Chest colliders remain separated at .64 m while the authored brow
-    // drive can close the final head-surface gap during the active window.
+    // Keep the bodies initially separate; the physical brow drive must
+    // close the head-surface gap during the active window.
     else if (scenario.id === 'headbutt') useMatchStore.getState().prepareLabScenario({ x: 0, z: -.32 }, { x: 0, z: .32 });
     else if (closeRange) useMatchStore.getState().prepareLabScenario({ x: 0, z: -.4 }, { x: 0, z: .4 }, 'idle', scenario.id === 'soakRound' ? 1 : 100, 'back', 5, scenario.id === 'failedLift' ? 34 : undefined);
     else if (scenario.id === 'miss' || scenario.id === 'jabWhiff') useMatchStore.getState().prepareLabScenario({ x: 0, z: -2.6 }, { x: 0, z: 2.6 });

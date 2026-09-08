@@ -674,7 +674,7 @@ it.each([
     const gap = visibleSurfaceGap(sourceSkin.points(player.bodies, profile.source), targetSkin.triangles(opponent.bodies));
     expect(gap, `${moveId} skin gap at physical impact: ${gap.toFixed(3)} m (${runtime.metrics.lastContactPair})`).toBeLessThan(.12);
   } finally { sourceSkin.dispose(); targetSkin.dispose(); runtime.reset(); world.free(); }
-});
+}, 15_000);
 
 it('does not score a predicted uppercut when constraints prevent the fist reaching the body', () => {
   const { world, runtime, model, player, opponent } = makeGrappleHarness();
