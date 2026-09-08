@@ -804,7 +804,7 @@ export class BodyWorksRuntime {
     // Grounded pelvis roll/pitch uses a bounded balance constraint. Airborne,
     // falling, downed, and recovering bodies retain full rotational authority.
     // No transition writes an upright rotation; the controller must earn it.
-    const rootStabilized = motorProfile.rootMode !== 'physical';
+    const rootStabilized = motorProfile.rootMode !== 'physical' && uprightFromRotation(pelvis.rotation()) >= .985;
     if (rootStabilized !== rig.rootStabilized) {
       pelvis.setEnabledRotations(!rootStabilized, true, !rootStabilized, true);
       if (rootStabilized) {
@@ -1027,6 +1027,7 @@ export class BodyWorksRuntime {
 
   private configureRotationalAuthority(rig: FighterRigRegistration, fighter: FighterRuntime, profile: MotorProfile): void {
     const dynamic = new Set<BodySegmentId>();
+    const targets = physicalPoseTargets(targetPoseFor(fighter), fighter.facing);
     if (profile.rootMode === 'physical') for (const segment of Object.keys(rig.bodies) as BodySegmentId[]) dynamic.add(segment);
     // Arms remain a live, supported chain in standing locomotion so hands are
     // physically held in a guard and can reach from that guard. Locking them
@@ -1054,6 +1055,17 @@ export class BodyWorksRuntime {
     if (strike) {
       for (const segment of strikePoseChain(strike.source)) dynamic.add(segment);
       if (fighter.moveId === 'stiff_arm' || fighter.moveId === 'rebound') for (const segment of ['leftUpperArm', 'leftForearm', 'leftHand', 'rightUpperArm', 'rightForearm', 'rightHand'] as const) dynamic.add(segment);
+    }
+    // A world-space rotation lock is only safe at the intended pose. Turns,
+    // hit reactions and completed kicks all change that pose. Keep misaligned
+    // chains motorized until they settle instead of freezing a bent wrestler.
+    for (const segment of Object.keys(rig.bodies) as BodySegmentId[]) {
+      if (segment === 'pelvis' || dynamic.has(segment)) continue;
+      const body = rig.bodies[segment]; if (!body?.isValid()) continue;
+      const q = body.rotation(); const target = targets[segment];
+      const agreement = Math.abs(q.x * target.x + q.y * target.y + q.z * target.z + q.w * target.w);
+      const tolerance = rig.rotationallyDynamic.has(segment) ? .999 : .997;
+      if (agreement < tolerance) dynamic.add(segment);
     }
     const signature = `${profile.rootMode}:${[...dynamic].sort().join(',')}`;
     if (signature === rig.rotationSignature) return;
@@ -1895,7 +1907,7 @@ export class BodyWorksRuntime {
       // motor fighting a disabled rotation cannot animate the limb; it only
       // hammers Rapier's limit and was the source of the old standing buzz.
       if (segment !== 'pelvis' && !rig.rotationallyDynamic.has(segment)) continue;
-      if (segment === 'pelvis' && motorProfile.rootMode !== 'physical') continue;
+      if (segment === 'pelvis' && rig.rootStabilized) continue;
       const chain = motorProfile.chains[motorChainForSegment(segment)];
       const pelvisScale = segment === 'pelvis' ? 1.28 : 1;
       const stiffnessScale = definition.physics.jointStiffness * pelvisScale;
@@ -1936,6 +1948,10 @@ export class BodyWorksRuntime {
         // fatigue-scaled and bounded, so the joints and opponent can resist it.
         const authority = .62 + fighter.body.muscle * .38;
         body.setAngvel(chasePoseAngularVelocity(body.rotation(), targets[segment], body.angvel(), 7.2, 6.4 * authority, .24 * authority), true);
+      } else if (motorProfile.rootMode !== 'physical') {
+        // Standing balance has enough authority to finish a turn or unwind a
+        // strike. Impacts still resolve through contacts and the fall states.
+        body.setAngvel(chasePoseAngularVelocity(body.rotation(), targets[segment], body.angvel(), 5.2, 3.4, .22), true);
       }
       const torque = computeMotorTorque(body.rotation(), targets[segment], body.angvel(), { x: 0, y: 0, z: 0 }, {
         stiffness: chain.stiffness * stiffnessScale,

@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
-import { SkinnedMesh } from 'three';
+import type { SkinnedMesh } from 'three';
 import { fitHumanoid } from '../game/presentation/fitHumanoid';
 import { buildBodySchema } from '../game/physics/bodySchema';
 import { fighterById } from '../game/data/fighters';
@@ -30,9 +30,11 @@ describe('canonical humanoid scale', () => {
     expect(fitted.geometry).not.toBe(source.geometry);
     expect(fit.scale).toBeGreaterThan(1);
     fitted.skeleton.update();
-    expect([...fitted.skeleton.boneMatrices].every(Number.isFinite)).toBe(true);
+    const matrices = fitted.skeleton.boneMatrices;
+    if (!matrices) throw new Error('Fitted skeleton has no bone matrices');
+    expect([...matrices].every(Number.isFinite)).toBe(true);
     // Rebinding the rest pose must not stretch an otherwise unchanged vertex.
-    expect(fitted.skeleton.boneMatrices[0]).toBeCloseTo(1, 4);
+    expect(matrices[0]).toBeCloseTo(1, 4);
     fit.dispose();
   });
 });

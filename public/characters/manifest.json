@@ -13,8 +13,8 @@
         0.0836875
       ],
       "id": "atlas",
-      "url": "/characters/atlas.7a868b9e72a2.glb",
-      "sha256": "7a868b9e72a27e07142711dfb19f343a2491d518e7b510cc4f390ceba16db05f",
+      "url": "/characters/atlas.097b0c7ab64e.glb",
+      "sha256": "097b0c7ab64ea30fc49fb047c68a0000229c5c3c76d05205b184d8b423262913",
       "bytes": 1093004,
       "triangles": 29276,
       "bones": [
@@ -73,8 +73,8 @@
         0.0836875
       ],
       "id": "vex",
-      "url": "/characters/vex.5065a4ab16a1.glb",
-      "sha256": "5065a4ab16a1762c32120354ba984e7040e9ab4a42e00667b9de98b25b1c9009",
+      "url": "/characters/vex.d1fed8113fcd.glb",
+      "sha256": "d1fed8113fcdddb45aeb7d900c8802dc153542fb4d5acf9618d4b59df98ed974",
       "bytes": 1092936,
       "triangles": 29276,
       "bones": [
@@ -133,8 +133,8 @@
         0.0836875
       ],
       "id": "nova",
-      "url": "/characters/nova.ffee4a201f2c.glb",
-      "sha256": "ffee4a201f2c650cd1316b708c01ab63228d0b62274ede60276128f1f5678371",
+      "url": "/characters/nova.ffdf41e1b978.glb",
+      "sha256": "ffdf41e1b978fefa085566d41891e5d0d2ab4d8ef7ce4cf9e0cbc86de3ab3eaf",
       "bytes": 1092940,
       "triangles": 29276,
       "bones": [
@@ -193,8 +193,8 @@
         0.0836875
       ],
       "id": "brick",
-      "url": "/characters/brick.780a7ac81527.glb",
-      "sha256": "780a7ac8152739114889b09d0adb244727382ed75a0f07fc518e8e7e91b2c182",
+      "url": "/characters/brick.d0d0b2ca656e.glb",
+      "sha256": "d0d0b2ca656e0d355f4f34a3b0b151a68cf0d3d269f4f7a3f5bfd886a7cb18d1",
       "bytes": 1093076,
       "triangles": 29276,
       "bones": [
@@ -253,8 +253,8 @@
         0.0836875
       ],
       "id": "chad",
-      "url": "/characters/chad.cf16c2dbb94d.glb",
-      "sha256": "cf16c2dbb94d0a157eb35039408edaf40f21235fa6c6444314cdb867d4eae5d7",
+      "url": "/characters/chad.a96300d7491a.glb",
+      "sha256": "a96300d7491a8e94b0a22539905e2ad1b6a5c63ce6b2807d6027d2e640e4ed46",
       "bytes": 1093148,
       "triangles": 29276,
       "bones": [

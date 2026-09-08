@@ -96,7 +96,7 @@ for (const profile of profiles) {
         const w=[...merged[original]].sort((a,b)=>b[1]-a[1]).slice(0,4); const sum=w.reduce((s,e)=>s+e[1],0)||1;
         for(let k=0;k<4;k++){skinIndices.push(w[k]?.[0]??0);skinWeights.push(w[k]?w[k][1]/sum:k===0&&w.length===0?1:0);}
         const dominant=names[w[0]?.[0]??0]; const originalY=points[original][1];
-        const trunks=originalY>(profile.id==='chad'?-2.0:-.9)&&originalY<2.1&&!dominant.includes('Arm')&&!dominant.includes('Hand');
+        const trunks=/^(pelvis|abdomen|leftThigh|rightThigh)$/.test(dominant)&&originalY>(profile.id==='chad'?-2.0:-.9)&&originalY<2.1;
         const boot=dominant.includes('Foot')||(dominant.includes('Shin')&&originalY < -5.1);
         const tape=dominant.includes('Forearm')&&originalY<3.0&&originalY>2.5;
         const trim=trunks&&(originalY>1.75||Math.abs(pos.x)>.2*profile.width);

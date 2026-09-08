@@ -100,6 +100,19 @@ const stepGrappleHarness = (world: World, runtime: BodyWorksRuntime, model: Matc
 beforeAll(async () => { await init(); });
 
 describe('Rapier-backed Bodyworks integration', () => {
+  it('unwinds a bent torso when control returns instead of locking the hit pose', () => {
+    const { world, runtime, model, rig } = makeHarness();
+    try {
+      model.labMode = true;
+      for (let frame = 0; frame < 60; frame++) stepHarness(world, runtime, model);
+      rig.bodies.chest.setRotation({ x: Math.sin(.55), y: 0, z: 0, w: Math.cos(.55) }, true);
+      for (let frame = 0; frame < 180; frame++) stepHarness(world, runtime, model);
+      const chest = rig.bodies.chest.rotation();
+      expect(1 - 2 * (chest.x * chest.x + chest.z * chest.z)).toBeGreaterThan(.9);
+      expect(runtime.fighterSnapshot('player').headY).toBeGreaterThan(runtime.fighterSnapshot('player').pelvisY + .65);
+      expect(runtime.metrics.emergencyResetCount).toBe(0);
+    } finally { runtime.reset(); world.free(); }
+  });
   it.each(['back', 'front', 'left', 'right'] as const)('recovers from a %s fall to supported player control', (orientation) => {
     const { world, runtime, model } = makeHarness();
     try {
@@ -266,6 +279,7 @@ describe('Rapier-backed Bodyworks integration', () => {
     expect(sawTwoGrips, JSON.stringify(runtime.metrics)).toBe(true);
     expect(sawLift, JSON.stringify({ grapple: model.grapple, player: model.player, metrics: runtime.metrics })).toBe(true);
     expect(peakPelvisY, JSON.stringify({ restingPelvisY, peakPelvisY, opponent: model.opponent, metrics: runtime.metrics })).toBeGreaterThan(restingPelvisY + .55);
+    expect(peakPelvisY - restingPelvisY, 'a body slam lifts to shoulder height, not above the arena').toBeLessThan(1.8);
     expect(sawLanding, JSON.stringify({ opponent: model.opponent, metrics: runtime.metrics })).toBe(true);
     expect(model.opponent.health).toBeLessThan(100);
     expect(model.playerStats.grapples).toBe(1);
