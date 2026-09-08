@@ -10,7 +10,8 @@ export type ColliderRole = 'body' | 'strike' | 'grip' | 'support';
 
 /** Every articulated wrestler must register this many rigid bodies before play begins. */
 export const BODY_SEGMENT_COUNT = 16;
-export const HEAD_COLLIDER_RADIUS = .235;
+export const HEAD_COLLIDER_RADIUS = .17;
+export const HEAD_COLLIDER_OFFSET: [number, number, number] = [0, -.065, 0];
 
 export const CORE_SEGMENTS: readonly BodySegmentId[] = ['chest', 'abdomen', 'pelvis', 'head'] as const;
 
@@ -115,5 +116,12 @@ export const segmentSchema = (definition: FighterDefinition, id: BodySegmentId):
 export function torsoColliderArgs(segment: BodySegmentSchema): [number, number, number, number] | null {
   if (segment.id === 'chest') return [segment.radius - .035, segment.halfLength, .105, .035];
   if (segment.id === 'abdomen' || segment.id === 'pelvis') return [segment.radius - .035, segment.halfLength, .105, .035];
+  return null;
+}
+
+/** The knuckles and boot toe extend forward of their wrist/ankle bone. */
+export function extremityColliderShape(segment: BodySegmentSchema): { args: [number, number, number]; position: [number, number, number] } | null {
+  if (segment.id.includes('Hand')) return { args: [.055, .105, .115], position: [segment.side === 'left' ? .015 : -.015, .015, .05] };
+  if (segment.id.includes('Foot')) return { args: [segment.radius, segment.radius * .5, segment.halfLength * 1.35], position: [0, 0, .09] };
   return null;
 }

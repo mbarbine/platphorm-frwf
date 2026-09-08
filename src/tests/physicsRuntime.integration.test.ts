@@ -6,7 +6,7 @@ import { ColliderDesc, JointData, RigidBodyDesc, World, init } from '@dimforge/r
 import type { RigidBody } from '@dimforge/rapier3d-compat';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { FIGHTERS, fighterById } from '../game/data/fighters';
-import { buildBodySchema, torsoColliderArgs } from '../game/physics/bodySchema';
+import { buildBodySchema, extremityColliderShape, HEAD_COLLIDER_OFFSET, torsoColliderArgs } from '../game/physics/bodySchema';
 import type { BodySegmentId, BodySegmentSchema } from '../game/physics/bodySchema';
 import { shortestQuaternionError } from '../game/physics/motorController';
 import { arenaCollisionGroups, fighterCollisionGroups } from '../game/physics/collisionGroups';
@@ -34,10 +34,11 @@ const createHeadlessRig = (world: World, fighterId: FighterId, slot: FighterSlot
       .setTranslation(x + segment.localPosition[0], 1.8 + segment.localPosition[1], segment.localPosition[2])
       .setLinearDamping(.55).setAngularDamping(2.2).setCanSleep(true).enabledRotations(false, false, false).setAdditionalSolverIterations(4).setCcdEnabled(segment.attackEligible || ['head', 'pelvis', 'abdomen', 'chest'].includes(segment.id)));
     const torsoArgs = torsoColliderArgs(segment);
-    const collider = torsoArgs ? ColliderDesc.roundCuboid(...torsoArgs) : segment.id === 'head' ? ColliderDesc.ball(segment.radius)
-      : segment.id.includes('Foot') || segment.id.includes('Hand')
-        ? ColliderDesc.cuboid(segment.radius, segment.id.includes('Foot') ? segment.radius * .5 : segment.halfLength, segment.id.includes('Foot') ? segment.halfLength * 1.35 : segment.radius).setTranslation(0, 0, segment.id.includes('Foot') ? .09 : 0)
-        : ColliderDesc.capsule(segment.halfLength, segment.radius).setTranslation(0, segment.id.includes('UpperArm') ? .065 : 0, 0);
+    const extremity = extremityColliderShape(segment);
+    const collider = torsoArgs ? ColliderDesc.roundCuboid(...torsoArgs) : segment.id === 'head' ? ColliderDesc.ball(segment.radius).setTranslation(...HEAD_COLLIDER_OFFSET)
+      : extremity
+        ? ColliderDesc.cuboid(...extremity.args).setTranslation(...extremity.position)
+        : ColliderDesc.capsule(segment.halfLength, segment.radius);
     world.createCollider(collider.setMass(segment.massKg).setFriction(segment.id.includes('Foot') ? 1.45 : .76).setRestitution(.015).setCollisionGroups(fighterCollisionGroups(slot)), body);
     bodies[segment.id] = body;
   }
@@ -130,16 +131,16 @@ describe('Rapier-backed Bodyworks integration', () => {
     } finally { runtime.reset(); world.free(); }
   });
 
-  it('raises both physical hands toward the chin when guard is held', () => {
-    const { world, runtime, model, rig } = makeHarness();
+  it.each(FIGHTERS)('raises $id hands toward the chin when guard is held', fighter => {
+    const { world, runtime, model, rig } = makeHarness(fighter.id);
     try {
       model.labMode = true;
       for (let frame = 0; frame < 180; frame++) stepHarness(world, runtime, model);
       for (let frame = 0; frame < 60; frame++) stepHarness(world, runtime, model, STILL.move, false, true);
       expect(model.player.state).toBe('blocking');
-      const chest = rig.bodies.chest.translation();
+      const head = rig.bodies.head.translation();
       for (const side of ['left', 'right'] as const) {
-        expect(rig.bodies[`${side}Hand`].translation().y).toBeGreaterThan(chest.y - .12);
+        expect(rig.bodies[`${side}Hand`].translation().y).toBeGreaterThan(head.y - .35);
       }
     } finally { runtime.reset(); world.free(); }
   });
@@ -514,7 +515,7 @@ it.each(['back', 'front', 'left', 'right'] as const)('Get Up builds a stance abo
     model.player.state = 'downed'; model.player.downTimer = 15; model.player.stamina = 0;
     model.player.recoveryOrientation = orientation;
     expect(requestCommand(model, 'player', 'dodge')).toBe(true);
-    for (let frame = 0; frame < 600 && model.player.state !== 'idle'; frame++) stepGrappleHarness(world, runtime, model);
+    for (let frame = 0; frame < 600 && String(model.player.state) !== 'idle'; frame++) stepGrappleHarness(world, runtime, model);
     const snapshot = runtime.fighterSnapshot('player');
     expect(model.player.state, JSON.stringify(snapshot)).toBe('idle');
     expect(snapshot.upright).toBeGreaterThan(.9);
@@ -671,8 +672,25 @@ it.each([
     expect(model.lastImpact?.moveId).toBe(moveId);
     const profile = strikeDriveProfile(moveId); if (!profile) throw new Error(`Missing strike ${moveId}`);
     const gap = visibleSurfaceGap(sourceSkin.points(player.bodies, profile.source), targetSkin.triangles(opponent.bodies));
-    expect(gap, `${moveId} skin gap at physical impact: ${gap.toFixed(3)} m`).toBeLessThan(.12);
+    expect(gap, `${moveId} skin gap at physical impact: ${gap.toFixed(3)} m (${runtime.metrics.lastContactPair})`).toBeLessThan(.12);
   } finally { sourceSkin.dispose(); targetSkin.dispose(); runtime.reset(); world.free(); }
+});
+
+it('does not score a predicted uppercut when constraints prevent the fist reaching the body', () => {
+  const { world, runtime, model, player, opponent } = makeGrappleHarness();
+  try {
+    for (let frame = 0; frame < 60; frame++) stepGrappleHarness(world, runtime, model);
+    expect(requestCommand(model, 'player', 'quick', { x: 0, z: -1 })).toBe(true);
+    model.player.attackPhase = 'active'; model.player.phaseElapsed = .2;
+    const head = opponent.bodies.head.translation();
+    player.bodies.rightHand.setTranslation({ x: head.x - .48, y: head.y, z: head.z }, true);
+    for (const body of [...Object.values(player.bodies), ...Object.values(opponent.bodies)]) {
+      body.setEnabledTranslations(false, false, false, true); body.setLinvel({ x: 0, y: 0, z: 0 }, true);
+    }
+    for (let frame = 0; frame < 5; frame++) stepGrappleHarness(world, runtime, model);
+    expect(model.opponent.health).toBe(100);
+    expect(model.lastImpact).toBeNull();
+  } finally { runtime.reset(); world.free(); }
 });
 
 

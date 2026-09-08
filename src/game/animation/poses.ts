@@ -47,7 +47,7 @@ export const POSES: Readonly<Record<AnimationKey, Pose>> = {
   counter: { ...base, torso: [0, .2, 0], leftArm: [-.75, 0, -.6], rightArm: [-1.15, .2, .25], rightLeg: [-.55, 0, 0] },
   // Raise the elbows and fold the hinged forearms toward the chin. Guard
   // must visibly protect the head, rather than leaving both hands at the waist.
-  block: { ...base, torso: [.14, 0, 0], leftArm: [-1.05, -.22, .16], rightArm: [-1.05, .22, -.16], leftForearm: [-1.4, 0, 0], rightForearm: [-1.4, 0, 0], leftLeg: [.12, 0, 0], rightLeg: [-.12, 0, 0], rootTilt: .08 },
+  block: { ...base, torso: [.1, 0, 0], leftArm: [-1.35, -.18, .12], rightArm: [-1.35, .18, -.12], leftForearm: [-1.9, 0, 0], rightForearm: [-1.9, 0, 0], leftLeg: [.12, 0, 0], rightLeg: [-.12, 0, 0], rootTilt: .04 },
   climb: { ...base, torso: [.55, 0, 0], leftArm: [-1.85, -.08, -.72], rightArm: [-1.85, .08, .72], leftForearm: [-1.28, 0, -.12], rightForearm: [-1.28, 0, .12], leftLeg: [-1.02, 0, 0], rightLeg: [-.52, 0, 0], leftShin: [-.72, 0, 0], rightShin: [-.58, 0, 0], rootY: 1.38, rootTilt: -.06 },
   aerial: { ...base, torso: [-.1, 0, .42], leftArm: [-2.15, 0, -.92], rightArm: [-.28, 0, .9], leftForearm: [-.85, 0, 0], rightForearm: [-1.4, 0, 0], leftLeg: [-1.08, 0, -.1], rightLeg: [.76, 0, .1], leftShin: [-.42, 0, 0], rightShin: [-1.32, 0, 0], rootY: 1.62, rootTilt: -.18, rootYaw: .72, rootRoll: .58 },
   taunt: { ...base, leftArm: [-2.65, 0, -.5], rightArm: [-2.65, 0, .5], rootY: .12 },

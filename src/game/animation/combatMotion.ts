@@ -45,6 +45,7 @@ export function authoredStrikePose(base: Pose, move: MoveDefinition, phase: Atta
   // Rapier owns foot placement and root travel. Captured hip/shoulder timing
   // drives the same physical limbs that score contact, never a separate skin.
   const envelope = phase === 'anticipation' ? clamp(progress * 4) : phase === 'recovery' ? clamp((1 - progress) * 3) : 1;
+  if (envelope < 1e-8) return base;
   const result = blend(base, captured, .65 * envelope);
   result.rootX = base.rootX; result.rootY = base.rootY; result.rootZ = base.rootZ;
   result.rootTilt = clamp(result.rootTilt, -.22, .22); result.rootRoll = clamp(result.rootRoll, -.18, .18);

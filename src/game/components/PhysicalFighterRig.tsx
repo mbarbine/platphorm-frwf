@@ -5,7 +5,7 @@ import type { ReactNode, RefObject } from 'react';
 import { fighterById } from '../data/fighters';
 import { useMatchStore } from '../state/matchStore';
 import type { FighterRuntime } from '../types/game';
-import { buildBodySchema, torsoColliderArgs } from '../physics/bodySchema';
+import { buildBodySchema, extremityColliderShape, HEAD_COLLIDER_OFFSET, torsoColliderArgs } from '../physics/bodySchema';
 import type { BodySegmentId, BodySegmentSchema } from '../physics/bodySchema';
 import { fighterCollisionGroups } from '../physics/collisionGroups';
 import { bodyWorksRuntime } from '../physics/physicsRuntime';
@@ -98,11 +98,12 @@ function SegmentBody({ schema, fighterId, side, base, bodyRef, onContactForce, o
     damageMultiplier: schema.damageMultiplier,
     gripAnchorEligible: schema.gripAnchorEligible,
   }), [schema, side]);
-  const isFoot = schema.id === 'leftFoot' || schema.id === 'rightFoot'; const isHand = schema.id === 'leftHand' || schema.id === 'rightHand'; const isHead = schema.id === 'head';
+  const isFoot = schema.id === 'leftFoot' || schema.id === 'rightFoot'; const isHead = schema.id === 'head';
   const torsoArgs = torsoColliderArgs(schema);
-  const collider: ReactNode = torsoArgs ? <RoundCuboidCollider args={torsoArgs} mass={schema.massKg} friction={.76} restitution={.015} /> : isHead ? <BallCollider args={[schema.radius]} mass={schema.massKg} />
-    : isFoot || isHand ? <CuboidCollider position={[0, 0, isFoot ? .09 : 0]} args={[schema.radius, isFoot ? schema.radius * .5 : schema.halfLength, isFoot ? schema.halfLength * 1.35 : schema.radius]} mass={schema.massKg} friction={isFoot ? 1.45 : .72} restitution={.02} />
-    : <CapsuleCollider position={[0, schema.id.includes('UpperArm') ? .065 : 0, 0]} args={[schema.halfLength, schema.radius]} mass={schema.massKg} friction={.76} restitution={.015} />;
+  const extremity = extremityColliderShape(schema);
+  const collider: ReactNode = torsoArgs ? <RoundCuboidCollider args={torsoArgs} mass={schema.massKg} friction={.76} restitution={.015} /> : isHead ? <BallCollider position={HEAD_COLLIDER_OFFSET} args={[schema.radius]} mass={schema.massKg} />
+    : extremity ? <CuboidCollider position={extremity.position} args={extremity.args} mass={schema.massKg} friction={isFoot ? 1.45 : .72} restitution={.02} />
+    : <CapsuleCollider args={[schema.halfLength, schema.radius]} mass={schema.massKg} friction={.76} restitution={.015} />;
   const isCore = schema.id === 'pelvis' || schema.id === 'abdomen' || schema.id === 'chest';
   return <RigidBody ref={bodyRef} name={`${side}-${schema.id}`} type="dynamic" position={position} colliders={false} collisionGroups={fighterCollisionGroups(side)} solverGroups={fighterCollisionGroups(side)} canSleep linearDamping={.55} angularDamping={2.2} additionalSolverIterations={4} enabledRotations={[false, false, false]} ccd={schema.attackEligible || isHead || isCore} userData={userData}
     onContactForce={(payload) => onContactForce(schema, bodyRef, payload)}

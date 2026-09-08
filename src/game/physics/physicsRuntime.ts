@@ -816,7 +816,8 @@ export class BodyWorksRuntime {
     // Grounded pelvis roll/pitch uses a bounded balance constraint. Airborne,
     // falling, downed, and recovering bodies retain full rotational authority.
     // No transition writes an upright rotation; the controller must earn it.
-    const rootStabilized = motorProfile.rootMode !== 'physical' && uprightFromRotation(pelvis.rotation()) >= .985;
+    const archingThrow = ['suplex', 'skyhook'].includes(fighter.moveId ?? '') && ['active', 'recovery'].includes(fighter.attackPhase ?? '');
+    const rootStabilized = !archingThrow && motorProfile.rootMode !== 'physical' && uprightFromRotation(pelvis.rotation()) >= .985;
     if (rootStabilized !== rig.rootStabilized) {
       pelvis.setEnabledRotations(!rootStabilized, true, !rootStabilized, true);
       if (rootStabilized) {
@@ -2424,13 +2425,13 @@ export class BodyWorksRuntime {
           + Math.abs(1 - 2 * (q.x * q.x + q.z * q.z)) * args[1]
           + Math.abs(2 * (q.y * q.z - q.w * q.x)) * args[2] + args[3];
       }
-      return Math.min(lowest, body.translation().y - radius);
+      return Math.min(lowest, (body.numColliders() ? body.collider(0).translation().y : body.translation().y) - radius);
     }, Number.POSITIVE_INFINITY);
     if (!Number.isFinite(lowestCoreClearance) || lowestCoreClearance >= surfaceY - .025) return;
     // Preserve the entire articulated pose while moving the connected tree out
     // of the fixed surface. This is a bounded penetration correction, not a
     // standing reset: the wrestler remains downed and must recover normally.
-    const correctionY = clamp(surfaceY + .018 - lowestCoreClearance, .003, .28);
+    const correctionY = clamp(surfaceY + .003 - lowestCoreClearance, .003, .28);
     const settlingOnDeck = ['downed', 'recovering', 'pinned', 'defeated'].includes(fighter.state);
     for (const body of Object.values(rig.bodies)) {
       if (!body?.isValid()) continue;
