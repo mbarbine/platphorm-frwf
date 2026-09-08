@@ -78,7 +78,7 @@ export const createMatch = (playerId: FighterId, opponentId: FighterId, ruleset:
   const props = initialProps(ruleset === 'chaos'); const propsById = Object.fromEntries(props.map((p) => [p.id, p]));
   return {
     toyTestMode: false, labMode: false, matchMode, ruleset, difficulty, elapsed: 0, paused: false, physicsAuthority: false, networkAuthority: false, resolved: false,
-    player: createFighterRuntime(playerId, { x: -3.25, z: 0 }, playerBeers), opponent: createFighterRuntime(resolvedOpponentId, { x: 3.25, z: 0 }, opponentBeers),
+    player: createFighterRuntime(playerId, { x: matchMode === 'singles' ? -1.8 : -3.25, z: 0 }, playerBeers), opponent: createFighterRuntime(resolvedOpponentId, { x: matchMode === 'singles' ? 1.8 : 3.25, z: 0 }, opponentBeers),
     rival1: createFighterRuntime(rivalIds[0], { x: 0, z: -2.45 }), rival2: createFighterRuntime(rivalIds[1], { x: -1.85, z: 2.35 }), rival3: createFighterRuntime(rivalIds[2], { x: 1.85, z: 2.35 }),
     targets: { player: 'opponent', opponent: 'player', rival1: 'rival3', rival2: 'rival1', rival3: 'rival2' }, playerTargetLock: 0, eliminations: [], falls: [], fallSequence: 0, unstableWithoutCauseSeconds: 0,
     hype: 8, props, propsById, chaosEvent: null, nextChaosAt: 38, lastImpact: null, impactSequence: 0,
@@ -535,24 +535,11 @@ export const requestCommand = (model: MatchModel, actorKey: FighterSlot, command
   if (actor.state === 'climbing' && actor.climbStage === 3 && command === 'jump') {
     return launchAerial(model, actor, target, 'aerial');
   }
-  // Mid-lift throw: while opponent is held overhead, quick press hurls them in movement direction
-  if (actor.state === 'grappling' && model.grapple?.phase === 'lift' && model.grapple?.attacker === actorKey && command === 'quick') {
-    // OPTIMIZATION: Replaced Math.hypot with a zero-allocation squared-magnitude check (> 0.0144 equivalent to > 0.12)
-    const throwDir = (direction.x * direction.x + direction.z * direction.z) > 0.0144
-      ? normalize(direction)
-      : { x: Math.sin(actor.facing), z: Math.cos(actor.facing) };
-    releaseGrapple(model, 'idle');
-    target.state = 'airborne'; target.stateElapsed = 0; target.moveId = null; target.attackPhase = null; target.climbStage = 0; target.finisherPrimed = false;
-    beginFall(model, targetKey, FALL_REASONS.Throw);
-    target.velocity.x = throwDir.x * 8.5; target.velocity.z = throwDir.z * 8.5;
-    target.body.verticalVelocity = Math.max(target.body.verticalVelocity, 4.5);
-    target.body.verticalOffset = Math.max(target.body.verticalOffset, .7);
-    target.downTimer = Math.max(target.downTimer, 1.8 + (100 - target.health) / 80);
-    target.recoveryOrientation = 'back';
-    model.hype = clamp(model.hype + 18, 0, 100);
-    model.announcement = 'HURLED!'; model.announcementTimer = 1.1;
-    model.slowMotion = Math.max(model.slowMotion, .18);
-    addImpact(model, actor.position, 'heavy', 1.5, { force: 10, outcome: 'launch' });
+  // A release input advances the existing physical throw. Landing/contact
+  // remains the sole source of damage, crowd events and impact feedback.
+  if (model.physicsAuthority && actor.state === 'grappling' && model.grapple?.phase === 'lift' && model.grapple.attacker === actorKey && command === 'quick' && actor.moveId) {
+    actor.phaseElapsed = getMove(actor.moveId).anticipationDuration;
+    actor.attackPhase = 'active';
     return true;
   }
   if (actor.state === 'grappling' && actor.attackPhase === 'anticipation' && (command === 'quick' || command === 'heavy' || command === 'grapple')) {
@@ -1096,7 +1083,7 @@ export const advanceMatch = (model: MatchModel, dt: number, playerInput: FrameIn
     } else if (controller.thinkTimer <= 0) {
       const decision = chooseAiDecision(model, fighterById(model[slot].definitionId), slot);
       model.seed = decision.nextSeed; controller.intent = decision.command; controller.movement = decision.move; controller.running = decision.run;
-      controller.thinkTimer = (model.difficulty === 'hard' ? .13 : .22) + (slot === 'opponent' ? 0 : .025 * Number(slot.slice(-1)));
+      controller.thinkTimer = (model.difficulty === 'hard' ? .13 : .48) + (slot === 'opponent' ? 0 : .025 * Number(slot.slice(-1)));
       if (decision.command) {
         requestAction(model, slot, createActionEvent(gameCommandToAction(decision.command), { source: 'ai', timestamp: model.elapsed * 1_000, direction: decision.move }), controller.running);
         if (decision.command === 'block') controller.blockTimer = model.difficulty === 'hard' ? .72 : .48;

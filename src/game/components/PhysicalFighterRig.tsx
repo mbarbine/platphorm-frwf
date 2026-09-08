@@ -191,6 +191,9 @@ export function PhysicalFighterRig({ runtime, side, showVisuals = true }: Props)
   }, [side]);
   // Ring deck top is 1.845 m; this base places the compact foot collider sole
   // on the mat instead of suspending both feet above the support surface.
-  const base = useMemo(() => [runtime.position.x, 1.8, runtime.position.z] as const, [runtime.position.x, runtime.position.z]);
+  // Spawn transforms are immutable for this rig. Publishing the solved root
+  // position to React must not teleport every limb back into a standing stack.
+  // The enclosing runtime key remounts the rig for a new match.
+  const base = useRef([runtime.position.x, 1.8, runtime.position.z] as const).current;
   return <group>{schema.map((entry) => <SegmentBody key={entry.id} schema={entry} fighterId={runtime.definitionId} side={side} base={base} bodyRef={refs[entry.id]} onContactForce={onContactForce} onFootContact={onFootContact} showVisuals={showVisuals} />)}</group>;
 }

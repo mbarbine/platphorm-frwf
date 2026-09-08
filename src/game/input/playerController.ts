@@ -19,7 +19,7 @@ export function planarInputVelocity(direction: Vec2, speed: number): Vec2 {
 
 /** A short, cancellable physical step into a clinch; never teleports or awards contact. */
 export class PlayerController {
-  private pending: { event: ActionEvent; expiresAt: number; target: string } | null = null;
+  private pending: { event: ActionEvent; expiresAt: number; target: string; range: number; pin: boolean } | null = null;
   private runtimeId = -1;
 
   reset(): void { this.pending = null; }
@@ -34,10 +34,13 @@ export class PlayerController {
     const actions: ActionEvent[] = [];
     for (const event of input.actions ?? []) {
       const normalized = ['quickStrike', 'heavyStrike', 'grapple'].includes(event.action)
-        ? { ...event, direction: { x: 0, y: 0 } } : event;
-      if (event.phase === 'started' && event.action === 'grapple' && standing && !model.grapple
-        && distance > GRAPPLE_ACQUISITION_RANGE && distance <= 2.3 && !['downed', 'defeated', 'victorious'].includes(target.state)) {
-        this.pending = { event: normalized, expiresAt: model.elapsed + .45, target: model.targets.player };
+        ? { ...event, direction: { x: event.action === 'grapple' && actor.state === 'grappling' ? 1 : 0, y: 0 } } : event;
+      const pin = event.action === 'contextAction' && target.state === 'downed';
+      const grapple = event.action === 'grapple' && !['downed', 'defeated', 'victorious'].includes(target.state);
+      const range = pin ? 1.5 : GRAPPLE_ACQUISITION_RANGE;
+      if (event.phase === 'started' && (pin || grapple) && standing && !model.grapple
+        && distance > range && distance <= 3.8) {
+        this.pending = { event: normalized, expiresAt: model.elapsed + 1.5, target: model.targets.player, range, pin };
       } else {
         if (event.phase === 'started' && ['quickStrike', 'heavyStrike', 'dodgeCounter', 'jump'].includes(event.action)) this.reset();
         actions.push(normalized);
@@ -45,8 +48,8 @@ export class PlayerController {
     }
     if (this.pending) {
       const retreating = input.move.x * dx + input.move.z * dz < -.1;
-      if (!standing || input.block || retreating || this.pending.expiresAt < model.elapsed || this.pending.target !== model.targets.player) this.reset();
-      else if (distance <= GRAPPLE_ACQUISITION_RANGE) { actions.push(this.pending.event); this.reset(); }
+      if (!standing || input.block || retreating || this.pending.expiresAt < model.elapsed || this.pending.target !== model.targets.player || this.pending.pin && target.state !== 'downed') this.reset();
+      else if (distance <= this.pending.range) { actions.push(this.pending.event); this.reset(); }
       else return { ...input, move: { x: dx / Math.max(.001, distance), z: dz / Math.max(.001, distance) }, run: false, actions };
     }
     return { ...input, actions };

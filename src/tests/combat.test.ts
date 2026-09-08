@@ -512,6 +512,7 @@ describe('deterministic combat rules', () => {
   it('lets AI strike a raised guard from the physical glove-engagement lane', () => {
     const model = createMatch('atlas', 'vex', 'standard', 'normal', 1337);
     model.player.position = { x: 0, z: 0 }; model.player.state = 'blocking'; model.opponent.position = { x: 0, z: 2.25 };
+    model.opponent.stateElapsed = 1;
     const decision = chooseAiDecision(model, fighterById(model.opponent.definitionId));
     expect(decision.command).toMatch(/quick|heavy/);
   });
