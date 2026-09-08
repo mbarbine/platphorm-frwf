@@ -1,9 +1,10 @@
 import { resolve } from 'node:path';
 import { readFileSync } from 'node:fs';
-import { type Bone, type SkinnedMesh, Vector3 } from 'three';
+import { type Bone, type SkinnedMesh, Quaternion, Vector3 } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import type { RigidBody } from '@dimforge/rapier3d-compat';
 import { fitHumanoid } from '../../game/presentation/fitHumanoid';
+import { bindFingerPoses } from '../../game/presentation/handPose';
 import type { BodySegmentId } from '../../game/physics/bodySchema';
 import type { FighterId } from '../../game/types/game';
 import manifest from '../../../public/characters/manifest.json';
@@ -15,6 +16,8 @@ export async function loadContactSkin(id: FighterId) {
   const bytes = readFileSync(resolve(import.meta.dirname, `../../../public${asset.url}`));
   const scene = (await new GLTFLoader().parseAsync(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer, '')).scene;
   const fitted = fitHumanoid(scene, id);
+  const fingers = bindFingerPoses(scene);
+  for (const finger of fingers) finger.bone.quaternion.copy(finger.rest).multiply(new Quaternion().setFromAxisAngle(finger.curlAxis, finger.closedAngle));
   const mesh = scene.getObjectByName(id) as SkinnedMesh;
   return {
     dispose: fitted.dispose,

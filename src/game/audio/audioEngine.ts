@@ -152,7 +152,7 @@ class AudioEngine {
     for (const [frequency, peak, decay] of [
       [blocked ? 850 : punch ? 1850 : kick ? 1100 : 650, blocked ? .32 : .65, punch ? .055 : .085],
       [punch ? 280 : kick ? 180 : 110, .52, duration],
-    ]) {
+    ] as const) {
       const noise = this.context.createBufferSource(); const filter = this.context.createBiquadFilter(); const gain = this.context.createGain();
       noise.buffer = this.noiseBuffer; filter.type = 'bandpass'; filter.frequency.value = frequency; filter.Q.value = .65;
       gain.gain.setValueAtTime(.0001, now); gain.gain.exponentialRampToValueAtTime(peak * weight, now + .002);
