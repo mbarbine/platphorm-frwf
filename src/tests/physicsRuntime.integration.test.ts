@@ -708,8 +708,8 @@ it('shows torso-to-canvas contact on the actual skin at a scored slam', async ()
 });
 
 
-it.each(['back', 'front', 'left', 'right'] as const)('keeps the spine coherent throughout %s recovery', (orientation) => {
-  const { world, runtime, model, rig } = makeHarness('chad');
+it.each(FIGHTERS.flatMap(fighter => (['back', 'front', 'left', 'right'] as const).map(orientation => ({id: fighter.id, orientation}))))('keeps $id spine coherent throughout $orientation recovery', ({ id, orientation }) => {
+  const { world, runtime, model, rig } = makeHarness(id);
   try {
     model.labMode = true;
     for (let frame = 0; frame < 60; frame++) stepHarness(world, runtime, model);
@@ -733,8 +733,8 @@ it.each(['back', 'front', 'left', 'right'] as const)('keeps the spine coherent t
 });
 
 
-it.each([-1, 1])('keeps boot lanes separate while shuffling sideways %s', (direction) => {
-  const { world, runtime, model, rig } = makeHarness('chad');
+it.each(FIGHTERS.flatMap(fighter => [-1, 1].map(direction => ({id: fighter.id, direction}))))('keeps $id boot lanes separate while shuffling sideways $direction', ({ id, direction }) => {
+  const { world, runtime, model, rig } = makeHarness(id);
   try {
     model.labMode = true;
     for (let frame = 0; frame < 60; frame++) stepHarness(world, runtime, model);

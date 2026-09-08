@@ -4,7 +4,7 @@ import { RendererHealth } from './RendererHealth';
 import { PlayerController } from '../input/playerController';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { AdaptiveDpr, OrbitControls } from '@react-three/drei';
-import { Physics, useAfterPhysicsStep, useBeforePhysicsStep } from '@react-three/rapier';
+import { Physics, useAfterPhysicsStep, useBeforePhysicsStep, useRapier } from '@react-three/rapier';
 import { JointData } from '@dimforge/rapier3d-compat';
 import { Component, lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ErrorInfo, ReactNode } from 'react';
@@ -82,7 +82,7 @@ function Simulation({ onPause, onDevice, onFinished, inputEnabled = true, online
   }, []);
   useBeforePhysicsStep((world) => {
     const model = useMatchStore.getState().model;
-    const fixedStep = model.labMode ? usePhysicsLabStore.getState().rate / 60 : 1 / 60;
+    const fixedStep = 1 / 60;
     if (model.networkAuthority) {
       const network = useMultiplayerStore.getState();
       const p1SessionId = [...network.roles.entries()].find((entry) => entry[1] === 'player1')?.[0];
@@ -195,6 +195,27 @@ function Simulation({ onPause, onDevice, onFinished, inputEnabled = true, online
   return null;
 }
 
+/** Playback changes wall-clock pacing, never the solved simulation timestep. */
+function LabPhysicsClock() {
+  const { step } = useRapier();
+  const accumulator = useRef(0);
+  useFrame((_, delta) => {
+    const store = useMatchStore.getState(); const lab = usePhysicsLabStore.getState();
+    if (store.replayActive) return;
+    if (lab.pendingSteps > 0) {
+      accumulator.current = 0;
+      store.pause(false); step(1 / 60); useMatchStore.getState().pause(true);
+      lab.consumeStep(); return;
+    }
+    if (store.model.paused) return;
+    accumulator.current += Math.min(delta, .1) * lab.rate;
+    while (accumulator.current >= 1 / 60) {
+      step(1 / 60); accumulator.current -= 1 / 60;
+    }
+  });
+  return null;
+}
+
 function RuntimeDiagnosticsSampler({ onSustainedSlow }: { onSustainedSlow: () => void }) {
   const { gl } = useThree();
   const startedAt = useRef(0); const fallbackIssued = useRef(false);
@@ -257,7 +278,7 @@ export function GameScene(props: Props) {
   const replayActive = useMatchStore((state) => state.replayActive);
   const diagnosticModel = useMatchStore((state) => state.model); const toyTestMode = diagnosticModel.toyTestMode; const playerMove = diagnosticModel.player.moveId; const playerPosition = diagnosticModel.player.position; const opponentHealth = diagnosticModel[diagnosticModel.targets.player].health;
   const lab = physicsLabEnabled();
-  const labRate = usePhysicsLabStore((state) => state.rate); const labDebug = usePhysicsLabStore((state) => state.debug);
+  const labDebug = usePhysicsLabStore((state) => state.debug);
   const graphicsQuality = useSettings((state) => state.graphicsQuality); const reducedMotion = useSettings((state) => state.reducedMotion);
   const [automaticPerformanceFallback, setAutomaticPerformanceFallback] = useState(false);
   useEffect(() => { if (graphicsQuality !== 'auto') setAutomaticPerformanceFallback(false); }, [graphicsQuality]);
@@ -343,8 +364,8 @@ export function GameScene(props: Props) {
         >
           <Physics
             gravity={[0, -18, 0]}
-            timeStep={(lab ? labRate : 1) / 60}
-            paused={paused || replayActive}
+            timeStep={1 / 60}
+            paused={lab || paused || replayActive}
             debug={lab && labDebug}
             interpolate
             numSolverIterations={8}
@@ -352,6 +373,7 @@ export function GameScene(props: Props) {
             maxCcdSubsteps={2}
           >
             {diagnosticModel.venue && diagnosticModel.venue !== 'dome' ? <FightVenue venue={diagnosticModel.venue} /> : <Arena crowdCount={quality.crowdCount} performanceMode={quality.tier === 'performance'} />}
+            {lab && <LabPhysicsClock />}
             <Fighters detail={fighterDetail} />
             <ReplayDirector />
             <PlayerControlBeacon />

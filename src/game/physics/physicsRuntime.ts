@@ -810,8 +810,10 @@ export class BodyWorksRuntime {
   private installAnatomicalLimits(rig: FighterRigRegistration): void {
     const world = this.world; if (!world || rig.anatomicalLimitsInstalled) return;
     const pairs = [
-      ['pelvis', 'abdomen', [.34, .28, .24]],
-      ['abdomen', 'chest', [.4, .32, .28]],
+      ['pelvis', 'abdomen', [[-.34, .34], [-.28, .28], [-.24, .24]]],
+      ['abdomen', 'chest', [[-.4, .4], [-.32, .32], [-.28, .28]]],
+      ['pelvis', 'leftThigh', [[-1.85, .7], [-.5, .5], [-.8, .055]]],
+      ['pelvis', 'rightThigh', [[-1.85, .7], [-.5, .5], [-.055, .8]]],
     ] as const;
     let installed = 0;
     for (const [parent, child, limits] of pairs) {
@@ -823,9 +825,9 @@ export class BodyWorksRuntime {
         if (!joint || joint.body1().handle !== a.handle || joint.body2().handle !== b.handle) continue;
         // Rapier 0.19 exposes multi-axis limits through its typed raw joint
         // set. These are AngX/Y/Z (3/4/5), not the JointAxesMask bit flags.
-        world.impulseJoints.raw.jointSetLimits(handle, 3, -limits[0], limits[0]);
-        world.impulseJoints.raw.jointSetLimits(handle, 4, -limits[1], limits[1]);
-        world.impulseJoints.raw.jointSetLimits(handle, 5, -limits[2], limits[2]);
+        world.impulseJoints.raw.jointSetLimits(handle, 3, limits[0][0], limits[0][1]);
+        world.impulseJoints.raw.jointSetLimits(handle, 4, limits[1][0], limits[1][1]);
+        world.impulseJoints.raw.jointSetLimits(handle, 5, limits[2][0], limits[2][1]);
         installed++;
       }
     }
@@ -2056,6 +2058,9 @@ export class BodyWorksRuntime {
       if (upperArm?.isValid()) targets[`${side}Forearm`] = quaternionMultiply(upperArm.rotation(), quaternionFromEuler([clamp(pose[`${side}Forearm`][0], -2.65, .08), 0, 0]));
       if (forearm?.isValid()) targets[`${side}Hand`] = forearm.rotation();
       const thigh = rig.bodies[`${side}Thigh`]; const shin = rig.bodies[`${side}Shin`];
+      if (rig.bodies.pelvis && ['idle', 'locomotion', 'blocking'].includes(fighter.state)) {
+        targets[`${side}Thigh`] = quaternionMultiply(rig.bodies.pelvis.rotation(), quaternionFromEuler(pose[`${side}Leg`]));
+      }
       if (thigh?.isValid()) targets[`${side}Shin`] = quaternionMultiply(thigh.rotation(), quaternionFromEuler([kneeFlexion(pose[`${side}Shin`][0]), 0, 0]));
       if (shin?.isValid()) {
         const plant = ['idle', 'locomotion', 'blocking', 'recovering'].includes(fighter.state);

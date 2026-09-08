@@ -113,6 +113,7 @@ vi.mock('@react-three/drei', () => ({
 }));
 vi.mock('@react-three/rapier', () => ({
   Physics: ({ children }: { children: React.ReactNode }) => React.createElement('div', { 'data-testid': 'mock-physics' }, children),
+  useRapier: () => ({ step: vi.fn() }),
   useAfterPhysicsStep: vi.fn(),
   useBeforePhysicsStep: vi.fn(),
 }));

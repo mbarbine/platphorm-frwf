@@ -224,8 +224,8 @@ export function PhysicsLab() {
 
   const applyPair = (): void => { clearTimers(); setActive(null); useMatchStore.getState().configureLab(playerId, opponentId, seed, playerStamina, opponentStamina, playerMass, opponentMass, venue); };
   const stepOnce = (): void => {
-    useMatchStore.getState().pause(false);
-    requestAnimationFrame(() => requestAnimationFrame(() => useMatchStore.getState().pause(true)));
+    useMatchStore.getState().pause(true);
+    usePhysicsLabStore.getState().requestStep();
   };
   const player = bodyWorksRuntime.fighterSnapshot('player'); const opponent = bodyWorksRuntime.fighterSnapshot('opponent'); const metrics = bodyWorksRuntime.metrics; const alignment = bodyWorksRuntime.presentationAlignmentSnapshot();
   const diagnostics = useMemo(() => [
