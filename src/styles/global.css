@@ -212,3 +212,16 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
   .mobile-stick { width: clamp(116px,24vw,146px); }
   .mobile-modifiers { bottom: calc(max(.75rem, env(safe-area-inset-bottom)) + clamp(122px,25vw,152px)); width: clamp(116px,24vw,146px); }
 }
+
+.archive-backdrop { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; background: #090a12; }
+.archive-backdrop video { width: 100%; height: 100%; object-fit: cover; opacity: .55; }
+.archive-backdrop__shade { position: absolute; inset: 0; background: linear-gradient(90deg,rgba(6,7,15,.96),rgba(6,7,15,.42) 66%,rgba(6,7,15,.3)),linear-gradient(0deg,#080a13,transparent 40%); }
+.archive-backdrop__caption { position: absolute; right: 2rem; bottom: 1.3rem; display: flex; gap: 1rem; align-items: center; color: #aeb7bf; font: 600 .58rem sans-serif; letter-spacing: .14em; }
+.archive-backdrop__caption button { pointer-events: auto; color: #d7e7ea; border: 1px solid #647177; background: #0b111d; padding: .6rem; font: inherit; cursor: pointer; }
+.app > section { position: relative; z-index: 1; }
+.arena-loading { position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; }
+.arena-loading__copy { position: relative; z-index: 1; display: grid; gap: 1rem; text-align: center; }
+.arena-loading__copy b { font-size: clamp(1.1rem,3vw,2.5rem); }
+.control-deck--compact ul { grid-template-columns: repeat(6,minmax(0,1fr)); }
+.tutorial { top: 7rem; bottom: auto; width: min(520px,calc(100vw - 2rem)); }
+@media (max-width: 900px) { .archive-backdrop__caption { right: 1rem; bottom: .6rem; } .archive-backdrop__caption span { display: none; } .control-deck--compact ul { grid-template-columns: repeat(3,minmax(0,1fr)); } }

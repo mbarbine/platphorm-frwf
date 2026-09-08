@@ -10,5 +10,18 @@
       "license": "User-authorized inclusion; no third-party license assertion",
       "addedAt": "2026-09-07"
     }
+  ],
+  "samples": [
+    {
+      "id": "frwf-crowd",
+      "file": "/audio/frwf-crowd.ef8d497c5c43.mp3",
+      "sha256": "ef8d497c5c436a40ec08380a5779230b28267344ea6af52f38901802cd614adc",
+      "bytes": 42771,
+      "source": "User supplied table-throw recording",
+      "sourceStartSeconds": 0.65,
+      "durationSeconds": 2.6,
+      "processing": "120 Hz high-pass, 9.5 kHz low-pass, fades, -22 LUFS target",
+      "license": "User-authorized game crowd audio; no third-party license assertion"
+    }
   ]
 }
