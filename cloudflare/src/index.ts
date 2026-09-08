@@ -24,8 +24,8 @@ async function health(env: Env) {
     try { await run(); return 'operational'; } catch { return 'unavailable'; }
   };
   const [database, assets] = await Promise.all([
-    probe(!!env.DB, () => env.DB!.prepare('SELECT match_id FROM match_results LIMIT 1').all()),
-    probe(!!env.ASSETS, () => env.ASSETS!.list({ limit: 1 })),
+    probe(!!env.DB, async () => env.DB?.prepare('SELECT match_id FROM match_results LIMIT 1').all()),
+    probe(!!env.ASSETS, async () => env.ASSETS?.list({ limit: 1 })),
   ]);
   return { service: 'ringfall-game-backend', version: env.RELEASE, environment: env.ENVIRONMENT, timestamp: new Date().toISOString(),
     status: database === 'operational' && assets === 'operational' && !!env.PLATPHORM_API_KEY ? 'operational' : 'degraded',
@@ -90,7 +90,9 @@ async function route(request: Request, env: Env): Promise<Response> {
   if (request.method === 'OPTIONS') return new Response(null, { status: 204 });
   if (/^\/api\/rooms\/[a-f0-9-]{36}\/socket$/.test(path) && request.method === 'GET') {
     if (!origin) throw new HttpError(403, 'origin_required');
-    return env.MATCHES.getByName(path.split('/')[3]!).fetch(request);
+    const roomId = path.split('/')[3];
+    if (!roomId) throw new HttpError(400, 'invalid_room');
+    return env.MATCHES.getByName(roomId).fetch(request);
   }
   if (request.method === 'POST' && path === '/api/mcp') {
     let body: unknown;
@@ -108,15 +110,16 @@ async function route(request: Request, env: Env): Promise<Response> {
     const id = crypto.randomUUID(); return ok(await env.MATCHES.getByName(id).initialize(id, options.data.ruleset), 201);
   }
   if (request.method === 'POST' && path === '/api/maps/publish') {
-    await authorize(request, env); if (!env.ASSETS) throw new HttpError(503, 'assets_not_configured');
+    await authorize(request, env); if (!env.DB) throw new HttpError(503, 'database_not_configured');
+    if (!env.ASSETS) throw new HttpError(503, 'assets_not_configured');
     const parsed = mapPublication.safeParse(await readJson(request)); if (!parsed.success) throw new HttpError(400, 'invalid_map');
     const content = JSON.stringify(parsed.data); const hash = await digest(content); const objectKey = `maps/${hash}.json`;
-    const previous = await env.DB!.prepare('SELECT digest FROM map_versions WHERE map_id=? AND version=?').bind(parsed.data.id, parsed.data.version).first<{ digest: string }>();
+    const previous = await env.DB.prepare('SELECT digest FROM map_versions WHERE map_id=? AND version=?').bind(parsed.data.id, parsed.data.version).first<{ digest: string }>();
     if (previous && previous.digest !== hash) throw new HttpError(409, 'version_already_published');
     await env.ASSETS.put(objectKey, content, { httpMetadata: { contentType: 'application/json', cacheControl: 'public, max-age=31536000, immutable' } });
-    await env.DB!.prepare('INSERT OR IGNORE INTO map_versions (digest,map_id,version,object_key,published_at) VALUES (?,?,?,?,?)').bind(hash, parsed.data.id, parsed.data.version, objectKey, new Date().toISOString()).run();
+    await env.DB.prepare('INSERT OR IGNORE INTO map_versions (digest,map_id,version,object_key,published_at) VALUES (?,?,?,?,?)').bind(hash, parsed.data.id, parsed.data.version, objectKey, new Date().toISOString()).run();
     // A concurrent publisher may have won the version constraint after our read.
-    const stored = await env.DB!.prepare('SELECT digest FROM map_versions WHERE map_id=? AND version=?').bind(parsed.data.id, parsed.data.version).first<{ digest: string }>();
+    const stored = await env.DB.prepare('SELECT digest FROM map_versions WHERE map_id=? AND version=?').bind(parsed.data.id, parsed.data.version).first<{ digest: string }>();
     if (stored?.digest !== hash) throw new HttpError(409, 'version_already_published');
     return ok({ digest: hash, path: `/api/maps/assets/${hash}`, runtimeActivation: 'not_supported_metadata_only' }, 201);
   }
@@ -134,7 +137,7 @@ async function route(request: Request, env: Env): Promise<Response> {
   }
   if (/^\/api\/maps\/assets\/[a-f0-9]{64}$/.test(path)) {
     if (!env.DB || !env.ASSETS) throw new HttpError(503, 'assets_not_configured');
-    const hash = path.split('/').pop()!;
+    const hash = path.slice('/api/maps/assets/'.length);
     const record = await env.DB.prepare('SELECT object_key FROM map_versions WHERE digest=?').bind(hash).first<{ object_key: string }>();
     if (!record) return fail('map_not_found', 404);
     const object = await env.ASSETS.get(record.object_key); if (!object) throw new HttpError(503, 'map_object_missing');
@@ -166,7 +169,7 @@ export default {
     if (!headers.has('Cache-Control')) headers.set('Cache-Control', 'no-store');
     const incoming = request.headers.get('traceparent') ?? '';
     const match = /^00-([a-f0-9]{32})-([a-f0-9]{16})-([a-f0-9]{2})$/.exec(incoming);
-    const traceId = match && !/^0+$/.test(match[1]!) && !/^0+$/.test(match[2]!) ? match[1]! : crypto.randomUUID().replaceAll('-', '');
+    const traceId = match?.[1] && match[2] && !/^0+$/.test(match[1]) && !/^0+$/.test(match[2]) ? match[1] : crypto.randomUUID().replaceAll('-', '');
     const spanId = crypto.randomUUID().replaceAll('-', '').slice(0, 16);
     headers.set('traceparent', `00-${traceId}-${spanId}-01`); headers.set('X-PlatPhorm-Trace-Id', traceId);
     headers.set('X-PlatPhorm-Request-Id', crypto.randomUUID());

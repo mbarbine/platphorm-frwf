@@ -131,6 +131,8 @@ for (const profile of profiles) {
   }
   scene.updateMatrixWorld(true);const skeleton=new Skeleton(bones);mesh.bind(skeleton);
   const glb=await new GLTFExporter().parseAsync(scene,{binary:true});const data=Buffer.from(glb);const sha256=createHash('sha256').update(data).digest('hex');const filename=`${profile.id}.${sha256.slice(0,12)}.glb`;writeFileSync(new URL(filename,output),data);
-  manifest.fighters.push({id:profile.id,url:`/characters/${filename}`,sha256,bytes:data.length,triangles:indices.length/3,bones:names});console.log(profile.id,data.length,indices.length/3);
+  const eyeCenter=bonePoint('eye.L','head').add(bonePoint('eye.R','head')).multiplyScalar(.5);
+  const faceOffset=eyeCenter.sub(bones[3].position).toArray();
+  manifest.fighters.push({faceOffset,id:profile.id,url:`/characters/${filename}`,sha256,bytes:data.length,triangles:indices.length/3,bones:names});console.log(profile.id,data.length,indices.length/3);
 }
 writeFileSync(new URL('manifest.json',output),JSON.stringify(manifest,null,2)+'\n');

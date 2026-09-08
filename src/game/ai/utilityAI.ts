@@ -129,6 +129,14 @@ export const chooseAiDecision = (model: MatchModel, definition: FighterDefinitio
   }
   const hard = model.difficulty === 'hard';
   const isSingles = model.matchMode === 'singles';
+  // Normal rivals leave space for a readable get-up instead of chaining
+  // another throw while the player is still regaining physical balance.
+  if (!hard && isSingles && ['downed', 'recovering'].includes(target.state) && ['idle', 'locomotion'].includes(actor.state)) {
+    if (target.state === 'downed' && isActionLegal(model, 'context', actorKey) && target.health <= BALANCE.ai.pinHealthThreshold) {
+      return { command: 'context', move: toward, run: false, nextSeed };
+    }
+    return { command: null, move: separation < 2.25 ? { x: -toward.x * .4, z: -toward.z * .4 } : { x: 0, z: 0 }, run: false, nextSeed };
+  }
   const playerSpamming = isSingles && target.recentMoves.length >= 3 && target.recentMoves.every((mv) => mv === target.recentMoves[0]);
   const counterMultiplier = playerSpamming ? 1.45 : 1.0;
   const counterChance = clampChance(((hard ? .58 : .3) + personality.technical * .24 + personality.athletic * .08) * counterMultiplier);

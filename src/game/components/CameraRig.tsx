@@ -535,7 +535,12 @@ export function CameraRig() {
 
     // Stable screen axes while playing: fighter circling must not orbit the camera.
     if (cameraCuts === 'off' && !replayActive) {
-      desired.set(middleX * .65, 7.2 + Math.min(2, separation * .22), middleZ * .65 + 11.5 + Math.min(3, separation * .25));
+      const aspect = 'aspect' in camera ? (camera as PerspectiveCamera).aspect : 1.7;
+      // Keep both fighters readable without rotating the player's screen axes.
+      const portraitRoom = Math.max(1, 1.35 / Math.max(.5, aspect));
+      const distance = (7.4 + Math.min(3.5, separation * .3)) * portraitRoom;
+      desired.set(middleX, 5.9 + Math.min(2.4, separation * .18) * portraitRoom, middleZ + distance);
+      focusX = middleX; focusZ = middleZ;
     }
     const fallbackTargetY = 2.2 + maximumAir * 0.35;
     // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt for ~8x performance gain in fallback radius calculation
@@ -637,7 +642,7 @@ export function CameraRig() {
       const singlesFovOffset = fovModifier + nearfallZoom;
       const desiredFov = Math.max(
         model.matchMode === 'battle_royale' && shot.current === 'wide' ? 53 : 0,
-        baseFov + singlesFovOffset + impactImpulse.current * 1.15 + (model.slowMotion > 0 ? -2.5 : 0),
+        (cameraCuts === 'off' && !replayActive ? 42 : baseFov + singlesFovOffset) + impactImpulse.current * 1.15 + (model.slowMotion > 0 ? -2.5 : 0),
       );
       perspective.fov += (desiredFov - perspective.fov) * (1 - Math.exp(-clampedDt * 7.5));
       perspective.updateProjectionMatrix();

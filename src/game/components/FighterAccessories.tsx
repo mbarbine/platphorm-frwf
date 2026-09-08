@@ -41,14 +41,14 @@ export function FighterAccessories({ fighterId, side, previewPose }: { fighterId
   return <>
     <group ref={head}>
       {fighterId === 'chad' ? <>
-        <mesh position={[0, .09, 0]}><sphereGeometry args={[.115, 24, 12, 0, Math.PI * 2, 0, Math.PI * .53]} /><meshStandardMaterial color="#141820" roughness={.92} /></mesh>
-        <mesh position={[0, .115, .11]} scale={[1, .12, 1]}><sphereGeometry args={[.12, 24, 8]} /><meshStandardMaterial color="#191c24" roughness={.85} /></mesh>
-        {[-1, 1].map((s) => <group key={s} position={[s * .048, .028, .107]} rotation={[0, s * -.13, s * -.08]}>
-          <mesh scale={[1, 1.1, .22]}><sphereGeometry args={[.043, 20, 12]} /><meshStandardMaterial color="#137381" metalness={.88} roughness={.13} emissive="#124c5a" emissiveIntensity={.25} /></mesh>
-          <mesh scale={[1, 1.1, 1]}><torusGeometry args={[.043, .003, 6, 24]} /><meshStandardMaterial color="#202128" metalness={.75} roughness={.22} /></mesh>
+        <mesh position={[0, .02, -.005]}><sphereGeometry args={[.097, 24, 12, 0, Math.PI * 2, 0, Math.PI * .53]} /><meshStandardMaterial color="#141820" roughness={.92} /></mesh>
+        <mesh position={[0, .041, .093]} scale={[1, .12, 1]}><sphereGeometry args={[.094, 24, 8]} /><meshStandardMaterial color="#191c24" roughness={.85} /></mesh>
+        {[-1, 1].map((s) => <group key={s} position={[s * .036, -.038, .105]} rotation={[0, s * -.13, s * -.08]}>
+          <mesh scale={[1, 1.1, .22]}><sphereGeometry args={[.029, 20, 12]} /><meshStandardMaterial color="#137381" metalness={.88} roughness={.13} emissive="#124c5a" emissiveIntensity={.25} /></mesh>
+          <mesh scale={[1, 1.1, 1]}><torusGeometry args={[.029, .002, 6, 24]} /><meshStandardMaterial color="#202128" metalness={.75} roughness={.22} /></mesh>
         </group>)}
-        <mesh position={[0, .038, .117]}><boxGeometry args={[.025, .005, .006]} /><meshStandardMaterial color="#22242a" metalness={.7} roughness={.2} /></mesh>
-        <mesh position={[0, -.015, .009]} scale={[1, .76, 1.05]}><sphereGeometry args={[.106, 24, 12, 0, Math.PI, Math.PI * .49, Math.PI * .45]} /><meshStandardMaterial color="#38251e" roughness={.97} /></mesh>
+        <mesh position={[0, -.032, .11]}><boxGeometry args={[.018, .004, .006]} /><meshStandardMaterial color="#22242a" metalness={.7} roughness={.2} /></mesh>
+        <mesh position={[0, -.055, .022]} scale={[1, .84, 1.1]}><sphereGeometry args={[.085, 24, 12, 0, Math.PI, Math.PI * .49, Math.PI * .45]} /><meshStandardMaterial color="#38251e" roughness={.97} /></mesh>
       </> : fighterId === 'atlas' ? <group position={[0, .13, 0]}>
         <mesh rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[.102, .009, 8, 28]} /><meshStandardMaterial color="#c99b40" metalness={.8} roughness={.3} /></mesh>
         {[-.072, 0, .072].map((x) => <mesh key={x} position={[x, .026, .067]}><coneGeometry args={[.018, .064, 5]} /><meshStandardMaterial color="#e7bc57" metalness={.75} roughness={.28} /></mesh>)}

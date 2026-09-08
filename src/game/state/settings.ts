@@ -28,7 +28,7 @@ const load = (): Settings => {
   if (typeof window === 'undefined') return DEFAULTS;
   try {
     const parsed: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null');
-    if (!parsed || typeof parsed !== 'object') return DEFAULTS;
+    if (!parsed || typeof parsed !== 'object') return { ...DEFAULTS, reducedMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches };
     const candidate = parsed as Partial<Settings>;
     return {
       controlStyle: candidate.controlStyle === 'technical' ? 'technical' : 'arcade',
@@ -41,9 +41,9 @@ const load = (): Settings => {
       reducedMotion: typeof candidate.reducedMotion === 'boolean' ? candidate.reducedMotion : window.matchMedia('(prefers-reduced-motion: reduce)').matches,
       uiScale: typeof candidate.uiScale === 'number' ? Math.min(1.25, Math.max(.85, candidate.uiScale)) : DEFAULTS.uiScale,
       graphicsQuality: candidate.graphicsQuality === 'performance' || candidate.graphicsQuality === 'quality' ? candidate.graphicsQuality : 'auto',
-      controlDeckMode: candidate.controlDeckMode === 'compact' || candidate.controlDeckMode === 'prompts' || candidate.controlDeckMode === 'hidden' ? candidate.controlDeckMode : 'full',
-      grappleGuide: candidate.grappleGuide === 'minimal' || candidate.grappleGuide === 'off' ? candidate.grappleGuide : 'full',
-      cameraCuts: candidate.cameraCuts === 'reduced' || candidate.cameraCuts === 'off' ? candidate.cameraCuts : 'full',
+      controlDeckMode: ['full', 'compact', 'prompts', 'hidden'].includes(candidate.controlDeckMode ?? '') ? candidate.controlDeckMode as ControlDeckMode : DEFAULTS.controlDeckMode,
+      grappleGuide: candidate.grappleGuide === 'full' || candidate.grappleGuide === 'off' ? candidate.grappleGuide : DEFAULTS.grappleGuide,
+      cameraCuts: candidate.cameraCuts === 'full' || candidate.cameraCuts === 'reduced' ? candidate.cameraCuts : DEFAULTS.cameraCuts,
       lowFlash: typeof candidate.lowFlash === 'boolean' ? candidate.lowFlash : DEFAULTS.lowFlash,
       highContrast: typeof candidate.highContrast === 'boolean' ? candidate.highContrast : DEFAULTS.highContrast,
     };

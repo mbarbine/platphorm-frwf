@@ -1079,14 +1079,15 @@ export const advanceMatch = (model: MatchModel, dt: number, playerInput: FrameIn
   for (const event of playerInput.actions ?? []) if (event.phase === 'started') requestAction(model, 'player', event, playerInput.run);
   for (const command of playerInput.commands ?? []) requestCommand(model, 'player', command, playerInput.move, playerInput.run);
   const active = activeFighterSlots(model);
-  const openingBell = model.matchMode === 'battle_royale' && model.elapsed < BATTLE_ROYALE_OPENING_BELL_SECONDS;
+  const openingDuration = model.matchMode === 'battle_royale' ? BATTLE_ROYALE_OPENING_BELL_SECONDS : 2;
+  const openingBell = model.elapsed < openingDuration;
   for (const slot of AI_FIGHTER_SLOTS) {
     const controller = model.aiControllers[slot];
     if (!active.includes(slot) || model[slot].state === 'defeated') { controller.movement = { x: 0, z: 0 }; controller.running = false; controller.intent = null; continue; }
     controller.blockTimer = Math.max(0, controller.blockTimer - step); controller.thinkTimer -= step;
     if (model.labMode || model.toyTestMode || openingBell) {
       controller.movement = { x: 0, z: 0 }; controller.running = false; controller.intent = null; controller.blockTimer = 0;
-      if (openingBell) controller.thinkTimer = Math.max(controller.thinkTimer, BATTLE_ROYALE_OPENING_BELL_SECONDS - model.elapsed);
+      if (openingBell) controller.thinkTimer = Math.max(controller.thinkTimer, openingDuration - model.elapsed);
     } else if (model.networkAuthority) {
       // The remote wrestler is driven by authoritative snapshots. Running the
       // local utility AI here creates a second, conflicting opponent on every

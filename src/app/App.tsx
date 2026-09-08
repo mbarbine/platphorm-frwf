@@ -30,6 +30,7 @@ export function App() {
   const [screen, setScreen] = useState<Screen>('init'); const [selected, setSelected] = useState<FighterId>('atlas'); const [rules, setRules] = useState<Ruleset>('standard');
   const [matchMode, setMatchMode] = useState<MatchMode>('singles');
   const [difficulty, setDifficulty] = useState<Difficulty>('normal'); const [device, setDevice] = useState<ControlDevice>('keyboard'); const [paused, setPaused] = useState(false);
+  const [matchSettings, setMatchSettings] = useState(false);
   const [beers, setBeers] = useState(0);
   const [runtimePreload, setRuntimePreload] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [joinRoomId, setJoinRoomId] = useState('');
@@ -147,11 +148,12 @@ export function App() {
     const next = !useMatchStore.getState().model.paused;
     useMatchStore.getState().pause(next);
     setPaused(next);
+    if (next) audioEngine.stopReaction();
   }, []);
   useEffect(() => {
     const suspend = () => {
       if (document.hidden && screen === 'match' && !useMatchStore.getState().model.networkAuthority) {
-        useMatchStore.getState().pause(true); setPaused(true);
+        useMatchStore.getState().pause(true); setPaused(true); audioEngine.stopReaction();
       }
     };
     document.addEventListener('visibilitychange', suspend);
@@ -335,7 +337,7 @@ export function App() {
         }}>RETURN TO MENU</button>
       </div>
     </section>}
-    {screen === 'match' && <section className="match-screen"><Suspense fallback={<ArenaLoading />}><GameScene onPause={togglePause} onDevice={setDevice} onFinished={finish} onlineRole={useMatchStore.getState().model.networkAuthority ? multiplayerMyRole : null} /></Suspense>{!toyTest && <><HUD device={device} paused={paused} />{settings.controlDeckMode !== 'hidden' && <Tutorial device={device} />}<MobileControls onPause={togglePause} paused={paused || replayActive} /><SpectatorControls /></>}{physicsLab && <Suspense fallback={null}><PhysicsLab /></Suspense>}{replayActive && <div className="replay-overlay"><span>VOLT DOME INSTANT REPLAY</span><b>PHYSICAL IMPACT REVIEW</b><button onClick={() => useMatchStore.getState().stopReplay()}>SKIP REPLAY</button></div>}{paused && <div className="pause-overlay"><Logo compact /><span>MATCH PAUSED</span><button className="button button--hero" onClick={togglePause}>RESUME</button><button className="button button--quiet" onClick={() => { useMatchStore.getState().pause(false); setPaused(false); setScreen('settings'); }}>SETTINGS</button><button className="button button--quiet" onClick={() => { useMatchStore.getState().pause(false); useMatchStore.getState().setNetworkAuthority(false); void useMultiplayerStore.getState().disconnect(); setPaused(false); setScreen('main'); }}>QUIT TO MENU</button></div>}</section>}
+    {screen === 'match' && <section className="match-screen"><Suspense fallback={<ArenaLoading />}><GameScene onPause={togglePause} onDevice={setDevice} onFinished={finish} onlineRole={useMatchStore.getState().model.networkAuthority ? multiplayerMyRole : null} /></Suspense>{!toyTest && <><HUD device={device} paused={paused} />{settings.controlDeckMode !== 'hidden' && <Tutorial device={device} />}<MobileControls onPause={togglePause} paused={paused || replayActive} /><SpectatorControls /></>}{physicsLab && <Suspense fallback={null}><PhysicsLab /></Suspense>}{replayActive && <div className="replay-overlay"><span>VOLT DOME INSTANT REPLAY</span><b>PHYSICAL IMPACT REVIEW</b><button onClick={() => useMatchStore.getState().stopReplay()}>SKIP REPLAY</button></div>}{paused && matchSettings && <div className="pause-overlay pause-overlay--settings"><Suspense fallback={null}><SettingsPanel onBack={() => setMatchSettings(false)} /></Suspense></div>}{paused && !matchSettings && <div className="pause-overlay"><Logo compact /><span>MATCH PAUSED</span><button className="button button--hero" onClick={togglePause}>RESUME</button><button className="button button--quiet" onClick={() => { setMatchSettings(true); }}>SETTINGS</button><button className="button button--quiet" onClick={() => { useMatchStore.getState().pause(false); useMatchStore.getState().setNetworkAuthority(false); void useMultiplayerStore.getState().disconnect(); setPaused(false); setScreen('main'); }}>QUIT TO MENU</button></div>}</section>}
     {screen === 'results' && result && <Results result={result} winnerName={fighterById(useMatchStore.getState().model[result.winner].definitionId).name} onRematch={doRematch} onChange={() => confirm('select')} onMenu={() => confirm('main')} />}
   </main>;
 }

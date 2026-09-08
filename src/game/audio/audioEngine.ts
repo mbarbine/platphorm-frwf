@@ -1,3 +1,4 @@
+import { CrowdReaction } from './CrowdReaction';
 import type { ImpactEvent, Vec2 } from '../types/game';
 import type { Settings } from '../state/settings';
 
@@ -10,6 +11,7 @@ class AudioEngine {
   private master: GainNode | null = null;
   private effects: GainNode | null = null;
   private crowd: GainNode | null = null;
+  private reaction: CrowdReaction | null = null;
   private noiseBuffer: AudioBuffer | null = null;
   private readonly activeVoices: OscillatorNode[] = [];
 
@@ -25,6 +27,8 @@ class AudioEngine {
       source.buffer = buffer; source.loop = true; filter.type = 'lowpass'; filter.frequency.value = 520; bed.gain.value = .055;
       source.connect(filter); filter.connect(bed); bed.connect(this.crowd); source.start();
       this.noiseBuffer = buffer;
+      this.reaction = new CrowdReaction(this.context, this.crowd);
+      void this.reaction.load();
     }
     void this.context.resume(); this.configure(settings); this.play('confirm', settings);
   }
@@ -114,8 +118,12 @@ class AudioEngine {
     const sound = event.kind === 'blocked' ? 'block' : moveImpact ?? map[event.kind];
     if (crowdEvent) this.play(sound, settings); else this.playAt(sound, settings, event.position);
     if (['heavy', 'grapple', 'weapon', 'finisher', 'table', 'ko'].includes(event.kind)) this.impactTransient(event.intensity, event.position);
-    if (crowdEvent) this.play('cheer', settings);
+    if (crowdEvent && settings.crowdVolume > 0 && settings.masterVolume > 0 && !document.hidden) {
+      if (!this.reaction?.play()) this.play('cheer', settings);
+    }
   }
+
+  stopReaction(): void { this.reaction?.stop(); }
 
   private connectSpatial(node: AudioNode, output: AudioNode, position?: Vec2): () => void {
     if (!this.context || !position) { node.connect(output); return () => node.disconnect(); }

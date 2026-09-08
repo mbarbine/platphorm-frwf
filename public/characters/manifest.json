@@ -7,6 +7,11 @@
   "motionCaptureIncluded": false,
   "fighters": [
     {
+      "faceOffset": [
+        0,
+        -0.03806250000000011,
+        0.0836875
+      ],
       "id": "atlas",
       "url": "/characters/atlas.7a868b9e72a2.glb",
       "sha256": "7a868b9e72a27e07142711dfb19f343a2491d518e7b510cc4f390ceba16db05f",
@@ -62,6 +67,11 @@
       ]
     },
     {
+      "faceOffset": [
+        0,
+        -0.03806250000000011,
+        0.0836875
+      ],
       "id": "vex",
       "url": "/characters/vex.5065a4ab16a1.glb",
       "sha256": "5065a4ab16a1762c32120354ba984e7040e9ab4a42e00667b9de98b25b1c9009",
@@ -117,6 +127,11 @@
       ]
     },
     {
+      "faceOffset": [
+        -5.421010862427522e-20,
+        -0.03806250000000011,
+        0.0836875
+      ],
       "id": "nova",
       "url": "/characters/nova.ffee4a201f2c.glb",
       "sha256": "ffee4a201f2c650cd1316b708c01ab63228d0b62274ede60276128f1f5678371",
@@ -172,6 +187,11 @@
       ]
     },
     {
+      "faceOffset": [
+        5.421010862427522e-20,
+        -0.03806250000000011,
+        0.0836875
+      ],
       "id": "brick",
       "url": "/characters/brick.780a7ac81527.glb",
       "sha256": "780a7ac8152739114889b09d0adb244727382ed75a0f07fc518e8e7e91b2c182",
@@ -227,6 +247,11 @@
       ]
     },
     {
+      "faceOffset": [
+        5.421010862427522e-20,
+        -0.03806250000000011,
+        0.0836875
+      ],
       "id": "chad",
       "url": "/characters/chad.cf16c2dbb94d.glb",
       "sha256": "cf16c2dbb94d0a157eb35039408edaf40f21235fa6c6444314cdb867d4eae5d7",
