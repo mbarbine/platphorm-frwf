@@ -1,5 +1,5 @@
 import { BallCollider, CapsuleCollider, CuboidCollider, RoundCuboidCollider, RigidBody, useRevoluteJoint, useSphericalJoint } from '@react-three/rapier';
-import type { CollisionEnterPayload, ContactForcePayload, RapierRigidBody } from '@react-three/rapier';
+import type { ContactForcePayload, RapierRigidBody } from '@react-three/rapier';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { ReactNode, RefObject } from 'react';
 import { fighterById } from '../data/fighters';
@@ -80,11 +80,10 @@ interface SegmentBodyProps {
   base: readonly [number, number, number];
   bodyRef: RefObject<RapierRigidBody | null>;
   onContactForce: (segment: BodySegmentSchema, bodyRef: RefObject<RapierRigidBody | null>, payload: ContactForcePayload) => void;
-  onFootContact: (foot: BodySegmentId, touching: boolean, payload: CollisionEnterPayload) => void;
   showVisuals: boolean;
 }
 
-function SegmentBody({ schema, fighterId, side, base, bodyRef, onContactForce, onFootContact, showVisuals }: SegmentBodyProps) {
+function SegmentBody({ schema, fighterId, side, base, bodyRef, onContactForce, showVisuals }: SegmentBodyProps) {
   const position: [number, number, number] = [base[0] + schema.localPosition[0], base[1] + schema.localPosition[1], base[2] + schema.localPosition[2]];
   // Rapier reapplies mutable body options when userData changes identity.
   // Keep this stable so UI updates cannot relock the motor-controlled joints.
@@ -106,9 +105,7 @@ function SegmentBody({ schema, fighterId, side, base, bodyRef, onContactForce, o
     : <CapsuleCollider args={[schema.halfLength, schema.radius]} mass={schema.massKg} friction={.76} restitution={.015} />;
   const isCore = schema.id === 'pelvis' || schema.id === 'abdomen' || schema.id === 'chest';
   return <RigidBody ref={bodyRef} name={`${side}-${schema.id}`} type="dynamic" position={position} colliders={false} collisionGroups={fighterCollisionGroups(side)} solverGroups={fighterCollisionGroups(side)} canSleep linearDamping={.55} angularDamping={2.2} additionalSolverIterations={4} enabledRotations={[false, false, false]} ccd={schema.attackEligible || isHead || isCore} userData={userData}
-    onContactForce={(payload) => onContactForce(schema, bodyRef, payload)}
-    onCollisionEnter={isFoot ? (payload) => onFootContact(schema.id, true, payload) : undefined}
-    onCollisionExit={isFoot ? (payload) => onFootContact(schema.id, false, payload as CollisionEnterPayload) : undefined}>
+    onContactForce={(payload) => onContactForce(schema, bodyRef, payload)}>
     {collider}{showVisuals && <SegmentVisual schema={schema} fighterId={fighterId} />}
   </RigidBody>;
 }
@@ -189,15 +186,11 @@ export function PhysicalFighterRig({ runtime, side, showVisuals = true }: Props)
       isLanding: false,
     });
   }, [side]);
-  const onFootContact = useCallback((foot: BodySegmentId, touching: boolean, payload: CollisionEnterPayload): void => {
-    const otherData = payload.other.rigidBodyObject?.userData;
-    if (!isRigUserData(otherData) || otherData.fighter !== side) bodyWorksRuntime.setFootContact(side, foot, touching);
-  }, [side]);
   // Ring deck top is 1.845 m; this base places the compact foot collider sole
   // on the mat instead of suspending both feet above the support surface.
   // Spawn transforms are immutable for this rig. Publishing the solved root
   // position to React must not teleport every limb back into a standing stack.
   // The enclosing runtime key remounts the rig for a new match.
   const base = useRef([runtime.position.x, 1.8, runtime.position.z] as const).current;
-  return <group>{schema.map((entry) => <SegmentBody key={entry.id} schema={entry} fighterId={runtime.definitionId} side={side} base={base} bodyRef={refs[entry.id]} onContactForce={onContactForce} onFootContact={onFootContact} showVisuals={showVisuals} />)}</group>;
+  return <group>{schema.map((entry) => <SegmentBody key={entry.id} schema={entry} fighterId={runtime.definitionId} side={side} base={base} bodyRef={refs[entry.id]} onContactForce={onContactForce} showVisuals={showVisuals} />)}</group>;
 }

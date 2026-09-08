@@ -782,3 +782,24 @@ it.each([false, true])('Chad visible soles stay grounded during travel (run=%s)'
     expect(longest, JSON.stringify({ worst, longest })).toBeLessThan(8);
   } finally { skin.dispose(); runtime.reset(); world.free(); }
 });
+
+it.each(['slam', 'piledriver', 'powerbomb'] as const)('%s keeps the carrier supported throughout the held lift', moveId => {
+  const { world, runtime, model } = makeGrappleHarness(undefined, 'nova', 'chad');
+  try {
+    model.labMode = true;
+    for (let frame = 0; frame < 90; frame++) stepGrappleHarness(world, runtime, model);
+    requestCommand(model, 'player', 'grapple');
+    if (model.grapple) { model.player.moveId = moveId; model.grapple.moveId = moveId; model.grapple.manualRelease = true; }
+    let liftFrames = 0; let unsupported = 0; let longest = 0;
+    for (let frame = 0; frame < 230; frame++) {
+      stepGrappleHarness(world, runtime, model);
+      if (model.grapple?.phase !== 'lift') continue;
+      liftFrames++;
+      const physical = runtime.fighterSnapshot('player');
+      unsupported = physical.supportFeet === 0 ? unsupported + 1 : 0; longest = Math.max(longest, unsupported);
+    }
+    expect(liftFrames).toBeGreaterThan(30);
+    expect(longest, JSON.stringify({ moveId, liftFrames, longest })).toBeLessThan(12);
+    expect(runtime.metrics.emergencyResetCount).toBe(0);
+  } finally { runtime.reset(); world.free(); }
+});

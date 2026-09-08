@@ -68,7 +68,7 @@ export function SettingsPanel({ onBack }: { onBack: () => void }) {
         <select id="setting-select-graphicsQuality" aria-label="Graphics quality" value={settings.graphicsQuality} onChange={(event) => settings.update({ graphicsQuality: event.target.value as typeof settings.graphicsQuality })}>
           <option value="auto">Auto · device tuned</option>
           <option value="performance">Performance · steadier frames</option>
-          <option value="quality">Quality · richer arena</option>
+          <option value="quality">Ultra · full detail and shadows</option>
         </select>
       </label>
       <label className="setting-row setting-row--select" htmlFor="setting-select-controlDeckMode">

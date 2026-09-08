@@ -9,13 +9,15 @@ export function locomotionPose(velocity: Vec2, facing: number, phase: number, co
   const forward = speed > .001 ? (velocity.x * Math.sin(facing) + velocity.z * Math.cos(facing)) / speed : 0;
   const lateral = speed > .001 ? (velocity.x * Math.cos(facing) - velocity.z * Math.sin(facing)) / speed : 0;
   const step = Math.sin(phase);
-  const stride = (.42 + run * .18) * amount;
-  const knee = (.4 + run * .35) * amount;
+  const retreat = Math.max(0, -forward);
+  // Backsteps use a shorter, flatter shuffle, not a reversed sprint cycle.
+  const stride = (.42 + run * .18) * amount * (1 - retreat * .38);
+  const knee = (.4 + run * .35) * amount * (1 - retreat * .6);
   // Bend the knee while the boot travels forward, then extend before planting.
   const swing = -Math.cos(phase) * (forward < -.2 ? -1 : 1);
   const leftSwing = Math.max(0, swing);
   const rightSwing = Math.max(0, -swing);
-  const guard = combat ? 1 - run * .65 : 0;
+  const guard = combat ? 1 - run * .35 : 0;
   return {
     ...POSES.combatIdle,
     torso: [.035 + run * .09, step * forward * .035 * amount, step * .012 * amount],
@@ -27,7 +29,7 @@ export function locomotionPose(velocity: Vec2, facing: number, phase: number, co
     leftForearm: [-.18 - guard * .72 - run * .5, 0, 0],
     rightForearm: [-.18 - guard * .72 - run * .5, 0, 0],
     rootY: Math.abs(Math.cos(phase)) * (.018 + run * .024) * amount,
-    rootTilt: forward * (.025 + run * .1) * amount,
+    rootTilt: Math.max(0, forward) * (.025 + run * .1) * amount,
     rootRoll: -lateral * .045 * amount,
   };
 }

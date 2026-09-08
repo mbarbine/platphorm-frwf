@@ -2330,8 +2330,15 @@ export class BodyWorksRuntime {
             }
             if (ownBody) return;
           }
-          world.contactPair(collider, other, (manifold) => {
-            if (manifold.numSolverContacts() > 0 || manifold.numContacts() > 0) touching = true;
+          world.contactPair(collider, other, (manifold, flipped) => {
+            // A wall/rope or another shin is a collision, not a floor. The
+            // normal points from this foot into its support (downward).
+            const normal = manifold.normal();
+            const intoSupportY = flipped ? -normal.y : normal.y;
+            if (intoSupportY > -.55) return;
+            for (let contact = 0; contact < manifold.numSolverContacts(); contact++) {
+              if (manifold.solverContactPoint(contact).y <= foot.translation().y + .025) touching = true;
+            }
           });
         });
         if (touching) rig.supportContacts.add(footId);
