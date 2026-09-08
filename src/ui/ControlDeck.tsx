@@ -71,8 +71,8 @@ export function buildControlLabels(player: FighterRuntime, opponent: FighterRunt
       labels.quick = 'HOLD BALANCE'; labels.heavy = 'HOLD BALANCE'; labels.grapple = 'NO LOCK-UP';
       labels.context = `CLIMB TO ${player.climbStage === 1 ? 'MIDDLE' : 'TOP'} ROPE`; labels.counter = 'CLIMB DOWN';
     }
-  } else if (player.state === 'downed' || player.moveId === 'kick_up') {
-    labels.quick = 'GET UP'; labels.heavy = 'GET UP'; labels.grapple = 'GET UP'; labels.counter = moveLabel('kick_up'); labels.context = 'RECOVER FIRST';
+  } else if (player.state === 'downed' || player.state === 'recovering') {
+    labels.quick = 'GET UP'; labels.heavy = 'GET UP'; labels.grapple = 'GET UP'; labels.counter = 'GET UP'; labels.context = 'RECOVER FIRST';
   } else if (player.state === 'pinning') {
     for (const id of Object.keys(labels) as ControlId[]) labels[id] = 'HOLD COVER';
     labels.context = 'COVERING';
@@ -144,7 +144,7 @@ export function buildControlReadout(player: FighterRuntime, opponent: FighterRun
   if (paused) callout = 'SIMULATION STOPPED · RESUME TO WRESTLE';
   else if (player.state === 'pinning') callout = 'HOLD THE COVER · SHOULDERS MUST STAY DOWN';
   else if (player.state === 'pinned') callout = `${keys.counter} RAPIDLY · KICK OUT BEFORE THREE`;
-  else if (player.state === 'downed' || player.moveId === 'kick_up') callout = `${keys.counter} · LIVEWIRE KICK-UP`;
+  else if (player.state === 'downed' || player.state === 'recovering') callout = player.state === 'recovering' ? 'GETTING UP · PLANTING FEET' : `${keys.counter} · GET UP`;
   else if (player.ropeRebound > 0) callout = directionId === 'LEFT'
     ? `${keys.heavy} NOW · LEFT ARM STIFF-ARM`
     : directionId === 'RIGHT'

@@ -137,13 +137,13 @@ export const useMatchStore = create<MatchStore>((set) => ({
       const accepted = requestCommand(model, 'player', buffered.command, buffered.direction, buffered.running);
       commandAccepted ||= accepted;
       if (accepted && buffered.command === 'jump') bodyWorksRuntime.requestJump('player');
-      if (accepted && buffered.command === 'dodge' && wasDowned && model.player.moveId === 'kick_up') bodyWorksRuntime.requestJump('player');
       if (accepted && buffered.command === 'dodge' && wasClimbing && model.player.state === 'climbing') bodyWorksRuntime.requestCornerClimb('player', model.player.position, model.player.climbStage || 1);
       if (accepted && buffered.command === 'context' && !wasClimbing && model.player.state === 'climbing') bodyWorksRuntime.requestCornerClimb('player', model.player.position);
       if (accepted && buffered.command === 'context' && wasClimbing && model.player.state === 'climbing') bodyWorksRuntime.requestCornerClimb('player', model.player.position, model.player.climbStage || 1);
       if (accepted && wasClimbing && model.player.moveId && getMove(model.player.moveId).category === 'aerial') bodyWorksRuntime.requestCornerDive('player', model[model.targets.player].position);
       if (venueFor(model).hasRing && accepted && buffered.command === 'context' && !wasClimbing && wasNearApron && model.player.state === 'locomotion') bodyWorksRuntime.requestApronTransition('player', model.player.position);
-      const displayName = buffered.command === 'grapple' && !wasGrappling && model.player.moveId ? getMove(model.player.moveId).displayName.toUpperCase()
+      const displayName = accepted && ['downed', 'recovering'].includes(model.player.state) ? 'GET UP'
+        : buffered.command === 'grapple' && !wasGrappling && model.player.moveId ? getMove(model.player.moveId).displayName.toUpperCase()
         : model.player.moveId ? getMove(model.player.moveId).displayName.toUpperCase()
           : contextPreview ?? propPreview ?? undefined;
       const transient = Boolean(model.player.moveId) || ['recovering', 'staggered', 'grabbed', 'airborne'].includes(model.player.state);

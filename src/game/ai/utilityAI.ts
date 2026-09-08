@@ -38,6 +38,7 @@ export const isActionLegal = (model: MatchModel, command: GameCommand, actorKey:
   if (model.paused || model.resolved || actor.state === 'pinned' || actor.state === 'pinning' || actor.state === 'defeated' || actor.state === 'victorious') return false;
   const targetDistance = distance(actor.position, target.position);
   const delta = { x: target.position.x - actor.position.x, z: target.position.z - actor.position.z };
+  if (['downed', 'recovering'].includes(actor.state) && ['dodge', 'quick', 'heavy', 'grapple'].includes(command)) return true;
   if (command === 'block') return actor.stamina > 2 && ['idle', 'locomotion', 'blocking', 'staggered'].includes(actor.state);
   if (command === 'jump') return actor.stamina >= 8 && actor.body.verticalOffset <= .32 && ['idle', 'locomotion'].includes(actor.state);
   if (actor.state === 'grappling' && actor.attackPhase === 'anticipation' && ['quick', 'heavy', 'grapple'].includes(command)) return true;
@@ -51,7 +52,7 @@ export const isActionLegal = (model: MatchModel, command: GameCommand, actorKey:
     const move = command === 'quick' ? MOVES.aerial_elbow : MOVES.aerial_kick;
     return Boolean(move && actor.stamina >= move.staminaCost && targetDistance >= move.minimumRange && targetDistance <= move.maximumRange && !['defeated', 'victorious'].includes(target.state));
   }
-  if (command === 'dodge') return actor.stamina >= (actor.state === 'downed' ? 12 : 8) && ['idle', 'locomotion', 'climbing', 'staggered', 'grabbed', 'downed'].includes(actor.state);
+  if (command === 'dodge') return actor.stamina >= 8 && ['idle', 'locomotion', 'climbing', 'staggered', 'grabbed', 'downed'].includes(actor.state);
   if (command === 'taunt') return ['idle', 'locomotion', 'climbing'].includes(actor.state);
   if (command === 'interact') return model.ruleset === 'chaos' && ['idle', 'locomotion'].includes(actor.state);
   if (command === 'context') {

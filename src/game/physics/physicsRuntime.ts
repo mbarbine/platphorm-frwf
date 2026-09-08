@@ -8,7 +8,7 @@ import type { AttackPhase, BodyRegion, FighterRuntime, FighterSlot, GameCommand,
 import { clamp } from '../utils/math';
 import { CORE_SEGMENTS, HEAD_COLLIDER_RADIUS, buildBodySchema, torsoColliderArgs } from './bodySchema';
 import type { BodySegmentId } from './bodySchema';
-import { chasePoseAngularVelocity, computeMotorTorque, strikePoseChain } from './motorController';
+import { chasePoseAngularVelocity, strikePoseChain } from './motorController';
 import { PhysicsReplayBuffer } from './replayBuffer';
 import { getMove } from '../data/moves';
 import { fighterById } from '../data/fighters';
@@ -16,7 +16,7 @@ import { getPairedPose, getStrikePose } from '../animation/choreography';
 import { applyBodyLanguage } from '../animation/bodyLanguage';
 import { POSES } from '../animation/poses';
 import type { Pose } from '../animation/poses';
-import { recoveryPose } from '../animation/recoveryMotion';
+import { RECOVERY_DURATION, recoveryPose } from '../animation/recoveryMotion';
 import { locomotionPose } from '../animation/locomotion';
 import { throwDirection, throwMotionFor } from './throwMotion';
 import { BREAKFALL_POSE, COVER_POSE, COVERED_POSE, hasPhysicalCover, kneeFlexion } from './wrestlingPose';
@@ -26,7 +26,7 @@ import { computeStrikeForce, guardInterceptDriveProfile, guardInterceptSurfaceTa
 import { locomotionProfile } from './bodyDynamics';
 import { VOLT_DOME } from '../data/arena';
 import { BODYWORKS_FLAGS } from './bodyWorksFlags';
-import { motorChainForSegment, motorStrengthFor, selectMotorProfile } from './motorProfiles';
+import { motorStrengthFor, selectMotorProfile } from './motorProfiles';
 import type { MotorProfile } from './motorProfiles';
 import { inspectNumericalBody, jointSeparationFault } from './numericalHealth';
 import type { NumericalFault } from './numericalHealth';
@@ -231,7 +231,6 @@ const JOINT_LINKS: readonly (readonly [BodySegmentId, BodySegmentId])[] = [
   ['leftThigh', 'leftShin'], ['rightThigh', 'rightShin'],
   ['leftShin', 'leftFoot'], ['rightShin', 'rightFoot'],
 ];
-const SEGMENT_PARENT: Readonly<Partial<Record<BodySegmentId, BodySegmentId>>> = Object.fromEntries(JOINT_LINKS.map(([parent, child]) => [child, parent]));
 
 const bodyAnchorWorld = (body: RapierRigidBody, localX: number): { x: number; y: number; z: number } => {
   const position = body.translation(); const rotation = body.rotation();
@@ -913,9 +912,9 @@ export class BodyWorksRuntime {
     }
     if (fighter.state !== 'climbing') rig.cornerAnchor = null;
     const controlledJumpLanding = fighter.state === 'jumping' && fighter.body.verticalOffset < .35 && fighter.body.verticalVelocity <= 0;
-    const groundedControl = controlledJumpLanding || ['idle', 'locomotion', 'blocking', 'attacking', 'grappling', 'recovering', 'victorious'].includes(fighter.state);
+    const groundedControl = controlledJumpLanding || ['idle', 'locomotion', 'blocking', 'attacking', 'grappling', 'recovering', 'staggered', 'victorious'].includes(fighter.state);
     if (groundedControl) {
-      const recoveryBlend = fighter.state === 'recovering' ? clamp(fighter.stateElapsed / .7, 0, 1) : 1;
+      const recoveryBlend = fighter.state === 'recovering' ? clamp(fighter.stateElapsed / RECOVERY_DURATION, 0, 1) : 1;
       const recoveryTargetY = targetPelvisY - (1 - recoveryBlend) * .62;
       // A get-up cannot generate vertical support before a foot reaches the
       // mat. The generic spawn bootstrap is useful for already-authored
@@ -927,7 +926,7 @@ export class BodyWorksRuntime {
           // this root lift after a get-up can suspend a tilted wrestler above
           // the mat with no physical foot contact.
           : rig.settlingFrames <= 90 && pelvis.translation().y < recoveryTargetY + .2 ? 1 : 0;
-      const supportAcceleration = clamp((recoveryTargetY - pelvis.translation().y) * 30 - velocity.y * 10.5 + 18, -18, 38) * fighter.body.muscle * contactMultiplier * (.42 + recoveryBlend * .58);
+      const supportAcceleration = clamp(18 + ((recoveryTargetY - pelvis.translation().y) * 30 - velocity.y * 10.5) * Math.max(.85, fighter.body.muscle), -18, 38) * contactMultiplier * (.42 + recoveryBlend * .58);
       this.applyRigAcceleration(rig, { x: 0, y: supportAcceleration, z: 0 });
       if (fighter.state === 'recovering') this.applyRecoveryStanceDrive(rig, fighter, targetPelvisY, recoveryBlend);
     }
@@ -1002,7 +1001,7 @@ export class BodyWorksRuntime {
     const sepZ = fighter.position.z - opponent.position.z;
     // OPTIMIZATION: Replacing slow Math.hypot with a zero-allocation squared-magnitude check to avoid square root extraction entirely.
     const separationSq = sepX * sepX + sepZ * sepZ;
-    if (inputLength > .08 || separationSq < 4.8 * 4.8 || fighter.ropeRebound > 0) {
+    if (rig.rootStabilized && (inputLength > .08 || separationSq < 4.8 * 4.8 || fighter.ropeRebound > 0)) {
       const desiredFacing = fighter.facing;
       const rotation = pelvis.rotation();
       const currentFacing = Math.atan2(2 * (rotation.w * rotation.y + rotation.x * rotation.z), 1 - 2 * (rotation.y * rotation.y + rotation.x * rotation.x));
@@ -1012,8 +1011,8 @@ export class BodyWorksRuntime {
     }
     if (rig.jumpQueued) {
       const grounded = rig.supportContacts.size > 0 || pelvis.translation().y <= targetPelvisY + .16;
-      if (grounded && rig.jumpCooldown <= 0 && (['idle', 'locomotion', 'jumping'].includes(fighter.state) || fighter.moveId === 'kick_up')) {
-        const launchSpeed = fighter.moveId === 'kick_up' ? 4.6 : 8.2;
+      if (grounded && rig.jumpCooldown <= 0 && ['idle', 'locomotion', 'jumping'].includes(fighter.state)) {
+        const launchSpeed = 8.2;
         rig.supportContacts.clear();
         for (const body of Object.values(rig.bodies)) {
           if (!body?.isValid()) continue;
@@ -1025,7 +1024,7 @@ export class BodyWorksRuntime {
       }
       rig.jumpQueued = false;
     }
-    if (rig.skeletonStabilized && motorProfile.rootMode !== 'physical') this.applyCorePostureDrive(rig);
+    if (rig.skeletonStabilized && ['idle', 'locomotion', 'staggered'].includes(fighter.state)) this.applyCorePostureDrive(rig);
     this.applyFootPlantDrive(rig, fighter, { x: desiredX, z: desiredZ }, inputLength);
     if (BODYWORKS_FLAGS.ropes) this.applyRopeController(rig, fighter, model);
     if (BODYWORKS_FLAGS.contactStrikes) this.applyPhysicalStrike(key, rig, fighter, model);
@@ -1222,7 +1221,7 @@ export class BodyWorksRuntime {
     const pelvis = rig.bodies.pelvis; if (!pelvis || progress <= .12) return;
     const pelvisPosition = pelvis.translation(); const pelvisVelocity = pelvis.linvel();
     const externalSupport = this.hasExternalSupport(rig);
-    const activation = clamp((progress - .12) / .46, 0, 1) * fighter.body.muscle;
+    const activation = clamp((progress - .12) / .46, 0, 1);
     const cosine = Math.cos(fighter.facing); const sine = Math.sin(fighter.facing);
     // The legs build the stance; the regular angular motors articulate the
     // torso and arms. Driving every segment toward a standing position made
@@ -1265,7 +1264,7 @@ export class BodyWorksRuntime {
         const desiredX = clamp((target.x - bodyPosition.x) * 5.2, -3.2, 3.2);
         const desiredY = clamp((targetPelvisY + offset.y - contactBias - bodyPosition.y) * 6.4, -4.2, 3.6);
         const desiredZ = clamp((target.z - bodyPosition.z) * 5.2, -3.2, 3.2);
-        const response = .1 + fighter.body.muscle * .08;
+        const response = .18;
         body.setLinvel({
           x: bodyVelocity.x + (desiredX - bodyVelocity.x) * response,
           y: bodyVelocity.y + (desiredY - bodyVelocity.y) * response,
@@ -1275,7 +1274,7 @@ export class BodyWorksRuntime {
     }
     if (externalSupport && progress > .62) {
       const desiredPelvisY = clamp((targetPelvisY - pelvisPosition.y) * 4.8, -2.6, 3.2);
-      const response = .08 + fighter.body.muscle * .06;
+      const response = .14;
       pelvis.setLinvel({ x: pelvisVelocity.x * .94, y: pelvisVelocity.y + (desiredPelvisY - pelvisVelocity.y) * response, z: pelvisVelocity.z * .94 }, true);
     }
     if (externalSupport && rig.supportContacts.size === 0) {
@@ -1979,8 +1978,6 @@ export class BodyWorksRuntime {
   private releaseAllGrips(world: World): void { for (const grip of [...this.grips]) this.removeGrip(world, grip); this.metrics.gripCount = 0; this.metrics.jointCount = this.rigs.size * 15 + this.propGrips.size; }
 
   private applyPoseDrive(rig: FighterRigRegistration, fighter: FighterRuntime, motorProfile: MotorProfile, overridePose?: Pose): void {
-    const definition = fighterById(fighter.definitionId);
-    const fatigue = 1 - fighter.body.muscle;
     const supportedFall = !overridePose && ['downed', 'airborne', 'defeated'].includes(fighter.state);
     const pose = supportedFall ? BREAKFALL_POSE : overridePose ?? targetPoseFor(fighter);
     const targets = physicalPoseTargets(pose, supportedFall ? 0 : fighter.facing, ['idle', 'locomotion', 'blocking'].includes(fighter.state) || fighter.state === 'grappling' && motorProfile.id === 'lift');
@@ -2008,92 +2005,20 @@ export class BodyWorksRuntime {
     }
     const strike = fighter.moveId ? strikeDriveProfile(fighter.moveId) : null;
     const strikeSegments = strike ? strikePoseChain(strike.source) : [];
-    for (const _segment in rig.bodies) {
-      const segment = _segment as BodySegmentId;
-      const body = rig.bodies[segment] as RapierRigidBody;
-      if (!body) continue;
-      if (supportedFall && segment === 'pelvis') continue;
-      // Locked neutral limbs are constraint-stabilized and need no motor. A
-      // motor fighting a disabled rotation cannot animate the limb; it only
-      // hammers Rapier's limit and was the source of the old standing buzz.
+    for (const segment of Object.keys(rig.bodies) as BodySegmentId[]) {
+      const body = rig.bodies[segment];
+      if (!body?.isValid() || supportedFall && segment === 'pelvis') continue;
       if (segment !== 'pelvis' && !rig.rotationallyDynamic.has(segment)) continue;
       if (segment === 'pelvis' && rig.rootStabilized) continue;
-      const chain = motorProfile.chains[motorChainForSegment(segment)];
-      const pelvisScale = segment === 'pelvis' ? 1.28 : 1;
-      const stiffnessScale = definition.physics.jointStiffness * pelvisScale;
-      // Small distal bodies have very little inertia. A human-scale motor cap
-      // therefore scales with segment mass; applying a torso-sized impulse to
-      // a hand or upper arm produces solver-speed vibration even when the
-      // abstract profile value is bounded.
-      const torquePerKg = segment.includes('UpperArm') ? 140
-        : segment.includes('Forearm') ? 90
-        : segment.includes('Hand') ? 60
-        : segment.includes('Thigh') ? 14
-        : segment.includes('Shin') || segment.includes('Foot') ? 10
-        : segment === 'head' ? 5
-        : 6.5;
-      const massTorqueCap = body.mass() * torquePerKg;
-      const maximumTorque = Math.min(chain.maximumTorque * stiffnessScale, massTorqueCap);
-      const armSegment = segment.includes('Arm') || segment.includes('Forearm') || segment.includes('Hand');
-      if (fighter.state === 'airborne' && overridePose) {
-        body.setAngvel(chasePoseAngularVelocity(body.rotation(), targets[segment], body.angvel(), 5, 5, .22), true);
-      } else if (supportedFall) {
-        body.setAngvel(chasePoseAngularVelocity(body.rotation(), targets[segment], body.angvel(), 4.2, 3.4, .16), true);
-      } else if (fighter.state === 'pinning' || fighter.state === 'pinned') {
-        body.setAngvel(chasePoseAngularVelocity(body.rotation(), targets[segment], body.angvel(), 6, 3.5, .24), true);
-      } else if (motorProfile.id === 'lift' && (segment.includes('Thigh') || segment.includes('Shin') || segment.includes('Foot'))) {
-        body.setAngvel(chasePoseAngularVelocity(body.rotation(), targets[segment], body.angvel(), 6, 4.5, .24), true);
-      } else if (fighter.state === 'recovering') {
-        // A get-up needs a reliable velocity-level active-ragdoll motor. The
-        // ordinary torque servo is intentionally soft for impact reactions;
-        // at that strength a folded knee can remain in a stable solver basin
-        // forever. This bounded angular target still moves through Rapier and
-        // respects contacts/joints—it does not write a rotation or teleport a
-        // body—but it gives the recovery chain enough authority to escape.
-        const current = body.angvel(); const maximumSpeed = segment === 'pelvis' ? 2.8 : segment.includes('Leg') || segment.includes('Shin') || segment.includes('Foot') ? 4.2 : 3.4;
-        const response = .14 + fighter.body.muscle * .08;
-        body.setAngvel(chasePoseAngularVelocity(body.rotation(), targets[segment], current, 5.2, maximumSpeed, response), true);
-      } else if (strike && (fighter.attackPhase === 'anticipation' || fighter.attackPhase === 'active') && strikeSegments.includes(segment)) {
-        // A combat input must complete its authored chamber/contact arc inside
-        // the move window. This drives the linked chain through real joints;
-        // the strike force and Rapier contact still own the final hit result.
-        const authority = .62 + fighter.body.muscle * .38;
-        const committed = fighter.attackPhase === 'active';
-        body.setAngvel(chasePoseAngularVelocity(body.rotation(), targets[segment], body.angvel(), committed ? 8.4 : 6.2, (committed ? 8.4 : 6.2) * authority, (committed ? .3 : .2) * authority), true);
-      } else if (fighter.state === 'blocking' && (segment.includes('Arm') || segment.includes('Forearm') || segment.includes('Hand'))) {
-        // Guard is an input, not a two-second animation request. Rapidly bring
-        // the real glove/forearm colliders into the strike lane, then let the
-        // ordinary torque servo hold them against contact. The speed remains
-        // fatigue-scaled and bounded, so the joints and opponent can resist it.
-        const authority = .62 + fighter.body.muscle * .38;
-        body.setAngvel(chasePoseAngularVelocity(body.rotation(), targets[segment], body.angvel(), 12, 7 * authority, .65 * authority), true);
-      } else if (armSegment) {
-        body.setAngvel(chasePoseAngularVelocity(body.rotation(), targets[segment], body.angvel(), 10, 5, .6), true);
-      } else if (motorProfile.rootMode !== 'physical' || armSegment) {
-        // Standing balance has enough authority to finish a turn or unwind a
-        // strike. Impacts still resolve through contacts and the fall states.
-        body.setAngvel(chasePoseAngularVelocity(body.rotation(), targets[segment], body.angvel(), 5.2, 3.4, .22), true);
-      }
-      // The arm chain already has a bounded velocity drive. A second PD
-      // impulse excites the small wrist inertia and fights the hinge solver.
-      if (armSegment) continue;
-      const torque = computeMotorTorque(body.rotation(), targets[segment], body.angvel(), { x: 0, y: 0, z: 0 }, {
-        stiffness: chain.stiffness * stiffnessScale,
-        damping: chain.damping * stiffnessScale,
-        maxTorque: maximumTorque,
-        strength: motorStrengthFor(fighter, motorProfile, segment),
-        fatigue,
-      });
-      // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt for ~8x speedup.
-      const requestedMagnitude = Math.sqrt(torque.x * torque.x + torque.y * torque.y + torque.z * torque.z);
-      if (requestedMagnitude >= maximumTorque * .985) {
-        this.metrics.motorSaturationCount += 1;
-        this.metrics.currentMotorSaturations += 1;
-      }
-      const impulse = { x: torque.x * this.currentFixedDt, y: torque.y * this.currentFixedDt, z: torque.z * this.currentFixedDt };
-      body.applyTorqueImpulse(impulse, true);
-      const parentId = SEGMENT_PARENT[segment]; const parent = parentId ? rig.bodies[parentId] : null;
-      if (parent?.isValid()) parent.applyTorqueImpulse({ x: -impulse.x, y: -impulse.y, z: -impulse.z }, true);
+      const striking = strikeSegments.includes(segment) && ['anticipation', 'active'].includes(fighter.attackPhase ?? '');
+      const onMat = supportedFall || ['pinning', 'pinned'].includes(fighter.state);
+      const recovering = fighter.state === 'recovering';
+      const authority = .65 + Math.min(1, motorStrengthFor(fighter, motorProfile, segment)) * .35;
+      const gain = striking ? 15 : onMat ? 9 : recovering ? 10 : 12;
+      const speed = striking ? 9 * authority : onMat ? 3.8 : recovering ? 4 : 5.5;
+      // One bounded velocity servo per body. The solver still owns every
+      // constraint/contact; no second torque impulse can kick it off target.
+      body.setAngvel(chasePoseAngularVelocity(body.rotation(), targets[segment], body.angvel(), gain, speed, .65), true);
     }
   }
 

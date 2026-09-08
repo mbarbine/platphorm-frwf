@@ -39,7 +39,7 @@ export const POSES: Readonly<Record<AnimationKey, Pose>> = {
   lift: { ...base, leftArm: [-1.45, -.18, -.2], rightArm: [-1.45, .18, .2], leftForearm: [-1.15, 0, 0], rightForearm: [-1.15, 0, 0], leftLeg: [.25, 0, 0], rightLeg: [.25, 0, 0], leftShin: [-.6, 0, 0], rightShin: [-.6, 0, 0], rootY: .25 },
   slam: { ...base, torso: [.65, 0, 0], leftArm: [-.3, 0, -.7], rightArm: [-.3, 0, .7], leftForearm: [-.35, 0, 0], rightForearm: [-.35, 0, 0], leftLeg: [.4, 0, 0], rightLeg: [-.12, 0, 0], leftShin: [-.75, 0, 0], rootTilt: .38 },
   throw: { ...base, torso: [.3, .5, 0], leftArm: [-.65, -.55, -.6], rightArm: [-.65, -.55, .6], leftForearm: [-.7, 0, 0], rightForearm: [-.7, 0, 0], rootTilt: .22, rootRoll: -.18 },
-  stagger: { ...base, torso: [-.35, 0, 0], leftArm: [.7, 0, -.4], rightArm: [.45, 0, .4], leftForearm: [-.35, 0, 0], rightForearm: [-.2, 0, 0], leftLeg: [-.18, 0, 0], rightLeg: [.2, 0, 0], rootTilt: -.2 },
+  stagger: { ...base, torso: [-.16, 0, -.05], leftArm: [-.42, 0, -.32], rightArm: [-.28, 0, .35], leftForearm: [-.8, 0, 0], rightForearm: [-.9, 0, 0], leftLeg: [-.08, 0, 0], rightLeg: [.12, 0, 0], rootTilt: -.04 },
   knockdown: { ...base, torso: [-.7, 0, 0], leftArm: [.8, 0, -.3], rightArm: [.8, 0, .3], rootY: -.6, rootTilt: -1 },
   downed: { ...base, rootY: -.64, rootTilt: -1.5, leftArm: [.7, 0, -.45], rightArm: [-.25, 0, .45] },
   recovery: { ...base, rootY: -.55, rootTilt: -.7, leftArm: [-.9, 0, -.35], leftForearm: [-.8, 0, 0], leftLeg: [-.5, 0, 0], rightShin: [-.8, 0, 0] },

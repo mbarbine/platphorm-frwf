@@ -1,3 +1,4 @@
+import { RECOVERY_DURATION } from '../animation/recoveryMotion';
 import { configureCombatVenue, venueFor } from '../data/venues';
 import { FIGHTERS, fighterById } from '../data/fighters';
 import { getMove } from '../data/moves';
@@ -502,13 +503,14 @@ const useProp = (model: MatchModel, actorKey: FighterSlot, direction: Vec2): boo
 
 export const canTransitionThroughRopes = canTraverseRopes;
 
-const startKickUp = (actor: FighterRuntime, target: FighterRuntime): boolean => {
-  const move = getMove('kick_up');
-  if (!canStartMove(actor, target, move)) return false;
-  actor.state = 'recovering'; actor.moveId = move.id; actor.attackPhase = 'anticipation'; actor.phaseElapsed = 0; actor.stateElapsed = 0;
-  actor.hitTargets = []; actor.attackInstanceId += 1; actor.downTimer = 0; actor.finisherPrimed = false;
-  actor.stamina = clamp(actor.stamina - move.staminaCost, 0, actor.staminaCap); actor.invulnerability = Math.max(actor.invulnerability, .28);
-  actor.body.verticalVelocity = Math.max(actor.body.verticalVelocity, 3.8);
+const startGetUp = (actor: FighterRuntime): boolean => {
+  // Repeated presses sustain the same recovery instead of restarting its pose.
+  if (actor.state === 'recovering') return true;
+  actor.state = 'recovering'; actor.moveId = null; actor.attackPhase = null;
+  actor.phaseElapsed = 0; actor.stateElapsed = 0; actor.hitTargets = [];
+  actor.downTimer = 0; actor.finisherPrimed = false;
+  actor.velocity = { x: 0, z: 0 };
+  actor.invulnerability = Math.max(actor.invulnerability, .28);
   return true;
 };
 
@@ -609,10 +611,8 @@ export const requestCommand = (model: MatchModel, actorKey: FighterSlot, command
   }
   if (command === 'grapple' && !model.grapple && distance(actor.position, target.position) > GRAPPLE_ACQUISITION_RANGE
     && ['idle', 'locomotion'].includes(actor.state)) return startMove(actor, target, getMove('grapple_miss'));
-  // A grounded wrestler cannot throw a standing punch, but the button must
-  // still produce an honest motion. Primary attack/grapple presses become the
-  // existing physical kick-up recovery instead of expiring invisibly.
-  if (actor.state === 'downed' && (command === 'quick' || command === 'heavy' || command === 'grapple')) return startKickUp(actor, target);
+  if (['downed', 'recovering'].includes(actor.state)
+    && ['quick', 'heavy', 'grapple', 'dodge'].includes(command)) return startGetUp(actor);
   if (!isActionLegal(model, command, actorKey)) return false;
   if (command === 'block') {
     // Holding guard sustains the existing defensive window. Restarting its
@@ -623,7 +623,6 @@ export const requestCommand = (model: MatchModel, actorKey: FighterSlot, command
     return true;
   }
   if (command === 'dodge') {
-    if (actor.state === 'downed') return startKickUp(actor, target);
     if (actor.state === 'climbing') {
       if (actor.climbStage > 1) { actor.climbStage = (actor.climbStage - 1) as 1 | 2; actor.stateElapsed = 0; return true; }
       const inward = normalize({ x: -(Math.sign(actor.position.x) || 1), z: -(Math.sign(actor.position.z) || 1) });
@@ -867,7 +866,7 @@ const updateFighter = (model: MatchModel, actorKey: FighterSlot, dt: number, mov
   if (actor.state === 'downed') {
     actor.downTimer -= dt; actor.stamina = clamp(actor.stamina + dt * 10, 0, actor.staminaCap);
     if (actor.downTimer <= 0) { actor.state = 'recovering'; actor.stateElapsed = 0; }
-  } else if (actor.state === 'recovering' && !actor.moveId && actor.stateElapsed > .7 && (!model.physicsAuthority || actor.body.balance >= 70 && Math.abs(actor.body.verticalVelocity) <= .45)) {
+  } else if (actor.state === 'recovering' && !actor.moveId && actor.stateElapsed > RECOVERY_DURATION && (!model.physicsAuthority || actor.body.balance >= 70 && Math.abs(actor.body.verticalVelocity) <= .45)) {
     actor.state = 'idle'; actor.stateElapsed = 0; actor.finisherPrimed = false;
   } else if (actor.state === 'staggered' && actor.stateElapsed > .55 + (100 - actor.health) / 200) {
     actor.state = 'idle'; actor.stateElapsed = 0;

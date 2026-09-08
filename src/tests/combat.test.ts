@@ -72,11 +72,11 @@ describe('deterministic combat rules', () => {
     expect(model.opponent.state).toBe('defeated');
   });
 
-  it('turns a grounded primary attack press into visible kick-up recovery', () => {
+  it('turns a grounded primary attack press into grounded recovery', () => {
     const model = createMatch('atlas', 'vex', 'standard', 'normal');
     model.player.state = 'downed'; model.player.downTimer = 2;
     expect(requestCommand(model, 'player', 'quick')).toBe(true);
-    expect(model.player).toMatchObject({ state: 'recovering', moveId: 'kick_up', attackPhase: 'anticipation' });
+    expect(model.player).toMatchObject({ state: 'recovering', moveId: null, attackPhase: null });
   });
 
   it('records a forfeit without fabricating a collision impact', () => {
@@ -564,12 +564,16 @@ describe('deterministic combat rules', () => {
     expect(selectDirectionalStrike({ x: 0, z: 0 }, 'heavy')).toBe('front_kick');
   });
 
-  it('turns a downed counter input into a visible stamina-bound kick-up', () => {
-    const model = createMatch('vex', 'atlas', 'standard', 'normal'); model.player.state = 'downed'; model.player.downTimer = 2;
-    const stamina = model.player.stamina;
-    expect(isActionLegal(model, 'dodge', 'player')).toBe(true); expect(requestCommand(model, 'player', 'dodge')).toBe(true);
-    expect(model.player.state).toBe('recovering'); expect(model.player.moveId).toBe('kick_up'); expect(model.player.stamina).toBe(stamina - getMove('kick_up').staminaCost);
-    expect(getStrikePose(getMove('kick_up'), 'active', getMove('kick_up').anticipationDuration + .05)).not.toBeNull();
+  it('accepts Get Up without stamina and never restarts or launches the recovery', () => {
+    const model = createMatch('vex', 'atlas', 'standard', 'normal');
+    model.player.state = 'downed'; model.player.downTimer = 2; model.player.stamina = 0;
+    expect(isActionLegal(model, 'dodge', 'player')).toBe(true);
+    expect(requestCommand(model, 'player', 'dodge')).toBe(true);
+    expect(model.player).toMatchObject({ state: 'recovering', moveId: null, attackPhase: null, stamina: 0, downTimer: 0 });
+    expect(model.player.body.verticalVelocity).toBe(0);
+    model.player.stateElapsed = .4;
+    expect(requestCommand(model, 'player', 'dodge')).toBe(true);
+    expect(model.player.stateElapsed).toBe(.4);
   });
 
   it('guarantees a knockdown when a rebound stiff-arm registers', () => {

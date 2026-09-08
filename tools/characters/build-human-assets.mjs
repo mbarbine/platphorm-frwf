@@ -49,10 +49,10 @@ for (const [bone, entries] of Object.entries(weights)) {
 }
 const profiles = [
   {id:'atlas',muscle:1.8,width:1.2,skin:'#a9654c',gear:'#35182f',accent:'#ffcc33'},
-  {id:'vex',muscle:.45,width:.88,skin:'#7e513f',gear:'#20364a',accent:'#50f7ff'},
-  {id:'nova',muscle:.65,width:.96,skin:'#d39a77',gear:'#181734',accent:'#b77bff'},
-  {id:'brick',muscle:.85,width:1.04,skin:'#553a32',gear:'#1b2735',accent:'#41b8ff'},
-  {id:'chad',muscle:1.1,width:1.15,skin:'#c58c70',gear:'#66717d',accent:'#e5e7e9'},
+  {id:'vex',muscle:.9,width:.94,skin:'#7e513f',gear:'#20364a',accent:'#50f7ff'},
+  {id:'nova',muscle:1.15,width:1.02,skin:'#d39a77',gear:'#181734',accent:'#b77bff'},
+  {id:'brick',muscle:1.45,width:1.12,skin:'#553a32',gear:'#1b2735',accent:'#41b8ff'},
+  {id:'chad',muscle:1.55,width:1.18,skin:'#c58c70',gear:'#66717d',accent:'#e5e7e9'},
 ];
 const output = new URL('../../public/characters/', import.meta.url); mkdirSync(output, {recursive:true});
 const manifest = {version:1,license:'CC0-1.0',source:'https://github.com/makehumancommunity/makehuman',revision:'a8bc2d54ff0ac92e78ff71431b1023eda42bf482',generator:'tools/characters/build-human-assets.mjs',motionCaptureIncluded:false,fighters:[]};
@@ -87,6 +87,7 @@ for (const profile of profiles) {
     return bone;
   });
   const wrists = ['L', 'R'].map(side => bonePoint(`wrist.${side}`, 'head'));
+  const knees = ['L', 'R'].map(side => bonePoint(`lowerleg01.${side}`, 'head'));
   const positions=[], skinIndices=[], skinWeights=[], colors=[], indices=[]; const remap=new Map();
   const skin=new Color(profile.skin), gear=new Color(profile.gear), accent=new Color(profile.accent);
   for (const face of faces) {
@@ -102,8 +103,9 @@ for (const profile of profiles) {
         // Wrap the anatomical wrist in the skin itself, so the tape bends
         // with the same weights rather than floating around a collider.
         const tape=/Forearm|Hand/.test(dominant)&&wrists.some(wrist=>pos.distanceTo(wrist)<.047);
+        const kneePad=/Thigh|Shin/.test(dominant)&&knees.some(knee=>Math.abs(pos.y-knee.y)<.095);
         const trim=trunks&&(originalY>1.75||Math.abs(pos.x)>.2*profile.width);
-        const col=(trim?accent:trunks||boot?gear:tape?new Color('#d8d4c9'):skin).clone();
+        const col=(trim?accent:trunks||boot?gear:kneePad?new Color('#20252d'):tape?new Color('#d8d4c9'):skin).clone();
         const variation=1+Math.sin(original*12.9898)*.012; col.multiplyScalar(variation);colors.push(...col.toArray());
       }
       indices.push(remap.get(original));

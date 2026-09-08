@@ -78,17 +78,17 @@ const stepHarness = (world: World, runtime: BodyWorksRuntime, model: MatchModel,
   for (const contact of runtime.consumeContacts()) applyPhysicalContact(model, contact);
 };
 
-const makeGrappleHarness = (venue?: CombatVenue): { world: World; runtime: BodyWorksRuntime; model: MatchModel; player: HeadlessRig; opponent: HeadlessRig } => {
+const makeGrappleHarness = (venue?: CombatVenue, fighterId: FighterId = 'atlas', opponentId: FighterId = 'nova'): { world: World; runtime: BodyWorksRuntime; model: MatchModel; player: HeadlessRig; opponent: HeadlessRig } => {
   const world = new World({ x: 0, y: -18, z: 0 }); world.timestep = STEP; world.numSolverIterations = 8; world.numInternalPgsIterations = 2; world.maxCcdSubsteps = 2;
   const mat = world.createRigidBody(RigidBodyDesc.fixed().setTranslation(0, 1.52, 0));
   world.createCollider(ColliderDesc.cuboid(venue ? VENUES[venue].halfWidth + 1 : 6, .325, venue ? VENUES[venue].halfDepth + 1 : 4.5).setFriction(1.1).setCollisionGroups(arenaCollisionGroups), mat);
-  const runtime = new BodyWorksRuntime(); const model = createMatch('atlas', 'nova', 'standard', 'normal', 1217);
+  const runtime = new BodyWorksRuntime(); const model = createMatch(fighterId, opponentId, 'standard', 'normal', 1217);
   if (venue) configureCombatVenue(model, venue);
   model.physicsAuthority = true; model.labMode = true; model.aiThinkTimer = 999; model.aiControllers.opponent.thinkTimer = 999;
   model.player.position = { x: -.8, z: 0 }; model.opponent.position = { x: .8, z: 0 };
   model.player.facing = Math.PI / 2; model.opponent.facing = -Math.PI / 2;
   runtime.setJointData(JointData); runtime.registerLandingSurface('ring', venue && venue !== 'dome' ? 'floor' : 'ring', mat);
-  const player = createHeadlessRig(world, 'atlas', 'player', -.8); const opponent = createHeadlessRig(world, 'nova', 'opponent', .8);
+  const player = createHeadlessRig(world, fighterId, 'player', -.8); const opponent = createHeadlessRig(world, opponentId, 'opponent', .8);
   runtime.registerFighter('player', player.bodies, player.joints); runtime.registerFighter('opponent', opponent.bodies, opponent.joints);
   runtime.setFootContact('player', 'leftFoot', true); runtime.setFootContact('player', 'rightFoot', true);
   runtime.setFootContact('opponent', 'leftFoot', true); runtime.setFootContact('opponent', 'rightFoot', true);
@@ -169,6 +169,34 @@ describe('Rapier-backed Bodyworks integration', () => {
       expect(snapshot.supportFeet).toBeGreaterThan(0);
       expect(runtime.metrics.emergencyResetCount).toBe(0);
       expect(requestCommand(model, 'player', 'heavy')).toBe(true);
+    } finally { runtime.reset(); world.free(); }
+  });
+
+  it.each(['back', 'front', 'left', 'right'] as const)('Get Up stands from a %s fall with no stamina, even when pressed repeatedly', (orientation) => {
+    const { world, runtime, model } = makeHarness();
+    try {
+      model.labMode = true;
+      for (let frame = 0; frame < 60; frame++) stepHarness(world, runtime, model);
+      runtime.prepareLabFall('player', orientation, model.player.facing);
+      model.player.state = 'downed'; model.player.stateElapsed = 0; model.player.downTimer = 15;
+      model.player.recoveryOrientation = orientation;
+      for (let frame = 0; frame < 30; frame++) stepHarness(world, runtime, model);
+      model.player.stamina = 0;
+      expect(requestCommand(model, 'player', 'dodge')).toBe(true);
+      let standing = false;
+      for (let frame = 0; frame < 300; frame++) {
+        if (String(model.player.state) === 'recovering' && frame % 6 === 0) expect(requestCommand(model, 'player', 'dodge')).toBe(true);
+        stepHarness(world, runtime, model);
+        if (String(model.player.state) === 'idle') {
+          const snapshot = runtime.fighterSnapshot('player');
+          expect(snapshot.upright).toBeGreaterThan(.9);
+          expect(snapshot.headY).toBeGreaterThan(snapshot.pelvisY + .65);
+          expect(snapshot.supportFeet).toBeGreaterThan(0);
+          standing = true; break;
+        }
+      }
+      expect(standing, JSON.stringify(runtime.fighterSnapshot('player'))).toBe(true);
+      expect(runtime.metrics.emergencyResetCount).toBe(0);
     } finally { runtime.reset(); world.free(); }
   });
 
@@ -532,4 +560,39 @@ it('connects an uppercut through the rising hand and preserves a standing base',
     expect(runtime.fighterSnapshot('player').upright).toBeGreaterThan(.7);
     expect(runtime.metrics.emergencyResetCount).toBe(0);
   } finally {runtime.reset();world.free();}
+});
+
+
+it.each([
+  ['jab', 'quick', { x: 0, z: 0 }],
+  ['uppercut', 'quick', { x: 0, z: -1 }],
+  ['high_punch', 'quick', { x: 1, z: 0 }],
+  ['combo', 'quick', { x: -1, z: 0 }],
+  ['low_kick', 'heavy', { x: 0, z: 1 }],
+  ['front_kick', 'heavy', { x: 0, z: 0 }],
+  ['high_kick', 'heavy', { x: 0, z: -1 }],
+  ['roundhouse', 'heavy', { x: -1, z: 0 }],
+] as const)('%s makes physical contact and returns the attacker to a standing stance', (moveId, command, direction) => {
+  const { world, runtime, model } = makeGrappleHarness();
+  try {
+    for (let frame = 0; frame < 90; frame++) stepGrappleHarness(world, runtime, model);
+    expect(requestCommand(model, 'player', command, direction)).toBe(true);
+    expect(model.player.moveId).toBe(moveId);
+    let hit = false; let minimumUpright = 1;
+    for (let frame = 0; frame < 180; frame++) {
+      stepGrappleHarness(world, runtime, model);
+      hit ||= model.lastImpact?.moveId === moveId;
+      minimumUpright = Math.min(minimumUpright, runtime.fighterSnapshot('player').upright);
+    }
+    expect(hit, JSON.stringify({ moveId, health: model.opponent.health, closest: runtime.metrics.minimumStrikeDistance, planar: runtime.metrics.minimumStrikePlanarDistance, vertical: runtime.metrics.minimumStrikeVerticalDistance })).toBe(true);
+    expect(model.opponent.health).toBeLessThan(100);
+    expect(minimumUpright, 'striking must not fold the attacker').toBeGreaterThan(.7);
+    expect(runtime.fighterSnapshot('player').upright).toBeGreaterThan(.9);
+    expect(model.player.state).toBe('idle');
+    expect(runtime.metrics.emergencyResetCount).toBe(0);
+    if (moveId === 'jab') {
+      expect(model.opponent.lastFallReason, 'a healthy opponent should recoil from a jab while standing').toBeNull();
+      expect(runtime.fighterSnapshot('opponent').upright).toBeGreaterThan(.9);
+    }
+  } finally { runtime.reset(); world.free(); }
 });

@@ -13,8 +13,8 @@
         0.0836875
       ],
       "id": "atlas",
-      "url": "/characters/atlas.ec7d9af1bb58.glb",
-      "sha256": "ec7d9af1bb5820da936d0011ee3b3ca11cb23b8c743ebc7f8021e1e93df353af",
+      "url": "/characters/atlas.65353eb5f794.glb",
+      "sha256": "65353eb5f794af73e577e80d03edd42c96666fe8af191e8d37a524b28da85dfb",
       "bytes": 1093004,
       "triangles": 29276,
       "bones": [
@@ -68,14 +68,14 @@
     },
     {
       "faceOffset": [
-        0,
+        -2.710505431213761e-20,
         -0.03806250000000011,
         0.0836875
       ],
       "id": "vex",
-      "url": "/characters/vex.5656566b09cb.glb",
-      "sha256": "5656566b09cbcf03c9758d30eae12f2d7b225667636af0d9d866d239f0dac07e",
-      "bytes": 1092936,
+      "url": "/characters/vex.330cddf6043f.glb",
+      "sha256": "330cddf6043ff617ad951c0cd1ea0db8f011ec00bd11807438ad89d9782313d6",
+      "bytes": 1092880,
       "triangles": 29276,
       "bones": [
         "pelvis",
@@ -133,9 +133,9 @@
         0.0836875
       ],
       "id": "nova",
-      "url": "/characters/nova.f414bd27fe0e.glb",
-      "sha256": "f414bd27fe0e8f2fe65f82b75fe3faa21c67723aa7373dcf73deb443a8e6a9bd",
-      "bytes": 1092940,
+      "url": "/characters/nova.ddabb0abcc68.glb",
+      "sha256": "ddabb0abcc68b59b03a97e348ac480e24b20b6bc40c7aab26e44df6e9610f4c6",
+      "bytes": 1092920,
       "triangles": 29276,
       "bones": [
         "pelvis",
@@ -193,9 +193,9 @@
         0.0836875
       ],
       "id": "brick",
-      "url": "/characters/brick.9c1400ed1851.glb",
-      "sha256": "9c1400ed1851a80315d2572ce1895919d8f75a6687ad32c18159ea6ed6e79f4a",
-      "bytes": 1093076,
+      "url": "/characters/brick.fa560d428a2b.glb",
+      "sha256": "fa560d428a2b772ad7bfcdac9c71ed3f3917253ae192c7494301274608fb2a43",
+      "bytes": 1093048,
       "triangles": 29276,
       "bones": [
         "pelvis",
@@ -248,14 +248,14 @@
     },
     {
       "faceOffset": [
-        5.421010862427522e-20,
+        -5.421010862427522e-20,
         -0.03806250000000011,
         0.0836875
       ],
       "id": "chad",
-      "url": "/characters/chad.cb0f9834f495.glb",
-      "sha256": "cb0f9834f495bc0137d3267b4e5d3764338f8cdf121d803fd079e62eb183c0b5",
-      "bytes": 1093148,
+      "url": "/characters/chad.4aabc2815fdf.glb",
+      "sha256": "4aabc2815fdf119d49f207faa8c444349b25fa46b8e285c54adb737168ede891",
+      "bytes": 1093132,
       "triangles": 29276,
       "bones": [
         "pelvis",

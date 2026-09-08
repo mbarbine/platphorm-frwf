@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { recoveryPose } from '../game/animation/recoveryMotion';
+import { RECOVERY_DURATION, recoveryPose } from '../game/animation/recoveryMotion';
 import { POSES } from '../game/animation/poses';
 import { stepBodyDynamics } from '../game/physics/bodyDynamics';
 import { authoredDeckPoseOwnsRoot, visiblePelvisDrop } from '../game/presentation/matPresentation';
@@ -23,7 +23,7 @@ describe('Bodyworks playability upgrade', () => {
   it('authors distinct back, front, and side recoveries that converge on the standing stance', () => {
     const back = recoveryPose('back', 'downed', 0); const front = recoveryPose('front', 'downed', 0); const side = recoveryPose('left', 'downed', 0);
     expect(front.rootYaw).not.toBe(back.rootYaw); expect(side.rootRoll).not.toBe(back.rootRoll);
-    expect(recoveryPose('right', 'recovering', .7)).toEqual(POSES.combatIdle);
+    expect(recoveryPose('right', 'recovering', RECOVERY_DURATION)).toEqual(POSES.combatIdle);
   });
 
   it('puts a real trash can in Chaos and exposes a nearby secured corner rail shot', () => {
