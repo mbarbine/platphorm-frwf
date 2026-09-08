@@ -706,3 +706,28 @@ it('shows torso-to-canvas contact on the actual skin at a scored slam', async ()
     expect(gap, `visible torso floats ${gap.toFixed(3)} m above the canvas`).toBeLessThan(.12);
   } finally { skin.dispose(); runtime.reset(); world.free(); }
 });
+
+
+it.each(['back', 'front', 'left', 'right'] as const)('keeps the spine coherent throughout %s recovery', (orientation) => {
+  const { world, runtime, model, rig } = makeHarness('chad');
+  try {
+    model.labMode = true;
+    for (let frame = 0; frame < 60; frame++) stepHarness(world, runtime, model);
+    runtime.prepareLabFall('player', orientation, model.player.facing);
+    model.player.state = 'downed'; model.player.stateElapsed = 0; model.player.downTimer = 15; model.player.recoveryOrientation = orientation;
+    for (let frame = 0; frame < 30; frame++) stepHarness(world, runtime, model);
+    requestCommand(model, 'player', 'dodge');
+    let maximumSpineBend = 0; let worst = {};
+    for (let frame = 0; frame < 240; frame++) {
+      stepHarness(world, runtime, model);
+      for (const [parent, child] of [['pelvis', 'abdomen'], ['abdomen', 'chest']] as const) {
+        const error = shortestQuaternionError(rig.bodies[parent].rotation(), rig.bodies[child].rotation());
+        const angle = Math.hypot(error.x, error.y, error.z);
+        if (angle > maximumSpineBend) { maximumSpineBend = angle; worst = { frame, parent, state: model.player.state, pelvis: rig.bodies.pelvis.translation(), error }; }
+      }
+    }
+    expect(maximumSpineBend, JSON.stringify(worst)).toBeLessThan(.75);
+    expect(model.player.state).toBe('idle');
+    expect(runtime.metrics.emergencyResetCount).toBe(0);
+  } finally { runtime.reset(); world.free(); }
+});

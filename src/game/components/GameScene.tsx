@@ -363,7 +363,7 @@ export function GameScene(props: Props) {
           <CameraRig />
           <SpectatorFreeCamera />
           <RuntimeDiagnosticsSampler onSustainedSlow={() => { if (graphicsQuality === 'auto') setAutomaticPerformanceFallback(true); }} />
-          <AdaptiveDpr pixelated />
+          <AdaptiveDpr />
           {quality.bakeShadows && <BakeShadows />}
         </Canvas>
         {graphicsLost && <div className="graphics-recovery" role="alert"><b>GRAPHICS INTERRUPTED · MATCH PAUSED</b><span>Waiting for the graphics device to recover.</span><button className="button" onClick={() => location.reload()}>RELOAD GAME</button></div>}

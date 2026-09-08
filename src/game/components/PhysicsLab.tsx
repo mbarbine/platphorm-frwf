@@ -108,7 +108,7 @@ export function PhysicsLab() {
     clearTimers(); automationActive.current = true; useMatchStore.getState().pause(false); setActive(scenario.id); lastScenario.current = scenario;
     if (scenario.id === 'reset') {
       useMatchStore.getState().configureLab(playerId, opponentId, seed, playerStamina, opponentStamina, playerMass, opponentMass);
-      timers.current.push(window.setTimeout(() => setActive(null), scenario.duration));
+      timers.current.push(window.setTimeout(() => { clearTimers(); setActive(null); }, scenario.duration));
       return;
     }
     const closeRange = ['inputRange', 'jab', 'headbutt', 'blockedJab', 'hook', 'frontKick', 'guard', 'kick', 'lock', 'slam', 'failedLift', 'gripBreak', 'suplex', 'german', 'powerbomb', 'clothesline', 'spear', 'soakRound'].includes(scenario.id);
@@ -154,8 +154,7 @@ export function PhysicsLab() {
     const scheduler = window.setInterval(() => {
       const current = useMatchStore.getState().model; const elapsedMs = (current.elapsed - startedAt) * 1_000;
       if (performance.now() - wallStartedAt > Math.max(60_000, Math.min(180_000, scenario.duration * 20))) {
-        window.clearInterval(scheduler);
-        for (const step of scenario.steps) if (step.down) dispatchKey(step.code, false);
+        clearTimers();
         document.documentElement.dataset.labScenarioAbort = `${scenario.id}:simulation-timeout`;
         setActive(null); return;
       }

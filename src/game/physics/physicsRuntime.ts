@@ -163,6 +163,7 @@ interface FighterRigRegistration {
   landingSupportFrames: number;
   airborneSeconds: number;
   recoveryOrientationCaptured: boolean;
+  anatomicalLimitsInstalled?: boolean;
   lastSafeCenter: Vec2;
   neutralAnchor: Vec2 | null;
 }
@@ -699,7 +700,10 @@ export class BodyWorksRuntime {
       intent.move.x = controller.movement.x; intent.move.z = controller.movement.z; intent.run = controller.running;
       intent.block = controller.blockTimer > 0;
     }
-    for (const rig of this.rigs.values()) this.capRigVelocity(rig);
+    for (const rig of this.rigs.values()) {
+      this.installAnatomicalLimits(rig);
+      this.capRigVelocity(rig);
+    }
     for (const key of slots) this.applyFighterController(key, model[key], dt, model);
     this.applyCloseRangeSeparation(model);
     if (this.world && BODYWORKS_FLAGS.props) this.syncPhysicalProps(this.world, model);
@@ -804,6 +808,29 @@ export class BodyWorksRuntime {
       const sorted = Array.from(this.stepSamples.slice(0, this.stepSampleCount)).sort((a, b) => a - b);
       this.metrics.p95StepMs = sorted[Math.max(0, Math.ceil(sorted.length * .95) - 1)] ?? 0;
     }
+  }
+
+  private installAnatomicalLimits(rig: FighterRigRegistration): void {
+    const world = this.world; if (!world || rig.anatomicalLimitsInstalled) return;
+    const pairs = [
+      ['pelvis', 'abdomen', [.34, .28, .24]],
+      ['abdomen', 'chest', [.4, .32, .28]],
+    ] as const;
+    let installed = 0;
+    for (const [parent, child, limits] of pairs) {
+      const a = rig.bodies[parent]; const b = rig.bodies[child]; if (!a || !b) continue;
+      world.impulseJoints.forEachJointHandleAttachedToRigidBody(a.handle, handle => {
+        const joint = world.impulseJoints.get(handle);
+        if (!joint || joint.body1().handle !== a.handle || joint.body2().handle !== b.handle) return;
+        // Rapier 0.19 exposes multi-axis limits through its typed raw joint
+        // set. These are AngX/Y/Z (3/4/5), not the JointAxesMask bit flags.
+        world.impulseJoints.raw.jointSetLimits(handle, 3, -limits[0], limits[0]);
+        world.impulseJoints.raw.jointSetLimits(handle, 4, -limits[1], limits[1]);
+        world.impulseJoints.raw.jointSetLimits(handle, 5, -limits[2], limits[2]);
+        installed++;
+      });
+    }
+    rig.anatomicalLimitsInstalled = installed === pairs.length;
   }
 
   private applyFighterController(key: FighterKey, fighter: FighterRuntime, dt: number, model: MatchModel): void {
@@ -2012,6 +2039,17 @@ export class BodyWorksRuntime {
       const root = rig.bodies.pelvis.rotation();
       for (const segment of Object.keys(targets) as BodySegmentId[]) targets[segment] = quaternionMultiply(root, targets[segment]);
     }
+    // Follow the solved spine, rather than independently aiming three free
+    // ball joints at world rotations while the pelvis rolls off the mat.
+    // Independent world targets allowed a full inversion at the waist.
+    const spineParents = { abdomen: 'pelvis', chest: 'abdomen', head: 'chest' } as const;
+    for (const [child, parent] of Object.entries(spineParents) as [keyof typeof spineParents, BodySegmentId][]) {
+      const parentBody = rig.bodies[parent]; if (!parentBody?.isValid()) continue;
+      const fraction = child === 'abdomen' ? .45 : child === 'chest' ? .55 : -.35;
+      targets[child] = quaternionMultiply(parentBody.rotation(), quaternionFromEuler([
+        pose.torso[0] * fraction, pose.torso[1] * fraction, pose.torso[2] * fraction,
+      ]));
+    }
     // A headbutt has to drive the actual head rigid body through the torso's
     // forward lean. Keeping the head locked to pelvis yaw made the animation
     // readable in the renderer while the physical head never reached contact.
@@ -2029,6 +2067,13 @@ export class BodyWorksRuntime {
       const upperArm = rig.bodies[`${side}UpperArm`]; const forearm = rig.bodies[`${side}Forearm`];
       if (upperArm?.isValid()) targets[`${side}Forearm`] = quaternionMultiply(upperArm.rotation(), quaternionFromEuler([clamp(pose[`${side}Forearm`][0], -2.65, .08), 0, 0]));
       if (forearm?.isValid()) targets[`${side}Hand`] = forearm.rotation();
+      const thigh = rig.bodies[`${side}Thigh`]; const shin = rig.bodies[`${side}Shin`];
+      if (thigh?.isValid()) targets[`${side}Shin`] = quaternionMultiply(thigh.rotation(), quaternionFromEuler([kneeFlexion(pose[`${side}Shin`][0]), 0, 0]));
+      if (shin?.isValid()) {
+        const plant = ['idle', 'locomotion', 'blocking', 'recovering'].includes(fighter.state);
+        const ankle = plant ? clamp(-pose.rootTilt - pose[`${side}Leg`][0] - kneeFlexion(pose[`${side}Shin`][0]), -.58, .68) : 0;
+        targets[`${side}Foot`] = quaternionMultiply(shin.rotation(), quaternionFromEuler([ankle, 0, 0]));
+      }
     }
     const strike = fighter.moveId ? strikeDriveProfile(fighter.moveId) : null;
     const strikeSegments = strike ? strikePoseChain(strike.source) : [];
@@ -2045,7 +2090,16 @@ export class BodyWorksRuntime {
       const speed = striking ? 9 * authority : onMat ? 3.8 : recovering ? 4 : 5.5;
       // One bounded velocity servo per body. The solver still owns every
       // constraint/contact; no second torque impulse can kick it off target.
-      body.setAngvel(chasePoseAngularVelocity(body.rotation(), targets[segment], body.angvel(), gain, speed, .65), true);
+      const drive = chasePoseAngularVelocity(body.rotation(), targets[segment], body.angvel(), gain, speed, .65);
+      if (segment === 'abdomen' || segment === 'chest' || segment === 'head') {
+        const parentVelocity = rig.bodies[spineParents[segment]]?.angvel();
+        if (parentVelocity) {
+          drive.x += clamp(parentVelocity.x, -speed, speed) * .65;
+          drive.y += clamp(parentVelocity.y, -speed, speed) * .65;
+          drive.z += clamp(parentVelocity.z, -speed, speed) * .65;
+        }
+      }
+      body.setAngvel(drive, true);
     }
   }
 
