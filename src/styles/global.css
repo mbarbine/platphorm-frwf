@@ -325,3 +325,8 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 
 .hud .tutorial { left: 1rem; top: 7rem; width: min(390px, 34vw); transform: none; border-color: #7b75654d; border-radius: 6px; box-shadow: none; }
 .hud .tutorial > div { color: #ccc3ae; }
+
+.physics-lab__visibility { padding: .35rem .5rem; margin-bottom: .35rem; color: #dce8ef; border: 1px solid #667a9666; background: #151b2b; font: 800 .6rem var(--font-tech); cursor: pointer; }
+.physics-lab[data-minimized=true] { width: auto; max-height: none; padding: .3rem; }
+.physics-lab[data-minimized=true] > :not(.physics-lab__visibility) { display: none; }
+.physics-lab[data-minimized=true] .physics-lab__visibility { margin: 0; }

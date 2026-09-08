@@ -103,3 +103,7 @@ The hand renderer now curls fingers toward their own palm plane with distinct th
 **Known gaps:** The physical cover can settle without sustained torso contact and therefore never count; the failing test remains. Browser footage still exposes poor knockdown/recovery poses and detached-looking knee equipment. The character/contact skeleton fit needs more work. Production multiplayer parity, mobile-device playability, and the broader open-world experience are still unfinished. The normal throw-to-pin journey previously failed and has not been reclassified as passing.
 
 **Next remediation:** Correct cover weight/support and paired body placement while preserving real contact requirements; repair knockdown-to-recovery pose continuity; align remaining skin/accessory landmarks; continue the actual two-player match and physical-mobile journeys. Do not release based on these narrow tests.
+
+## Physical contact and supplied motion follow-up — September 8, 2026
+
+The earlier arm-correction failure counts above are historical. Subsequent work fixed the cover regression, exhausted recovery, actual strike contact, tabletop support and the hand's anatomical curl plane, and integrated selected user-supplied Combat FBX motion. Current results and remaining quality gaps are documented in [the physical contact review](PHYSICAL_CONTACT_REVIEW_2026-09-08.md). Passing regression checks do not supersede the unfinished visual and playability bar.

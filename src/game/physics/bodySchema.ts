@@ -119,9 +119,9 @@ export function torsoColliderArgs(segment: BodySegmentSchema): [number, number, 
   return null;
 }
 
-/** The knuckles and boot toe extend forward of their wrist/ankle bone. */
+/** Fit the closed palm and the boot toe around their wrist/ankle landmarks. */
 export function extremityColliderShape(segment: BodySegmentSchema): { args: [number, number, number]; position: [number, number, number] } | null {
-  if (segment.id.includes('Hand')) return { args: [.055, .105, .115], position: [segment.side === 'left' ? .015 : -.015, .015, .05] };
+  if (segment.id.includes('Hand')) return { args: [.055, .105, .08], position: [segment.side === 'left' ? .015 : -.015, .015, 0] };
   if (segment.id.includes('Foot')) return { args: [segment.radius, segment.radius * .5, segment.halfLength * 1.35], position: [0, 0, .09] };
   return null;
 }

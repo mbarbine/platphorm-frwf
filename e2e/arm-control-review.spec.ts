@@ -1,10 +1,12 @@
 import { expect, test } from '@playwright/test';
 
-test.use({ video: 'on', trace: 'off' });
+test.use({ video: 'on', trace: 'off', actionTimeout: 15000 });
 
 test('records idle, directional movement, guard and punches through player controls', async ({ page }) => {
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
-  await page.goto('/');
+  // Disable opponent decisions for this isolated motion recording. The
+  // wrestling-polish journey separately exercises the live AI exchange.
+  await page.goto('/?physicsLab=1');
   await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
   await page.getByRole('button', { name: 'PLAY', exact: true }).click();
   await page.getByRole('button', { name: /LOCK IN ATLAS/ }).click();
@@ -18,6 +20,7 @@ test('records idle, directional movement, guard and punches through player contr
     try { await tutorial.click({ timeout: 1500 }); }
     catch (error) { if (await tutorial.isVisible()) throw error; }
   }
+  await page.getByRole('button', { name: 'MINIMIZE PHYSICS LAB' }).click();
   // These holds record the visible motion, rather than skipping to a pose.
   await page.waitForTimeout(2500);
   await page.screenshot({ path: 'test-results/arms-idle.png' });

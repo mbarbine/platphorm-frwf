@@ -27,5 +27,17 @@ test('Chad gets up on backstage furniture through the visible recovery control',
   await expect(hud).toHaveAttribute('data-physics-emergency-resets', '0');
   await lab.getByRole('button', { name: 'PAUSE', exact: true }).click();
   await page.screenshot({ path: 'test-results/chad-table-recovered.png' });
+  const head = hud.locator('[data-player-head]');
+  const tableHeadY = Number((await head.getAttribute('data-player-head'))?.split(',')[1]);
+  await lab.getByRole('button', { name: 'PLAY', exact: true }).click();
+  await page.keyboard.down('s');
+  await expect.poll(async () => Number(await hud.getAttribute('data-player-z')), { timeout: 10000 }).toBeGreaterThan(-2.3);
+  await page.keyboard.up('s');
+  await expect.poll(async () => Number((await head.getAttribute('data-player-head'))?.split(',')[1]), { timeout: 10000 }).toBeLessThan(tableHeadY - .65);
+  await expect(hud).toHaveAttribute('data-player-state', 'idle', { timeout: 10000 });
+  expect(Number(await hud.getAttribute('data-player-support-feet'))).toBeGreaterThan(0);
+  await expect(hud).toHaveAttribute('data-physics-emergency-resets', '0');
+  await lab.getByRole('button', { name: 'PAUSE', exact: true }).click();
+  await page.screenshot({ path: 'test-results/chad-table-walk-off.png' });
   expect(errors).toEqual([]);
 });

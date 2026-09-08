@@ -154,3 +154,9 @@ The next structural milestone is sharing the world scene and physical simulation
 This pass addresses action/visual disagreement directly: the defender's authored half of paired grapples now reaches the physical motor controller; release profiles distinguish slams, backward suplexes, lateral throws and power drops; eight-way movement follows solved travel relative to facing; and a brief secured-clinch decision beat precedes the player lift. Release prompts use the actual physical phase. Contact effects preserve the 3D collision point instead of inventing a height.
 
 The Volt Dome now has a continuous woven/scuffed branded canvas, padded corners, restrained rope lighting and articulated instanced crowd silhouettes. This is procedural physical animation and art; character fidelity, hand-placement tolerance, physical device acceptance and seamless world combat remain open. Validation and deployment evidence belong in `WRESTLING_POLISH_RELEASE.md`.
+
+## Physical contact and Combat source integration — September 8, 2026
+
+Implemented bounded arm control, legal elbow/wrist targets, zero-stamina supported recovery, tabletop support, fitted hit shapes, solved-contact confirmation, more muscular assets and five retargeted motion clips from the supplied Combat files. Chad's table recovery and the ordinary lift/slam/cover sequence are covered by recorded browser journeys. See [physical contact review](PHYSICAL_CONTACT_REVIEW_2026-09-08.md) for exact validation and limitations.
+
+Continue with authored paired holds, throws and mat transitions, then activate suitable knockout/reaction clips after visual review. The weapon clips are not part of the unarmed move set. Online parity, seamless world simulation and physical-device acceptance remain unfinished; this increment is not a finished-game certification.
