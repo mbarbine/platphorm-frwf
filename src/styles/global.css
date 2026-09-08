@@ -259,7 +259,9 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .pause-overlay--settings { overflow-y: auto; padding: 1.5rem; }
 
 /* The connected showground keeps its controls outside the 3D scene. */
-.world-screen { position: absolute; inset: 0; overflow: hidden; background: #657844; touch-action: none; }
+.world-screen { position: absolute; inset: 0; overflow: hidden; background: #657844; touch-action: auto; }
+.world-screen canvas { touch-action: none; }
+.world-circuit, .world-modal { touch-action: pan-y; overscroll-behavior: contain; }
 .world-screen > div:first-child { width: 100%; height: 100%; }
 .world-header { position: absolute; inset: max(1.1rem, env(safe-area-inset-top)) max(1.2rem, env(safe-area-inset-right)) auto max(1.2rem, env(safe-area-inset-left)); display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; pointer-events: none; color: #fff8dc; text-shadow: 0 2px 8px #18251f; }
 .world-header span { font-size: .65rem; font-weight: 850; letter-spacing: .2em; }.world-header h1 { font: 900 clamp(1.1rem, 3vw, 2rem)/1.1 Impact, sans-serif; margin: .3rem 0; letter-spacing: .02em; }.world-header small { font-size: .63rem; }

@@ -11,7 +11,7 @@ Site purpose: an open-world style wrestling game with explorable grounds, physic
 - A local circuit board shows actual completed records, three mastery objectives, rank progress and encounter tracking. Reputation comes from unique wins and objective medals; repeated wins do not farm reputation. Results show circuit progress. Returning from a bout restores the exploration position.
 - Old v1 saves retain their position and records. Optional medal fields are bounded and validated; existing winning records retain their victory objective; unavailable storage leaves play usable for the current visit. These records are editable local game progression, never a trusted leaderboard.
 - Pinfall counts now occur at one, two and three full seconds. The kick-out window remains open until the third count; fresh rivals can escape early covers.
-- Touch strike/grapple labels now follow Arcade versus Technical execution. Arcade advertises its actual suplex follow-up, and the physical lift phase displays Release throw. World objectives and venue information fit the mobile encounter dialog.
+- Touch strike/grapple labels now follow Arcade versus Technical execution. Arcade advertises its actual suplex follow-up, and the physical lift phase displays Release throw. World objectives and venue information fit the mobile encounter dialog. Circuit and offer panels allow vertical touch scrolling; gesture suppression is limited to the canvas and movement controls.
 
 ## Files changed
 

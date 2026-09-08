@@ -13,6 +13,18 @@ for (const phone of [false, true]) test.describe(phone ? 'Phone showground' : 'D
     const world = page.getByTestId('showground');
     await expect(world).toBeVisible();
     await expect(page.locator('html')).toHaveAttribute('data-game-input-ready', 'true', { timeout: 20000 });
+    if (phone) {
+      await page.getByRole('button', { name: 'CIRCUIT', exact: true }).click();
+      const circuit = page.getByRole('complementary', { name: 'Local wrestling circuit' });
+      expect(await world.evaluate(el => getComputedStyle(el).touchAction)).toBe('auto');
+      expect(await circuit.evaluate(el => getComputedStyle(el).touchAction)).toBe('pan-y');
+      const finale = circuit.locator('article').last();
+      await finale.scrollIntoViewIfNeeded();
+      await expect(finale).toBeInViewport();
+      await expect(finale.getByRole('button', { name: 'TRACK ENCOUNTER' })).toBeDisabled();
+      await page.screenshot({ path: `test-results/circuit-phone-scroll-${browserName}.png` });
+      await page.getByRole('button', { name: 'Close circuit' }).click();
+    }
     const z = async () => Number(await world.getAttribute('data-world-z'));
     if (phone) {
       const joystick = page.getByRole('group', { name: 'Explore movement joystick' });
