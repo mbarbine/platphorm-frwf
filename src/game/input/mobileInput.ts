@@ -54,11 +54,11 @@ export const mobileInput = {
       run: state.run,
       block: state.block,
       actions,
-      active: performance.now() - state.lastActiveAt < 2_500,
+      active: isMoving || state.run || state.block || performance.now() - state.lastActiveAt < 2_500,
     };
   },
   isActive(): boolean {
-    return performance.now() - state.lastActiveAt < 2_500;
+    return state.move.x * state.move.x + state.move.z * state.move.z > .0064 || state.run || state.block || performance.now() - state.lastActiveAt < 2_500;
   },
   reset(): void {
     state.move.x = 0;

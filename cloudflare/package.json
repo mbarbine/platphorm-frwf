@@ -6,7 +6,7 @@
     "dev": "wrangler dev",
     "build": "wrangler deploy --dry-run --outdir dist",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --config vitest.config.ts"
+    "test": "pnpm build && vitest run --config vitest.config.ts"
   },
   "dependencies": { "zod": "3.25.76" },
   "devDependencies": {

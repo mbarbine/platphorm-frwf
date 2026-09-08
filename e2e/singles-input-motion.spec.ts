@@ -32,10 +32,10 @@ test('ordinary Singles executes strike keys visibly and a jump returns control',
     new MutationObserver(sample).observe(document.body, { subtree: true, attributes: true, childList: true }); sample();
   });
 
+  // A live Normal rival can acquire a grip while the browser loads. A
+  // standing strike is illegal while held; wait for an actual action window.
+  await expect.poll(async () => await hud.getAttribute('data-player-state'), { timeout: 20000, intervals: [100] }).toMatch(/^(idle|locomotion|downed)$/);
   const stateBeforeStrike = await hud.getAttribute('data-player-state');
-  if (stateBeforeStrike === 'recovering') {
-    await expect.poll(async () => await hud.getAttribute('data-player-state'), { timeout: 15_000, intervals: [100, 200, 400] }).toMatch(/idle|locomotion/);
-  }
   await page.keyboard.press('j');
   await expect(hud.locator('[data-last-action]')).toHaveAttribute('data-last-action', 'quickStrike', { timeout: 8_000 });
   await expect(hud.locator('[data-last-action]')).toHaveAttribute('data-last-action-status', 'executed', { timeout: 8_000 });
@@ -50,9 +50,7 @@ test('ordinary Singles executes strike keys visibly and a jump returns control',
   await expect.poll(async () => Number(await hud.getAttribute('data-player-vertical')), { timeout: 5_000 }).toBeLessThan(.2);
 
   await page.evaluate(() => { delete document.documentElement.dataset.sawOrdinaryAttackMotion; });
-  if ((await hud.getAttribute('data-player-state')) === 'recovering') {
-    await expect.poll(async () => await hud.getAttribute('data-player-state'), { timeout: 15_000, intervals: [100, 200, 400] }).toMatch(/idle|locomotion|downed/);
-  }
+  await expect.poll(async () => await hud.getAttribute('data-player-state'), { timeout: 20000, intervals: [100] }).toMatch(/^(idle|locomotion|downed)$/);
   const stateBeforeHeavy = await hud.getAttribute('data-player-state');
   await page.keyboard.press('k');
   await expect(hud.locator('[data-last-action]')).toHaveAttribute('data-last-action', 'heavyStrike', { timeout: 8_000 });

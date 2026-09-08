@@ -128,6 +128,7 @@ export const chooseAiDecision = (model: MatchModel, definition: FighterDefinitio
     return { command, move: grappleDirectionFor(definition.tendency, roll), run: false, nextSeed };
   }
   const hard = model.difficulty === 'hard';
+  const easy = model.difficulty === 'easy';
   const isSingles = model.matchMode === 'singles';
   // Normal rivals leave space for a readable get-up instead of chaining
   // another throw while the player is still regaining physical balance.
@@ -139,19 +140,19 @@ export const chooseAiDecision = (model: MatchModel, definition: FighterDefinitio
   }
   const playerSpamming = isSingles && target.recentMoves.length >= 3 && target.recentMoves.every((mv) => mv === target.recentMoves[0]);
   const counterMultiplier = playerSpamming ? 1.45 : 1.0;
-  const counterChance = clampChance(((hard ? .58 : .12) + personality.technical * .24 + personality.athletic * .08) * counterMultiplier);
+  const counterChance = clampChance(((hard ? .58 : .12) + personality.technical * .24 + personality.athletic * .08) * counterMultiplier * (easy ? .2 : 1));
   const incomingMajor = target.attackPhase === 'anticipation' && target.moveId !== 'jab' && separation < 2.2;
   if (incomingMajor && roll < counterChance && isActionLegal(model, 'dodge', actorKey)) return { command: 'dodge', move: { x: 0, z: 0 }, run: false, nextSeed };
   const blockMultiplier = playerSpamming ? 1.25 : 1.0;
-  if (target.attackPhase === 'anticipation' && separation < 2.05 && roll < (hard ? .88 : .32) * blockMultiplier && isActionLegal(model, 'block', actorKey)) return { command: 'block', move: { x: 0, z: 0 }, run: false, nextSeed };
+  if (target.attackPhase === 'anticipation' && separation < 2.05 && roll < (hard ? .88 : easy ? .12 : .32) * blockMultiplier && isActionLegal(model, 'block', actorKey)) return { command: 'block', move: { x: 0, z: 0 }, run: false, nextSeed };
 
   if (!hard && isSingles && model.ruleset === 'standard' && !actor.heldPropId) {
     if (actor.stamina < 20) return { command: null, move: separation < 2.5 ? { x: -toward.x * .5, z: -toward.z * .5 } : { x: 0, z: 0 }, run: false, nextSeed };
     if (separation > strikingRange) return { command: null, move: toward, run: false, nextSeed };
     // Give normal matches a wrestling rhythm: set feet, strike or clinch,
     // recover. Elaborate aerial and rope setups belong to the harder rival.
-    if (actor.stateElapsed < .55 || !['idle', 'locomotion'].includes(actor.state)) return { command: null, move: { x: 0, z: 0 }, run: false, nextSeed };
-    const command: GameCommand = roll < .42 ? 'grapple' : roll < .85 ? 'quick' : 'heavy';
+    if (actor.stateElapsed < (easy ? 1.25 : .55) || !['idle', 'locomotion'].includes(actor.state)) return { command: null, move: { x: 0, z: 0 }, run: false, nextSeed };
+    const command: GameCommand = roll < (easy ? .12 : .42) ? 'grapple' : roll < .85 ? 'quick' : 'heavy';
     return { command: isActionLegal(model, command, actorKey) ? command : null, move: { x: 0, z: 0 }, run: false, nextSeed };
   }
 

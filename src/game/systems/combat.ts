@@ -1066,7 +1066,7 @@ export const advanceMatch = (model: MatchModel, dt: number, playerInput: FrameIn
   for (const event of playerInput.actions ?? []) if (event.phase === 'started') requestAction(model, 'player', event, playerInput.run);
   for (const command of playerInput.commands ?? []) requestCommand(model, 'player', command, playerInput.move, playerInput.run);
   const active = activeFighterSlots(model);
-  const openingDuration = model.matchMode === 'battle_royale' ? BATTLE_ROYALE_OPENING_BELL_SECONDS : 2;
+  const openingDuration = model.matchMode === 'battle_royale' ? BATTLE_ROYALE_OPENING_BELL_SECONDS : model.difficulty === 'easy' ? 5 : 2;
   const openingBell = model.elapsed < openingDuration;
   for (const slot of AI_FIGHTER_SLOTS) {
     const controller = model.aiControllers[slot];
@@ -1083,7 +1083,7 @@ export const advanceMatch = (model: MatchModel, dt: number, playerInput: FrameIn
     } else if (controller.thinkTimer <= 0) {
       const decision = chooseAiDecision(model, fighterById(model[slot].definitionId), slot);
       model.seed = decision.nextSeed; controller.intent = decision.command; controller.movement = decision.move; controller.running = decision.run;
-      controller.thinkTimer = (model.difficulty === 'hard' ? .13 : .48) + (slot === 'opponent' ? 0 : .025 * Number(slot.slice(-1)));
+      controller.thinkTimer = (model.difficulty === 'hard' ? .13 : model.difficulty === 'easy' ? 1.25 : .48) + (slot === 'opponent' ? 0 : .025 * Number(slot.slice(-1)));
       if (decision.command) {
         requestAction(model, slot, createActionEvent(gameCommandToAction(decision.command), { source: 'ai', timestamp: model.elapsed * 1_000, direction: decision.move }), controller.running);
         if (decision.command === 'block') controller.blockTimer = model.difficulty === 'hard' ? .72 : .48;

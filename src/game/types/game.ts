@@ -14,7 +14,7 @@ export type AnimationKey =
   | 'counter' | 'block' | 'climb' | 'aerial' | 'taunt' | 'pin' | 'kickout' | 'victory' | 'defeat' | 'finisher';
 export type Ruleset = 'standard' | 'chaos';
 export type MatchMode = 'battle_royale' | 'singles';
-export type Difficulty = 'normal' | 'hard';
+export type Difficulty = 'easy' | 'normal' | 'hard';
 export type Tendencies = 'aggressive' | 'technical' | 'opportunistic';
 export type ControlDevice = 'keyboard' | 'gamepad' | 'touch';
 export type GameCommand = 'quick' | 'heavy' | 'grapple' | 'block' | 'dodge' | 'jump' | 'interact' | 'context' | 'taunt';
