@@ -2104,7 +2104,12 @@ export class BodyWorksRuntime {
               if (manifold.numSolverContacts() > 0) point = manifold.solverContactPoint(0);
             });
             if (!touching && continuousHit?.sourceSegment === sourceSegment && continuousHit.targetSegment === targetSegment
-              && continuousHit.moveId === moveId && continuousHit.attackInstanceId === sourceRuntime.attackInstanceId) {
+              && continuousHit.moveId === moveId && continuousHit.attackInstanceId === sourceRuntime.attackInstanceId
+              && (continuousHit.timeOfImpact === 0 || sourceCollider.contactCollider(targetCollider, .012) !== null)) {
+              // A force-based cast predicts unconstrained travel. The joint
+              // solver may stop the limb before that predicted contact, so
+              // only preserve an already observed contact or one reached by
+              // the solved bodies. A prediction alone must never deal damage.
               touching = true; point = continuousHit.point; direction = continuousHit.direction;
               totalImpulse = continuousHit.impulse; maximumImpulse = continuousHit.impulse;
             }

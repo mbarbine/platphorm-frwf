@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { loadContactSkin, visibleSurfaceGap } from './helpers/skinnedContact';
+import { Quaternion, Vector3 } from 'three';
 import { strikeDriveProfile } from '../game/physics/strikeDynamics';
 import { configureCombatVenue, VENUES, type CombatVenue } from '../game/data/venues';
 import { ColliderDesc, JointData, RigidBodyDesc, World, init } from '@dimforge/rapier3d-compat';
@@ -646,8 +647,13 @@ it.each([
     const profile = strikeDriveProfile(moveId); if (!profile) throw new Error(`Missing strike ${moveId}`);
     const gap = visibleSurfaceGap(sourceSkin.points(player.bodies, profile.source), targetSkin.points(opponent.bodies));
     if (gap >= .12) {
-      const head = targetSkin.points(opponent.bodies, 'head'); const center = opponent.bodies.head.translation();
-      console.info('contact skin diagnostic', moveId, model.lastImpact, { headCenter: center, headBounds: ['x', 'y', 'z'].map(axis => [Math.min(...head.map(p => p[axis as 'x'])), Math.max(...head.map(p => p[axis as 'x']))]) });
+      console.info('contact skin diagnostic', moveId, model.lastImpact);
+      for (const segment of ['chest', 'abdomen', 'leftUpperArm', 'rightHand'] as const) {
+        const rig = segment === 'rightHand' ? player : opponent; const skin = segment === 'rightHand' ? sourceSkin : targetSkin;
+        const b = rig.bodies[segment]; const q = b.rotation(); const inverse = new Quaternion(q.x, q.y, q.z, q.w).invert();
+        const vertices = skin.points(rig.bodies, segment).map(p => p.sub(new Vector3().copy(b.translation())).applyQuaternion(inverse));
+        console.info(segment, (['x', 'y', 'z'] as const).map(axis => [Math.min(...vertices.map(p => p[axis])), Math.max(...vertices.map(p => p[axis]))]));
+      }
     }
     expect(gap, `${moveId} skin gap at physical impact: ${gap.toFixed(3)} m`).toBeLessThan(.12);
   } finally { sourceSkin.dispose(); targetSkin.dispose(); runtime.reset(); world.free(); }
