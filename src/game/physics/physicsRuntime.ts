@@ -2455,6 +2455,22 @@ export class BodyWorksRuntime {
     };
   }
 
+  expandFighterBounds(key: FighterKey, bounds: { min: Vector3Value; max: Vector3Value }): void {
+    const rig = this.rigs.get(key);
+    if (!rig) return;
+    for (const body of Object.values(rig.bodies)) {
+      if (!body?.isValid()) continue;
+      const point = body.translation();
+      if (![point.x, point.y, point.z].every(Number.isFinite)) continue;
+      bounds.min.x = Math.min(bounds.min.x, point.x - .35);
+      bounds.min.y = Math.min(bounds.min.y, point.y - .35);
+      bounds.min.z = Math.min(bounds.min.z, point.z - .35);
+      bounds.max.x = Math.max(bounds.max.x, point.x + .35);
+      bounds.max.y = Math.max(bounds.max.y, point.y + .35);
+      bounds.max.z = Math.max(bounds.max.z, point.z + .35);
+    }
+  }
+
   presentationAlignmentSnapshot(key?: FighterKey): PresentationAlignmentSnapshot {
     const keys: readonly FighterKey[] = key ? [key] : FIGHTER_SLOTS;
     let total = 0; let count = 0; let maximumError = 0; let maximumSegment: BodySegmentId | null = null;

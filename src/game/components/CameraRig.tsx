@@ -12,6 +12,7 @@ import type { FighterSlot, FighterState, MatchModel } from '../types/game';
 import { bodyWorksRuntime } from '../physics/physicsRuntime';
 import { resolvedSpectatorTarget, useSpectatorStore } from '../state/spectatorStore';
 import { isRingside } from '../physics/ringDynamics';
+import { bodyFramingDistance, placeBroadcastCamera } from '../camera/bodyFraming';
 
 const isFiniteNumber = (value: unknown): value is number => Number.isFinite(value as number);
 const safeNumber = (value: unknown, fallback: number): number => isFiniteNumber(value) ? value : fallback;
@@ -81,6 +82,8 @@ export function CameraRig() {
   const shake = useSettings((state) => state.shake);
   const reduced = useSettings((state) => state.reducedMotion);
   const cameraCuts = useSettings((state) => state.cameraCuts);
+  const bodyBounds = useRef({ min: { x: 0, y: 0, z: 0 }, max: { x: 0, y: 0, z: 0 } });
+  const framingDistance = useRef(7.8);
 
   // Pre-allocated states/caches to eliminate high-frequency GC allocations inside useFrame
   const slotStateCache = useRef<Record<FighterSlot, CachedSlotState>>({
@@ -129,6 +132,7 @@ export function CameraRig() {
       shotChangedAt.current = 0;
       impactId.current = 0;
       impactImpulse.current = 0;
+      framingDistance.current = 7.8;
     }
     sanitizeVector(camera.position, 0, 4.45, 0);
     const isBootstrapping = bootstrapFrames.current < 6;
@@ -300,6 +304,14 @@ export function CameraRig() {
 
     const middleX = (minimumX + maximumX) / 2;
     const middleZ = (minimumZ + maximumZ) / 2;
+    const bounds = bodyBounds.current;
+    bounds.min.x = minimumX - .5; bounds.max.x = maximumX + .5;
+    bounds.min.z = minimumZ - .5; bounds.max.z = maximumZ + .5;
+    const floor = isRingside(model.player.position) ? 0 : 1.5;
+    bounds.min.y = floor; bounds.max.y = floor + 2.3;
+    for (let i = 0; i < framingSlotsCount; i++) {
+      bodyWorksRuntime.expandFighterBounds(framingSlotsRef.current[i] as FighterSlot, bounds);
+    }
     // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt for ~8x performance gain in 60fps frame loop
     const rangeX = maximumX - minimumX;
     const rangeZ = maximumZ - minimumZ;
@@ -608,6 +620,9 @@ export function CameraRig() {
         + grappleLift * (shot.current === 'slam' ? 0.3 : 0.14),
       focusZ
     );
+    if (cameraCuts === 'off' && !replayActive) {
+      desiredTarget.set((bounds.min.x + bounds.max.x) / 2, (bounds.min.y + bounds.max.y) / 2, (bounds.min.z + bounds.max.z) / 2);
+    }
     sanitizeVector(desiredTarget, middleX, fallbackTargetY, middleZ);
     sanitizeVector(smoothedTarget, middleX, fallbackTargetY, middleZ);
     smoothedTarget.lerp(desiredTarget, 1 - Math.exp(-clampedDt * (reduced ? 4 : 7.2)));
@@ -646,6 +661,14 @@ export function CameraRig() {
       );
       perspective.fov += (desiredFov - perspective.fov) * (1 - Math.exp(-clampedDt * 7.5));
       perspective.updateProjectionMatrix();
+      if (cameraCuts === 'off' && !replayActive) {
+        // Fit after target smoothing: a rapidly lifted body must remain visible
+        // even while the camera catches up. Pull back immediately, ease in slowly.
+        const required = bodyFramingDistance(bounds, smoothedTarget, perspective.fov, perspective.aspect);
+        framingDistance.current = Math.max(required, framingDistance.current + (required - framingDistance.current) * (1 - Math.exp(-clampedDt * 2.4)));
+        placeBroadcastCamera(camera.position, smoothedTarget, framingDistance.current);
+        lookAtSafe(perspective, smoothedTarget);
+      }
     }
   });
 
