@@ -1,4 +1,5 @@
 import { POSES } from './poses';
+import { authoredStrikePose } from './combatMotion';
 import type { Pose } from './poses';
 import type { AttackPhase, FighterId, MoveDefinition } from '../types/game';
 
@@ -435,7 +436,7 @@ const strikeFrames = (moveId: string): readonly PoseKeyframe[] => {
 
 export const getStrikePose = (move: MoveDefinition, phase: AttackPhase, elapsed: number): Pose | null => {
   const frames = strikeFrames(move.id);
-  return frames.length > 0 ? sample(frames, strikePresentationProgress(move, phase, elapsed)) : null;
+  return frames.length > 0 ? authoredStrikePose(sample(frames, strikePresentationProgress(move, phase, elapsed)), move, phase, elapsed) : null;
 };
 
 const LIGHT_REACTION: readonly PoseKeyframe[] = [

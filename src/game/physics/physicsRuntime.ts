@@ -18,6 +18,7 @@ import { POSES } from '../animation/poses';
 import type { Pose } from '../animation/poses';
 import { RECOVERY_DURATION, recoveryPose } from '../animation/recoveryMotion';
 import { locomotionPose } from '../animation/locomotion';
+import { authoredIdlePose } from '../animation/combatMotion';
 import { throwDirection, throwMotionFor } from './throwMotion';
 import { BREAKFALL_POSE, COVER_POSE, COVERED_POSE, hasPhysicalCover, kneeFlexion, standingRecoilPose } from './wrestlingPose';
 import type { QuaternionValue, Vector3Value } from './motorController';
@@ -2700,7 +2701,7 @@ const targetPoseFor = (fighter: FighterRuntime): Pose => {
   const breathe = Math.sin(fighter.stateElapsed * 2.2) * .024;
   const sway = Math.cos(fighter.stateElapsed * .88) * .016;
   const idlePose: Pose = { ...POSES.combatIdle, torso: [breathe, sway, 0], rootY: breathe * .38 };
-  return applyBodyLanguage(idlePose, fighter);
+  return applyBodyLanguage(authoredIdlePose(idlePose, fighter.stateElapsed), fighter);
 };
 
 const physicalPoseTargets = (pose: Pose, facing: number, plantSoles = false): Record<BodySegmentId, QuaternionValue> => {
