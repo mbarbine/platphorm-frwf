@@ -1,3 +1,4 @@
+vi.mock('../game/components/HumanoidFighter', () => ({ HumanoidFighter: () => null }));
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import React from 'react';
 import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';

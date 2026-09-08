@@ -17,7 +17,7 @@ export function ArchiveBackdrop({ active = true }: { active?: boolean }) {
     if (!media) return;
     const sync = () => {
       if (!enabled || document.hidden) media.pause();
-      else void media.play().catch(() => { /* Poster remains visible if autoplay is unavailable. */ });
+      else void Promise.resolve(media.play()).catch(() => { /* Poster remains visible if autoplay is unavailable. */ });
     };
     sync(); document.addEventListener('visibilitychange', sync);
     return () => { media.pause(); document.removeEventListener('visibilitychange', sync); };

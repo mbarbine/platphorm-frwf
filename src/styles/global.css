@@ -218,7 +218,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .archive-backdrop__shade { position: absolute; inset: 0; background: linear-gradient(90deg,rgba(6,7,15,.96),rgba(6,7,15,.42) 66%,rgba(6,7,15,.3)),linear-gradient(0deg,#080a13,transparent 40%); }
 .archive-backdrop__caption { position: absolute; right: 2rem; bottom: 1.3rem; display: flex; gap: 1rem; align-items: center; color: #aeb7bf; font: 600 .58rem sans-serif; letter-spacing: .14em; }
 .archive-backdrop__caption button { pointer-events: auto; color: #d7e7ea; border: 1px solid #647177; background: #0b111d; padding: .6rem; font: inherit; cursor: pointer; }
-.app > section { position: relative; z-index: 1; }
+.app > section:not(.match-screen) { position: relative; z-index: 1; }
 .arena-loading { position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; }
 .arena-loading__copy { position: relative; z-index: 1; display: grid; gap: 1rem; text-align: center; }
 .arena-loading__copy b { font-size: clamp(1.1rem,3vw,2.5rem); }
