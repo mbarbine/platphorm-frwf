@@ -1,3 +1,4 @@
+import { combatInputDirection } from '../game/input/playerController';
 import { useEffect, useRef, useState } from 'react';
 import { fighterById } from '../game/data/fighters';
 import { getMove } from '../game/data/moves';
@@ -86,10 +87,13 @@ export function HUD({ device, paused }: { device: ControlDevice; paused: boolean
   const distance = Math.sqrt(distDx * distDx + distDz * distDz);
   const touch = device === 'touch' || mobileInput.isActive();
   const activeDevice = touch ? 'touch' : device; const grappleGuide = useSettings((state) => state.grappleGuide); const controlDeckMode = useSettings((state) => state.controlDeckMode);
-  const controlReadout = buildControlReadout(model.player, target, playerPhysics.speed, distance, paused, activeDevice, playerIntent.move, playerIntent.run);
+  const preferredStyle = useSettings((state) => state.controlStyle);
+  const controlStyle = model.labMode || model.networkAuthority ? 'technical' : preferredStyle;
+  const combatDirectionInput = combatInputDirection(playerIntent.move, controlStyle);
+  const controlReadout = buildControlReadout(model.player, target, playerPhysics.speed, distance, paused, activeDevice, combatDirectionInput, playerIntent.run, controlStyle);
   const hint = controlReadout.callout;
   const announcementClass = model.announcement ? announcementTier(model.announcement, [player.signature, opponent.signature]) : null;
-  const grappleDirection = combatDirection(playerIntent.move); const currentGrappleMove = model.player.moveId ? getMove(model.player.moveId) : null;
+  const grappleDirection = combatDirection(combatDirectionInput); const currentGrappleMove = model.player.moveId ? getMove(model.player.moveId) : null;
   const guideRows = grappleGuide === 'full' ? GRAPPLE_GUIDE : grappleGuide === 'minimal' ? GRAPPLE_GUIDE.filter((row) => row.id === grappleDirection) : [];
   const grapplePrompts = [controlPrompt(activeDevice, 'quick'), controlPrompt(activeDevice, 'heavy'), controlPrompt(activeDevice, 'grapple')];
   const actionFeedback = bodyWorksRuntime.actionFeedback();
@@ -125,7 +129,7 @@ export function HUD({ device, paused }: { device: ControlDevice; paused: boolean
     {model.matchMode === 'battle_royale' && <div className="battle-royale-roster" data-testid="battle-royale-roster" data-remaining={FIGHTER_SLOTS.filter((slot) => model[slot].state !== 'defeated').length}>{FIGHTER_SLOTS.map((slot) => { const runtime = model[slot]; const definition = fighterById(runtime.definitionId); const physical = rosterPhysics[slot]; return <div key={slot} className={`${slot === 'player' ? 'is-player' : ''}${slot === targetSlot ? ' is-target' : ''}${runtime.state === 'defeated' ? ' is-eliminated' : ''}`} data-fighter-slot={slot} data-fighter-state={runtime.state} data-fighter-state-seconds={runtime.stateElapsed.toFixed(2)} data-fighter-pelvis-y={physical.pelvisY.toFixed(3)} data-fighter-support-feet={physical.supportFeet}><span style={{ background: definition.palette.primary }} /><b>{definition.name}</b><i style={{ width: `${runtime.health}%` }} /><small>{runtime.state === 'defeated' ? 'OUT' : `${Math.ceil(runtime.health)} HP`}</small></div>; })}</div>}
     {model.matchMode === 'battle_royale' && <button type="button" className="target-switch" data-testid="target-switch" aria-label="Switch target wrestler" disabled={model.player.state === 'defeated' || model.resolved} onClick={() => useMatchStore.getState().cyclePlayerTarget()}>SWITCH TARGET <kbd>TAB</kbd><small>GAMEPAD VIEW</small></button>}
     {showPrompts && recentActionFeedback && <div className={`action-strip action-strip--${recentActionFeedback.status}`} data-testid="action-strip" data-action={recentActionFeedback.event.action} data-action-label={actionConfirmation} data-status={recentActionFeedback.status}><span>INPUT</span><b>{actionConfirmation}</b><small>{recentActionFeedback.reason?.toUpperCase() ?? recentActionFeedback.status.toUpperCase()}</small></div>}
-    {showDeck && <ControlDeck mode={controlDeckMode} device={device} player={model.player} opponent={target} speed={playerPhysics.speed} distance={distance} paused={paused} direction={playerIntent.move} runHeld={playerIntent.run} contextPreview={contextPreview.displayName} propPreview={propPreview.displayName} />}
+    {showDeck && <ControlDeck mode={controlDeckMode} device={device} player={model.player} opponent={target} speed={playerPhysics.speed} distance={distance} paused={paused} direction={combatDirectionInput} controlStyle={controlStyle} runHeld={playerIntent.run} contextPreview={contextPreview.displayName} propPreview={propPreview.displayName} />}
     {showPrompts && <div className="context-hint"><span className="device-dot" />{hint}<small>{touch ? 'TOUCH ACTIVE' : device === 'gamepad' ? 'GAMEPAD ACTIVE' : 'KEYBOARD ACTIVE'}</small></div>}
     {paused && <div className="pause-chip">SIMULATION PAUSED</div>}
   </div>;

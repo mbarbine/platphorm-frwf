@@ -533,6 +533,10 @@ export function CameraRig() {
       }
     }
 
+    // Stable screen axes while playing: fighter circling must not orbit the camera.
+    if (cameraCuts === 'off' && !replayActive) {
+      desired.set(middleX * .65, 7.2 + Math.min(2, separation * .22), middleZ * .65 + 11.5 + Math.min(3, separation * .25));
+    }
     const fallbackTargetY = 2.2 + maximumAir * 0.35;
     // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt for ~8x performance gain in fallback radius calculation
     const fallbackRadius = Math.max(3.4, 4.2 + Math.min(1.3, Math.sqrt(middleX * middleX + middleZ * middleZ)));

@@ -1,3 +1,4 @@
+import { PlayerController } from '../input/playerController';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { AdaptiveDpr, BakeShadows, OrbitControls } from '@react-three/drei';
 import { Physics, useAfterPhysicsStep, useBeforePhysicsStep } from '@react-three/rapier';
@@ -54,6 +55,7 @@ function Simulation({ onPause, onDevice, onFinished, inputEnabled = true, online
     useMultiplayerStore.getState().sendAction(event);
   }, [onlineRole]);
   const input = useGameInput(pause, inputEnabled, clearPendingInput, immediateNetworkRelease); const lastImpactId = useRef(0); const lastActionAudio = useRef(''); const finishNotified = useRef(false); const finishTimer = useRef<number | null>(null); const { camera, gl } = useThree();
+  const controller = useRef(new PlayerController());
   const inputBasis = useRef<CameraInputBasis | null>(null);
   const storeActionCount = useRef(0);
   const rosterReadiness = useRef({ runtimeId: -1, ready: false });
@@ -122,7 +124,7 @@ function Simulation({ onPause, onDevice, onFinished, inputEnabled = true, online
     }
     bodyWorksRuntime.beforeFixedStep(fixedStep, model, world);
     if (!requiresPhysicalRig || rosterReadiness.current.ready) {
-      const session = gl.xr.getSession(); const raw = input.read(session ? Array.from(session.inputSources) : []);
+      const session = gl.xr.getSession(); let raw = input.read(session ? Array.from(session.inputSources) : []);
       if (raw.actions?.length) {
         storeActionCount.current += raw.actions.length;
         document.documentElement.dataset.storeActionCount = String(storeActionCount.current);
@@ -150,6 +152,7 @@ function Simulation({ onPause, onDevice, onFinished, inputEnabled = true, online
         const magnitude = Math.max(1, Math.sqrt(direction.x * direction.x + direction.z * direction.z));
         return { ...event, direction: { x: direction.x / magnitude, y: direction.z / magnitude } };
       });
+      raw = controller.current.read(raw, model, useSettings.getState().controlStyle);
       if (model.networkAuthority && onlineRole !== 'spectator') {
         for (const event of raw.actions ?? []) useMultiplayerStore.getState().sendAction(event);
       }

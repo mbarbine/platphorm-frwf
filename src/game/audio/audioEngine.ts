@@ -37,6 +37,17 @@ class AudioEngine {
     this.crowd.gain.setTargetAtTime(settings.crowdVolume, now, .03);
   }
 
+  connectMusic(media: HTMLMediaElement): { volume: (value: number) => void; dispose: () => void } | null {
+    if (!this.context || !this.master) return null;
+    const source = this.context.createMediaElementSource(media);
+    const gain = this.context.createGain();
+    source.connect(gain); gain.connect(this.master);
+    return {
+      volume: (value) => gain.gain.setTargetAtTime(value, this.context?.currentTime ?? 0, .04),
+      dispose: () => { source.disconnect(); gain.disconnect(); },
+    };
+  }
+
   setListener(pose: ListenerPose): void {
     if (!this.context) return;
     const listener = this.context.listener; const now = this.context.currentTime;

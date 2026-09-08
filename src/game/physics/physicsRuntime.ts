@@ -1,3 +1,4 @@
+import { planarInputVelocity } from '../input/playerController';
 import type { RapierRigidBody } from '@react-three/rapier';
 import type { ImpulseJoint, JointData, World } from '@dimforge/rapier3d-compat';
 import type { FrameInput } from '../systems/combat';
@@ -55,6 +56,7 @@ export interface ActionFeedback {
 export interface ActionExecutionResult {
   executed: boolean;
   displayName?: string;
+  rejectionReason?: string;
 }
 
 export interface BodyWorksContact {
@@ -439,6 +441,10 @@ export class BodyWorksRuntime {
       const executed = typeof result === 'boolean' ? result : result.executed;
       const displayName = typeof result === 'boolean' ? null : result.displayName ?? null;
       if (executed && fighter === 'player') this.playerActionFeedback = { event: command.event, status: 'executed', updatedAt: now, reason: null, displayName };
+      if (!executed && typeof result !== 'boolean' && result.rejectionReason) {
+        if (fighter === 'player') this.playerActionFeedback = { event: command.event, status: 'rejected', updatedAt: now, reason: result.rejectionReason, displayName };
+        return 'rejected';
+      }
       return executed ? 'executed' : 'defer';
     }, (command) => {
       if (command.fighter === fighter) {
@@ -921,7 +927,7 @@ export class BodyWorksRuntime {
     const opponent = model[model.targets[key]]; const targetX = opponent.position.x - fighter.position.x; const targetZ = opponent.position.z - fighter.position.z;
     // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt for ~8x speedups.
     const targetDistance = Math.sqrt(targetX * targetX + targetZ * targetZ);
-    if (!battlePlayerControl && inputLength > .08 && targetDistance < 2.8) {
+    if (key !== 'player' && inputLength > .08 && targetDistance < 2.8) {
       const approachAlignment = (intent.move.x * targetX + intent.move.z * targetZ) / Math.max(.001, inputLength * targetDistance);
       if (approachAlignment > .5) desiredSpeed *= clamp((targetDistance - 1.12) / 1.42, .16, 1);
     }
@@ -934,8 +940,9 @@ export class BodyWorksRuntime {
     const targetTrackingRebound = followingRebound && rig.reboundTracking && targetDistance > 1.12 && !isRingside(opponent.position);
     const reboundDirectionX = targetTrackingRebound ? targetX / Math.max(.001, targetDistance) : velocity.x / Math.max(.001, reboundSpeed);
     const reboundDirectionZ = targetTrackingRebound ? targetZ / Math.max(.001, targetDistance) : velocity.z / Math.max(.001, reboundSpeed);
-    let desiredX = followingRebound ? reboundDirectionX * Math.max(reboundSpeed, locomotion.runSpeed) : intent.move.x * desiredSpeed * inputLength;
-    let desiredZ = followingRebound ? reboundDirectionZ * Math.max(reboundSpeed, locomotion.runSpeed) : intent.move.z * desiredSpeed * inputLength;
+    const inputVelocity = planarInputVelocity(intent.move, desiredSpeed);
+    let desiredX = followingRebound ? reboundDirectionX * Math.max(reboundSpeed, locomotion.runSpeed) : inputVelocity.x;
+    let desiredZ = followingRebound ? reboundDirectionZ * Math.max(reboundSpeed, locomotion.runSpeed) : inputVelocity.z;
     const acceleration = (inputLength <= .08 ? locomotion.braking : intent.run ? locomotion.runAcceleration : locomotion.acceleration) * (movementControl === 1 ? 1 : .24);
     if (movementControl > 0 && BODYWORKS_FLAGS.locomotion) {
       // Translate every segment by one shared center-of-mass velocity delta.

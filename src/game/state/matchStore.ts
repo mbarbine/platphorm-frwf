@@ -116,7 +116,12 @@ export const useMatchStore = create<MatchStore>((set) => ({
       const displayName = buffered.command === 'grapple' && !wasGrappling && model.player.moveId ? getMove(model.player.moveId).displayName.toUpperCase()
         : model.player.moveId ? getMove(model.player.moveId).displayName.toUpperCase()
           : contextPreview ?? propPreview ?? undefined;
-      return { executed: accepted, displayName };
+      const transient = Boolean(model.player.moveId) || ['recovering', 'staggered', 'grabbed', 'airborne'].includes(model.player.state);
+      const rejectionReason = accepted || transient ? undefined
+        : buffered.command === 'context' ? resolveContextAction(model, 'player', buffered.direction).rejectionReason ?? undefined
+          : buffered.command === 'interact' ? resolvePropAction(model, 'player', buffered.direction).rejectionReason ?? undefined
+            : model.player.stamina < 12 ? 'Rest or move without sprinting to recover stamina' : 'Wait until your wrestler is standing';
+      return { executed: accepted, displayName, rejectionReason };
     });
     advanceMatch(model, dt, { ...input, actions: pinRecoveryActions, commands: [] });
     if (!wasPlayerInactive && ['defeated', 'victorious'].includes(model.player.state)) bodyWorksRuntime.rejectPendingActions('player', model.elapsed, 'Fighter is no longer active');

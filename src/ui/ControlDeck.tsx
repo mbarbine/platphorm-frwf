@@ -1,3 +1,4 @@
+import type { ControlStyle } from '../game/input/playerController';
 import { getMove } from '../game/data/moves';
 import { canTransitionThroughRopes } from '../game/systems/combat';
 import { combatDirection, GRAPPLE_ACQUISITION_RANGE, selectDirectionalGrapple, selectDirectionalStrike, selectGrappleEntryMove } from '../game/systems/moveSelection';
@@ -32,11 +33,11 @@ const BASE_LABELS: Readonly<Record<ControlId, string>> = {
 };
 
 const FULL_CONTROL_IDS = Object.keys(BASE_LABELS) as ControlId[];
-const COMPACT_CONTROL_IDS: readonly ControlId[] = ['quick', 'heavy', 'grapple', 'context'];
+const COMPACT_CONTROL_IDS: readonly ControlId[] = ['quick', 'heavy', 'grapple', 'block', 'counter', 'context'];
 
 const moveLabel = (moveId: string): string => getMove(moveId).displayName.toUpperCase();
 
-export function buildControlLabels(player: FighterRuntime, opponent: FighterRuntime, speed: number, distance: number, direction: Vec2 = { x: 0, z: 0 }, running = false): Readonly<Record<ControlId, string>> {
+export function buildControlLabels(player: FighterRuntime, opponent: FighterRuntime, speed: number, distance: number, direction: Vec2 = { x: 0, z: 0 }, running = false, controlStyle: ControlStyle = 'technical'): Readonly<Record<ControlId, string>> {
   const labels: Record<ControlId, string> = { ...BASE_LABELS };
   const nearCorner = Math.abs(player.position.x) > 4.35 && Math.abs(player.position.z) > 2.95;
   const ringside = Math.abs(player.position.x) > 5.82 || Math.abs(player.position.z) > 4.32;
@@ -45,7 +46,7 @@ export function buildControlLabels(player: FighterRuntime, opponent: FighterRunt
   const cornerDz = opponent.position.z - Math.sign(opponent.position.z || player.position.z || 1) * 3.85;
   const clinchCornerDistanceSq = cornerDx * cornerDx + cornerDz * cornerDz;
   // OPTIMIZATION: Replacing slow Math.hypot with zero-allocation squared-magnitude check (> 0.0064 equivalent to > 0.08)
-  const effectiveDirection = direction.x * direction.x + direction.z * direction.z > 0.0064
+  const effectiveDirection = controlStyle === 'arcade' ? { x: 0, z: 0 } : direction.x * direction.x + direction.z * direction.z > 0.0064
     ? direction
     : speed > .08 ? player.velocity : direction;
   const directionId = combatDirection(effectiveDirection);
@@ -58,9 +59,9 @@ export function buildControlLabels(player: FighterRuntime, opponent: FighterRunt
         : moveLabel(selectDirectionalStrike(effectiveDirection, 'heavy', player.comboStep));
 
   if (player.state === 'grappling') {
-    labels.quick = moveLabel(selectDirectionalGrapple(direction, 'quick'));
-    labels.heavy = moveLabel(selectDirectionalGrapple(direction, 'heavy'));
-    labels.grapple = moveLabel(selectDirectionalGrapple(direction, 'grapple'));
+    labels.quick = moveLabel(selectDirectionalGrapple(effectiveDirection, 'quick'));
+    labels.heavy = moveLabel(selectDirectionalGrapple(effectiveDirection, 'heavy'));
+    labels.grapple = moveLabel(selectDirectionalGrapple(effectiveDirection, 'grapple'));
     labels.context = clinchCornerDistanceSq <= 9.9225 ? moveLabel('corner_smash') : 'DRAG CLINCH TO CORNER';
   } else if (player.state === 'climbing') {
     if (player.climbStage === 3) {
@@ -86,9 +87,9 @@ export function buildControlLabels(player: FighterRuntime, opponent: FighterRunt
   return labels;
 }
 
-export function buildControlReadout(player: FighterRuntime, opponent: FighterRuntime, speed: number, distance: number, paused: boolean, device: ControlDevice = 'keyboard', direction: Vec2 = { x: 0, z: 0 }, runHeld = false): ControlReadout {
+export function buildControlReadout(player: FighterRuntime, opponent: FighterRuntime, speed: number, distance: number, paused: boolean, device: ControlDevice = 'keyboard', direction: Vec2 = { x: 0, z: 0 }, runHeld = false, controlStyle: ControlStyle = 'technical'): ControlReadout {
   const active = new Set<ControlId>();
-  const labels = buildControlLabels(player, opponent, speed, distance, direction, runHeld);
+  const labels = buildControlLabels(player, opponent, speed, distance, direction, runHeld, controlStyle);
   // Detect lift phase so the throw command is discoverable
   const liftMoveIds = new Set(['slam', 'piledriver', 'powerbomb', 'skyhook', 'mountain_drop', 'suplex']);
   const isInLift = player.state === 'grappling' && player.moveId !== null && liftMoveIds.has(player.moveId)
@@ -172,8 +173,8 @@ export const buildVisibleControls = (readout: ControlReadout, device: ControlDev
   }));
 };
 
-export function ControlDeck({ device, player, opponent, speed, distance, paused, mode = 'full', direction = { x: 0, z: 0 }, runHeld = false, contextPreview, propPreview }: { device: ControlDevice; player: FighterRuntime; opponent: FighterRuntime; speed: number; distance: number; paused: boolean; mode?: Extract<ControlDeckMode, 'full' | 'compact'>; direction?: Vec2; runHeld?: boolean; contextPreview?: string; propPreview?: string }) {
-  const readout = buildControlReadout(player, opponent, speed, distance, paused, device, direction, runHeld);
+export function ControlDeck({ device, player, opponent, speed, distance, paused, mode = 'full', direction = { x: 0, z: 0 }, runHeld = false, contextPreview, propPreview, controlStyle = 'technical' }: { device: ControlDevice; player: FighterRuntime; opponent: FighterRuntime; speed: number; distance: number; paused: boolean; mode?: Extract<ControlDeckMode, 'full' | 'compact'>; direction?: Vec2; runHeld?: boolean; contextPreview?: string; propPreview?: string; controlStyle?: ControlStyle }) {
+  const readout = buildControlReadout(player, opponent, speed, distance, paused, device, direction, runHeld, controlStyle);
   const controls = buildVisibleControls(readout, device, mode, contextPreview, propPreview);
   const keys = DEVICE_KEYS[device];
 

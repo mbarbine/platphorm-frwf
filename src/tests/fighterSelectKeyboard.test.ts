@@ -1,3 +1,4 @@
+vi.mock('../game/audio/BackgroundMusic', () => ({ BackgroundMusic: () => null }));
 import { describe, expect, it, vi, afterEach } from 'vitest';
 import React from 'react';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';

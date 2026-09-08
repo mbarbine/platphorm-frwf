@@ -3,6 +3,7 @@ import { FIGHTERS, fighterById, opponentFor } from '../game/data/fighters';
 import { BALANCE } from '../game/data/balance';
 import { useMatchStore } from '../game/state/matchStore';
 import { useSettings } from '../game/state/settings';
+import { BackgroundMusic } from '../game/audio/BackgroundMusic';
 import { audioEngine } from '../game/audio/audioEngine';
 import type { ControlDevice, Difficulty, FighterId, MatchMode, Ruleset } from '../game/types/game';
 import { HUD } from '../ui/HUD';
@@ -29,7 +30,7 @@ export function App() {
   const [matchMode, setMatchMode] = useState<MatchMode>('singles');
   const [difficulty, setDifficulty] = useState<Difficulty>('normal'); const [device, setDevice] = useState<ControlDevice>('keyboard'); const [paused, setPaused] = useState(false);
   const [beers, setBeers] = useState(0);
-  const [runtimePreload, setRuntimePreload] = useState<'idle' | 'loading' | 'ready'>('idle');
+  const [runtimePreload, setRuntimePreload] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [joinRoomId, setJoinRoomId] = useState('');
   const [copied, setCopied] = useState(false);
 
@@ -135,9 +136,9 @@ export function App() {
     }
   };
   const preloadRuntime = useCallback((): void => {
-    if (runtimePreload !== 'idle') return;
+    if (runtimePreload !== 'idle' && runtimePreload !== 'error') return;
     setRuntimePreload('loading');
-    void loadGameScene().then(() => setRuntimePreload('ready'));
+    void loadGameScene().then(() => setRuntimePreload('ready')).catch(() => { gameScenePromise = null; setRuntimePreload('error'); });
   }, [runtimePreload]);
   const enter = (): void => { audioEngine.unlock(settings); setScreen('main'); preloadRuntime(); };
   const start = (): void => { configure(selected, opponentId, rules, difficulty, beers, 0, physicsLab ? 'singles' : matchMode); if (physicsLab) useMatchStore.getState().setLabMode(true); if (toyTest) useMatchStore.getState().setToyTestMode(true); setPaused(false); confirm('match'); audioEngine.play('bell', settings); };
@@ -146,6 +147,15 @@ export function App() {
     useMatchStore.getState().pause(next);
     setPaused(next);
   }, []);
+  useEffect(() => {
+    const suspend = () => {
+      if (document.hidden && screen === 'match' && !useMatchStore.getState().model.networkAuthority) {
+        useMatchStore.getState().pause(true); setPaused(true);
+      }
+    };
+    document.addEventListener('visibilitychange', suspend);
+    return () => document.removeEventListener('visibilitychange', suspend);
+  }, [screen]);
   const finish = useCallback(() => setScreen('results'), []);
   const doRematch = (): void => {
     if (useMatchStore.getState().model.networkAuthority) {
@@ -156,6 +166,7 @@ export function App() {
 
   const menuBackdrop = screen !== 'match' && <div className="backdrop"><div className="backdrop__ring" /><div className="backdrop__beam backdrop__beam--a" /><div className="backdrop__beam backdrop__beam--b" /></div>;
   return <main className={`app app--${screen}${toyTest ? ' app--toy-test' : ''}`}>
+    <BackgroundMusic active={screen !== 'init' && !paused} />
     {menuBackdrop}
     {screen === 'init' && <section className="init-screen"><Logo /><div className="init-card"><span>SYSTEM CHECK</span><b>LOCAL ARENA READY</b><small>WebGL · deterministic combat · procedural audio</small></div><button className="button button--hero" onClick={enter}>ENTER THE VOLT DOME</button><p>No network connection required after installation.</p></section>}
     {screen === 'main' && <section className="menu-screen"><Logo /><div className="menu-copy"><p>NEON UNDERGROUND ARCADE WRESTLING</p><h1>MAKE THE DOME<br /><em>LOSE CONTROL.</em></h1><span>Five originals. One electric ring. Every match tells a different story.</span></div><nav className="main-nav" aria-label="Main menu"><button className="button button--hero" onPointerEnter={preloadRuntime} onFocus={preloadRuntime} onClick={() => { preloadRuntime(); confirm('select'); }}>PLAY</button><button className="button button--hero" style={{ marginTop: '0.5rem', background: 'linear-gradient(135deg, #7000ff 0%, #ff007b 100%)' }} onPointerEnter={preloadRuntime} onFocus={preloadRuntime} onClick={() => { preloadRuntime(); confirm('multiplayer_lobby'); }}>PLAY ONLINE</button><button className="button button--quiet" onClick={() => confirm('how')}>HOW TO PLAY</button><button className="button button--quiet" onClick={() => confirm('settings')}>SETTINGS</button></nav><footer data-runtime-preload={runtimePreload} data-release-sha={RELEASE_IDENTITY.gitSha}>RINGFALL v{RELEASE_IDENTITY.applicationVersion} · BUILD {RELEASE_IDENTITY.shortGitSha} · ARENA {runtimePreload === 'ready' ? 'PRIMED' : runtimePreload === 'loading' ? 'WARMING' : 'STANDBY'}</footer></section>}

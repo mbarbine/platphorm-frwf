@@ -23,7 +23,7 @@ export function SettingsPanel({ onBack }: { onBack: () => void }) {
   const range = (
     label: string,
     value: number,
-    key: 'masterVolume' | 'effectsVolume' | 'crowdVolume' | 'shake' | 'uiScale',
+    key: 'masterVolume' | 'musicVolume' | 'effectsVolume' | 'crowdVolume' | 'shake' | 'uiScale',
     min = 0,
     max = 1,
     step = 0.05
@@ -47,7 +47,16 @@ export function SettingsPanel({ onBack }: { onBack: () => void }) {
 
   return <section className="panel panel--settings"><div className="section-heading"><span>ACCESSIBILITY + AUDIO</span><h2>SETTINGS</h2></div>
     <div className="settings-grid">
+      <label className="setting-row setting-row--select" htmlFor="setting-control-style">
+        <span>Combat controls<b>{settings.controlStyle.toUpperCase()}</b></span>
+        <select id="setting-control-style" value={settings.controlStyle} onChange={(event) => settings.update({ controlStyle: event.target.value as 'arcade' | 'technical' })}>
+          <option value="arcade">Arcade · consistent strikes and one-button slam</option>
+          <option value="technical">Technical · movement selects directional moves</option>
+        </select>
+      </label>
+      <label className="toggle-row" htmlFor="setting-automatic-replays"><span><b>Automatic replays</b><small>Pause play to review major impacts</small></span><input id="setting-automatic-replays" type="checkbox" checked={settings.automaticReplays} onChange={(event) => settings.update({ automaticReplays: event.target.checked })} /></label>
       {range('Master volume', settings.masterVolume, 'masterVolume')}
+      {range('Music · Hollow Point Ritual', settings.musicVolume, 'musicVolume')}
       {range('Effects volume', settings.effectsVolume, 'effectsVolume')}
       {range('Crowd volume', settings.crowdVolume, 'crowdVolume')}
       {range('Screen shake', settings.shake, 'shake')}

@@ -1,0 +1,17 @@
+{
+  "name": "@frwf/cloudflare",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "build": "wrangler deploy --dry-run --outdir dist",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --config vitest.config.ts"
+  },
+  "dependencies": { "zod": "3.25.76" },
+  "devDependencies": {
+    "@cloudflare/workers-types": "5.20260908.1",
+    "miniflare": "5.20260907.0-alpha",
+    "wrangler": "4.129.1"
+  }
+}

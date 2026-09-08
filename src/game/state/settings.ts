@@ -2,8 +2,11 @@ import { create } from 'zustand';
 import type { GraphicsQuality } from '../runtime/quality';
 
 export interface Settings {
+  controlStyle: 'arcade' | 'technical';
+  automaticReplays: boolean;
   masterVolume: number;
   effectsVolume: number;
+  musicVolume: number;
   crowdVolume: number;
   shake: number;
   reducedMotion: boolean;
@@ -18,7 +21,7 @@ export interface Settings {
 
 export type ControlDeckMode = 'full' | 'compact' | 'prompts' | 'hidden';
 
-const DEFAULTS: Settings = { masterVolume: .72, effectsVolume: .86, crowdVolume: .66, shake: .48, reducedMotion: false, uiScale: 1, graphicsQuality: 'auto', controlDeckMode: 'prompts', grappleGuide: 'minimal', cameraCuts: 'reduced', lowFlash: false, highContrast: false };
+const DEFAULTS: Settings = { controlStyle: 'arcade', automaticReplays: false, masterVolume: .72, musicVolume: .28, effectsVolume: .86, crowdVolume: .66, shake: .48, reducedMotion: false, uiScale: 1, graphicsQuality: 'auto', controlDeckMode: 'compact', grappleGuide: 'minimal', cameraCuts: 'off', lowFlash: false, highContrast: false };
 const STORAGE_KEY = 'ringfall-settings-v2';
 
 const load = (): Settings => {
@@ -28,7 +31,10 @@ const load = (): Settings => {
     if (!parsed || typeof parsed !== 'object') return DEFAULTS;
     const candidate = parsed as Partial<Settings>;
     return {
+      controlStyle: candidate.controlStyle === 'technical' ? 'technical' : 'arcade',
+      automaticReplays: candidate.automaticReplays === true,
       masterVolume: typeof candidate.masterVolume === 'number' ? Math.min(1, Math.max(0, candidate.masterVolume)) : DEFAULTS.masterVolume,
+      musicVolume: typeof candidate.musicVolume === 'number' && Number.isFinite(candidate.musicVolume) ? Math.min(1, Math.max(0, candidate.musicVolume)) : DEFAULTS.musicVolume,
       effectsVolume: typeof candidate.effectsVolume === 'number' ? Math.min(1, Math.max(0, candidate.effectsVolume)) : DEFAULTS.effectsVolume,
       crowdVolume: typeof candidate.crowdVolume === 'number' ? Math.min(1, Math.max(0, candidate.crowdVolume)) : DEFAULTS.crowdVolume,
       shake: typeof candidate.shake === 'number' ? Math.min(1, Math.max(0, candidate.shake)) : DEFAULTS.shake,
@@ -49,12 +55,14 @@ interface SettingsStore extends Settings {
   reset: () => void;
 }
 
-const persist = (settings: Settings): void => localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+const persist = (settings: Settings): void => {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(settings)); } catch { /* Private browsing or full storage must not disable settings. */ }
+};
 
 export const useSettings = create<SettingsStore>((set) => ({
   ...load(),
   update: (patch) => set((current) => {
-    const next: Settings = { masterVolume: current.masterVolume, effectsVolume: current.effectsVolume, crowdVolume: current.crowdVolume, shake: current.shake, reducedMotion: current.reducedMotion, uiScale: current.uiScale, graphicsQuality: current.graphicsQuality, controlDeckMode: current.controlDeckMode, grappleGuide: current.grappleGuide, cameraCuts: current.cameraCuts, lowFlash: current.lowFlash, highContrast: current.highContrast, ...patch };
+    const next: Settings = { controlStyle: current.controlStyle, automaticReplays: current.automaticReplays, masterVolume: current.masterVolume, musicVolume: current.musicVolume, effectsVolume: current.effectsVolume, crowdVolume: current.crowdVolume, shake: current.shake, reducedMotion: current.reducedMotion, uiScale: current.uiScale, graphicsQuality: current.graphicsQuality, controlDeckMode: current.controlDeckMode, grappleGuide: current.grappleGuide, cameraCuts: current.cameraCuts, lowFlash: current.lowFlash, highContrast: current.highContrast, ...patch };
     persist(next); return next;
   }),
   reset: () => { persist(DEFAULTS); set(DEFAULTS); },

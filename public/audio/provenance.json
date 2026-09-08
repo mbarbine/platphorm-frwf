@@ -1,0 +1,14 @@
+{
+  "tracks": [
+    {
+      "id": "hollow-point-ritual",
+      "title": "Hollow Point Ritual",
+      "file": "/audio/hollow-point-ritual.ccd7b9b89eee.mp3",
+      "sha256": "ccd7b9b89eeeb6b4776fe3008803a9bb22363a44fd7928f488e4fe0707eddd3a",
+      "bytes": 4058608,
+      "source": "User supplied hollow_point_ritual.mp3 for FRWF background music",
+      "license": "User-authorized inclusion; no third-party license assertion",
+      "addedAt": "2026-09-07"
+    }
+  ]
+}
