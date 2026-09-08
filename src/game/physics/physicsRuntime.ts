@@ -859,14 +859,19 @@ export class BodyWorksRuntime {
       const clearedDeck = exitingAcrossX
         ? Math.abs(position.x) > VOLT_DOME.ring.halfWidth + .48
         : Math.abs(position.z) > VOLT_DOME.ring.halfDepth + .48;
-      const targetY = anchor.inside || !clearedDeck ? ringPelvisY + .04 : ringPelvisY - 1.46;
+      const crossingEdge = anchor.inside && (Math.abs(position.x) > VOLT_DOME.ring.halfWidth - .3 || Math.abs(position.z) > VOLT_DOME.ring.halfDepth - .3);
+      const targetY = crossingEdge ? ringPelvisY + .42 : anchor.inside || !clearedDeck ? ringPelvisY + .04 : ringPelvisY - 1.46;
       const transitionVelocity = pelvis.linvel(); const dx = anchor.target.x - position.x; const dz = anchor.target.z - position.z;
+      const feetY = Math.min(rig.bodies.leftFoot?.translation().y ?? 0, rig.bodies.rightFoot?.translation().y ?? 0);
+      // Lift clear of the solid apron before pulling inward. Horizontal force
+      // against its face pins low feet and prevents the tree from climbing.
+      const entryReady = !crossingEdge || feetY >= VOLT_DOME.ring.deckY + .13;
       // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt for ~8x speedups.
       const planarDistance = Math.sqrt(dx * dx + dz * dz);
       this.applyRigAcceleration(rig, {
-        x: clamp(dx * 65 - transitionVelocity.x * 7.5, -65, 65),
-        y: clamp((targetY - position.y) * 75 - transitionVelocity.y * 7.2, -75, 75),
-        z: clamp(dz * 65 - transitionVelocity.z * 7.5, -65, 65),
+        x: clamp((entryReady ? dx * 65 : 0) - transitionVelocity.x * 7.5, -65, 65),
+        y: clamp(18 + (targetY - position.y) * 75 - transitionVelocity.y * 12, -75, 75),
+        z: clamp((entryReady ? dz * 65 : 0) - transitionVelocity.z * 7.5, -65, 65),
       });
       this.applyPoseDrive(rig, fighter, motorProfile, CENTER_ROPE_POSE);
       if ((planarDistance < .24 && Math.abs(targetY - position.y) < .4) || anchor.age > 3.2) rig.apronAnchor = null;
@@ -1808,10 +1813,14 @@ export class BodyWorksRuntime {
     else if (attacker.attackPhase === 'anticipation') {
       grapple.phase = 'lift';
       const liftDrive = liftDriveForMove(move.id) * liftFeasibility;
-      this.applyRigAcceleration(defenderRig, { x: 0, y: 36 + liftDrive * 20, z: 0 });
-      const coherentLiftDelta = clamp(3.15 - defenderPelvis.linvel().y, 0, .18);
-      if (coherentLiftDelta > 0) this.applyRigVelocityDelta(defenderRig, { x: 0, y: coherentLiftDelta, z: 0 });
-      defenderChest.addForce({ x: Math.sin(attacker.facing) * defenderChest.mass() * liftDrive * 2.1, y: defenderChest.mass() * liftDrive * 12, z: Math.cos(attacker.facing) * defenderChest.mass() * liftDrive * 2.1 }, true);
+      // Lift toward the carrier's shoulder instead of accelerating upward for
+      // the entire anticipation window. The old open-loop drive launched a
+      // body-slam victim more than three metres above its standing height.
+      const liftHeight = clamp(.92 * liftDrive, .7, 1.2);
+      const liftError = attackerPosition.y + liftHeight - defenderPosition.y;
+      const liftAcceleration = clamp(18 + liftError * 72 - defenderPelvis.linvel().y * 14, -30, 76);
+      this.applyRigAcceleration(defenderRig, { x: 0, y: liftAcceleration, z: 0 });
+      defenderChest.addForce({ x: Math.sin(attacker.facing) * defenderChest.mass() * liftDrive * 2.1, y: 0, z: Math.cos(attacker.facing) * defenderChest.mass() * liftDrive * 2.1 }, true);
       defenderPelvis.applyTorqueImpulse({ x: move.id === 'suplex' || move.id === 'skyhook' ? -.032 * liftDrive : .018 * liftDrive, y: 0, z: (grapple.position === 'overhook' ? .028 : -.018) * liftDrive }, true);
       this.applyRigAcceleration(attackerRig, { x: 0, y: -12, z: 0 });
     }

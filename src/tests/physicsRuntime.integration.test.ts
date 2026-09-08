@@ -191,6 +191,24 @@ describe('Rapier-backed Bodyworks integration', () => {
     world.free();
   });
 
+  it('climbs from the ringside floor over the solid apron before moving into the ring', () => {
+    const { world, runtime, model } = makeHarness();
+    try {
+      model.labMode = true;
+      const floor = world.createRigidBody(RigidBodyDesc.fixed().setTranslation(0, -.1, 0));
+      world.createCollider(ColliderDesc.cuboid(14, .1, 12).setCollisionGroups(arenaCollisionGroups), floor);
+      for (let frame = 0; frame < 30; frame++) stepHarness(world, runtime, model);
+      runtime.prepareLabPositions({ x: 6.52, z: 0 }, { x: 0, z: 2.4 });
+      for (let frame = 0; frame < 60; frame++) stepHarness(world, runtime, model);
+      expect(model.player.position.x).toBeGreaterThan(6);
+      runtime.requestApronTransition('player', model.player.position);
+      for (let frame = 0; frame < 240; frame++) stepHarness(world, runtime, model);
+      expect(model.player.position.x).toBeLessThan(5.3);
+      expect(runtime.fighterSnapshot('player').footY).toBeGreaterThan(1.75);
+      expect(runtime.metrics.emergencyResetCount).toBe(0);
+    } finally { runtime.reset(); world.free(); }
+  });
+
   it('contains a singles wrestler before the articulated body can disappear below the mat', () => {
     const { world, runtime, model, rig } = makeHarness();
     for (let frame = 0; frame < 30; frame += 1) stepHarness(world, runtime, model);

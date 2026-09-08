@@ -41,7 +41,7 @@ This blocks the first world release. Fix the known transform/rotation ownership 
 
 Acceptance: stand without uncommanded falls, walk/run/stop/turn without sliding or stretching, distinct readable jab/kick, reliable close-and-clinch, visible lift/release/landing, recovery that returns control, and a completed pin/rematch. Run these in ordinary menus, not only a lab with staged positions. Record failures and repeatability rather than asserting an unmeasured 95% success rate.
 
-Current blocker: the ordinary-input browser test still expires the heavy-strike press during a recovery transition. Chrome also shows awkward throw poses. Fixing React ownership was necessary but did not resolve these issues by itself.
+The ordinary-input regression subsequently passed after correcting pose locking: the initial strike, jump, return to control, and following heavy strike executed. Chrome still showed excessive throw height and weak paired poses. A bounded shoulder-height lift now passes the physical landing test; broader browser verification is in progress. This is not yet acceptance of the overall wrestling experience.
 
 ### 2. Deliver the first connected world slice
 
@@ -89,3 +89,18 @@ Acceptance: two browsers explore/join the intended experience with consistent ou
 Site purpose: open-world wrestling target, currently a local-first arena wrestling game. Product impact: physics lifecycle fixes and clearer truthful scope, with recovery and animation still unresolved. Route standard: no endpoint removed or new public mutation added. Discovery: LLMS files corrected. Trace/span, authentication and cross-site integrations: unchanged in this batch; no new integration certified. Deployment: no agent push or deployment performed. Other network sites were not changed or certified; their remaining route/auth/discovery/trace standardization needs independent per-site audits.
 
 Next remediation: finish reliable physical recovery and canonical body fitting, implement the connected world/session slice, then build satisfying encounters and progression. Retain the larger infrastructure/mocap plan in ROADMAP.md, but treat this open-world product direction and the latest user feedback as the current priority.
+
+## Latest gameplay-first objective and verification
+
+The replacement execution objective read on 2026-09-08 prioritizes player experience over cross-repository extraction. Keep the open-world direction above. Investigate and reuse platform services where beneficial; do not make GameCore extraction a prerequisite for improving wrestling.
+
+- The live root graph and base sitemap index were read. Their historical alias metadata identifies FRWF, GameCore, Games, Gamers and Spec, but is not current deployment proof. The local GameCore repository is presently a Quake companion application with player/community/proxy surfaces, not an established shared engine package. No cross-repository runtime dependency was introduced.
+- Normal gameplay camera framing now measures actual articulated body bounds and reserves a viewport inset for HUD/limbs. Six projection tests cover standing, elevated throws and ringside landings in landscape and portrait. Chrome showed the airborne wrestler remaining visible.
+- Pose authority now lets segments settle toward their intended world pose before locking. This also allows a standing wrestler to unwind after a hit and follow a changed facing direction. The pelvis must be upright before its roll/pitch lock engages.
+- The physical torso recovery regression passes without an emergency reset. The ordinary Singles browser journey and idle-opponent contact journey both passed before the final bounded-lift change.
+- The previous body-slam integration measured a 3.4424 m pelvis rise above standing height. The shoulder-height servo now passes the same actual-contact test with a required rise between 0.55 and 1.8 m; no exact new peak has been reported. Landing damage still requires the solved torso-to-mat contact.
+- Character generation now applies trunk colors only to torso/thigh regions, preventing hand/finger/forearm vertices from inheriting clothing colors. Rebuilt hashed GLBs retain the existing provenance.
+- All match modes wait for initial physical body registration before advancing the local match clock and AI. Decorative model loading still has a visible fallback.
+- Latest local `pnpm verify`: lint, typecheck, 339 tests in 53 files, and production build passed. The expanded browser suite is still running; its first failure was an ambiguous existing fighter-signature selector matching both visible copy and an accessibility announcement. The selector now targets the exact visible text.
+
+Outstanding product work remains substantial: verify all environmental moves after the lift change, improve paired body contact and anatomy, make the opening and recovery fair in repeated ordinary play, deliver a connected explorable world with encounter continuity, improve authored world/character detail, then validate the appropriate backend cutover and production player journey. No release, open-world completion, physical-device acceptance, or network-wide compliance is claimed.

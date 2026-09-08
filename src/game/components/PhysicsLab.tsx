@@ -26,7 +26,7 @@ const SCENARIOS: readonly LabScenario[] = [
   { id: 'turn', label: 'RAPID TURN', steps: [...hold('KeyA', 0, 500), ...hold('KeyD', 560, 650)], duration: 1_800 },
   { id: 'separation', label: 'SOFT SEPARATION', steps: [], duration: 2_600 },
   { id: 'ropes', label: 'RUN INTO ROPES', steps: [...hold('KeyD', 0, 2_050), ...hold('ShiftLeft', 0, 2_050)], duration: 2_800 },
-  { id: 'ropeStrike', label: 'ROPE LOAD + STIFF-ARM', steps: [...hold('KeyD', 0, 2_200), ...hold('ShiftLeft', 0, 2_200)], duration: 3_600 },
+  { id: 'ropeStrike', label: 'ROPE LOAD + STIFF-ARM', steps: [...hold('KeyA', 0, 2_200), ...hold('ShiftLeft', 0, 2_200)], duration: 3_600 },
   { id: 'apronReturn', label: 'APRON RETURN', steps: tap('KeyF', 900, 180), duration: 3_400 },
   { id: 'jump', label: 'STANDING JUMP', steps: tap('KeyC', 220, 480), duration: 2_200 },
   { id: 'landing', label: 'JUMP + LANDING', steps: tap('KeyC', 220, 480), duration: 2_600 },
@@ -104,7 +104,9 @@ export function PhysicsLab() {
     // Give the run enough in-ring distance to build a genuinely loaded entry.
     // Starting inside the rope engagement band only tested a slow shove into
     // the spring and could never satisfy the production rebound threshold.
-    else if (scenario.id === 'ropeStrike') useMatchStore.getState().prepareLabScenario({ x: -4.25, z: .08 }, { x: 0, z: .08 });
+    // Run away from the opponent into the near rope; return through the
+    // opponent's lane. Running through the opponent first tests obstruction.
+    else if (scenario.id === 'ropeStrike') useMatchStore.getState().prepareLabScenario({ x: -2.8, z: .08 }, { x: 0, z: .08 });
     // Two .235 m head spheres need a non-overlapping but genuinely reachable
     // lane. Chest colliders remain separated at .64 m while the authored brow
     // drive can close the final head-surface gap during the active window.

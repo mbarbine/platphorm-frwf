@@ -78,10 +78,6 @@ function Simulation({ onPause, onDevice, onFinished, inputEnabled = true, online
     window.addEventListener('keydown', onTargetCycle);
     return () => window.removeEventListener('keydown', onTargetCycle);
   }, []);
-  const lab = physicsLabEnabled();
-  const labDebug = usePhysicsLabStore((state) => state.debug);
-  const requiresPhysicalRig = lab && labDebug;
-
   useBeforePhysicsStep((world) => {
     const model = useMatchStore.getState().model;
     const fixedStep = model.labMode ? usePhysicsLabStore.getState().rate / 60 : 1 / 60;
@@ -111,22 +107,16 @@ function Simulation({ onPause, onDevice, onFinished, inputEnabled = true, online
     }
     const activeSlots = model.matchMode === 'battle_royale' ? FIGHTER_SLOTS.filter((slot) => model[slot].state !== 'defeated') : FIGHTER_SLOTS.slice(0, 2);
     const expectedBodies = activeSlots.length * BODY_SEGMENT_COUNT;
-    if (requiresPhysicalRig) {
-      if (rosterReadiness.current.runtimeId !== model.runtimeId) rosterReadiness.current = { runtimeId: model.runtimeId, ready: false };
-      if (!rosterReadiness.current.ready && bodyWorksRuntime.metrics.bodyCount >= expectedBodies) rosterReadiness.current.ready = true;
-      if (!rosterReadiness.current.ready) {
-        // Let registered bodies settle under their motors. In non-lab modes we no
-        // longer block match progression if the rig count is low, because the
-        // presentation model should stay interactive and visible even when body
-        // registration is delayed.
-        bodyWorksRuntime.beforeFixedStep(fixedStep, model, world);
-        return;
-      }
-    } else if (rosterReadiness.current.runtimeId !== model.runtimeId) {
-      rosterReadiness.current = { runtimeId: model.runtimeId, ready: true };
+    if (rosterReadiness.current.runtimeId !== model.runtimeId) rosterReadiness.current = { runtimeId: model.runtimeId, ready: false };
+    if (!rosterReadiness.current.ready && bodyWorksRuntime.metrics.bodyCount >= expectedBodies) rosterReadiness.current.ready = true;
+    if (!rosterReadiness.current.ready) {
+      // Registration readiness applies to real matches too. Do not spend the
+      // player's opening or start AI attacks before the contact bodies exist.
+      bodyWorksRuntime.beforeFixedStep(fixedStep, model, world);
+      return;
     }
     bodyWorksRuntime.beforeFixedStep(fixedStep, model, world);
-    if (!requiresPhysicalRig || rosterReadiness.current.ready) {
+    if (rosterReadiness.current.ready) {
       const session = gl.xr.getSession(); let raw = input.read(session ? Array.from(session.inputSources) : []);
       if (raw.actions?.length) {
         storeActionCount.current += raw.actions.length;
@@ -267,7 +257,6 @@ export function GameScene(props: Props) {
   const diagnosticModel = useMatchStore((state) => state.model); const toyTestMode = diagnosticModel.toyTestMode; const playerMove = diagnosticModel.player.moveId; const playerPosition = diagnosticModel.player.position; const opponentHealth = diagnosticModel[diagnosticModel.targets.player].health;
   const lab = physicsLabEnabled();
   const labRate = usePhysicsLabStore((state) => state.rate); const labDebug = usePhysicsLabStore((state) => state.debug);
-  const requiresPhysicalRig = lab && labDebug;
   const graphicsQuality = useSettings((state) => state.graphicsQuality); const reducedMotion = useSettings((state) => state.reducedMotion);
   const [automaticPerformanceFallback, setAutomaticPerformanceFallback] = useState(false);
   useEffect(() => { if (graphicsQuality !== 'auto') setAutomaticPerformanceFallback(false); }, [graphicsQuality]);
@@ -301,7 +290,7 @@ export function GameScene(props: Props) {
   };
   const exitXR = async (): Promise<void> => { await renderer.current?.xr.getSession()?.end(); };
   const expectedBodies = (diagnosticModel.matchMode === 'battle_royale' ? 5 : 2) * BODY_SEGMENT_COUNT;
-  const simulationReady = requiresPhysicalRig ? bodyWorksRuntime.metrics.bodyCount >= expectedBodies : true;
+  const simulationReady = bodyWorksRuntime.metrics.bodyCount >= expectedBodies;
   return (
     <SceneBoundary>
       <div
