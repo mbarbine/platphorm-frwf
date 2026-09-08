@@ -48,6 +48,11 @@ export const FIGHTER_VISUALS: Readonly<Record<FighterId, FighterVisualProfile>> 
     headScale: [1.04, .98, 1.02], stanceWidth: 1.06, motionTempo: .96, stepWeight: 1.04, guardHeight: .96, fatigueDroop: .44, skinRoughness: .62, gearMetalness: .38,
     hairColor: '#16151d', browColor: '#17131a', eyeColor: '#7ee2ff', soleColor: '#41b8ff',
   },
+  dale: {
+    attire: 'brawler', hair: 'bandana', chestScale: 1.24, waistScale: 1.1, shoulderScale: 1.25, armScale: 1.2, thighScale: 1.18, calfScale: 1.12, bootScale: 1.2,
+    headScale: [1.05, 1.02, 1.03], stanceWidth: 1.15, motionTempo: .85, stepWeight: 1.25, guardHeight: .96, fatigueDroop: .45, skinRoughness: .62, gearMetalness: .24,
+    hairColor: '#30221b', browColor: '#30221b', eyeColor: '#b7a27c', soleColor: '#b84932',
+  },
   chad: {
     attire: 'roughneck', hair: 'mullet', chestScale: 1.13, waistScale: 1.07, shoulderScale: 1.14, armScale: 1.16, thighScale: 1.08, calfScale: 1.08, bootScale: 1.14,
     headScale: [1.05, 1.01, 1.03], stanceWidth: 1.09, motionTempo: .9, stepWeight: 1.1, guardHeight: .9, fatigueDroop: .78, skinRoughness: .66, gearMetalness: .22,

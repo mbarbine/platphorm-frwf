@@ -160,3 +160,10 @@ The Volt Dome now has a continuous woven/scuffed branded canvas, padded corners,
 Implemented bounded arm control, legal elbow/wrist targets, zero-stamina supported recovery, tabletop support, fitted hit shapes, solved-contact confirmation, more muscular assets and five retargeted motion clips from the supplied Combat files. Chad's table recovery and the ordinary lift/slam/cover sequence are covered by recorded browser journeys. See [physical contact review](PHYSICAL_CONTACT_REVIEW_2026-09-08.md) for exact validation and limitations.
 
 Continue with authored paired holds, throws and mat transitions, then activate suitable knockout/reaction clips after visual review. The weapon clips are not part of the unarmed move set. Online parity, seamless world simulation and physical-device acceptance remain unfinished; this increment is not a finished-game certification.
+
+
+## Screenshot-driven anatomy and control correction — September 8, 2026
+
+The supplied folded-waist and crossed-boot images led to new intermediate-frame checks, not just final-state checks. Physical spine/hip limits, parent-relative leg targets, non-crossing side steps, and coherent throw impulses now cover the full roster. The lab preserves the shipping human skin and selected rendering quality, releases scripted input when the player takes over, and uses actual fixed-step slow playback. Frozen shadows were removed after a recorded venue transition made the backstage room disappear.
+
+The quality bar remains readable player-controlled wrestling. Continue with paired hand placement and authored mat-to-kneel-to-stand transitions; investigate frame sequences instead of treating a final upright flag or test count as visual certification. See [the physical contact review](PHYSICAL_CONTACT_REVIEW_2026-09-08.md) for validation and remaining multiplayer, device, animation and world-simulation gaps.

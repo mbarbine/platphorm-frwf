@@ -52,6 +52,7 @@ const profiles = [
   {id:'vex',muscle:.9,width:.94,skin:'#7e513f',gear:'#20364a',accent:'#50f7ff'},
   {id:'nova',muscle:1.15,width:1.02,skin:'#d39a77',gear:'#181734',accent:'#b77bff'},
   {id:'brick',muscle:1.45,width:1.12,skin:'#553a32',gear:'#1b2735',accent:'#41b8ff'},
+  {id:'dale',muscle:1.8,width:1.24,skin:'#b98464',gear:'#172329',accent:'#b84932'},
   {id:'chad',muscle:1.55,width:1.18,skin:'#c58c70',gear:'#66717d',accent:'#e5e7e9'},
 ];
 const output = new URL('../../public/characters/', import.meta.url); mkdirSync(output, {recursive:true});

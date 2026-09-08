@@ -332,3 +332,6 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .physics-lab[data-minimized=true] .physics-lab__visibility { margin: 0; }
 
 .physics-lab__ownership { padding: .5rem 0 .1rem; color: var(--acid); font: 800 .6rem var(--font-tech); line-height: 1.5; }
+
+.player-camera-switch { position: absolute; right: max(14px, env(safe-area-inset-right)); top: 164px; pointer-events: auto; min-height: 44px; padding: 8px 14px; border: 1px solid #a99b75; border-radius: 6px; background: #11191ee8; color: #f3eedf; font-size: 11px; letter-spacing: .05em; cursor: pointer; }
+@media (max-width: 800px) { .player-camera-switch { top: 112px; right: 10px; max-width: 140px; font-size: 10px; } }

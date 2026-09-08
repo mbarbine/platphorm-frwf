@@ -1,7 +1,9 @@
+import type { PlayerCameraMode } from '../camera/playerCamera';
 import { create } from 'zustand';
 import type { GraphicsQuality } from '../runtime/quality';
 
 export interface Settings {
+  playerCamera: PlayerCameraMode;
   controlStyle: 'arcade' | 'technical';
   automaticReplays: boolean;
   masterVolume: number;
@@ -21,7 +23,7 @@ export interface Settings {
 
 export type ControlDeckMode = 'full' | 'compact' | 'prompts' | 'hidden';
 
-const DEFAULTS: Settings = { controlStyle: 'arcade', automaticReplays: false, masterVolume: .72, musicVolume: .28, effectsVolume: .86, crowdVolume: .66, shake: .16, reducedMotion: false, uiScale: 1, graphicsQuality: 'auto', controlDeckMode: 'compact', grappleGuide: 'minimal', cameraCuts: 'off', lowFlash: true, highContrast: false };
+const DEFAULTS: Settings = { playerCamera: 'broadcast', controlStyle: 'arcade', automaticReplays: false, masterVolume: .72, musicVolume: .28, effectsVolume: .86, crowdVolume: .66, shake: .16, reducedMotion: false, uiScale: 1, graphicsQuality: 'auto', controlDeckMode: 'compact', grappleGuide: 'minimal', cameraCuts: 'off', lowFlash: true, highContrast: false };
 const STORAGE_KEY = 'ringfall-settings-v2';
 
 const load = (): Settings => {
@@ -31,6 +33,7 @@ const load = (): Settings => {
     if (!parsed || typeof parsed !== 'object') return { ...DEFAULTS, reducedMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches };
     const candidate = parsed as Partial<Settings>;
     return {
+      playerCamera: candidate.playerCamera === 'first_person' || candidate.playerCamera === 'third_person' ? candidate.playerCamera : 'broadcast',
       controlStyle: candidate.controlStyle === 'technical' ? 'technical' : 'arcade',
       automaticReplays: candidate.automaticReplays === true,
       masterVolume: typeof candidate.masterVolume === 'number' ? Math.min(1, Math.max(0, candidate.masterVolume)) : DEFAULTS.masterVolume,
@@ -62,7 +65,7 @@ const persist = (settings: Settings): void => {
 export const useSettings = create<SettingsStore>((set) => ({
   ...load(),
   update: (patch) => set((current) => {
-    const next: Settings = { controlStyle: current.controlStyle, automaticReplays: current.automaticReplays, masterVolume: current.masterVolume, musicVolume: current.musicVolume, effectsVolume: current.effectsVolume, crowdVolume: current.crowdVolume, shake: current.shake, reducedMotion: current.reducedMotion, uiScale: current.uiScale, graphicsQuality: current.graphicsQuality, controlDeckMode: current.controlDeckMode, grappleGuide: current.grappleGuide, cameraCuts: current.cameraCuts, lowFlash: current.lowFlash, highContrast: current.highContrast, ...patch };
+    const next: Settings = { playerCamera: current.playerCamera, controlStyle: current.controlStyle, automaticReplays: current.automaticReplays, masterVolume: current.masterVolume, musicVolume: current.musicVolume, effectsVolume: current.effectsVolume, crowdVolume: current.crowdVolume, shake: current.shake, reducedMotion: current.reducedMotion, uiScale: current.uiScale, graphicsQuality: current.graphicsQuality, controlDeckMode: current.controlDeckMode, grappleGuide: current.grappleGuide, cameraCuts: current.cameraCuts, lowFlash: current.lowFlash, highContrast: current.highContrast, ...patch };
     persist(next); return next;
   }),
   reset: () => { persist(DEFAULTS); set(DEFAULTS); },

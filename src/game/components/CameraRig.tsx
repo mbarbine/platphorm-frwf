@@ -1,9 +1,10 @@
+import { followCameraFrame } from '../camera/playerCamera';
 import { venueFor } from '../data/venues';
 import { useFrame, useThree } from '@react-three/fiber';
 import { useMemo, useRef } from 'react';
 import { Vector3 } from 'three';
 import type { PerspectiveCamera } from 'three';
-import { BATTLE_ROYALE_CAMERA_FRAME, cameraShotIsUrgent, selectCameraShot, usesSteadyBattleRoyaleCamera } from '../camera/cameraDirector';
+import { BATTLE_ROYALE_CAMERA_FRAME, cameraShotIsUrgent, selectCameraShot } from '../camera/cameraDirector';
 import type { CameraShot, CameraDirectorContext } from '../camera/cameraDirector';
 import { getMove } from '../data/moves';
 import { useMatchStore } from '../state/matchStore';
@@ -87,6 +88,7 @@ export function CameraRig() {
   const cameraCuts = useSettings((state) => state.cameraCuts);
   const bodyBounds = useRef({ min: { x: 0, y: 0, z: 0 }, max: { x: 0, y: 0, z: 0 } });
   const framingDistance = useRef(7.8);
+  const previousView = useRef('');
 
   // Pre-allocated states/caches to eliminate high-frequency GC allocations inside useFrame
   const slotStateCache = useRef<Record<FighterSlot, CachedSlotState>>({
@@ -225,23 +227,28 @@ export function CameraRig() {
       return;
     }
 
-    if (usesSteadyBattleRoyaleCamera(model.matchMode)) {
-      const frame = BATTLE_ROYALE_CAMERA_FRAME;
-      shot.current = 'battle-royale-steady';
-      document.documentElement.dataset.cameraShot = shot.current;
+    const view = useSettings.getState().playerCamera;
+    if (view !== 'broadcast' && !replayActive) {
+      const head = bodyWorksRuntime.segmentSnapshot('player', 'head')?.position;
+      const position = head ?? { x: model.player.position.x, y: 3.8, z: model.player.position.z };
+      const perspective = camera as PerspectiveCamera;
+      const frame = followCameraFrame(position, model.player.facing, view, perspective.aspect || 1);
       desired.set(frame.position.x, frame.position.y, frame.position.z);
       desiredTarget.set(frame.target.x, frame.target.y, frame.target.z);
-      camera.position.lerp(desired, 1 - Math.exp(-clampedDt * 5.2));
-      smoothedTarget.lerp(desiredTarget, 1 - Math.exp(-clampedDt * 6.4));
-      lookAtSafe(camera as PerspectiveCamera, smoothedTarget);
-      if ('fov' in camera) {
-        const perspective = camera as PerspectiveCamera;
-        perspective.fov += (frame.fov - perspective.fov) * (1 - Math.exp(-clampedDt * 6.4));
-        perspective.updateProjectionMatrix();
-        document.documentElement.dataset.cameraFov = perspective.fov.toFixed(2);
+      if (previousView.current !== view) { camera.position.copy(desired); smoothedTarget.copy(desiredTarget); }
+      else {
+        // Eye position follows travel quickly, with restrained vertical damping.
+        const rate = view === 'first_person' ? 24 : 8;
+        camera.position.lerp(desired, 1 - Math.exp(-clampedDt * rate));
+        smoothedTarget.lerp(desiredTarget, 1 - Math.exp(-clampedDt * 18));
       }
+      previousView.current = view;
+      camera.up.set(0, 1, 0); lookAtSafe(camera as PerspectiveCamera, smoothedTarget);
+      perspective.near = .05; perspective.fov = frame.fov; perspective.updateProjectionMatrix();
+      document.documentElement.dataset.cameraShot = `player-${view}`;
       return;
     }
+    previousView.current = view;
 
     // Populate active slots without allocating arrays
     let activeSlotsCount = 0;
@@ -361,7 +368,7 @@ export function CameraRig() {
       || model.player.moveId !== null
       || ['grappling', 'grabbed', 'climbing', 'airborne', 'jumping', 'pinning', 'pinned'].includes(model.player.state);
     const battleShot = directedShot;
-    const requestedShot = cameraCuts === 'off' && battleShot !== 'replay'
+    const requestedShot = (cameraCuts === 'off' || model.matchMode === 'battle_royale') && battleShot !== 'replay'
       ? model.matchMode === 'battle_royale' ? 'wide' : 'broadcast'
       : battleShot;
     const cutInterval = cameraCuts === 'reduced' ? 1.8 : 0.72;
@@ -549,7 +556,7 @@ export function CameraRig() {
     }
 
     // Stable screen axes while playing: fighter circling must not orbit the camera.
-    if (cameraCuts === 'off' && !replayActive) {
+    if ((cameraCuts === 'off' || model.matchMode === 'battle_royale') && !replayActive) {
       const aspect = 'aspect' in camera ? (camera as PerspectiveCamera).aspect : 1.7;
       // Keep both fighters readable without rotating the player's screen axes.
       const portraitRoom = Math.max(1, 1.35 / Math.max(.5, aspect));
@@ -623,7 +630,7 @@ export function CameraRig() {
         + grappleLift * (shot.current === 'slam' ? 0.3 : 0.14),
       focusZ
     );
-    if (cameraCuts === 'off' && !replayActive) {
+    if ((cameraCuts === 'off' || model.matchMode === 'battle_royale') && !replayActive) {
       desiredTarget.set((bounds.min.x + bounds.max.x) / 2, (bounds.min.y + bounds.max.y) / 2, (bounds.min.z + bounds.max.z) / 2);
     }
     sanitizeVector(desiredTarget, middleX, fallbackTargetY, middleZ);
@@ -664,7 +671,7 @@ export function CameraRig() {
       );
       perspective.fov += (desiredFov - perspective.fov) * (1 - Math.exp(-clampedDt * 7.5));
       perspective.updateProjectionMatrix();
-      if (cameraCuts === 'off' && !replayActive) {
+      if ((cameraCuts === 'off' || model.matchMode === 'battle_royale') && !replayActive) {
         // Fit after target smoothing: a rapidly lifted body must remain visible
         // even while the camera catches up. Pull back immediately, ease in slowly.
         const required = bodyFramingDistance(bounds, smoothedTarget, perspective.fov, perspective.aspect, BROADCAST_YAW);

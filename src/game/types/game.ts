@@ -1,5 +1,5 @@
 import type { CombatVenue } from '../data/venues';
-export type FighterId = 'atlas' | 'vex' | 'nova' | 'brick' | 'chad';
+export type FighterId = 'atlas' | 'vex' | 'nova' | 'brick' | 'chad' | 'dale';
 export type FighterSlot = 'player' | 'opponent' | 'rival1' | 'rival2' | 'rival3';
 export type AiFighterSlot = Exclude<FighterSlot, 'player'>;
 export const FIGHTER_SLOTS: readonly FighterSlot[] = ['player', 'opponent', 'rival1', 'rival2', 'rival3'];

@@ -267,6 +267,7 @@ const TAUNT_POSES: Readonly<Record<FighterId, Pose>> = {
   vex: pose({ torso: [-.12, .48, -.12], leftArm: [-.58, 0, -.5], rightArm: [-2.45, -.35, .32], leftForearm: [-1.12, 0, 0], rightForearm: [-.25, 0, 0], leftLeg: [-.22, 0, 0], rightLeg: [.25, 0, 0], rootY: .14, rootYaw: .42, rootRoll: -.16 }),
   nova: pose({ torso: [.08, -.52, 0], leftArm: [-1.28, -.25, -.7], rightArm: [-1.28, .25, .7], leftForearm: [-1.34, 0, 0], rightForearm: [-.42, 0, 0], leftLeg: [.16, 0, 0], rightLeg: [-.16, 0, 0], rootYaw: -.38, rootRoll: .08 }),
   brick: pose({ torso: [.32, 0, .05], leftArm: [-1.05, .18, -.48], rightArm: [-1.05, -.18, .48], leftForearm: [-1.46, 0, .35], rightForearm: [-1.46, 0, -.35], leftLeg: [.34, 0, 0], rightLeg: [.26, 0, 0], rootY: -.14, rootTilt: .28 }),
+  dale: pose({ torso: [-.06, 0, 0], leftArm: [-1.1, 0, -.9], rightArm: [-1.1, 0, .9], leftForearm: [-.8, 0, 0], rightForearm: [-.8, 0, 0] }),
   chad: pose({ torso: [-.08, .18, -.08], leftArm: [-2.62, -.18, -.28], rightArm: [-1.58, .15, .62], leftForearm: [-.3, 0, 0], rightForearm: [-.22, 0, 0], leftLeg: [-.2, 0, 0], rightLeg: [.2, 0, 0], rootY: .12, rootYaw: .22, rootRoll: -.1 }),
 };
 

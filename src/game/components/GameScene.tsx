@@ -1,3 +1,4 @@
+import { viewInputBasis } from '../camera/playerCamera';
 import { venueFor } from '../data/venues';
 import { FightVenue } from '../world/FightVenue';
 import { RendererHealth } from './RendererHealth';
@@ -128,7 +129,7 @@ function Simulation({ onPause, onDevice, onFinished, inputEnabled = true, online
       if (raw.targetCycle) useMatchStore.getState().cyclePlayerTarget(raw.targetCycle);
       const middleX = activeSlots.reduce((sum, slot) => sum + model[slot].position.x, 0) / Math.max(1, activeSlots.length);
       const middleZ = activeSlots.reduce((sum, slot) => sum + model[slot].position.z, 0) / Math.max(1, activeSlots.length);
-      const candidate = cameraInputBasis({ x: camera.position.x, z: camera.position.z }, { x: middleX, z: middleZ });
+      const candidate = viewInputBasis(useSettings.getState().playerCamera, model.player.facing, cameraInputBasis({ x: camera.position.x, z: camera.position.z }, { x: middleX, z: middleZ }));
       if (!inputBasis.current) inputBasis.current = candidate;
       // OPTIMIZATION: Replacing Math.hypot with a zero-allocation squared magnitude check to avoid slow square root extraction on a hot path.
       const inputHeld = (raw.move.x * raw.move.x + raw.move.z * raw.move.z) > 0.0064; // 0.08 * 0.08 = 0.0064
@@ -282,12 +283,8 @@ export function GameScene(props: Props) {
   const graphicsQuality = useSettings((state) => state.graphicsQuality); const reducedMotion = useSettings((state) => state.reducedMotion);
   const [automaticPerformanceFallback, setAutomaticPerformanceFallback] = useState(false);
   useEffect(() => { if (graphicsQuality !== 'auto') setAutomaticPerformanceFallback(false); }, [graphicsQuality]);
-  // Five articulated rigs, five presentation shells, ropes, props, and a full
-  // crowd are a materially different render budget from singles. Auto quality
-  // protects control latency first in Battle Royale; an explicit user quality
-  // choice still wins. Slow rendering must never turn the match into slow
-  // motion or make a held direction feel unregistered.
-  const runtimeGraphicsQuality = diagnosticModel.matchMode === 'battle_royale' && graphicsQuality === 'auto' ? 'performance' : graphicsQuality;
+  // Adapt from measured frame health; a match mode is not a GPU benchmark.
+  const runtimeGraphicsQuality = graphicsQuality;
   const selectedQuality = useMemo(() => browserRuntimeQuality(runtimeGraphicsQuality, reducedMotion, lab), [lab, reducedMotion, runtimeGraphicsQuality]);
   const fallbackQuality = useMemo(() => browserRuntimeQuality('performance', reducedMotion, lab), [lab, reducedMotion]);
   const quality = automaticPerformanceFallback && graphicsQuality === 'auto' ? fallbackQuality : selectedQuality;

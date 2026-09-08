@@ -750,3 +750,35 @@ it.each(FIGHTERS.flatMap(fighter => [-1, 1].map(direction => ({id: fighter.id, d
     expect(runtime.metrics.emergencyResetCount).toBe(0);
   } finally { runtime.reset(); world.free(); }
 });
+
+it.each(['chad', 'atlas'] as const)('%s walking keeps a boot on the mat instead of sustained levitation', id => {
+  const { world, runtime, model } = makeHarness(id);
+  try {
+    for (let frame = 0; frame < 100; frame++) stepHarness(world, runtime, model);
+    let unsupported = 0; let longest = 0; let supported = 0; let worstGap = 0;
+    for (let frame = 0; frame < 100; frame++) {
+      stepHarness(world, runtime, model, { x: .7, z: 0 });
+      const snapshot = runtime.fighterSnapshot('player');
+      if (snapshot.supportFeet > 0) { supported++; unsupported = 0; } else unsupported++;
+      longest = Math.max(longest, unsupported);
+      worstGap = Math.max(worstGap, Math.min(snapshot.leftFootY, snapshot.rightFootY) - 1.845);
+    }
+    expect(longest, JSON.stringify({ longest, supported, worstGap })).toBeLessThan(12);
+    expect(supported).toBeGreaterThan(60);
+  } finally { runtime.reset(); world.free(); }
+});
+
+it.each([false, true])('Chad visible soles stay grounded during travel (run=%s)', async run => {
+  const skin = await loadContactSkin('chad'); const { world, runtime, model, rig } = makeHarness('chad');
+  try {
+    for (let frame = 0; frame < 100; frame++) stepHarness(world, runtime, model);
+    let floating = 0; let longest = 0; let worst = 0;
+    for (let frame = 0; frame < 100; frame++) {
+      stepHarness(world, runtime, model, { x: .7, z: 0 }, run);
+      const sole = Math.min(...skin.points(rig.bodies, 'leftFoot').map(p => p.y), ...skin.points(rig.bodies, 'rightFoot').map(p => p.y));
+      const gap = sole - 1.845;
+      worst = Math.max(worst, gap); floating = gap > .025 ? floating + 1 : 0; longest = Math.max(longest, floating);
+    }
+    expect(longest, JSON.stringify({ worst, longest })).toBeLessThan(8);
+  } finally { skin.dispose(); runtime.reset(); world.free(); }
+});

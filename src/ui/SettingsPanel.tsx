@@ -1,3 +1,4 @@
+import { PLAYER_CAMERA_MODES } from '../game/camera/playerCamera';
 import { useEffect, useState } from 'react';
 import { useSettings } from '../game/state/settings';
 
@@ -47,6 +48,7 @@ export function SettingsPanel({ onBack }: { onBack: () => void }) {
 
   return <section className="panel panel--settings"><div className="section-heading"><span>ACCESSIBILITY + AUDIO</span><h2>SETTINGS</h2></div>
     <div className="settings-grid">
+      <label className="setting-row setting-row--select" htmlFor="setting-player-camera"><span>Playing camera</span><select id="setting-player-camera" value={settings.playerCamera} onChange={event => settings.update({ playerCamera: event.target.value as typeof settings.playerCamera })}>{PLAYER_CAMERA_MODES.map(mode => <option key={mode.id} value={mode.id}>{mode.label}</option>)}</select></label>
       <label className="setting-row setting-row--select" htmlFor="setting-control-style">
         <span>Combat controls<b>{settings.controlStyle.toUpperCase()}</b></span>
         <select id="setting-control-style" value={settings.controlStyle} onChange={(event) => settings.update({ controlStyle: event.target.value as 'arcade' | 'technical' })}>

@@ -427,7 +427,7 @@ export class WrestlingRoom extends Room<MatchRoomStateSchema> {
   }
 
   private validatedFighterId(id: unknown): FighterId {
-    const valid: FighterId[] = ['atlas', 'vex', 'nova', 'brick', 'chad'];
+    const valid: FighterId[] = ['atlas', 'vex', 'nova', 'brick', 'chad', 'dale'];
     return valid.includes(id as FighterId) ? (id as FighterId) : 'atlas';
   }
 
