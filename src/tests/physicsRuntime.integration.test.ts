@@ -72,8 +72,8 @@ const makeHarness = (fighterId: FighterId = 'atlas'): { world: World; runtime: B
   return { world, runtime, model, rig };
 };
 
-const stepHarness = (world: World, runtime: BodyWorksRuntime, model: MatchModel, movement: Vec2 = STILL.move, run = false): void => {
-  const input = { move: movement, run, block: false, commands: [] };
+const stepHarness = (world: World, runtime: BodyWorksRuntime, model: MatchModel, movement: Vec2 = STILL.move, run = false, block = false): void => {
+  const input = { move: movement, run, block, commands: [] };
   runtime.captureInput('player', input, model.elapsed); advanceMatch(model, STEP, input); runtime.beforeFixedStep(STEP, model, world); world.step(); runtime.afterFixedStep(model);
   for (const contact of runtime.consumeContacts()) applyPhysicalContact(model, contact);
 };
@@ -104,8 +104,8 @@ const stepGrappleHarness = (world: World, runtime: BodyWorksRuntime, model: Matc
 beforeAll(async () => { await init(); });
 
 describe('Rapier-backed Bodyworks integration', () => {
-  it('keeps a settled guard free of wrist flips and arm vibration', () => {
-    const { world, runtime, model, rig } = makeHarness();
+  it.each(FIGHTERS)('keeps $id idle free of wrist flips and arm vibration', (fighter) => {
+    const { world, runtime, model, rig } = makeHarness(fighter.id);
     try {
       model.labMode = true;
       for (let frame = 0; frame < 240; frame++) stepHarness(world, runtime, model);
@@ -124,6 +124,20 @@ describe('Rapier-backed Bodyworks integration', () => {
       expect(peakSpeed, `Idle arm angular speed: ${peakSpeed}; wrist error: ${peakWristAngle}`).toBeLessThan(1);
       expect(peakWristAngle).toBeLessThan(.35);
       expect(runtime.metrics.emergencyResetCount).toBe(0);
+    } finally { runtime.reset(); world.free(); }
+  });
+
+  it('raises both physical hands toward the chin when guard is held', () => {
+    const { world, runtime, model, rig } = makeHarness();
+    try {
+      model.labMode = true;
+      for (let frame = 0; frame < 180; frame++) stepHarness(world, runtime, model);
+      for (let frame = 0; frame < 60; frame++) stepHarness(world, runtime, model, STILL.move, false, true);
+      expect(model.player.state).toBe('blocking');
+      const chest = rig.bodies.chest.translation();
+      for (const side of ['left', 'right'] as const) {
+        expect(rig.bodies[`${side}Hand`].translation().y).toBeGreaterThan(chest.y - .12);
+      }
     } finally { runtime.reset(); world.free(); }
   });
 

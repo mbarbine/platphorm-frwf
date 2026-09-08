@@ -2066,15 +2066,16 @@ export class BodyWorksRuntime {
         // ordinary torque servo hold them against contact. The speed remains
         // fatigue-scaled and bounded, so the joints and opponent can resist it.
         const authority = .62 + fighter.body.muscle * .38;
-        body.setAngvel(chasePoseAngularVelocity(body.rotation(), targets[segment], body.angvel(), 7.2, 6.4 * authority, .24 * authority), true);
+        body.setAngvel(chasePoseAngularVelocity(body.rotation(), targets[segment], body.angvel(), 12, 7 * authority, .65 * authority), true);
+      } else if (armSegment) {
+        body.setAngvel(chasePoseAngularVelocity(body.rotation(), targets[segment], body.angvel(), 10, 5, .6), true);
       } else if (motorProfile.rootMode !== 'physical' || armSegment) {
         // Standing balance has enough authority to finish a turn or unwind a
         // strike. Impacts still resolve through contacts and the fall states.
         body.setAngvel(chasePoseAngularVelocity(body.rotation(), targets[segment], body.angvel(), 5.2, 3.4, .22), true);
       }
       // The arm chain already has a bounded velocity drive. A second PD
-      // impulse (and opposite parent impulse) excites the small wrist inertia
-      // and fights the hinge solver instead of adding useful control.
+      // impulse excites the small wrist inertia and fights the hinge solver.
       if (armSegment) continue;
       const torque = computeMotorTorque(body.rotation(), targets[segment], body.angvel(), { x: 0, y: 0, z: 0 }, {
         stiffness: chain.stiffness * stiffnessScale,

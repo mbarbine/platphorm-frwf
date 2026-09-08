@@ -1,7 +1,7 @@
 import { useHumanoidAsset } from './useHumanoidAsset';
 import { useFrame } from '@react-three/fiber';
 import { useMemo } from 'react';
-import { Quaternion, Vector3 } from 'three';
+import { Quaternion } from 'three';
 import { bodyWorksRuntime } from '../physics/physicsRuntime';
 import type { FighterRuntime, FighterSlot } from '../types/game';
 import { FighterAccessories } from './FighterAccessories';
@@ -10,9 +10,9 @@ import { FighterAccessories } from './FighterAccessories';
 export function HumanoidFighter({ runtime, side }: { runtime: FighterRuntime; side: FighterSlot }) {
   const { scene, bones, fingers, modelScale } = useHumanoidAsset(runtime.definitionId);
   const curl = useMemo(() => new Quaternion(), []);
-  const curlAxis = useMemo(() => new Vector3(1, 0, 0), []);
+  const fingerTarget = useMemo(() => new Quaternion(), []);
 
-  useFrame(() => {
+  useFrame((_, dt) => {
     for (const [id, bone] of bones) {
       const transform = bodyWorksRuntime.segmentSnapshot(side, id);
       if (!transform) continue;
@@ -20,8 +20,11 @@ export function HumanoidFighter({ runtime, side }: { runtime: FighterRuntime; si
       bone.quaternion.set(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
     }
     const gripping = ['grappling', 'grabbed', 'climbing'].includes(runtime.state);
-    curl.setFromAxisAngle(curlAxis, gripping ? -.45 : -.95);
-    for (const finger of fingers) finger.bone.quaternion.copy(finger.rest).multiply(curl);
+    for (const finger of fingers) {
+      curl.setFromAxisAngle(finger.curlAxis, finger.closedAngle * (gripping ? .55 : 1));
+      fingerTarget.copy(finger.rest).multiply(curl);
+      finger.bone.quaternion.slerp(fingerTarget, 1 - Math.exp(-16 * dt));
+    }
     scene.updateMatrixWorld(true);
   });
 

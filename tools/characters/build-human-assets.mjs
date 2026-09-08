@@ -86,6 +86,7 @@ for (const profile of profiles) {
     if (!['pelvis','abdomen','chest','head'].includes(name) && !name.includes('Foot')) bone.quaternion.setFromUnitVectors(new Vector3(0,1,0),head.clone().sub(tail).normalize());
     return bone;
   });
+  const wrists = ['L', 'R'].map(side => bonePoint(`wrist.${side}`, 'head'));
   const positions=[], skinIndices=[], skinWeights=[], colors=[], indices=[]; const remap=new Map();
   const skin=new Color(profile.skin), gear=new Color(profile.gear), accent=new Color(profile.accent);
   for (const face of faces) {
@@ -98,7 +99,9 @@ for (const profile of profiles) {
         const dominant=names[w[0]?.[0]??0]; const originalY=points[original][1];
         const trunks=/^(pelvis|abdomen|leftThigh|rightThigh)$/.test(dominant)&&originalY>(profile.id==='chad'?-2.0:-.9)&&originalY<2.1;
         const boot=dominant.includes('Foot')||(dominant.includes('Shin')&&originalY < -5.1);
-        const tape=dominant.includes('Forearm')&&originalY<3.0&&originalY>2.5;
+        // Wrap the anatomical wrist in the skin itself, so the tape bends
+        // with the same weights rather than floating around a collider.
+        const tape=/Forearm|Hand/.test(dominant)&&wrists.some(wrist=>pos.distanceTo(wrist)<.047);
         const trim=trunks&&(originalY>1.75||Math.abs(pos.x)>.2*profile.width);
         const col=(trim?accent:trunks||boot?gear:tape?new Color('#d8d4c9'):skin).clone();
         const variation=1+Math.sin(original*12.9898)*.012; col.multiplyScalar(variation);colors.push(...col.toArray());

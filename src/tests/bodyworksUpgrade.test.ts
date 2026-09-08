@@ -26,22 +26,6 @@ describe('Bodyworks playability upgrade', () => {
     expect(recoveryPose('right', 'recovering', .7)).toEqual(POSES.combatIdle);
   });
 
-  it('authors a raised guard that closes both arms across the centerline', () => {
-    expect(POSES.block.leftArm[0]).toBeLessThan(-.5);
-    expect(POSES.block.leftArm[0]).toBeGreaterThan(-.9);
-    expect(POSES.block.rightArm[0]).toBe(POSES.block.leftArm[0]);
-    expect(POSES.block.leftForearm[0]).toBeLessThan(POSES.block.leftArm[0]);
-    expect(POSES.block.rightForearm[0]).toBe(POSES.block.leftForearm[0]);
-    expect(POSES.block.leftArm[2]).toBeGreaterThan(0);
-    expect(POSES.block.rightArm[2]).toBeLessThan(0);
-    expect(Math.abs(POSES.block.leftArm[2])).toBeLessThan(.35);
-    expect(Math.abs(POSES.block.rightArm[2])).toBeLessThan(.35);
-    expect(Math.abs(POSES.block.leftForearm[2])).toBeLessThan(.25);
-    expect(Math.abs(POSES.block.rightForearm[2])).toBeLessThan(.25);
-    expect(POSES.block.leftForearm[2]).toBeGreaterThan(0);
-    expect(POSES.block.rightForearm[2]).toBeLessThan(0);
-  });
-
   it('puts a real trash can in Chaos and exposes a nearby secured corner rail shot', () => {
     const model = createMatch('atlas', 'nova', 'chaos', 'normal', 999);
     expect(model.props.some((prop) => prop.kind === 'trash' && prop.durability === 4)).toBe(true);

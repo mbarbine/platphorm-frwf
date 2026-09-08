@@ -68,3 +68,38 @@ Existing tests are retained only for their narrow regression claims. They are no
 The unit/physics checks cover uppercut contact, legal knee flexion, real solver-driven cover establishment, no pin counting from state flags, loss of cover, cancelled approaches and the neutral uppercut sequence. Browser checks cover menu entry, ordinary throw/cover controls, recovery, render lifecycle, mobile entry and world combat. Development evidence records exact commands and outcomes separately; an assertion passing is not proof that the game meets the user's quality bar.
 
 Next work: authored or captured paired animation clips, more consistent human silhouettes during every throw, deeper grounded mat wrestling, physical iPhone playtesting and seamless exploration-to-combat interaction. Storage-backed progression and online parity remain separate unfinished features.
+
+
+## Arm and hand defect correction — September 8, 2026
+
+**Site purpose:** FRWF is an open-world wrestling game. This is an unfinished development correction on main, not a release or an acceptance claim.
+
+**Summary / product impact:** The idle arm defect was reproducible in the actual Rapier rig: Atlas reached the 24 rad/s angular-speed safety cap, with a 2.283 rad (131 degree) hand-to-forearm rotation error. Elbow targets included rotations forbidden by their X-only hinges. The same arm received a bounded angular-velocity drive followed by a PD torque impulse and an opposite parent impulse. Hands additionally switched between world rotation locks and driven motion. The correction keeps the wrist chain live, limits elbow targets to their legal bend, follows the solved parent, and uses one controller for each arm segment. Arm support was tuned against real hand positions so holding guard raises the hands toward the chin.
+
+The hand renderer now curls fingers toward their own palm plane with distinct thumb/link angles. Wrist tape is colored into the skinned character geometry rather than duplicated as floating torus accessories. Regenerated character files retain the existing source attribution and content hashes. This does not introduce captured human motion or solve all mesh retargeting defects.
+
+**Files changed:** `src/game/physics/physicsRuntime.ts`, `src/game/animation/poses.ts`, `src/game/components/HumanoidFighter.tsx`, `src/game/components/useHumanoidAsset.ts`, `src/game/components/FighterAccessories.tsx`, `tools/characters/build-human-assets.mjs`, `public/characters/manifest.json` and five new hashed GLBs, `src/tests/physicsRuntime.integration.test.ts`, `src/tests/bodyworksUpgrade.test.ts`, `e2e/arm-control-review.spec.ts`, and this report. The user committed intermediate changes during the work; the current working diff is not the complete change history.
+
+**Tests and commands:**
+
+- `node tools/characters/build-human-assets.mjs` — generated all five assets.
+- `pnpm build` — passed, including TypeScript compilation.
+- `pnpm lint` — passed.
+- `pnpm test` — 396 passed, 1 failed. The remaining failure is the actual cross-body cover/count regression in `physicsRuntime.integration.test.ts`; it is retained as a failure.
+- All five characters pass real-rig idle checks: arm angular speed below 1 rad/s after settling and wrist error below 0.35 rad. A new physical guard check requires both hands to reach chest height within one second of holding guard.
+- Removed the old guard test that asserted arbitrary authored Euler ranges, including sideways elbow twist. Its replacement measures the solved hand positions; this is not a quality score.
+- `PLAYWRIGHT_PORT=4298 PLAYWRIGHT_SUITE=arm-skin-review pnpm exec playwright test e2e/arm-control-review.spec.ts` — passed the default-graphics menu/input sequence, held movement, held guard, and punches, with no page errors. Reviewed screenshots and frames from the recording at `test-results/arm-skin-review/arm-control-review-records-f379e-hes-through-player-controls/video.webm`. This narrow automated sequence does not certify combat quality.
+
+**Route standard impact:** No route changes. Existing platform surfaces remain in place and were not re-certified by this arm pass.
+
+**Discovery file impact:** Character asset manifest updated to actual generated hashes. No new API capabilities or online availability claims.
+
+**Trace/span impact:** No trace or propagation changes; no cross-site export verification claimed.
+
+**Auth impact:** No authentication changes, secret changes, or new public operator actions.
+
+**Cross-site integration impact:** No provider deployment or new integration in this correction. Other network sites remain outside this repository's validation scope.
+
+**Known gaps:** The physical cover can settle without sustained torso contact and therefore never count; the failing test remains. Browser footage still exposes poor knockdown/recovery poses and detached-looking knee equipment. The character/contact skeleton fit needs more work. Production multiplayer parity, mobile-device playability, and the broader open-world experience are still unfinished. The normal throw-to-pin journey previously failed and has not been reclassified as passing.
+
+**Next remediation:** Correct cover weight/support and paired body placement while preserving real contact requirements; repair knockdown-to-recovery pose continuity; align remaining skin/accessory landmarks; continue the actual two-player match and physical-mobile journeys. Do not release based on these narrow tests.

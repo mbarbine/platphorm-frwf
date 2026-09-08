@@ -79,11 +79,10 @@ function RingGear({ side }: { side: FighterSlot }) {
       if (pose) { group.position.copy(pose.position); group.quaternion.set(pose.rotation.x, pose.rotation.y, pose.rotation.z, pose.rotation.w); }
     }
   });
-  return <>{(['leftShin', 'rightShin', 'leftHand', 'rightHand', 'leftFoot', 'rightFoot'] as const).map(segment => <group key={segment} ref={group => { if (group) refs.current.set(segment, group); else refs.current.delete(segment); }}>
+  return <>{(['leftShin', 'rightShin', 'leftFoot', 'rightFoot'] as const).map(segment => <group key={segment} ref={group => { if (group) refs.current.set(segment, group); else refs.current.delete(segment); }}>
     {segment.endsWith('Shin') ? <group position={[0, .14, .115]}>
       <mesh castShadow scale={[.115, .145, .07]}><sphereGeometry args={[1, 12, 8]} /><meshStandardMaterial color="#1b2028" roughness={.9} /></mesh>
       <mesh position={[0, 0, .065]} scale={[.07, .09, .012]}><sphereGeometry args={[1, 10, 6]} /><meshStandardMaterial color="#3c4249" roughness={.85} /></mesh>
-    </group> : segment.endsWith('Hand') ? <mesh position={[0, .045, 0]} rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[.064, .016, 6, 12]} /><meshStandardMaterial color="#d7d2c4" roughness={1} /></mesh>
-      : <group position={[0, .048, .1]}>{[-.035, 0, .035].map(z => <mesh key={z} position={[0, 0, z]} rotation={[Math.PI / 2, 0, Math.PI / 2]}><cylinderGeometry args={[.005, .005, .11, 5]} /><meshStandardMaterial color="#b3aa97" roughness={1} /></mesh>)}</group>}
+    </group> : <group position={[0, .048, .1]}>{[-.035, 0, .035].map(z => <mesh key={z} position={[0, 0, z]} rotation={[Math.PI / 2, 0, Math.PI / 2]}><cylinderGeometry args={[.005, .005, .11, 5]} /><meshStandardMaterial color="#b3aa97" roughness={1} /></mesh>)}</group>}
   </group>)}</>;
 }
