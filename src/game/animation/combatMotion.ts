@@ -62,7 +62,7 @@ export function authoredStrikePose(base: Pose, move: MoveDefinition, phase: Atta
 
 export function authoredIdlePose(base: Pose, elapsed: number): Pose {
   const clip = clips.fighting_idle; if (!clip) return base;
-  const phase = (elapsed % (clip.duration * 2)) / clip.duration;
+  const phase = (elapsed * .22 % (clip.duration * 2)) / clip.duration;
   const captured = sampleCombatMotion('fighting_idle', (phase <= 1 ? phase : 2 - phase) * clip.duration);
   if (!captured) return base;
   const result = blend(base, captured, .6 * clamp(elapsed * 2));

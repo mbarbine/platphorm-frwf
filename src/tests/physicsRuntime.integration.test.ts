@@ -645,6 +645,10 @@ it.each([
     expect(model.lastImpact?.moveId).toBe(moveId);
     const profile = strikeDriveProfile(moveId); if (!profile) throw new Error(`Missing strike ${moveId}`);
     const gap = visibleSurfaceGap(sourceSkin.points(player.bodies, profile.source), targetSkin.points(opponent.bodies));
+    if (gap >= .12) {
+      const head = targetSkin.points(opponent.bodies, 'head'); const center = opponent.bodies.head.translation();
+      console.info('contact skin diagnostic', moveId, model.lastImpact, { headCenter: center, headBounds: ['x', 'y', 'z'].map(axis => [Math.min(...head.map(p => p[axis as 'x'])), Math.max(...head.map(p => p[axis as 'x']))]) });
+    }
     expect(gap, `${moveId} skin gap at physical impact: ${gap.toFixed(3)} m`).toBeLessThan(.12);
   } finally { sourceSkin.dispose(); targetSkin.dispose(); runtime.reset(); world.free(); }
 });
