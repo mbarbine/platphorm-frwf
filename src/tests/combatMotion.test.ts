@@ -26,12 +26,14 @@ describe('user-supplied combat motion', () => {
     const move = getMove(id);
     const end = getStrikePose(move, 'recovery', move.anticipationDuration + move.activeDuration + move.recoveryDuration);
     expect(end).not.toBeNull();
+    if (!end) throw new Error(`Missing recovery pose for ${id}`);
     const expected = Object.values(POSES.combatIdle).flat();
-    Object.values(end!).flat().forEach((value, i) => expect(value).toBeCloseTo(expected[i]!, 6));
+    Object.values(end).flat().forEach((value, i) => expect(value).toBeCloseTo(expected[i], 6));
     const strike = getStrikePose(move, 'active', move.anticipationDuration + move.activeDuration * .6);
+    if (!strike) throw new Error(`Missing strike pose for ${id}`);
     expect(strike).not.toEqual(POSES.combatIdle);
-    expect(Math.abs(strike!.rootTilt)).toBeLessThanOrEqual(.22);
-    expect(Math.abs(strike!.rootRoll)).toBeLessThanOrEqual(.18);
+    expect(Math.abs(strike.rootTilt)).toBeLessThanOrEqual(.22);
+    expect(Math.abs(strike.rootRoll)).toBeLessThanOrEqual(.18);
   });
 
   it('uses a live fighting stance without moving either planted leg', () => {

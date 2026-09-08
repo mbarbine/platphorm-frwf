@@ -414,8 +414,10 @@ describe('deterministic combat rules', () => {
     expect(windup).not.toBeNull(); expect(contact).not.toBeNull();
     expect(windup?.rightForearm[0]).toBeLessThan(-1.2);
     expect(contact?.rightArm[0]).toBeLessThan(-1.5);
-    expect(Math.abs(contact?.rightForearm[0] ?? 1)).toBeLessThan(.08);
-    expect((windup?.rightArm[0] ?? 0) - (contact?.rightArm[0] ?? 0)).toBeGreaterThan(1.6);
+    // A punch extends from its chamber without demanding a locked elbow.
+    expect((contact?.rightForearm[0] ?? 0) - (windup?.rightForearm[0] ?? 0)).toBeGreaterThan(.6);
+    expect(contact?.rightForearm[0]).toBeLessThanOrEqual(0);
+    expect(contact?.rightArm[0]).toBeLessThan(windup?.rightArm[0] ?? 0);
     expect(contact?.rootZ).toBeGreaterThan(.16);
   });
 

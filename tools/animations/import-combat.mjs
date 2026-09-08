@@ -1,4 +1,6 @@
 import { createHash } from 'node:crypto';
+import process from 'node:process';
+import console from 'node:console';
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
 import { AnimationMixer, Euler, Matrix4, Quaternion, Vector3 } from 'three';

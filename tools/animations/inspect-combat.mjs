@@ -1,4 +1,6 @@
 import { readFileSync, writeFileSync } from 'node:fs';
+import process from 'node:process';
+import console from 'node:console';
 import { AnimationMixer, Vector3 } from 'three';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 

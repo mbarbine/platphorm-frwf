@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-test.use({ video: 'on', trace: 'off' });
+test.use({ video: 'on', trace: 'off', actionTimeout: 15000 });
 
 test('Chad gets up on backstage furniture through the visible recovery control', async ({ page }) => {
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
@@ -13,8 +13,8 @@ test('Chad gets up on backstage furniture through the visible recovery control',
   await expect(canvas).toHaveAttribute('data-simulation-ready', 'true', { timeout: 45000 });
   const lab = page.getByTestId('physics-lab');
   await lab.getByText('PAIR / SEED / STAMINA / MASS', { exact: true }).click();
-  await lab.getByLabel('VENUE', { exact: true }).selectOption('backstage');
-  await lab.getByLabel('PLAYER', { exact: true }).selectOption('chad');
+  await lab.getByRole('combobox', { name: 'VENUE', exact: true }).selectOption('backstage');
+  await lab.getByRole('combobox', { name: 'PLAYER', exact: true }).selectOption('chad');
   await lab.getByRole('button', { name: 'LOAD PAIR' }).click();
   await expect(canvas).toHaveAttribute('data-combat-venue', 'backstage');
   await expect(canvas).toHaveAttribute('data-simulation-ready', 'true', { timeout: 45000 });
@@ -25,7 +25,7 @@ test('Chad gets up on backstage furniture through the visible recovery control',
   expect(Number(await hud.getAttribute('data-player-upright'))).toBeGreaterThan(.9);
   expect(Number(await hud.getAttribute('data-player-support-feet'))).toBeGreaterThan(0);
   await expect(hud).toHaveAttribute('data-physics-emergency-resets', '0');
-  await page.keyboard.press('Escape');
+  await lab.getByRole('button', { name: 'PAUSE', exact: true }).click();
   await page.screenshot({ path: 'test-results/chad-table-recovered.png' });
   expect(errors).toEqual([]);
 });
