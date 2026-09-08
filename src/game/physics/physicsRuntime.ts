@@ -2,6 +2,7 @@ import { VENUES, venueFor, type CombatVenue } from '../data/venues';
 import { planarInputVelocity } from '../input/playerController';
 import type { RapierRigidBody } from '@react-three/rapier';
 import type { ImpulseJoint, JointData, World } from '@dimforge/rapier3d-compat';
+import { Ray } from '@dimforge/rapier3d-compat';
 import type { FrameInput } from '../systems/combat';
 import { AI_FIGHTER_SLOTS, FALL_REASONS, FIGHTER_SLOTS } from '../types/game';
 import type { AttackPhase, BodyRegion, FighterRuntime, FighterSlot, GameCommand, MatchModel, PropRuntime, RecoveryOrientation, Vec2 } from '../types/game';
@@ -852,7 +853,9 @@ export class BodyWorksRuntime {
     // height and be returned by the rope spring; treating planar position as
     // ringside floor pulled standing wrestlers straight down through the apron.
     const onRingsideFloor = outsideRopes && pelvis.translation().y < ringPelvisY - .62;
-    const targetPelvisY = ringPelvisY - (onRingsideFloor ? 1.5 : 0);
+    const baseSurfaceY = onRingsideFloor ? .4 : VENUES[this.venue].floorY;
+    const supportSurfaceY = this.standingSurfaceY(rig, model, baseSurfaceY);
+    const targetPelvisY = ringPelvisY - (onRingsideFloor ? 1.5 : 0) + supportSurfaceY - baseSurfaceY;
     const atSideApron = (Math.abs(fighter.position.x) > 5.02 && Math.abs(fighter.position.x) < 5.82 && Math.abs(fighter.position.z) < 2.9)
       || (Math.abs(fighter.position.z) > 3.52 && Math.abs(fighter.position.z) < 4.32 && Math.abs(fighter.position.x) < 4.25);
     const aiController = key === 'player' ? null : model.aiControllers[key];
@@ -1218,6 +1221,25 @@ export class BodyWorksRuntime {
       const mass = foot.mass(); const strength = fighter.state === 'recovering' ? 2.2 : 4.8;
       foot.addForce({ x: clamp(-velocity.x * mass * strength, -42, 42), y: 0, z: clamp(-velocity.z * mass * strength, -42, 42) }, true);
     }
+  }
+
+  private standingSurfaceY(rig: FighterRigRegistration, model: MatchModel, floor: number): number {
+    const pelvis = rig.bodies.pelvis; if (!pelvis) return floor;
+    const position = pelvis.translation();
+    let highest = floor;
+    const ray = new Ray({ x: position.x, y: position.y + 1, z: position.z }, { x: 0, y: -1, z: 0 });
+    for (const [id, surface] of this.landingSurfaces) {
+      if (surface.kind !== 'table' || !surface.body.isValid() || model.props.some(prop => prop.id === id && prop.broken)) continue;
+      for (let i = 0; i < surface.body.numColliders(); i++) {
+        const hit = surface.body.collider(i).castRayAndGetNormal(ray, 4, false);
+        if (!hit || hit.normal.y < .65) continue;
+        const top = ray.origin.y - hit.timeOfImpact;
+        // Support the surface the wrestler is actually above. Furniture in
+        // front of a standing player must not become an automatic elevator.
+        if (position.y >= top + .08) highest = Math.max(highest, top);
+      }
+    }
+    return highest;
   }
 
   private applyRecoveryStanceDrive(rig: FighterRigRegistration, fighter: FighterRuntime, targetPelvisY: number, progress: number): void {
@@ -2105,11 +2127,11 @@ export class BodyWorksRuntime {
             });
             if (!touching && continuousHit?.sourceSegment === sourceSegment && continuousHit.targetSegment === targetSegment
               && continuousHit.moveId === moveId && continuousHit.attackInstanceId === sourceRuntime.attackInstanceId
-              && (continuousHit.timeOfImpact === 0 || sourceCollider.contactCollider(targetCollider, .012) !== null)) {
+              && sourceCollider.contactCollider(targetCollider, .012) !== null) {
               // A force-based cast predicts unconstrained travel. The joint
               // solver may stop the limb before that predicted contact, so
-              // only preserve an already observed contact or one reached by
-              // the solved bodies. A prediction alone must never deal damage.
+              // only preserve contact still reached by the solved bodies.
+              // A prediction alone must never deal damage.
               touching = true; point = continuousHit.point; direction = continuousHit.direction;
               totalImpulse = continuousHit.impulse; maximumImpulse = continuousHit.impulse;
             }
@@ -2395,8 +2417,8 @@ export class BodyWorksRuntime {
       const body = rig.bodies[segment];
       if (!body?.isValid()) return lowest;
       let radius: number = coreRadii[segment];
-      if (segment === 'chest') {
-        const schema = buildBodySchema(fighterById(fighter.definitionId)).find(entry => entry.id === 'chest');
+      if (segment !== 'head') {
+        const schema = buildBodySchema(fighterById(fighter.definitionId)).find(entry => entry.id === segment);
         const args = schema && torsoColliderArgs(schema); const q = body.rotation();
         if (args) radius = Math.abs(2 * (q.x * q.y + q.w * q.z)) * args[0]
           + Math.abs(1 - 2 * (q.x * q.x + q.z * q.z)) * args[1]

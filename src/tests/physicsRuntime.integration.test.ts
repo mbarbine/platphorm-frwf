@@ -1,6 +1,5 @@
 // @vitest-environment node
 import { loadContactSkin, visibleSurfaceGap } from './helpers/skinnedContact';
-import { Quaternion, Vector3 } from 'three';
 import { strikeDriveProfile } from '../game/physics/strikeDynamics';
 import { configureCombatVenue, VENUES, type CombatVenue } from '../game/data/venues';
 import { ColliderDesc, JointData, RigidBodyDesc, World, init } from '@dimforge/rapier3d-compat';
@@ -37,7 +36,7 @@ const createHeadlessRig = (world: World, fighterId: FighterId, slot: FighterSlot
     const torsoArgs = torsoColliderArgs(segment);
     const collider = torsoArgs ? ColliderDesc.roundCuboid(...torsoArgs) : segment.id === 'head' ? ColliderDesc.ball(segment.radius)
       : segment.id.includes('Foot') || segment.id.includes('Hand')
-        ? ColliderDesc.cuboid(segment.radius, segment.id.includes('Foot') ? segment.radius * .5 : segment.halfLength, segment.id.includes('Foot') ? segment.halfLength * 1.35 : segment.radius)
+        ? ColliderDesc.cuboid(segment.radius, segment.id.includes('Foot') ? segment.radius * .5 : segment.halfLength, segment.id.includes('Foot') ? segment.halfLength * 1.35 : segment.radius).setTranslation(0, 0, segment.id.includes('Foot') ? .09 : 0)
         : ColliderDesc.capsule(segment.halfLength, segment.radius);
     world.createCollider(collider.setMass(segment.massKg).setFriction(segment.id.includes('Foot') ? 1.45 : .76).setRestitution(.015).setCollisionGroups(fighterCollisionGroups(slot)), body);
     bodies[segment.id] = body;
@@ -500,6 +499,32 @@ it('lands an outdoor table spot on the registered wooden surface before breaking
   } finally { runtime.reset(); world.free(); }
 });
 
+it.each(['back', 'front', 'left', 'right'] as const)('Get Up builds a stance above a backstage table after a %s fall', orientation => {
+  const { world, runtime, model, player } = makeGrappleHarness('backstage', 'chad');
+  try {
+    const top = VENUES.backstage.floorY + .965;
+    const table = world.createRigidBody(RigidBodyDesc.fixed().setTranslation(0, top - .065, -3.6));
+    world.createCollider(ColliderDesc.cuboid(1.5, .065, .65).setCollisionGroups(arenaCollisionGroups), table);
+    runtime.registerLandingSurface('table-1', 'table', table);
+    runtime.prepareLabPositions({ x: 0, z: -3.6 }, { x: 3, z: 0 });
+    runtime.prepareLabFall('player', orientation, model.player.facing);
+    for (const body of Object.values(player.bodies)) {
+      const p = body.translation(); body.setTranslation({ x: p.x, y: p.y + .965, z: p.z }, true);
+    }
+    model.player.state = 'downed'; model.player.downTimer = 15; model.player.stamina = 0;
+    model.player.recoveryOrientation = orientation;
+    expect(requestCommand(model, 'player', 'dodge')).toBe(true);
+    for (let frame = 0; frame < 600 && model.player.state !== 'idle'; frame++) stepGrappleHarness(world, runtime, model);
+    const snapshot = runtime.fighterSnapshot('player');
+    expect(model.player.state, JSON.stringify(snapshot)).toBe('idle');
+    expect(snapshot.upright).toBeGreaterThan(.9);
+    expect(snapshot.pelvisY).toBeGreaterThan(top + .75);
+    expect(snapshot.footY).toBeGreaterThan(top - .1);
+    expect(snapshot.supportFeet).toBeGreaterThan(0);
+    expect(runtime.metrics.emergencyResetCount).toBe(0);
+  } finally { runtime.reset(); world.free(); }
+});
+
 it.each([
   { name: 'suplex', direction: { x: 1, z: 0 }, button: 'grapple' as const },
   { name: 'side_toss', direction: { x: 1, z: 0 }, button: 'quick' as const },
@@ -645,16 +670,7 @@ it.each([
     for (let frame = 0; frame < 90 && !model.lastImpact; frame++) stepGrappleHarness(world, runtime, model);
     expect(model.lastImpact?.moveId).toBe(moveId);
     const profile = strikeDriveProfile(moveId); if (!profile) throw new Error(`Missing strike ${moveId}`);
-    const gap = visibleSurfaceGap(sourceSkin.points(player.bodies, profile.source), targetSkin.points(opponent.bodies));
-    if (gap >= .12) {
-      console.info('contact skin diagnostic', moveId, model.lastImpact);
-      for (const segment of ['chest', 'abdomen', 'leftUpperArm', 'rightHand'] as const) {
-        const rig = segment === 'rightHand' ? player : opponent; const skin = segment === 'rightHand' ? sourceSkin : targetSkin;
-        const b = rig.bodies[segment]; const q = b.rotation(); const inverse = new Quaternion(q.x, q.y, q.z, q.w).invert();
-        const vertices = skin.points(rig.bodies, segment).map(p => p.sub(new Vector3().copy(b.translation())).applyQuaternion(inverse));
-        console.info(segment, (['x', 'y', 'z'] as const).map(axis => [Math.min(...vertices.map(p => p[axis])), Math.max(...vertices.map(p => p[axis]))]));
-      }
-    }
+    const gap = visibleSurfaceGap(sourceSkin.points(player.bodies, profile.source), targetSkin.triangles(opponent.bodies));
     expect(gap, `${moveId} skin gap at physical impact: ${gap.toFixed(3)} m`).toBeLessThan(.12);
   } finally { sourceSkin.dispose(); targetSkin.dispose(); runtime.reset(); world.free(); }
 });

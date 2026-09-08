@@ -1,6 +1,6 @@
 import { resolve } from 'node:path';
 import { readFileSync } from 'node:fs';
-import { type Bone, type SkinnedMesh, Quaternion, Vector3 } from 'three';
+import { type Bone, type SkinnedMesh, Quaternion, Triangle, Vector3 } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import type { RigidBody } from '@dimforge/rapier3d-compat';
 import { fitHumanoid } from '../../game/presentation/fitHumanoid';
@@ -21,6 +21,18 @@ export async function loadContactSkin(id: FighterId) {
   const mesh = scene.getObjectByName(id) as SkinnedMesh;
   return {
     dispose: fitted.dispose,
+    triangles(bodies: Record<BodySegmentId, RigidBody>): Triangle[] {
+      const vertices = this.points(bodies);
+      const indices = mesh.geometry.index;
+      const result: Triangle[] = [];
+      for (let i = 0; i < (indices?.count ?? vertices.length); i += 3) {
+        const a = vertices[indices ? indices.getX(i) : i];
+        const b = vertices[indices ? indices.getX(i + 1) : i + 1];
+        const c = vertices[indices ? indices.getX(i + 2) : i + 2];
+        if (a && b && c) result.push(new Triangle(a, b, c));
+      }
+      return result;
+    },
     points(bodies: Record<BodySegmentId, RigidBody>, segment?: BodySegmentId): Vector3[] {
       for (const [name, body] of Object.entries(bodies)) {
         const bone = scene.getObjectByName(name) as Bone;
@@ -44,8 +56,12 @@ export async function loadContactSkin(id: FighterId) {
   };
 }
 
-export function visibleSurfaceGap(source: readonly Vector3[], target: readonly Vector3[]): number {
+export function visibleSurfaceGap(source: readonly Vector3[], target: readonly Triangle[]): number {
   let squared = Infinity;
-  for (const a of source) for (const b of target) squared = Math.min(squared, a.distanceToSquared(b));
+  const closest = new Vector3();
+  for (const a of source) for (const triangle of target) {
+    triangle.closestPointToPoint(a, closest);
+    squared = Math.min(squared, a.distanceToSquared(closest));
+  }
   return Math.sqrt(squared);
 }

@@ -79,10 +79,10 @@ export const buildBodySchema = (definition: FighterDefinition): readonly BodySeg
     // Match the rendered brow, jaw, and facial profile closely enough that a
     // visible head-to-head collision is also a solved Rapier collision.
     segment(definition, 'head', 'center', 2.08 * heightScale, 0, .15, HEAD_COLLIDER_RADIUS),
-    segment(definition, 'leftUpperArm', 'left', 1.48 * heightScale, -shoulder, .19 * arm, .105),
-    segment(definition, 'rightUpperArm', 'right', 1.48 * heightScale, shoulder, .19 * arm, .105),
-    segment(definition, 'leftForearm', 'left', 1.08 * heightScale, -shoulder, .18 * arm, .11),
-    segment(definition, 'rightForearm', 'right', 1.08 * heightScale, shoulder, .18 * arm, .11),
+    segment(definition, 'leftUpperArm', 'left', 1.48 * heightScale, -shoulder, .16 * arm, .09),
+    segment(definition, 'rightUpperArm', 'right', 1.48 * heightScale, shoulder, .16 * arm, .09),
+    segment(definition, 'leftForearm', 'left', 1.08 * heightScale, -shoulder, .13 * arm, .075),
+    segment(definition, 'rightForearm', 'right', 1.08 * heightScale, shoulder, .13 * arm, .075),
     segment(definition, 'leftHand', 'left', .78 * heightScale, -shoulder, .09, .085),
     segment(definition, 'rightHand', 'right', .78 * heightScale, shoulder, .09, .085),
     segment(definition, 'leftThigh', 'left', .83 * heightScale, -hip, .23 * leg, .13),
