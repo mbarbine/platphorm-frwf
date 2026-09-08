@@ -1,18 +1,19 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
-const enterOrdinarySingles = async (page: Page): Promise<void> => {
+const enterOrdinarySingles = async (page: Page, difficulty: 'easy' | 'normal' = 'normal'): Promise<void> => {
   await page.goto('/');
   await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
   await page.getByRole('button', { name: 'PLAY', exact: true }).click();
   await page.getByRole('button', { name: /LOCK IN ATLAS/ }).click();
   await page.getByRole('button', { name: /^STANDARD/ }).click();
+  if (difficulty === 'easy') await page.getByRole('button', { name: /^EASY/ }).click();
   await page.getByRole('button', { name: 'START MATCH' }).click();
 };
 
-test('ordinary Singles executes strike keys visibly and a jump returns control', async ({ page }) => {
+test('Easy Singles executes strike keys visibly and a jump returns control', async ({ page }) => {
   test.setTimeout(180_000);
-  await enterOrdinarySingles(page);
+  await enterOrdinarySingles(page, 'easy');
   const hud = page.locator('.hud'); const root = page.locator('html');
   await expect(hud).toHaveAttribute('data-match-mode', 'singles');
   await expect(hud).toHaveAttribute('data-physics-bodies', '32', { timeout: 30_000 });
@@ -32,7 +33,7 @@ test('ordinary Singles executes strike keys visibly and a jump returns control',
     new MutationObserver(sample).observe(document.body, { subtree: true, attributes: true, childList: true }); sample();
   });
 
-  // A live Normal rival can acquire a grip while the browser loads. A
+  // The rival stays live, but the Easy opening allows orientation. A
   // standing strike is illegal while held; wait for an actual action window.
   await expect.poll(async () => await hud.getAttribute('data-player-state'), { timeout: 20000, intervals: [100] }).toMatch(/^(idle|locomotion|downed)$/);
   const stateBeforeStrike = await hud.getAttribute('data-player-state');

@@ -15,7 +15,9 @@ Site purpose: FRWF browser wrestling, progressing toward an explorable open worl
 - `pnpm verify`: lint, TypeScript, 353 tests in 55 files, production build passed.
 - `pnpm --dir cloudflare test`: Worker bundle plus 3 real local runtime integration tests passed.
 - `pnpm --dir cloudflare typecheck`: passed.
-- Browser validation covers desktop/phone encounter entry, return and reload continuity, all three connected locations, existing mobile entry, ordinary combat input and graphics interruption. Exact passing runs are summarized with the release.
+- Chromium: desktop/phone encounter journeys, all three connected locations, mobile match entry, Easy strike/jump/recovery, Normal AI contact, paused Settings continuity and WebGL context-loss recovery passed in targeted runs.
+- WebKit: phone match entry, desktop/phone encounter continuity and connected locations passed before the final host-clearance refinement; the staged production journey rechecks that refinement.
+- Test corrections: wait for input readiness; approach a doorway at walking speed; exercise control sequences in Easy practice with the rival live. The original Normal sequence attempted actions while grabbed or interrupted and is not claimed as a passing deterministic control sequence.
 - Production identity is exposed at `/release.json`. A local test pass alone does not establish production deployment.
 
 ## Limits and follow-up

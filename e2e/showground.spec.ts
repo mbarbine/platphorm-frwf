@@ -67,15 +67,15 @@ test.describe('Connected locations', () => {
     const world = page.getByTestId('showground'); await expect(world).toBeVisible();
     await expect(page.locator('html')).toHaveAttribute('data-game-input-ready', 'true', { timeout: 20000 });
     const walk = async (key: string, axis: 'x' | 'z', destination: number, decreasing: boolean) => {
-      await page.keyboard.down('Shift'); await page.keyboard.down(key);
+      await page.keyboard.down(key);
       try {
         await expect.poll(async () => {
           const value = Number(await world.getAttribute(`data-world-${axis}`));
           return decreasing ? value <= destination : value >= destination;
         }, { timeout: 45000, intervals: [100] }).toBe(true);
-      } finally { await page.keyboard.up(key); await page.keyboard.up('Shift'); }
+      } finally { await page.keyboard.up(key); }
     };
-    await walk('a', 'x', -2, true); await walk('w', 'z', -3, true); await walk('a', 'x', -13.5, true); await walk('w', 'z', -11, true);
+    await walk('a', 'x', -2, true); await walk('w', 'z', -3, true); await walk('a', 'x', -13, true); await walk('w', 'z', -11, true);
     await expect(world).toHaveAttribute('data-region', 'backstage');
     await page.getByRole('button', { name: /Corner school/ }).click();
     await expect(page.getByRole('dialog', { name: 'Corner school' })).toBeVisible();
