@@ -58,6 +58,10 @@ export function authoredStrikePose(base: Pose, move: MoveDefinition, phase: Atta
       result[`${side}Leg`] = support[`${side}Leg`]; result[`${side}Shin`] = support[`${side}Shin`];
     }
   }
+  if (move.id === 'jab') {
+    result.rightArm = base.rightArm;
+    result.rightForearm = base.rightForearm;
+  }
   return result;
 }
 

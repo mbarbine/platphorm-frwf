@@ -111,7 +111,10 @@ export const useMatchStore = create<MatchStore>((set) => ({
         const fighter = model[slot];
         fighter.stateElapsed += dt;
         fighter.phaseElapsed += fighter.moveId ? dt : 0;
-        const speed = Math.hypot(fighter.velocity.x, fighter.velocity.z);
+        // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt for better performance in state advancement.
+        const vx = fighter.velocity.x;
+        const vz = fighter.velocity.z;
+        const speed = Math.sqrt(vx * vx + vz * vz);
         const strideLength = (speed > 2.8 ? 2.05 : 1.45) * fighterById(fighter.definitionId).physics.standingHeightM / 1.88;
         fighter.body.gaitPhase += speed * dt * Math.PI * 2 / strideLength;
         stepBodyDynamics(fighter, dt);
