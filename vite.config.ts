@@ -52,10 +52,6 @@ export default defineConfig(({ mode }) => {
   };
   return {
   plugins: [react(), releaseAssetsPlugin],
-  // Three's package root is a single pre-bundled module. Pointing the exact
-  // root import at its source graph lets Rolldown keep renderer, animation,
-  // geometry, and material code in independently cached lazy chunks while
-  // preserving normal `three/addons/*` exports.
   resolve: {
     alias: [
       // The shared protocol package is compiled as CommonJS for the Colyseus
@@ -63,7 +59,6 @@ export default defineConfig(({ mode }) => {
       // a package with no named exports and crashes before React can mount.
       { find: '@frwf/game-protocol', replacement: fileURLToPath(new URL('./packages/game-protocol/src/index.ts', import.meta.url)) },
       { find: '@frwf/game-core', replacement: fileURLToPath(new URL('./packages/game-core/src/index.ts', import.meta.url)) },
-      { find: /^three$/, replacement: fileURLToPath(new URL('./node_modules/three/src/Three.js', import.meta.url)) },
     ],
   },
   define: { __RINGFALL_RELEASE__: JSON.stringify(releaseIdentity) },
@@ -77,16 +72,9 @@ export default defineConfig(({ mode }) => {
         { name: 'react-rapier', test: /node_modules[\\/]@react-three[\\/]rapier/, priority: 40 },
         { name: 'react-three-drei', test: /node_modules[\\/]@react-three[\\/]drei/, priority: 35 },
         { name: 'react-three-fiber', test: /node_modules[\\/]@react-three[\\/]fiber/, priority: 30 },
-        // Keep the public barrel modules out of the implementation chunks.
-        // Three.Core re-exports geometry/material/animation symbols; placing
-        // that barrel beside its primitives creates cross-chunk TDZ cycles.
-        { name: 'three-facade', test: /node_modules[\\/]three[\\/]src[\\/]Three(?:\.Core)?\.js$/, priority: 29 },
-        // Three's renderer/material/geometry/object layers are a strongly
-        // connected module graph and must initialize together. Animation has
-        // a one-way dependency on that runtime and can be cached separately;
-        // its two core loaders travel with it to keep the graph acyclic.
-        { name: 'three-animation', test: /node_modules[\\/]three[\\/]src[\\/](?:animation[\\/]|loaders[\\/](?:AnimationLoader|ObjectLoader)\.js$)/, priority: 26 },
-        { name: 'three-core', test: /node_modules[\\/]three[\\/]/, priority: 20 },
+        // Keep Three and its loaders together: skinned assets must not create
+        // a cyclic initialization dependency across renderer/animation chunks.
+        { name: 'three-runtime', test: /node_modules[\\/]three[\\/]/, priority: 20 },
         { name: 'react-runtime', test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/, priority: 10 },
       ],
     } } },

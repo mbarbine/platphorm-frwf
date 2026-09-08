@@ -95,7 +95,17 @@ export const chooseAiDecision = (model: MatchModel, definition: FighterDefinitio
   const magnitude = Math.max(.001, Math.sqrt(delta.x * delta.x + delta.z * delta.z));
   const toward = { x: delta.x / magnitude, z: delta.z / magnitude };
   const [roll, nextSeed] = seededRandom(model.seed);
-  const personality = definition.personality;
+  // Roster traits are percentages. Decision probabilities use unit values;
+  // mixing the two made almost every fighter grapple/counter continuously.
+  const personality = {
+    technical: definition.personality.technical / 100,
+    athletic: definition.personality.athletic / 100,
+    dirty: definition.personality.dirty / 100,
+    showman: definition.personality.showman / 100,
+    powerhouse: definition.personality.powerhouse / 100,
+    aggressive: definition.personality.aggressive / 100,
+    reckless: definition.personality.reckless / 100,
+  };
   const actorRingside = Math.abs(actor.position.x) > 5.82 || Math.abs(actor.position.z) > 4.32;
   const targetInRing = Math.abs(target.position.x) <= 5.72 && Math.abs(target.position.z) <= 4.22;
   const availableRingsideProp = model.ruleset === 'chaos' && !actor.heldPropId && model.props.some((prop) => !prop.broken && !prop.heldBy && prop.kind !== 'table' && isRingside(prop.position));

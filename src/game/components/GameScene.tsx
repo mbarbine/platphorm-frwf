@@ -11,6 +11,7 @@ import type { WebGLRenderer } from 'three';
 import { Arena } from './Arena';
 import { PhysicalFighterRig } from './PhysicalFighterRig';
 import { FighterModel } from './FighterModel';
+import { HumanoidFighter } from './HumanoidFighter';
 import { CameraRig } from './CameraRig';
 import { ImpactEffects } from './ImpactEffects';
 import { useMatchStore } from '../state/matchStore';
@@ -45,8 +46,10 @@ const BodyWorksDebugOverlay = lazy(async () => ({ default: (await import('./Body
 bodyWorksRuntime.setJointData(JointData);
 
 function Simulation({ onPause, onDevice, onFinished, inputEnabled = true, onlineRole = null }: Props) {
+  const controller = useRef(new PlayerController());
   const pause = useCallback(onPause, [onPause]);
   const clearPendingInput = useCallback((reason: string) => {
+    controller.current.reset();
     const model = useMatchStore.getState().model;
     bodyWorksRuntime.rejectPendingActions('player', model.elapsed, reason);
   }, []);
@@ -55,7 +58,6 @@ function Simulation({ onPause, onDevice, onFinished, inputEnabled = true, online
     useMultiplayerStore.getState().sendAction(event);
   }, [onlineRole]);
   const input = useGameInput(pause, inputEnabled, clearPendingInput, immediateNetworkRelease); const lastImpactId = useRef(0); const lastActionAudio = useRef(''); const finishNotified = useRef(false); const finishTimer = useRef<number | null>(null); const { camera, gl } = useThree();
-  const controller = useRef(new PlayerController());
   const inputBasis = useRef<CameraInputBasis | null>(null);
   const storeActionCount = useRef(0);
   const rosterReadiness = useRef({ runtimeId: -1, ready: false });
@@ -229,7 +231,7 @@ function Fighters({ detail, showPhysical }: { detail: FighterDetail; showPhysica
   const slots = model.matchMode === 'battle_royale' ? FIGHTER_SLOTS : FIGHTER_SLOTS.slice(0, 2);
   return <group key={runtimeId} visible={!replayActive}>
     {slots.map((slot) => <PhysicalFighterRig key={`physics-${slot}`} runtime={model[slot]} side={slot} showVisuals={showPhysical} />)}
-    {!showPhysical && slots.map((slot) => <FighterModel key={`visual-${slot}`} runtime={model[slot]} counterpart={model[model.targets[slot]]} side={slot} detail={detail} />)}
+    {!showPhysical && slots.map((slot) => <Suspense key={`visual-${slot}`} fallback={<FighterModel runtime={model[slot]} counterpart={model[model.targets[slot]]} side={slot} detail={detail} />}><HumanoidFighter runtime={model[slot]} side={slot} /></Suspense>)}
   </group>;
 }
 

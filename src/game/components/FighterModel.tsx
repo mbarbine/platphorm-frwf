@@ -16,6 +16,8 @@ import type { FighterDetail } from '../presentation/presentationManifest';
 import { bodyWorksRuntime } from '../physics/physicsRuntime';
 import { authoredDeckPoseOwnsRoot, visiblePelvisDrop } from '../presentation/matPresentation';
 import { strikeDriveProfile } from '../physics/strikeDynamics';
+import { buildBodySchema } from '../physics/bodySchema';
+import { PhysicalPoseBinding } from '../presentation/physicalPoseBinding';
 import type { AnimationKey, FighterDefinition, FighterId, FighterRuntime, FighterSlot } from '../types/game';
 
 interface Props {
@@ -483,6 +485,8 @@ export function FighterModel({ runtime, counterpart, fighterId, preview = false,
   const alignmentPoints = useRef({
     pelvis: new Vector3(), chest: new Vector3(), head: new Vector3(), leftHand: new Vector3(), rightHand: new Vector3(), leftFoot: new Vector3(), rightFoot: new Vector3(),
   });
+  const binding = useRef(new PhysicalPoseBinding());
+  const jointPoints = useRef({ start: new Vector3(), middle: new Vector3(), end: new Vector3() });
   const phaseOffset = side === 'player' ? 0 : Math.PI;
   const width = fighter.proportions.width;
   const height = fighter.proportions.height;
@@ -666,9 +670,54 @@ export function FighterModel({ runtime, counterpart, fighterId, preview = false,
         const facingError = Math.atan2(Math.sin(safeFacing - shell.current.rotation.y), Math.cos(safeFacing - shell.current.rotation.y));
         shell.current.rotation.y += facingError * (1 - Math.exp(-clampedDelta * 24));
       }
+      // The live mesh follows solved Rapier joints. Authored animation still
+      // drives the motors, previews, and recorded replays, but cannot invent a
+      // second fist/boot trajectory that disagrees with the contact solver.
+      const pelvisBody = reportAlignment && !preview ? bodyWorksRuntime.segmentSnapshot(side, 'pelvis') : null;
+      const chestBody = bodyWorksRuntime.segmentSnapshot(side, 'chest');
+      const headBody = bodyWorksRuntime.segmentSnapshot(side, 'head');
+      if (pelvisBody && chestBody && headBody) {
+        const fit = binding.current;
+        const schema = buildBodySchema(fighter);
+        const at = (segment: string) => {
+          const entry = schema.find((candidate) => candidate.id === segment);
+          if (!entry) throw new Error(`Missing anatomy: ${segment}`);
+          return entry;
+        };
+        fit.landmark(root.current, pelvisBody, [0, 1.02 * height, 0]);
+        fit.landmark(torso.current, chestBody, [0, .25, 0]);
+        fit.landmark(head.current, headBody, [0, 0, 0]);
+        for (const limbSide of ['left', 'right'] as const) {
+          const upperId = `${limbSide}UpperArm` as const;
+          const lowerId = `${limbSide}Forearm` as const;
+          const upper = bodyWorksRuntime.segmentSnapshot(side, upperId);
+          const lower = bodyWorksRuntime.segmentSnapshot(side, lowerId);
+          const hand = bodyWorksRuntime.segmentSnapshot(side, `${limbSide}Hand`);
+          const thighId = `${limbSide}Thigh` as const;
+          const shinId = `${limbSide}Shin` as const;
+          const thigh = bodyWorksRuntime.segmentSnapshot(side, thighId);
+          const shin = bodyWorksRuntime.segmentSnapshot(side, shinId);
+          const foot = bodyWorksRuntime.segmentSnapshot(side, `${limbSide}Foot`);
+          const points = jointPoints.current;
+          if (upper && lower && hand) {
+            fit.anchor(chestBody, [at(upperId).localPosition[0], (at(upperId).localPosition[1] - at('chest').localPosition[1]) * .5, 0], points.start);
+            fit.anchor(upper, [0, (at(lowerId).localPosition[1] - at(upperId).localPosition[1]) * .5, 0], points.middle);
+            points.end.copy(hand.position);
+            fit.limb(limbSide === 'left' ? leftArm.current : rightArm.current, points.start, points.middle, [0, -.64, 0], upper);
+            fit.limb(limbSide === 'left' ? leftForearm.current : rightForearm.current, points.middle, points.end, [0, -.58, .035], lower);
+          }
+          if (thigh && shin && foot) {
+            fit.anchor(pelvisBody, [at(thighId).localPosition[0], (at(thighId).localPosition[1] - at('pelvis').localPosition[1]) * .5, 0], points.start);
+            fit.anchor(thigh, [0, (at(shinId).localPosition[1] - at(thighId).localPosition[1]) * .5, 0], points.middle);
+            points.end.copy(foot.position);
+            fit.limb(limbSide === 'left' ? leftLeg.current : rightLeg.current, points.start, points.middle, [0, -.69, 0], thigh);
+            fit.limb(limbSide === 'left' ? leftShin.current : rightShin.current, points.middle, points.end, [0, -.66, .13], shin);
+          }
+        }
+      }
       root.current.updateWorldMatrix(true, true);
       root.current.localToWorld(alignmentPoints.current.pelvis.set(0, 1.02 * height, 0));
-      torso.current.getWorldPosition(alignmentPoints.current.chest);
+      torso.current.localToWorld(alignmentPoints.current.chest.set(0, .25, 0));
       head.current.getWorldPosition(alignmentPoints.current.head);
       leftForearm.current.localToWorld(alignmentPoints.current.leftHand.set(0, -.58, .035));
       rightForearm.current.localToWorld(alignmentPoints.current.rightHand.set(0, -.58, .035));

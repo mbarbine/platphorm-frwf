@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "poster": "/video/frwf-archive-poster.jpg",
+  "clips": [
+    {
+      "id": "table",
+      "title": "Chad \u00b7 Through the table",
+      "src": "/video/table.1d1773de3dd2.mp4",
+      "sha256": "1d1773de3dd20774bc89d94519054c9ff9e13248a8c026cbbea1a6687162dc1c",
+      "bytes": 889196,
+      "sourceStartSeconds": 4.45,
+      "durationSeconds": 3.25,
+      "audio": false,
+      "source": "User supplied real FRWF wrestling footage",
+      "permission": "User authorized in-game background footage; no third-party license assertion"
+    },
+    {
+      "id": "ringside",
+      "title": "FRWF \u00b7 Ringside archive",
+      "src": "/video/ringside.c5bd31af1083.mp4",
+      "sha256": "c5bd31af1083cd9a6f79ff95709f87f3c2a930e48ea02ff34075abd5403e808b",
+      "bytes": 2853734,
+      "sourceStartSeconds": 1,
+      "durationSeconds": 11,
+      "audio": false,
+      "source": "User supplied real FRWF wrestling footage",
+      "permission": "User authorized in-game background footage; no third-party license assertion"
+    }
+  ]
+}

@@ -88,11 +88,11 @@ describe('live wrestling control deck', () => {
     expect(buildControlLabels(model.player, model.opponent, 0, 1.4, { x: 0, z: 1 }).grapple).toBe('VOLTAGE PILEDRIVER');
   });
 
-  it('renders four compact core controls and takes context labels from the authoritative resolvers', () => {
+  it('keeps defense visible beside compact attacks and uses authoritative context labels', () => {
     const model = createMatch('atlas', 'nova', 'standard', 'normal');
     const readout = buildControlReadout(model.player, model.opponent, 0, 1.4, false);
     const controls = buildVisibleControls(readout, 'keyboard', 'compact', 'PIN SHOULDERS', 'PICK UP CHAIR');
-    expect(controls.map((control) => control.id)).toEqual(['quick', 'heavy', 'grapple', 'context']);
+    expect(controls.map((control) => control.id)).toEqual(['quick', 'heavy', 'grapple', 'block', 'counter', 'context']);
     expect(controls.find((control) => control.id === 'context')).toMatchObject({ key: 'F', label: 'PIN SHOULDERS' });
     expect(controls.some((control) => control.id === 'interact')).toBe(false);
   });
