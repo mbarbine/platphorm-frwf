@@ -19,14 +19,14 @@ import type { Pose } from '../animation/poses';
 import { RECOVERY_DURATION, recoveryPose } from '../animation/recoveryMotion';
 import { locomotionPose } from '../animation/locomotion';
 import { throwDirection, throwMotionFor } from './throwMotion';
-import { BREAKFALL_POSE, COVER_POSE, COVERED_POSE, hasPhysicalCover, kneeFlexion } from './wrestlingPose';
+import { BREAKFALL_POSE, COVER_POSE, COVERED_POSE, hasPhysicalCover, kneeFlexion, standingRecoilPose } from './wrestlingPose';
 import type { QuaternionValue, Vector3Value } from './motorController';
 import { apronTransitionTarget, isRingside, RING_HARD_LIMIT, ROPE_REBOUND_ENTRY_SPEED, shouldReleaseRopeRebound, solveRopeReleaseDirection, solveRopeResponse } from './ringDynamics';
 import { computeStrikeForce, guardInterceptDriveProfile, guardInterceptSurfaceTarget, strikeDriveProfile, strikePelvisAcceleration } from './strikeDynamics';
 import { locomotionProfile } from './bodyDynamics';
 import { VOLT_DOME } from '../data/arena';
 import { BODYWORKS_FLAGS } from './bodyWorksFlags';
-import { motorStrengthFor, selectMotorProfile } from './motorProfiles';
+import { MOTOR_PROFILES, motorStrengthFor, selectMotorProfile } from './motorProfiles';
 import type { MotorProfile } from './motorProfiles';
 import { inspectNumericalBody, jointSeparationFault } from './numericalHealth';
 import type { NumericalFault } from './numericalHealth';
@@ -808,7 +808,9 @@ export class BodyWorksRuntime {
     const rig = this.rigs.get(key); if (!rig) return;
     rig.jumpCooldown = Math.max(0, rig.jumpCooldown - dt);
     const pelvis = rig.bodies.pelvis; if (!pelvis) return;
-    const motorProfile = selectMotorProfile(fighter);
+    const standingClinch = fighter.state === 'grabbed' && model.grapple?.defender === key
+      && ['reach', 'acquire', 'clinch', 'load'].includes(model.grapple.phase);
+    const motorProfile = standingClinch ? MOTOR_PROFILES.clinch : selectMotorProfile(fighter);
     // Grounded pelvis roll/pitch uses a bounded balance constraint. Airborne,
     // falling, downed, and recovering bodies retain full rotational authority.
     // No transition writes an upright rotation; the controller must earn it.
@@ -912,7 +914,7 @@ export class BodyWorksRuntime {
     }
     if (fighter.state !== 'climbing') rig.cornerAnchor = null;
     const controlledJumpLanding = fighter.state === 'jumping' && fighter.body.verticalOffset < .35 && fighter.body.verticalVelocity <= 0;
-    const groundedControl = controlledJumpLanding || ['idle', 'locomotion', 'blocking', 'attacking', 'grappling', 'recovering', 'staggered', 'victorious'].includes(fighter.state);
+    const groundedControl = standingClinch || controlledJumpLanding || ['idle', 'locomotion', 'blocking', 'attacking', 'grappling', 'recovering', 'staggered', 'victorious'].includes(fighter.state);
     if (groundedControl) {
       const recoveryBlend = fighter.state === 'recovering' ? clamp(fighter.stateElapsed / RECOVERY_DURATION, 0, 1) : 1;
       const recoveryTargetY = targetPelvisY - (1 - recoveryBlend) * .62;
@@ -1024,7 +1026,7 @@ export class BodyWorksRuntime {
       }
       rig.jumpQueued = false;
     }
-    if (rig.skeletonStabilized && ['idle', 'locomotion', 'staggered'].includes(fighter.state)) this.applyCorePostureDrive(rig);
+    if (rig.skeletonStabilized && ['idle', 'locomotion'].includes(fighter.state)) this.applyCorePostureDrive(rig);
     this.applyFootPlantDrive(rig, fighter, { x: desiredX, z: desiredZ }, inputLength);
     if (BODYWORKS_FLAGS.ropes) this.applyRopeController(rig, fighter, model);
     if (BODYWORKS_FLAGS.contactStrikes) this.applyPhysicalStrike(key, rig, fighter, model);
@@ -1041,9 +1043,9 @@ export class BodyWorksRuntime {
       ? getPairedPose(getMove(fighter.moveId), 'actor', 'anticipation', carryElapsed(fighter.moveId), fighter.definitionId) ?? undefined
       : carrier?.moveId && fighter.state === 'grabbed'
       ? getPairedPose(getMove(carrier.moveId), 'victim', carrier.attackPhase, lifting ? carryElapsed(carrier.moveId) : carrier.phaseElapsed, carrier.definitionId) ?? undefined
-      : landing ? getPairedPose(getMove(landing.moveId), 'victim', 'recovery', getMove(landing.moveId).anticipationDuration + getMove(landing.moveId).activeDuration + Math.min(.3, model.elapsed - landing.releasedAt), model[landing.attacker].definitionId) ?? POSES.downed
+      : landing ? COVERED_POSE
         : undefined;
-    this.applyPoseDrive(rig, fighter, motorProfile, pairedPose);
+    this.applyPoseDrive(rig, fighter, motorProfile, pairedPose ?? (fighter.state === 'staggered' ? standingRecoilPose(model.lastImpact?.targetFighter === key ? model.lastImpact.moveId : undefined, fighter.stateElapsed) : undefined));
     if (fighter.state === 'downed' && fighter.stateElapsed > .22 && !this.pendingLandings.has(key)) {
       // Once the real landing has been absorbed, let the ragdoll rest instead
       // of continuously feeding tiny motor/contact corrections into the mat.
@@ -1832,7 +1834,8 @@ export class BodyWorksRuntime {
       // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt for ~8x speedup.
       const distance = Math.max(.001, Math.sqrt(dx * dx + dz * dz)); const nx = dx / distance; const nz = dz / distance;
       const relativeSpeed = (defenderCenter.velocityX - attackerCenter.velocityX) * nx + (defenderCenter.velocityZ - attackerCenter.velocityZ) * nz;
-      const acceleration = clamp((distance - .78) * 11 + relativeSpeed * 2.4, -3.5, 9.5);
+      const holdDistance = grapple.phase === 'lift' && move.id === 'slam' ? .56 : .78;
+      const acceleration = clamp((distance - holdDistance) * 11 + relativeSpeed * 2.4, -3.5, 9.5);
       this.applyRigAcceleration(attackerRig, { x: nx * acceleration * .62, y: 0, z: nz * acceleration * .62 });
       this.applyRigAcceleration(defenderRig, { x: -nx * acceleration * .38, y: 0, z: -nz * acceleration * .38 });
     }
@@ -1908,7 +1911,7 @@ export class BodyWorksRuntime {
       // Lift toward the carrier's shoulder instead of accelerating upward for
       // the entire anticipation window. The old open-loop drive launched a
       // body-slam victim more than three metres above its standing height.
-      const liftHeight = clamp(throwMotionFor(environmentTarget ? 'slam' : move.id).liftHeight * liftDrive, .7, 1.2);
+      const liftHeight = clamp(throwMotionFor(environmentTarget ? 'slam' : move.id).liftHeight * liftDrive, .5, 1.2);
       const liftError = attackerPosition.y + liftHeight - defenderPosition.y;
       const liftAcceleration = clamp(18 + liftError * 72 - defenderPelvis.linvel().y * 14, -30, 76);
       this.applyRigAcceleration(defenderRig, { x: 0, y: liftAcceleration, z: 0 });

@@ -111,7 +111,7 @@ describe('live wrestling control deck', () => {
     const corner = buildControlLabels(model.player, model.opponent, 0, 4);
     expect(corner.quick).toBe('NEON DROP ELBOW'); expect(corner.heavy).toBe('TOP-ROPE MISSILE KICK'); expect(corner.context).toBe('DOMEFALL DIVE');
     model.player.state = 'downed'; model.player.climbStage = 0;
-    expect(buildControlLabels(model.player, model.opponent, 0, 2).counter).toBe('LIVEWIRE KICK-UP');
+    expect(buildControlLabels(model.player, model.opponent, 0, 2).counter).toBe('GET UP');
     model.player.state = 'idle'; model.player.position = { x: 4.9, z: 0 };
     expect(buildControlLabels(model.player, model.opponent, 0, 2).context).toBe('EXIT CENTER ROPE');
   });

@@ -661,9 +661,11 @@ export function Arena({ crowdCount = 156, performanceMode = false }: { crowdCoun
   return <>
     <color attach="background" args={[spotlight ? '#020106' : '#070611']} />
     <fog attach="fog" args={[new Color('#090715'), 20, 42]} />
-    <ambientLight intensity={spotlight ? .12 : .45} color="#d4cbbf" />
-    <hemisphereLight intensity={spotlight ? .15 : .62} color="#e6e4d9" groundColor="#25221e" />
-    <directionalLight castShadow position={[4, 12, 6]} intensity={spotlight ? .35 : 2.2} color="#f0f6ff" shadow-mapSize={[1024, 1024]} />
+    <ambientLight intensity={spotlight ? .12 : .28} color="#d4cbbf" />
+    <hemisphereLight intensity={spotlight ? .15 : .5} color="#e6e4d9" groundColor="#25221e" />
+    <directionalLight castShadow position={[4, 12, 6]} intensity={spotlight ? .35 : 2.2} color="#f0f6ff" shadow-mapSize={[2048, 2048]} shadow-normalBias={.025} shadow-bias={-.00015} shadow-camera-left={-9} shadow-camera-right={9} shadow-camera-top={8} shadow-camera-bottom={-8} />
+    <directionalLight position={[-6, 7, -5]} intensity={spotlight ? .2 : 1.35} color="#b8d7ed" />
+    <directionalLight position={[6, 5, -2]} intensity={spotlight ? .1 : .55} color="#ffdab8" />
     <spotLight position={[-7, 11, -5]} intensity={spotlight ? 8 : 3} color="#dce9ff" angle={.42} penumbra={.65} castShadow />
     <spotLight position={[7, 10, 4]} intensity={spotlight ? 8 : 3} color="#ffdfbb" angle={.42} penumbra={.7} />
     <RigidBody ref={ringSurface} type="fixed" colliders={false} position={[0, 1.52, 0]} collisionGroups={arenaCollisionGroups} solverGroups={arenaCollisionGroups} userData={{ surface: true, kind: 'ring' }}><CuboidCollider args={[6, .325, 4.5]} /><mesh receiveShadow><boxGeometry args={[12, .55, 9]} /><meshStandardMaterial color="#202437" roughness={.68} /></mesh></RigidBody>

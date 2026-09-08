@@ -30,7 +30,8 @@ const SCENARIOS: readonly LabScenario[] = [
   { id: 'apronReturn', label: 'APRON RETURN', steps: tap('KeyF', 900, 180), duration: 3_400 },
   { id: 'jump', label: 'STANDING JUMP', steps: tap('KeyC', 220, 480), duration: 2_200 },
   { id: 'landing', label: 'JUMP + LANDING', steps: tap('KeyC', 220, 480), duration: 2_600 },
-  { id: 'kickup', label: 'KICK-UP RECOVERY', steps: tap('Space', 620, 180), duration: 2_100 },
+  { id: 'kickup', label: 'GET-UP BUTTON', steps: tap('Space', 620, 180), duration: 2_100 },
+  { id: 'manualRecovery', label: 'DOWNED — MANUAL GET-UP', steps: [], duration: 14_000 },
   { id: 'recoveryBack', label: 'BACK GET-UP', steps: [], duration: 3_400 },
   { id: 'recoveryFront', label: 'FRONT GET-UP', steps: [], duration: 3_400 },
   { id: 'recoverySide', label: 'SIDE GET-UP', steps: [], duration: 3_400 },
@@ -100,6 +101,7 @@ export function PhysicsLab() {
     // forearms now bridge this 1.15 m lane before the jab can reach the chest.
     else if (scenario.id === 'blockedJab') useMatchStore.getState().prepareLabScenario({ x: 0, z: -.575 }, { x: 0, z: .575 }, 'blocking');
     else if (recoveryOrientation) useMatchStore.getState().prepareLabScenario({ x: 0, z: -.7 }, { x: 0, z: 3.4 }, 'downed', 100, recoveryOrientation, .75);
+    else if (scenario.id === 'manualRecovery') useMatchStore.getState().prepareLabScenario({ x: 0, z: -.7 }, { x: 0, z: 3.4 }, 'downed', 100, 'back', 15, 0);
     else if (scenario.id === 'kickup') useMatchStore.getState().prepareLabScenario({ x: 0, z: -.7 }, { x: 0, z: 3.4 }, 'downed');
     // Give the run enough in-ring distance to build a genuinely loaded entry.
     // Starting inside the rope engagement band only tested a slow shove into

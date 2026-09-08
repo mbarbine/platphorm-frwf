@@ -331,7 +331,7 @@ export function GameScene(props: Props) {
         data-network-server-z={diagnosticServerFighter?.posZ ?? ''}
       >
         <Canvas
-          shadows={quality.shadows ? 'basic' : false}
+          shadows={quality.shadows ? 'percentage' : false}
           dpr={quality.dpr}
           gl={{ antialias: quality.antialias, alpha: false, powerPreference: 'high-performance' }}
           camera={{ position: [8, 7, 11], fov: 48, near: .1, far: 72 }}

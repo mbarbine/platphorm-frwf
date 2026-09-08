@@ -38,3 +38,18 @@ export function hasPhysicalCover(e: CoverEvidence): boolean {
     && e.shoulderHeight < .46 && Math.abs(e.defenderUpY) < .48
     && e.defenderFrontY > .65 && Math.abs(e.attackerUpY) < .55;
 }
+
+
+/** A local recoil preserves the feet and spine instead of starting a ragdoll. */
+export function standingRecoilPose(moveId: string | undefined, elapsed: number): Pose {
+  const strength = Math.max(0, 1 - elapsed / .48);
+  const kick = ['front_kick', 'low_kick'].includes(moveId ?? '');
+  const uppercut = moveId === 'uppercut';
+  return {
+    ...POSES.combatIdle,
+    torso: [(kick ? .34 : uppercut ? -.32 : -.24) * strength, -.12 * strength, .05 * strength],
+    rootTilt: (kick ? .035 : -.025) * strength,
+    leftArm: [-.48 - strength * .16, 0, -.28 - strength * .1],
+    rightArm: [-.55 + strength * .15, 0, .32 + strength * .12],
+  };
+}

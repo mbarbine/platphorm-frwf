@@ -121,7 +121,8 @@ export function buildControlReadout(player: FighterRuntime, opponent: FighterRun
     if (move.category === 'grapple') active.add('grapple');
     if (move.id === 'taunt') active.add('taunt');
     if (move.id === 'kick_up') active.add('counter');
-  } else if (!paused && player.state === 'downed') state = 'DOWNED · KICK-UP WINDOW OPEN';
+  } else if (!paused && player.state === 'downed') state = 'DOWNED · PRESS GET UP';
+  else if (!paused && player.state === 'recovering') { state = 'GETTING UP · PLANTING FEET'; active.add('counter'); }
   else if (!paused && player.state === 'pinning') state = 'COVERING · HOLD FOR THE COUNT';
   else if (!paused && player.state === 'pinned') state = 'SHOULDERS DOWN · KICK OUT';
   else if (!paused && player.state === 'climbing') state = `TURNBUCKLE CLIMB · STAGE ${player.climbStage} / 3`;

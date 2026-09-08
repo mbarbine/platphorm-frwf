@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-test.use({ video: 'on' });
+test.use({ video: 'on', trace: 'off' });
 
 test('chooses and releases a physical throw through ordinary wrestling controls', async ({ page }) => {
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
@@ -28,7 +28,6 @@ test('chooses and releases a physical throw through ordinary wrestling controls'
   await expect(hud).toHaveAttribute('data-cover-established', 'true', { timeout: 12000 });
   await expect(page.getByTestId('control-deck')).toContainText('COVERING');
   await expect(page.getByText('TWO', { exact: true })).toBeVisible({ timeout: 15000 });
-  await page.screenshot({ path: 'test-results/polish-physical-cover.png' });
   await expect(page.locator('.announcement')).toContainText('KICKOUT', { timeout: 10000 });
   await page.screenshot({ path: 'test-results/polish-kickout.png' });
   await expect(hud).toHaveAttribute('data-physics-emergency-resets', '0');

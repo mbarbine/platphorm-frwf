@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-test.use({ video: 'on' });
+test.use({ video: 'on', trace: 'off' });
 
 test('records idle, directional movement, guard and punches through player controls', async ({ page }) => {
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));

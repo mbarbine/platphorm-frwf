@@ -113,6 +113,7 @@ export const segmentSchema = (definition: FighterDefinition, id: BodySegmentId):
 /** A torso is broad across the shoulders but shallow front-to-back. Circular
  * capsules used shoulder width as chest depth, leaving visible bodies apart. */
 export function torsoColliderArgs(segment: BodySegmentSchema): [number, number, number, number] | null {
-  if (segment.id !== 'chest') return null;
-  return [segment.radius - .04, segment.halfLength, .13, .04];
+  if (segment.id === 'chest') return [segment.radius - .035, segment.halfLength, .105, .035];
+  if (segment.id === 'abdomen' || segment.id === 'pelvis') return [segment.radius - .035, segment.halfLength, .105, .035];
+  return null;
 }

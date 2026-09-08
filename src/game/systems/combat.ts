@@ -382,8 +382,8 @@ export const applyMoveHit = (model: MatchModel, actorKey: FighterSlot, targetKey
     targetFighter: targetKey,
   });
   if (move.category === 'quick' || move.category === 'heavy' || move.category === 'grapple' || move.category === 'aerial') {
-    // BLOCKBUSTER: Amplified slowMotion values for heavy, aerial, and grapple moves to feel more blockbuster
-    model.slowMotion = Math.max(model.slowMotion, move.category === 'quick' ? .10 : move.category === 'heavy' ? .32 : move.category === 'aerial' ? .38 : .42);
+    // Routine strikes retain their speed after the short contact beat.
+    model.slowMotion = Math.max(model.slowMotion, move.category === 'quick' ? 0 : move.category === 'heavy' ? .08 : move.category === 'aerial' ? .38 : .42);
   }
   if (move.category === 'finisher') {
     model.slowMotion = 1.25; // BLOCKBUSTER: increased slowMotion for signature moves
@@ -891,9 +891,9 @@ const updateFighter = (model: MatchModel, actorKey: FighterSlot, dt: number, mov
     // the throw while the hands remain coupled, and the defender can reverse.
     const choosingThrow = model.physicsAuthority && actorKey === 'player' && actor.attackPhase === 'anticipation'
       && model.grapple?.attacker === actorKey && model.grapple.gripCount >= 2
-      && model.grapple.age < .5 && ['clinch', 'load', 'acquire', 'reach'].includes(model.grapple.phase);
+      && !model.grapple.manualRelease && model.grapple.age < 1.1 && ['clinch', 'load', 'acquire', 'reach'].includes(model.grapple.phase);
     const holdingLift = model.physicsAuthority && actorKey === 'player' && actor.attackPhase === 'anticipation'
-      && model.grapple?.attacker === actorKey && model.grapple.phase === 'lift' && (model.grapple.liftElapsed ?? 0) < (model.grapple.manualRelease ? 4.5 : .7);
+      && model.grapple?.attacker === actorKey && model.grapple.phase === 'lift' && (model.grapple.liftElapsed ?? 0) < (model.grapple.manualRelease ? 4.5 : 1.2);
     actor.phaseElapsed = waitingForPhysicalGrip ? Math.min(actor.phaseElapsed + dt, move.anticipationDuration * .28)
       : choosingThrow ? Math.min(actor.phaseElapsed + dt, move.anticipationDuration * .32)
         : holdingLift ? Math.min(actor.phaseElapsed + dt, move.anticipationDuration * .76) : actor.phaseElapsed + dt;

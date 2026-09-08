@@ -9,7 +9,7 @@ export interface ThrowMotion {
   rotationSpeed: number;
 }
 
-const SLAM: ThrowMotion = { liftHeight: .92, turn: 0, speed: .9, riseSpeed: 2.8, clearanceTime: .16, rotationSpeed: 5.6 };
+const SLAM: ThrowMotion = { liftHeight: .64, turn: 0, speed: .72, riseSpeed: 1.8, clearanceTime: .12, rotationSpeed: 5.6 };
 const SUPLEX: ThrowMotion = { liftHeight: 1.08, turn: Math.PI, speed: 1.65, riseSpeed: 2.4, clearanceTime: .14, rotationSpeed: 5.2 };
 const TOSS: ThrowMotion = { liftHeight: .7, turn: Math.PI / 2, speed: 1.8, riseSpeed: 1.5, clearanceTime: .1, rotationSpeed: 4.4 };
 const POWER: ThrowMotion = { liftHeight: 1.18, turn: 0, speed: .45, riseSpeed: 1.4, clearanceTime: .09, rotationSpeed: 5.9 };

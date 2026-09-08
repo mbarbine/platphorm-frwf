@@ -1,3 +1,6 @@
+// @vitest-environment node
+import { loadContactSkin, visibleSurfaceGap } from './helpers/skinnedContact';
+import { strikeDriveProfile } from '../game/physics/strikeDynamics';
 import { configureCombatVenue, VENUES, type CombatVenue } from '../game/data/venues';
 import { ColliderDesc, JointData, RigidBodyDesc, World, init } from '@dimforge/rapier3d-compat';
 import type { RigidBody } from '@dimforge/rapier3d-compat';
@@ -507,14 +510,15 @@ it.each([
     expect(requestCommand(model, 'player', 'grapple')).toBe(true);
     expect(requestCommand(model, 'player', button, direction)).toBe(true);
     expect(model.player.moveId).toBe(name);
-    let airborneBeforeDamage = false;
+    let airborneBeforeDamage = false; const landingSamples: unknown[] = [];
     for (let frame = 0; frame < 540 && model.opponent.health === 100; frame++) {
       stepGrappleHarness(world, runtime, model);
       airborneBeforeDamage ||= runtime.pendingLandingCount() > 0 && model.opponent.health === 100;
+      if (frame % 30 === 0) landingSamples.push({ frame, state: model.opponent.state, snapshot: runtime.fighterSnapshot('opponent'), pending: runtime.pendingLandingCount() });
     }
     expect(airborneBeforeDamage, JSON.stringify({state:model.player.state,grapple:model.grapple,metrics:runtime.metrics})).toBe(true);
     expect(runtime.metrics.gripCreateCount).toBeGreaterThanOrEqual(2);
-    expect(model.playerStats.grapples, JSON.stringify({ state: model.opponent.state, metrics: runtime.metrics })).toBe(1);
+    expect(model.playerStats.grapples, JSON.stringify({ state: model.opponent.state, metrics: runtime.metrics, landingSamples })).toBe(1);
     expect(model.opponent.health).toBeLessThan(100);
     expect(model.lastImpact?.contactPoint?.every(Number.isFinite)).toBe(true);
     expect(runtime.metrics.emergencyResetCount).toBe(0);
@@ -595,4 +599,66 @@ it.each([
       expect(runtime.fighterSnapshot('opponent').upright).toBeGreaterThan(.9);
     }
   } finally { runtime.reset(); world.free(); }
+});
+
+
+it.each(FIGHTERS)('recovers $id from an actual slam at exhausted stamina', (fighter) => {
+  const { world, runtime, model } = makeGrappleHarness(undefined, 'atlas', fighter.id);
+  try {
+    for (let frame = 0; frame < 60; frame++) stepGrappleHarness(world, runtime, model);
+    expect(requestCommand(model, 'player', 'grapple')).toBe(true);
+    expect(requestCommand(model, 'player', 'heavy')).toBe(true);
+    for (let frame = 0; frame < 540 && model.opponent.health === 100; frame++) stepGrappleHarness(world, runtime, model);
+    expect(model.lastImpact?.moveId, JSON.stringify(runtime.metrics)).toBe('slam');
+    expect(model.opponent.state).toBe('downed');
+    model.opponent.stamina = 0;
+    expect(requestCommand(model, 'opponent', 'dodge')).toBe(true);
+    for (let frame = 0; frame < 360 && model.opponent.state !== 'idle'; frame++) {
+      if (frame % 8 === 0) requestCommand(model, 'opponent', 'dodge');
+      stepGrappleHarness(world, runtime, model);
+    }
+    const snapshot = runtime.fighterSnapshot('opponent');
+    expect(model.opponent.state, JSON.stringify(snapshot)).toBe('idle');
+    expect(snapshot.upright).toBeGreaterThan(.9);
+    expect(snapshot.supportFeet).toBeGreaterThan(0);
+    expect(snapshot.headY).toBeGreaterThan(snapshot.pelvisY + .6);
+    for (let frame = 0; frame < 180; frame++) stepGrappleHarness(world, runtime, model);
+    expect(model.opponent.state).toBe('idle');
+    expect(runtime.fighterSnapshot('opponent').headY).toBeGreaterThan(runtime.fighterSnapshot('opponent').pelvisY + .6);
+    expect(runtime.metrics.emergencyResetCount).toBe(0);
+  } finally { runtime.reset(); world.free(); }
+});
+
+
+it.each([
+  ['jab', 'quick', { x: 0, z: 0 }],
+  ['uppercut', 'quick', { x: 0, z: -1 }],
+  ['front_kick', 'heavy', { x: 0, z: 0 }],
+  ['high_kick', 'heavy', { x: 0, z: -1 }],
+] as const)('%s has visible skin contact when physical damage registers', async (moveId, command, direction) => {
+  const sourceSkin = await loadContactSkin('atlas'); const targetSkin = await loadContactSkin('nova');
+  const { world, runtime, model, player, opponent } = makeGrappleHarness();
+  try {
+    for (let frame = 0; frame < 90; frame++) stepGrappleHarness(world, runtime, model);
+    expect(requestCommand(model, 'player', command, direction)).toBe(true);
+    for (let frame = 0; frame < 90 && !model.lastImpact; frame++) stepGrappleHarness(world, runtime, model);
+    expect(model.lastImpact?.moveId).toBe(moveId);
+    const profile = strikeDriveProfile(moveId); if (!profile) throw new Error(`Missing strike ${moveId}`);
+    const gap = visibleSurfaceGap(sourceSkin.points(player.bodies, profile.source), targetSkin.points(opponent.bodies));
+    expect(gap, `${moveId} skin gap at physical impact: ${gap.toFixed(3)} m`).toBeLessThan(.12);
+  } finally { sourceSkin.dispose(); targetSkin.dispose(); runtime.reset(); world.free(); }
+});
+
+
+it('shows torso-to-canvas contact on the actual skin at a scored slam', async () => {
+  const skin = await loadContactSkin('nova'); const { world, runtime, model, opponent } = makeGrappleHarness();
+  try {
+    for (let frame = 0; frame < 60; frame++) stepGrappleHarness(world, runtime, model);
+    requestCommand(model, 'player', 'grapple'); requestCommand(model, 'player', 'heavy');
+    for (let frame = 0; frame < 540 && !model.lastImpact; frame++) stepGrappleHarness(world, runtime, model);
+    expect(model.lastImpact?.moveId).toBe('slam');
+    const torso = [...skin.points(opponent.bodies, 'chest'), ...skin.points(opponent.bodies, 'abdomen')];
+    const gap = Math.min(...torso.map(point => Math.abs(point.y - 1.845)));
+    expect(gap, `visible torso floats ${gap.toFixed(3)} m above the canvas`).toBeLessThan(.12);
+  } finally { skin.dispose(); runtime.reset(); world.free(); }
 });

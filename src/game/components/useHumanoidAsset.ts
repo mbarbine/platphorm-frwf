@@ -28,7 +28,7 @@ export function useHumanoidAsset(fighterId: FighterId) {
           const direction = new Vector3(0, -1, 0).applyQuaternion(orientation);
           const curlAxis = direction.cross(palm).normalize().applyQuaternion(orientation.invert());
           const link = Number(node.name.slice(-1)) - 1;
-          const closedAngle = (node.name.includes('Thumb') ? [.3, .45, .35][link] : [.7, 1.05, .7][link]) ?? .45;
+          const closedAngle = (node.name.includes('Thumb') ? [.65, .8, .5][link] : [1.1, 1.4, .85][link]) ?? .45;
           fingers.push({ bone: node, rest: node.quaternion.clone(), curlAxis, closedAngle });
         }
         else bones.set(node.name as BodySegmentId, node);
