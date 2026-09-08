@@ -225,3 +225,6 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .control-deck--compact ul { grid-template-columns: repeat(6,minmax(0,1fr)); }
 .tutorial { top: 7rem; bottom: auto; width: min(520px,calc(100vw - 2rem)); }
 @media (max-width: 900px) { .archive-backdrop__caption { right: 1rem; bottom: .6rem; } .archive-backdrop__caption span { display: none; } .control-deck--compact ul { grid-template-columns: repeat(3,minmax(0,1fr)); } }
+
+.graphics-recovery { position: fixed; inset: 0; z-index: 1000; background: #080c16; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1rem; color: white; }
+.pause-overlay--settings { overflow-y: auto; padding: 1.5rem; }

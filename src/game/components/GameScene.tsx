@@ -1,3 +1,4 @@
+import { RendererHealth } from './RendererHealth';
 import { PlayerController } from '../input/playerController';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { AdaptiveDpr, BakeShadows, OrbitControls } from '@react-three/drei';
@@ -283,6 +284,12 @@ export function GameScene(props: Props) {
   const networkDiagnostics = useMultiplayerStore.getState();
   const diagnosticSessionId = networkDiagnostics.sessionId;
   const diagnosticServerFighter = diagnosticSessionId ? networkDiagnostics.fighters.get(diagnosticSessionId) : null;
+  const [graphicsLost, setGraphicsLost] = useState(false);
+  const contextLost = useCallback(() => {
+    setGraphicsLost(true);
+    if (!useMatchStore.getState().model.paused) props.onPause();
+  }, [props.onPause]);
+  const contextRestored = useCallback(() => setGraphicsLost(false), []);
   const renderer = useRef<WebGLRenderer | null>(null); const [xrAvailable, setXrAvailable] = useState(false); const [xrPresenting, setXrPresenting] = useState(false); const [xrError, setXrError] = useState('');
   const enterXR = async (): Promise<void> => {
     if (!navigator.xr || !renderer.current) return;
@@ -361,12 +368,14 @@ export function GameScene(props: Props) {
             <Simulation {...props} inputEnabled={props.onlineRole !== 'spectator' && !paused && !replayActive && !diagnosticModel.resolved && !['defeated', 'victorious'].includes(diagnosticModel.player.state)} />
           </Physics>
           {lab && labDebug ? <Suspense fallback={null}><BodyWorksDebugOverlay /></Suspense> : null}
+          <RendererHealth onLost={contextLost} onRestored={contextRestored} />
           <CameraRig />
           <SpectatorFreeCamera />
           <RuntimeDiagnosticsSampler onSustainedSlow={() => { if (graphicsQuality === 'auto') setAutomaticPerformanceFallback(true); }} />
           <AdaptiveDpr pixelated />
           {quality.bakeShadows && <BakeShadows />}
         </Canvas>
+        {graphicsLost && <div className="graphics-recovery" role="alert"><b>GRAPHICS INTERRUPTED · MATCH PAUSED</b><span>Waiting for the graphics device to recover.</span><button className="button" onClick={() => location.reload()}>RELOAD GAME</button></div>}
         {xrAvailable && <button type="button" className="xr-entry" data-testid="xr-entry" onClick={() => void (xrPresenting ? exitXR() : enterXR())}>{xrPresenting ? 'EXIT ARENA XR' : 'ENTER ARENA XR'}<small>QUEST · STEAM FRAME · OPENXR</small></button>}
         {xrError && <div className="xr-error" role="status">XR UNAVAILABLE · {xrError}</div>}
       </div>
