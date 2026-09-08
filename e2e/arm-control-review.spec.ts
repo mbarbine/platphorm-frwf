@@ -12,7 +12,12 @@ test('records idle, directional movement, guard and punches through player contr
   await page.getByRole('button', { name: 'START MATCH' }).click();
   await expect(page.getByTestId('game-canvas')).toHaveAttribute('data-simulation-ready', 'true', { timeout: 45000 });
   const tutorial = page.getByRole('button', { name: 'Close tutorial' });
-  if (await tutorial.isVisible()) await tutorial.click();
+  if (await tutorial.isVisible()) {
+    // The nonmodal coach dismisses itself. Never wait a whole match for a
+    // button that disappeared between the visibility read and the click.
+    try { await tutorial.click({ timeout: 1500 }); }
+    catch (error) { if (await tutorial.isVisible()) throw error; }
+  }
   // These holds record the visible motion, rather than skipping to a pose.
   await page.waitForTimeout(2500);
   await page.screenshot({ path: 'test-results/arms-idle.png' });
