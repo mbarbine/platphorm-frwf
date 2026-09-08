@@ -3,7 +3,7 @@ import { FightVenue } from '../world/FightVenue';
 import { RendererHealth } from './RendererHealth';
 import { PlayerController } from '../input/playerController';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { AdaptiveDpr, BakeShadows, OrbitControls } from '@react-three/drei';
+import { AdaptiveDpr, OrbitControls } from '@react-three/drei';
 import { Physics, useAfterPhysicsStep, useBeforePhysicsStep } from '@react-three/rapier';
 import { JointData } from '@dimforge/rapier3d-compat';
 import { Component, lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -364,7 +364,6 @@ export function GameScene(props: Props) {
           <SpectatorFreeCamera />
           <RuntimeDiagnosticsSampler onSustainedSlow={() => { if (graphicsQuality === 'auto') setAutomaticPerformanceFallback(true); }} />
           <AdaptiveDpr />
-          {quality.bakeShadows && <BakeShadows />}
         </Canvas>
         {graphicsLost && <div className="graphics-recovery" role="alert"><b>GRAPHICS INTERRUPTED · MATCH PAUSED</b><span>Waiting for the graphics device to recover.</span><button className="button" onClick={() => location.reload()}>RELOAD GAME</button></div>}
         {xrAvailable && <button type="button" className="xr-entry" data-testid="xr-entry" onClick={() => void (xrPresenting ? exitXR() : enterXR())}>{xrPresenting ? 'EXIT ARENA XR' : 'ENTER ARENA XR'}<small>QUEST · STEAM FRAME · OPENXR</small></button>}

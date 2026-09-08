@@ -17,7 +17,6 @@ export interface RuntimeQualityProfile {
   crowdCount: number;
   antialias: boolean;
   shadows: boolean;
-  bakeShadows: boolean;
 }
 
 export interface RuntimeFrameHealth {
@@ -48,7 +47,6 @@ export const resolveRuntimeQuality = (input: RuntimeQualityInput): RuntimeQualit
     crowdCount: input.physicsLab ? 0 : mobile ? 60 : 96,
     antialias: false,
     shadows: false,
-    bakeShadows: false,
   };
   if (tier === 'quality') return {
     tier,
@@ -56,7 +54,6 @@ export const resolveRuntimeQuality = (input: RuntimeQualityInput): RuntimeQualit
     crowdCount: input.physicsLab ? 0 : mobile ? 120 : 216,
     antialias: true,
     shadows: true,
-    bakeShadows: true,
   };
   return {
     tier,
@@ -64,7 +61,6 @@ export const resolveRuntimeQuality = (input: RuntimeQualityInput): RuntimeQualit
     crowdCount: input.physicsLab ? 0 : mobile ? 90 : 156,
     antialias: true,
     shadows: true,
-    bakeShadows: !input.reducedMotion,
   };
 };
 

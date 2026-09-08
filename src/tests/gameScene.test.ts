@@ -135,7 +135,7 @@ vi.mock('../game/presentation/presentationManifest', () => ({
   selectFighterDetail: vi.fn(() => ({ tier: 'performance' })),
 }));
 vi.mock('../game/runtime/quality', () => ({
-  browserRuntimeQuality: vi.fn(() => ({ tier: 'performance', bakeShadows: false })),
+  browserRuntimeQuality: vi.fn(() => ({ tier: 'performance' })),
 }));
 vi.mock('../game/systems/falls', () => ({
   fallCount: vi.fn(() => 0),
