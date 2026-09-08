@@ -29,7 +29,8 @@ describe('arcade locomotion feel', () => {
   it('gives agile fighters faster acceleration and turning than heavy fighters', () => {
     const atlas = locomotionProfile(fighterById('atlas')); const vex = locomotionProfile(fighterById('vex'));
     expect(vex.acceleration).toBeGreaterThan(atlas.acceleration); expect(vex.turnRate).toBeGreaterThan(atlas.turnRate); expect(vex.walkSpeed).toBeGreaterThan(atlas.walkSpeed);
-    expect(atlas.walkSpeed).toBeGreaterThan(3); expect(vex.walkSpeed).toBeLessThan(3.5);
-    expect(atlas.runSpeed).toBeGreaterThan(5.4); expect(vex.runSpeed).toBeLessThan(6.1);
+    // Ordinary approach must leave time to judge the final body length.
+    expect(atlas.walkSpeed).toBeLessThan(2.5); expect(vex.walkSpeed).toBeLessThan(2.5);
+    expect(atlas.runSpeed / atlas.walkSpeed).toBeGreaterThan(2);
   });
 });

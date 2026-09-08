@@ -4,6 +4,12 @@
 
 FRWF should be an enjoyable open-world style wrestling game. The user's rejection of 1.3.0 is a failed gameplay-quality result, despite technical checks passing. This review changes the next implementation priority; it does not claim to repair the game.
 
+## Current direction: development rebuild, no release
+
+The user rejected the current experience again: movement is still unsatisfactory and multiplayer does not work for them. There is no gameplay acceptance or release decision. No deployment has been performed by the agent during this unfinished pass. Concurrent user commits are preserved on main.
+
+Priority is coherent body control and an actual two-player wrestling match, including joining, choosing wrestlers, playing, leaving and reconnecting. Localhost fallback on a deployed client, incompatible Cloudflare/Colyseus room protocols, and conflicting local/server gameplay authority are concrete multiplayer defects. A successful transport connection or one health decrement does not establish a playable multiplayer game.
+
 ## Evidence
 
 A fresh Chromium recording of production 1.3.0 used normal menu entry, Atlas versus Easy Nova, default graphics, and a fixed sequence of L, K, J, F, movement and strikes. It did not mutate game state or choose inputs from hidden simulation counters. This was scripted play, not a human usability study or a performance benchmark; browser automation and software rendering introduce timing overhead.
@@ -53,12 +59,12 @@ This pass repairs the contact and presentation defects found above. It is not a 
 
 Vercel remains the canonical host. Cloudflare production now has a static-assets deployment configuration for the same local game plus the existing isolated private-room Worker. No DNS migration is part of this pass. D1, R2 and production operator auth are deliberately not configured: Worker health must report degraded/not_configured, protected creation must fail closed, and online parity/cloud saves must not be advertised. Worker private rooms are not connected to the current client matchmaking.
 
-Cloudflare static assets preserve frame restrictions and safe browser headers. Worker API responses retain PLATPHORM_API_KEY authorization, bounded input parsing, JSON-RPC introspection and local trace context. No cross-site trace export or new integration is claimed. Client discovery describes the new local controls and cover evidence. Other network repositories are neither changed nor certified by this game release.
+Cloudflare static assets preserve frame restrictions and safe browser headers. Worker API responses retain PLATPHORM_API_KEY authorization, bounded input parsing, JSON-RPC introspection and local trace context. No cross-site trace export or new integration is claimed. Client discovery describes the new local controls and cover evidence. Other network repositories are neither changed nor certified by this development work.
 
 ### Validation scope
 
 Existing tests are retained only for their narrow regression claims. They are not an acceptance score or certification of playability. The ordinary exchange journey now follows visible throw/pin prompts at default graphics and records its video; hidden state cannot choose the next action. Visual review already rejected two earlier passing cover implementations in this pass.
 
-The unit/physics checks cover uppercut contact, legal knee flexion, real solver-driven cover establishment, no pin counting from state flags, loss of cover, cancelled approaches and the neutral uppercut sequence. Browser checks cover menu entry, ordinary throw/cover controls, recovery, render lifecycle, mobile entry and world combat. Release evidence records exact commands and outcomes separately; an assertion passing is not proof that the game meets the user's quality bar.
+The unit/physics checks cover uppercut contact, legal knee flexion, real solver-driven cover establishment, no pin counting from state flags, loss of cover, cancelled approaches and the neutral uppercut sequence. Browser checks cover menu entry, ordinary throw/cover controls, recovery, render lifecycle, mobile entry and world combat. Development evidence records exact commands and outcomes separately; an assertion passing is not proof that the game meets the user's quality bar.
 
 Next work: authored or captured paired animation clips, more consistent human silhouettes during every throw, deeper grounded mat wrestling, physical iPhone playtesting and seamless exploration-to-combat interaction. Storage-backed progression and online parity remain separate unfinished features.

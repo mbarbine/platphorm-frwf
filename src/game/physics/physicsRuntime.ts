@@ -1111,17 +1111,15 @@ export class BodyWorksRuntime {
 
   private configureRotationalAuthority(rig: FighterRigRegistration, fighter: FighterRuntime, profile: MotorProfile): void {
     const dynamic = new Set<BodySegmentId>();
-    const targets = physicalPoseTargets(targetPoseFor(fighter), fighter.facing);
+    const targets = physicalPoseTargets(targetPoseFor(fighter), fighter.facing, ['idle', 'locomotion', 'blocking'].includes(fighter.state));
     if (profile.rootMode === 'physical') for (const segment of Object.keys(rig.bodies) as BodySegmentId[]) dynamic.add(segment);
     // Arms remain a live, supported chain in standing locomotion so hands are
     // physically held in a guard and can reach from that guard. Locking them
     // in their spawn-down orientation made every contact-true punch miss.
     if (['neutral', 'combat', 'walking', 'running', 'braking', 'jumpLoad', 'landing', 'victory'].includes(profile.id)) {
-      // The shoulder/elbow chain supplies readable gait and guard movement.
-      // Hands inherit the solved forearm pose and stay rotation-locked until
-      // an actual strike, block, or grapple needs them. Continuously driving
-      // four tiny distal bodies was the last visible idle buzz source.
-      for (const segment of ['leftUpperArm', 'rightUpperArm', 'leftForearm', 'rightForearm'] as const) dynamic.add(segment);
+      // A wrist must follow its forearm through turns, not alternate between
+      // a world-space lock and a corrective motor as its parent moves.
+      for (const segment of ['leftUpperArm', 'rightUpperArm', 'leftForearm', 'rightForearm', 'leftHand', 'rightHand'] as const) dynamic.add(segment);
     }
     const recoveredSupportScore = fighter.state === 'idle' && fighter.lastFallReason !== null ? this.supportScore(rig) : 1;
     const settlingRecoveredStance = fighter.state === 'idle' && fighter.lastFallReason !== null
@@ -1917,7 +1915,8 @@ export class BodyWorksRuntime {
       this.applyRigAcceleration(defenderRig, { x: 0, y: liftAcceleration, z: 0 });
       defenderChest.addForce({ x: Math.sin(attacker.facing) * defenderChest.mass() * liftDrive * 2.1, y: 0, z: Math.cos(attacker.facing) * defenderChest.mass() * liftDrive * 2.1 }, true);
       defenderPelvis.applyTorqueImpulse({ x: move.id === 'suplex' || move.id === 'skyhook' ? -.032 * liftDrive : .018 * liftDrive, y: 0, z: (grapple.position === 'overhook' ? .028 : -.018) * liftDrive }, true);
-      this.applyRigAcceleration(attackerRig, { x: 0, y: -12, z: 0 });
+      // Grip reaction already loads the carrier. An extra downward acceleration
+      // here overwhelmed standing support and forced every lift onto the knees.
     }
     if (grapple.phase === 'clinch' || grapple.phase === 'load') {
       const braceX = separationX / planarSeparation; const braceZ = separationZ / planarSeparation; const shuffle = Math.sin(grapple.age * 18) * (grapple.phase === 'load' ? 1 : .55);
@@ -1984,7 +1983,7 @@ export class BodyWorksRuntime {
     const fatigue = 1 - fighter.body.muscle;
     const supportedFall = !overridePose && ['downed', 'airborne', 'defeated'].includes(fighter.state);
     const pose = supportedFall ? BREAKFALL_POSE : overridePose ?? targetPoseFor(fighter);
-    const targets = physicalPoseTargets(pose, supportedFall ? 0 : fighter.facing);
+    const targets = physicalPoseTargets(pose, supportedFall ? 0 : fighter.facing, ['idle', 'locomotion', 'blocking'].includes(fighter.state) || fighter.state === 'grappling' && motorProfile.id === 'lift');
     if (supportedFall && rig.bodies.pelvis) {
       const root = rig.bodies.pelvis.rotation();
       for (const segment of Object.keys(targets) as BodySegmentId[]) targets[segment] = quaternionMultiply(root, targets[segment]);
@@ -1999,6 +1998,13 @@ export class BodyWorksRuntime {
       // on top of the torso lean so the head sphere, not a hidden damage cone,
       // reaches the opponent before the two chest colliders stop the bodies.
       targets.head = quaternionMultiply(targets.chest, quaternionFromEuler([-1.4, 0, 0]));
+    }
+    // Elbow/wrist targets follow the solved parent, so a lagging shoulder
+    // cannot ask its hinged elbow to twist toward an unreachable world pose.
+    for (const side of ['left', 'right'] as const) {
+      const upperArm = rig.bodies[`${side}UpperArm`]; const forearm = rig.bodies[`${side}Forearm`];
+      if (upperArm?.isValid()) targets[`${side}Forearm`] = quaternionMultiply(upperArm.rotation(), quaternionFromEuler([clamp(pose[`${side}Forearm`][0], -2.65, .08), 0, 0]));
+      if (forearm?.isValid()) targets[`${side}Hand`] = forearm.rotation();
     }
     const strike = fighter.moveId ? strikeDriveProfile(fighter.moveId) : null;
     const strikeSegments = strike ? strikePoseChain(strike.source) : [];
@@ -2028,12 +2034,15 @@ export class BodyWorksRuntime {
         : 6.5;
       const massTorqueCap = body.mass() * torquePerKg;
       const maximumTorque = Math.min(chain.maximumTorque * stiffnessScale, massTorqueCap);
+      const armSegment = segment.includes('Arm') || segment.includes('Forearm') || segment.includes('Hand');
       if (fighter.state === 'airborne' && overridePose) {
         body.setAngvel(chasePoseAngularVelocity(body.rotation(), targets[segment], body.angvel(), 5, 5, .22), true);
       } else if (supportedFall) {
         body.setAngvel(chasePoseAngularVelocity(body.rotation(), targets[segment], body.angvel(), 4.2, 3.4, .16), true);
       } else if (fighter.state === 'pinning' || fighter.state === 'pinned') {
         body.setAngvel(chasePoseAngularVelocity(body.rotation(), targets[segment], body.angvel(), 6, 3.5, .24), true);
+      } else if (motorProfile.id === 'lift' && (segment.includes('Thigh') || segment.includes('Shin') || segment.includes('Foot'))) {
+        body.setAngvel(chasePoseAngularVelocity(body.rotation(), targets[segment], body.angvel(), 6, 4.5, .24), true);
       } else if (fighter.state === 'recovering') {
         // A get-up needs a reliable velocity-level active-ragdoll motor. The
         // ordinary torque servo is intentionally soft for impact reactions;
@@ -2058,11 +2067,15 @@ export class BodyWorksRuntime {
         // fatigue-scaled and bounded, so the joints and opponent can resist it.
         const authority = .62 + fighter.body.muscle * .38;
         body.setAngvel(chasePoseAngularVelocity(body.rotation(), targets[segment], body.angvel(), 7.2, 6.4 * authority, .24 * authority), true);
-      } else if (motorProfile.rootMode !== 'physical') {
+      } else if (motorProfile.rootMode !== 'physical' || armSegment) {
         // Standing balance has enough authority to finish a turn or unwind a
         // strike. Impacts still resolve through contacts and the fall states.
         body.setAngvel(chasePoseAngularVelocity(body.rotation(), targets[segment], body.angvel(), 5.2, 3.4, .22), true);
       }
+      // The arm chain already has a bounded velocity drive. A second PD
+      // impulse (and opposite parent impulse) excites the small wrist inertia
+      // and fights the hinge solver instead of adding useful control.
+      if (armSegment) continue;
       const torque = computeMotorTorque(body.rotation(), targets[segment], body.angvel(), { x: 0, y: 0, z: 0 }, {
         stiffness: chain.stiffness * stiffnessScale,
         damping: chain.damping * stiffnessScale,
@@ -2761,16 +2774,17 @@ const targetPoseFor = (fighter: FighterRuntime): Pose => {
   return applyBodyLanguage(idlePose, fighter);
 };
 
-const physicalPoseTargets = (pose: Pose, facing: number): Record<BodySegmentId, QuaternionValue> => {
+const physicalPoseTargets = (pose: Pose, facing: number, plantSoles = false): Record<BodySegmentId, QuaternionValue> => {
   const yaw = quaternionMultiply(quaternionFromEuler([0, facing + pose.rootYaw, 0]), quaternionFromEuler([pose.rootTilt, 0, pose.rootRoll]));
   const chest = withYaw(yaw, pose.torso); const leftUpperArm = quaternionMultiply(chest, quaternionFromEuler(pose.leftArm)); const rightUpperArm = quaternionMultiply(chest, quaternionFromEuler(pose.rightArm));
-  const leftForearm = quaternionMultiply(leftUpperArm, quaternionFromEuler(pose.leftForearm)); const rightForearm = quaternionMultiply(rightUpperArm, quaternionFromEuler(pose.rightForearm));
+  const leftForearm = quaternionMultiply(leftUpperArm, quaternionFromEuler([clamp(pose.leftForearm[0], -2.65, .08), 0, 0])); const rightForearm = quaternionMultiply(rightUpperArm, quaternionFromEuler([clamp(pose.rightForearm[0], -2.65, .08), 0, 0]));
   const leftThigh = withYaw(yaw, pose.leftLeg); const rightThigh = withYaw(yaw, pose.rightLeg); const leftShin = quaternionMultiply(leftThigh, quaternionFromEuler([kneeFlexion(pose.leftShin[0]), 0, 0])); const rightShin = quaternionMultiply(rightThigh, quaternionFromEuler([kneeFlexion(pose.rightShin[0]), 0, 0]));
   const abdomenOffset: Vector3Value = { x: pose.torso[0] * .45, y: pose.torso[1] * .45, z: pose.torso[2] * .45 };
   return {
     pelvis: yaw, abdomen: withYaw(yaw, [abdomenOffset.x, abdomenOffset.y, abdomenOffset.z]), chest, head: yaw,
     leftUpperArm, rightUpperArm, leftForearm, rightForearm, leftHand: leftForearm, rightHand: rightForearm,
-    leftThigh, rightThigh, leftShin, rightShin, leftFoot: leftShin, rightFoot: rightShin,
+    leftThigh, rightThigh, leftShin, rightShin, leftFoot: plantSoles ? quaternionMultiply(leftShin, quaternionFromEuler([clamp(-pose.rootTilt - pose.leftLeg[0] - kneeFlexion(pose.leftShin[0]), -.58, .68), 0, 0])) : leftShin,
+    rightFoot: plantSoles ? quaternionMultiply(rightShin, quaternionFromEuler([clamp(-pose.rootTilt - pose.rightLeg[0] - kneeFlexion(pose.rightShin[0]), -.58, .68), 0, 0])) : rightShin,
   };
 };
 

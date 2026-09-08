@@ -209,6 +209,7 @@ export interface ImpactEvent {
 
 export interface GrappleRuntime {
   liftElapsed?: number;
+  manualRelease?: boolean;
   attacker: FighterSlot;
   defender: FighterSlot;
   position: GrapplePosition;

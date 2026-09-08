@@ -5,14 +5,16 @@ import { POSES, type Pose } from './poses';
 export function locomotionPose(velocity: Vec2, facing: number, phase: number, combat = true): Pose {
   const speed = Math.hypot(velocity.x, velocity.z);
   const amount = Math.min(1, speed / 1.8);
-  const run = Math.max(0, Math.min(1, (speed - 3.5) / 2));
+  const run = Math.max(0, Math.min(1, (speed - 2.8) / 2));
   const forward = speed > .001 ? (velocity.x * Math.sin(facing) + velocity.z * Math.cos(facing)) / speed : 0;
   const lateral = speed > .001 ? (velocity.x * Math.cos(facing) - velocity.z * Math.sin(facing)) / speed : 0;
   const step = Math.sin(phase);
-  const stride = (.3 + run * .22) * amount;
+  const stride = (.42 + run * .18) * amount;
   const knee = (.4 + run * .35) * amount;
-  const leftSwing = Math.max(0, -step);
-  const rightSwing = Math.max(0, step);
+  // Bend the knee while the boot travels forward, then extend before planting.
+  const swing = -Math.cos(phase) * (forward < -.2 ? -1 : 1);
+  const leftSwing = Math.max(0, swing);
+  const rightSwing = Math.max(0, -swing);
   const guard = combat ? 1 - run * .65 : 0;
   return {
     ...POSES.combatIdle,

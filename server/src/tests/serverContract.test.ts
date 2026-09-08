@@ -176,7 +176,9 @@ describe('authoritative server contract', () => {
     const event = (action: ActionEvent['action'], sequence: number, direction: ActionEvent['direction'], phase: ActionEvent['phase'] = 'started'): ActionEvent => ({ action, sequence, direction, phase, timestamp: sequence * 16, source: 'network' });
     const tick = intervals.get(1000 / SERVER_CONFIG.SERVER_TICK_RATE); expect(tick).toBeDefined();
     let movementSequence = 0;
-    for (let frame = 0; frame < 16; frame += 1) {
+    for (let frame = 0; frame < 90; frame += 1) {
+      const first = room.state.fighters.get('p1'); const second = room.state.fighters.get('p2');
+      if (first && second && Math.hypot(second.posX - first.posX, second.posZ - first.posZ) < 1.1) break;
       if (frame % 6 === 0) {
         movementSequence += 1;
         handlers.get('command')?.(p1, { seq: movementSequence, event: event('move', movementSequence, { x: 1, y: 0 }, frame === 0 ? 'started' : 'held') });

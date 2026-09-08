@@ -1,3 +1,4 @@
+import type { MatchRoomStateSchema } from '../rooms/WrestlingRoomState';
 // @vitest-environment node
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -31,8 +32,8 @@ describe('real Colyseus transport', () => {
     await gameServer.listen(0, '127.0.0.1');
     const port = (httpServer.address() as AddressInfo).port;
     const firstClient = new GameClient(`ws://127.0.0.1:${port}`); const secondClient = new GameClient(`ws://127.0.0.1:${port}`);
-    const first = await firstClient.joinOrCreate('wrestling', { fighterId: 'atlas' });
-    const second = await secondClient.joinById(first.id, { fighterId: 'nova' });
+    const first = await firstClient.joinOrCreate<MatchRoomStateSchema>('wrestling', { fighterId: 'atlas' });
+    const second = await secondClient.joinById<MatchRoomStateSchema>(first.id, { fighterId: 'nova' });
     const acknowledgements: CommandAckMessage[] = []; const snapshots: SnapshotMessage[] = []; const impacts: unknown[] = [];
     first.onMessage('commandAck', (message) => acknowledgements.push(message));
     first.onMessage('snapshot', (message) => snapshots.push(message));
@@ -48,7 +49,7 @@ describe('real Colyseus transport', () => {
 
     const event = (action: ActionEvent['action'], sequence: number, direction: ActionEvent['direction'], phase: ActionEvent['phase'] = 'started'): ActionEvent => ({ action, sequence, direction, phase, timestamp: performance.now(), source: 'network' });
     let movementSequence = 0;
-    for (let burst = 0; burst < 12; burst += 1) {
+    for (let burst = 0; burst < 25; burst += 1) {
       movementSequence += 1;
       const phase = burst === 0 ? 'started' : 'held';
       first.send('command', { seq: movementSequence, event: event('move', movementSequence, { x: 1, y: 0 }, phase), protocolVersion: PROTOCOL_VERSION });
@@ -73,4 +74,33 @@ describe('real Colyseus transport', () => {
 
     await Promise.all([first.leave(), second.leave()]);
   });
+  it('reuses the vacant lobby role and ends a real match when a player quits', async () => {
+    const httpServer = http.createServer();
+    gameServer = new Server({ server: httpServer });
+    gameServer.define('wrestling', WrestlingRoom);
+    await gameServer.listen(0, '127.0.0.1');
+    const endpoint = `ws://127.0.0.1:${(httpServer.address() as AddressInfo).port}`;
+    const first = await new GameClient(endpoint).joinOrCreate<MatchRoomStateSchema>('wrestling', { fighterId: 'atlas' });
+    const second = await new GameClient(endpoint).joinById<MatchRoomStateSchema>(first.id, { fighterId: 'nova' });
+    for (const room of [first, second]) for (const message of ['roomState', 'snapshot', 'impactEvent', 'commandAck']) room.onMessage(message, () => undefined);
+    const roomId = first.id;
+    let lobbyRoles: { sessionId: string; role: string }[] = [];
+    second.onMessage('roomState', message => { lobbyRoles = message.roles; });
+    await first.leave(true);
+    await waitFor(() => lobbyRoles.length === 1 && second.state.roles.size === 1);
+    const replacement = await new GameClient(endpoint).joinById<MatchRoomStateSchema>(roomId, { fighterId: 'chad' });
+    for (const message of ['roomState', 'snapshot', 'impactEvent', 'commandAck']) replacement.onMessage(message, () => undefined);
+    await waitFor(() => lobbyRoles.some(entry => entry.sessionId === replacement.sessionId && entry.role === 'player1'));
+    await waitFor(() => second.state.roles.get(second.sessionId) === 'player2');
+    let result: { winner: string; method: string } | undefined;
+    second.onMessage('matchResult', message => { result = message; });
+    replacement.onMessage('matchResult', () => undefined);
+    second.send('ready'); replacement.send('ready');
+    await waitFor(() => second.state.phase === 'active');
+    await replacement.leave(true);
+    await waitFor(() => result !== undefined);
+    expect(result).toMatchObject({ winner: second.sessionId, method: 'FORFEIT' });
+    await second.leave(true);
+  });
+
 });

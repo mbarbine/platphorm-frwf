@@ -555,7 +555,10 @@ export const requestCommand = (model: MatchModel, actorKey: FighterSlot, command
     actor.stamina = clamp(actor.stamina - extraCost, 0, actor.staminaCap);
     actor.moveId = moveId;
     actor.phaseElapsed = Math.min(actor.phaseElapsed, selected.anticipationDuration * .55);
-    if (model.grapple?.attacker === actorKey) retargetGrapple(model.grapple, moveId);
+    if (model.grapple?.attacker === actorKey) {
+      retargetGrapple(model.grapple, moveId);
+      model.grapple.manualRelease = true;
+    }
     return true;
   }
   if (command === 'interact') return useProp(model, actorKey, direction);
@@ -891,7 +894,7 @@ const updateFighter = (model: MatchModel, actorKey: FighterSlot, dt: number, mov
       && model.grapple?.attacker === actorKey && model.grapple.gripCount >= 2
       && model.grapple.age < .5 && ['clinch', 'load', 'acquire', 'reach'].includes(model.grapple.phase);
     const holdingLift = model.physicsAuthority && actorKey === 'player' && actor.attackPhase === 'anticipation'
-      && model.grapple?.attacker === actorKey && model.grapple.phase === 'lift' && (model.grapple.liftElapsed ?? 0) < 1.8;
+      && model.grapple?.attacker === actorKey && model.grapple.phase === 'lift' && (model.grapple.liftElapsed ?? 0) < (model.grapple.manualRelease ? 4.5 : .7);
     actor.phaseElapsed = waitingForPhysicalGrip ? Math.min(actor.phaseElapsed + dt, move.anticipationDuration * .28)
       : choosingThrow ? Math.min(actor.phaseElapsed + dt, move.anticipationDuration * .32)
         : holdingLift ? Math.min(actor.phaseElapsed + dt, move.anticipationDuration * .76) : actor.phaseElapsed + dt;

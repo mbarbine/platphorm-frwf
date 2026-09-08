@@ -5,6 +5,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { FIGHTERS, fighterById } from '../game/data/fighters';
 import { buildBodySchema, torsoColliderArgs } from '../game/physics/bodySchema';
 import type { BodySegmentId, BodySegmentSchema } from '../game/physics/bodySchema';
+import { shortestQuaternionError } from '../game/physics/motorController';
 import { arenaCollisionGroups, fighterCollisionGroups } from '../game/physics/collisionGroups';
 import { BodyWorksRuntime } from '../game/physics/physicsRuntime';
 import { RINGSIDE_THRESHOLD } from '../game/physics/ringDynamics';
@@ -103,6 +104,29 @@ const stepGrappleHarness = (world: World, runtime: BodyWorksRuntime, model: Matc
 beforeAll(async () => { await init(); });
 
 describe('Rapier-backed Bodyworks integration', () => {
+  it('keeps a settled guard free of wrist flips and arm vibration', () => {
+    const { world, runtime, model, rig } = makeHarness();
+    try {
+      model.labMode = true;
+      for (let frame = 0; frame < 240; frame++) stepHarness(world, runtime, model);
+      let peakSpeed = 0; let peakWristAngle = 0;
+      for (let frame = 0; frame < 180; frame++) {
+        stepHarness(world, runtime, model);
+        for (const side of ['left', 'right'] as const) {
+          for (const part of ['UpperArm', 'Forearm', 'Hand'] as const) {
+            const spin = rig.bodies[`${side}${part}`].angvel();
+            peakSpeed = Math.max(peakSpeed, Math.hypot(spin.x, spin.y, spin.z));
+          }
+          const error = shortestQuaternionError(rig.bodies[`${side}Hand`].rotation(), rig.bodies[`${side}Forearm`].rotation());
+          peakWristAngle = Math.max(peakWristAngle, Math.hypot(error.x, error.y, error.z));
+        }
+      }
+      expect(peakSpeed, `Idle arm angular speed: ${peakSpeed}; wrist error: ${peakWristAngle}`).toBeLessThan(1);
+      expect(peakWristAngle).toBeLessThan(.35);
+      expect(runtime.metrics.emergencyResetCount).toBe(0);
+    } finally { runtime.reset(); world.free(); }
+  });
+
   it('unwinds a bent torso when control returns instead of locking the hit pose', () => {
     const { world, runtime, model, rig } = makeHarness();
     try {

@@ -22,7 +22,7 @@ test('chooses and releases a physical throw through ordinary wrestling controls'
   await page.keyboard.press('j');
   await expect(hud.locator('[data-last-action]')).toHaveAttribute('data-last-action', 'quickStrike');
   await expect(hud.locator('[data-last-action]')).toHaveAttribute('data-last-action-status', 'executed');
-  await expect(page.getByTestId('control-deck').getByText('PIN SHOULDERS', { exact: true })).toBeVisible({ timeout: 12000 });
+  await expect(page.getByTestId('control-deck').getByText(/^(PIN SHOULDERS|APPROACH & PIN)$/)).toBeVisible({ timeout: 12000 });
   await page.screenshot({ path: 'test-results/polish-throw-landing.png' });
   await page.keyboard.press('f');
   await expect(hud).toHaveAttribute('data-player-state', 'pinning');

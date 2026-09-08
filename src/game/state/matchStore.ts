@@ -1,3 +1,6 @@
+import { networkAnimationElapsed } from '@frwf/game-protocol';
+import { fighterById } from '../data/fighters';
+import { stepBodyDynamics } from '../physics/bodyDynamics';
 import { configureCombatVenue, venueFor, type CombatVenue } from '../data/venues';
 import { create } from 'zustand';
 import { advanceMatch, applyPhysicalContact, createFighterRuntime, createMatch, cyclePlayerTarget, requestAction, requestCommand, resetTransientState, resolveMatch } from '../systems/combat';
@@ -54,10 +57,11 @@ const reconcileFighter = (model: MatchModel, slot: 'player' | 'opponent', snapsh
   runtime.facing = snapshot.facing; runtime.health = Math.max(0, Math.min(100, snapshot.health));
   runtime.stamina = Math.max(0, Math.min(runtime.staminaCap, snapshot.stamina));
   runtime.momentum = Math.max(0, Math.min(100, snapshot.momentum));
+  if (runtime.state !== snapshot.combatState) runtime.stateElapsed = 0;
   runtime.state = ONLINE_STATES.has(snapshot.combatState as FighterState) ? snapshot.combatState as FighterState : 'idle';
   runtime.moveId = move?.id ?? null;
   runtime.attackPhase = ONLINE_PHASES.has(snapshot.attackPhase) ? snapshot.attackPhase as 'anticipation' | 'active' | 'recovery' : null;
-  runtime.phaseElapsed = Math.max(0, snapshot.phaseElapsed || 0);
+  runtime.phaseElapsed = networkAnimationElapsed(snapshot.moveId, snapshot.attackPhase, snapshot.phaseElapsed || 0);
   runtime.pinCount = Math.max(0, snapshot.pinCount); runtime.finisherPrimed = snapshot.finisherPrimed;
   bodyWorksRuntime.setNetworkTarget(slot, runtime.position, runtime.velocity);
 };
@@ -68,7 +72,7 @@ const reconcileNetworkGrapple = (model: MatchModel, local: ClientFighterState, r
   const attacker: 'player' | 'opponent' = local.combatState === 'grappling' && localOwns ? 'player' : 'opponent';
   const defender: 'player' | 'opponent' = attacker === 'player' ? 'opponent' : 'player';
   const source = attacker === 'player' ? local : remote;
-  const progress = source.moveId === 'slam' ? Math.max(0, Math.min(1, source.phaseElapsed / .42)) : 0;
+  const progress = source.moveId === 'slam' ? Math.max(0, Math.min(1, source.phaseElapsed / getMove('slam').anticipationDuration)) : 0;
   const phase = source.attackPhase === 'active' ? 'release'
     : source.attackPhase === 'recovery' ? 'impact'
       : source.moveId === 'slam' ? progress < .38 ? 'clinch' : progress < .56 ? 'load' : 'lift'
@@ -93,6 +97,29 @@ export const useMatchStore = create<MatchStore>((set) => ({
     if (model.paused || model.resolved) {
       bodyWorksRuntime.rejectPendingActions('player', model.elapsed, model.paused ? 'Match paused' : 'Match resolved');
       return state;
+    }
+    if (model.networkAuthority) {
+      // Online outcomes belong to the server. Local commands previously spent
+      // stamina, began different moves, and advanced pins between snapshots.
+      bodyWorksRuntime.captureInput('player', { ...input, actions: [], commands: [] }, model.elapsed);
+      model.elapsed += dt;
+      model.announcementTimer = Math.max(0, model.announcementTimer - dt);
+      if (!model.announcementTimer) model.announcement = null;
+      model.hitStop = Math.max(0, model.hitStop - dt);
+      model.slowMotion = Math.max(0, model.slowMotion - dt);
+      for (const slot of ['player', 'opponent'] as const) {
+        const fighter = model[slot];
+        fighter.stateElapsed += dt;
+        fighter.phaseElapsed += fighter.moveId ? dt : 0;
+        const speed = Math.hypot(fighter.velocity.x, fighter.velocity.z);
+        const strideLength = (speed > 2.8 ? 2.05 : 1.45) * fighterById(fighter.definitionId).physics.standingHeightM / 1.88;
+        fighter.body.gaitPhase += speed * dt * Math.PI * 2 / strideLength;
+        stepBodyDynamics(fighter, dt);
+      }
+      publishAccumulator += dt;
+      if (publishAccumulator < .1) return state;
+      publishAccumulator %= .1;
+      return { model: { ...model }, revision: state.revision + 1 };
     }
     const previousImpact = model.impactSequence; const wasResolved = model.resolved; const wasPlayerInactive = ['defeated', 'victorious'].includes(model.player.state); let commandAccepted = false; const pinRecoveryActions = [] as NonNullable<FrameInput['actions']>[number][];
     bodyWorksRuntime.captureInput('player', input, model.elapsed);
