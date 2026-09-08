@@ -4,23 +4,95 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-09-07",
   "workers_dev": true,
-  "observability": { "enabled": true, "logs": { "invocation_logs": false } },
-  "vars": { "ENVIRONMENT": "development", "PUBLIC_ORIGIN": "http://localhost:5173", "RELEASE": "development" },
-  "durable_objects": { "bindings": [{ "name": "MATCHES", "class_name": "MatchRoom" }] },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["MatchRoom"] }],
-  "d1_databases": [{ "binding": "DB", "database_name": "frwf-development", "database_id": "local-only", "migrations_dir": "migrations" }],
-  "r2_buckets": [{ "binding": "ASSETS", "bucket_name": "frwf-assets-development" }],
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "invocation_logs": false
+    }
+  },
+  "vars": {
+    "ENVIRONMENT": "development",
+    "PUBLIC_ORIGIN": "http://localhost:5173",
+    "RELEASE": "development"
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "MATCHES",
+        "class_name": "MatchRoom"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": [
+        "MatchRoom"
+      ]
+    }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "frwf-development",
+      "database_id": "local-only",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "ASSETS",
+      "bucket_name": "frwf-assets-development"
+    }
+  ],
   "env": {
     "preview": {
       "name": "frwf-game-preview",
-      "vars": { "ENVIRONMENT": "preview", "PUBLIC_ORIGIN": "https://frwf-preview.platphormnews.com", "RELEASE": "unreleased" },
-      "durable_objects": { "bindings": [{ "name": "MATCHES", "class_name": "MatchRoom" }] }
+      "vars": {
+        "ENVIRONMENT": "preview",
+        "PUBLIC_ORIGIN": "https://frwf-preview.platphormnews.com",
+        "RELEASE": "unreleased"
+      },
+      "durable_objects": {
+        "bindings": [
+          {
+            "name": "MATCHES",
+            "class_name": "MatchRoom"
+          }
+        ]
+      }
     },
     "production": {
       "name": "frwf-game-production",
-      "workers_dev": false,
-      "vars": { "ENVIRONMENT": "production", "PUBLIC_ORIGIN": "https://frwf.platphormnews.com", "RELEASE": "unreleased" },
-      "durable_objects": { "bindings": [{ "name": "MATCHES", "class_name": "MatchRoom" }] }
+      "workers_dev": true,
+      "vars": {
+        "ENVIRONMENT": "production",
+        "PUBLIC_ORIGIN": "https://frwf.platphormnews.com",
+        "RELEASE": "1.4.0"
+      },
+      "durable_objects": {
+        "bindings": [
+          {
+            "name": "MATCHES",
+            "class_name": "MatchRoom"
+          }
+        ]
+      },
+      "assets": {
+        "directory": "../dist",
+        "not_found_handling": "single-page-application",
+        "run_worker_first": [
+          "/api",
+          "/api/*",
+          "/.well-known/*",
+          "/llms.txt",
+          "/llms-full.txt",
+          "/llms-index.json",
+          "/openapi.yaml"
+        ]
+      },
+      "d1_databases": [],
+      "r2_buckets": []
     }
   }
 }

@@ -352,7 +352,7 @@ export const applyMoveHit = (model: MatchModel, actorKey: FighterSlot, targetKey
           : FALL_REASONS.StrikeImpulse;
     beginFall(model, targetKey, fallReason);
     target.stateElapsed = 0;
-    target.downTimer = 1.6 + (100 - target.health) / 75 + (move.category === 'finisher' ? 1.2 : 0);
+    target.downTimer = (move.category === 'grapple' || move.category === 'finisher' ? 3.2 : 1.6) + (100 - target.health) / 75 + (move.category === 'finisher' ? 1.2 : 0);
     target.moveId = null;
     target.attackPhase = null;
     target.finisherPrimed = move.category === 'finisher';
@@ -465,7 +465,7 @@ export const performCounter = (model: MatchModel, defenderKey: FighterSlot, atta
 
 const startPin = (actor: FighterRuntime, target: FighterRuntime): boolean => {
   if (target.state !== 'downed' || distance(actor.position, target.position) > 1.7) return false;
-  actor.state = 'pinning'; actor.pinCount = 0; actor.stateElapsed = 0;
+  actor.state = 'pinning'; actor.pinCount = 0; actor.stateElapsed = 0; actor.moveId = null; actor.attackPhase = null;
   target.state = 'pinned'; target.pinCount = 0; target.pinEscape = 0; target.stateElapsed = 0;
   return true;
 };
@@ -698,6 +698,7 @@ const summarizeHighlights = (moments: readonly HighlightMoment[]): MatchHighligh
 });
 
 const unwindPinState = (model: MatchModel, eliminated: FighterSlot | null): void => {
+  model.pinCover = undefined;
   for (const slot of activeFighterSlots(model)) {
     const fighter = model[slot];
     const wasPinning = fighter.state === 'pinning'; const wasPinned = fighter.state === 'pinned';
@@ -753,7 +754,13 @@ const updatePin = (model: MatchModel, dt: number, playerInput: FrameInput): void
     return;
   }
   const pinning = model[pinningKey]; const pinned = model[pinnedKey];
-  pinning.stateElapsed += dt; pinned.stateElapsed += dt;
+  const cover = model.pinCover;
+  const covered = !model.physicsAuthority || Boolean(cover?.established && cover.attacker === pinningKey && cover.defender === pinnedKey);
+  if (covered) { pinning.stateElapsed += dt; pinned.stateElapsed += dt; }
+  else {
+    pinning.stateElapsed = 0; pinned.stateElapsed = 0; pinning.pinCount = 0; pinned.pinCount = 0;
+    if (cover && (cover.age > 5 && cover.lostSeconds > 1.25)) { unwindPinState(model, null); model.announcement = 'COVER BROKEN'; model.announcementTimer = .8; return; }
+  }
   if (pinnedKey === 'player') {
     // Any recovery action contributes — Space (dodge), J (quick), K (heavy) all help.
     const inputCommands = commandsForInput(playerInput);
@@ -774,7 +781,7 @@ const updatePin = (model: MatchModel, dt: number, playerInput: FrameInput): void
       return;
     }
   }
-  if (pinnedKey !== 'player') {
+  if (pinnedKey !== 'player' && covered) {
     const difficultyFactor = model.difficulty === 'hard' ? 1.08 : .92;
     pinned.pinEscape += dt * (9 + pinned.health * .2 + pinned.stamina * .08) * difficultyFactor;
   }
@@ -884,7 +891,7 @@ const updateFighter = (model: MatchModel, actorKey: FighterSlot, dt: number, mov
       && model.grapple?.attacker === actorKey && model.grapple.gripCount >= 2
       && model.grapple.age < .5 && ['clinch', 'load', 'acquire', 'reach'].includes(model.grapple.phase);
     const holdingLift = model.physicsAuthority && actorKey === 'player' && actor.attackPhase === 'anticipation'
-      && model.grapple?.attacker === actorKey && model.grapple.phase === 'lift' && (model.grapple.liftElapsed ?? 0) < .7;
+      && model.grapple?.attacker === actorKey && model.grapple.phase === 'lift' && (model.grapple.liftElapsed ?? 0) < 1.2;
     actor.phaseElapsed = waitingForPhysicalGrip ? Math.min(actor.phaseElapsed + dt, move.anticipationDuration * .28)
       : choosingThrow ? Math.min(actor.phaseElapsed + dt, move.anticipationDuration * .32)
         : holdingLift ? Math.min(actor.phaseElapsed + dt, move.anticipationDuration * .76) : actor.phaseElapsed + dt;

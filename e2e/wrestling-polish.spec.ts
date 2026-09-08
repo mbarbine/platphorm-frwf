@@ -29,6 +29,11 @@ test('chooses and releases a physical throw through ordinary wrestling controls'
   await expect.poll(async () => Number(await hud.getAttribute('data-player-grapples')), { timeout: 20000 }).toBeGreaterThan(0);
   await expect.poll(async () => Number(await hud.getAttribute('data-opponent-health'))).toBeLessThan(100);
   await page.screenshot({ path: 'test-results/polish-throw-landing.png' });
+  await page.keyboard.press('f');
+  await expect(hud).toHaveAttribute('data-player-state', 'pinning');
+  await expect(hud).toHaveAttribute('data-cover-established', 'true', { timeout: 12000 });
+  await expect(page.getByTestId('control-deck')).toContainText('COVERING');
+  await page.screenshot({ path: 'test-results/polish-physical-cover.png' });
   await expect(hud).toHaveAttribute('data-physics-emergency-resets', '0');
   await page.keyboard.press('Escape');
   expect(errors).toEqual([]);

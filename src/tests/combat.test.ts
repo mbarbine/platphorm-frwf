@@ -12,6 +12,18 @@ import { createActionEvent } from '../game/input/actionLayer';
 const none: FrameInput = { move: { x: 0, z: 0 }, run: false, block: false, commands: [] };
 
 describe('deterministic combat rules', () => {
+  it('never counts a physical pin from state flags and resets a lost cover', () => {
+    const model = createMatch('atlas', 'nova', 'standard', 'easy');
+    model.physicsAuthority = true; model.player.state = 'pinning'; model.opponent.state = 'pinned';
+    for (let frame = 0; frame < 120; frame++) advanceMatch(model, 1 / 60, none);
+    expect(model.player.pinCount).toBe(0); expect(model.resolved).toBe(false);
+    model.pinCover = { attacker: 'player', defender: 'opponent', established: true, age: 1, separation: .1, shoulderHeight: .3, lostSeconds: 0, facing: 0 };
+    for (let frame = 0; frame < 70; frame++) advanceMatch(model, 1 / 60, none);
+    expect(model.player.pinCount).toBe(1);
+    model.pinCover.established = false; advanceMatch(model, 1 / 60, none);
+    expect(model.player.pinCount).toBe(0); expect(model.player.stateElapsed).toBe(0);
+  });
+
   it('creates a five-wrestler Battle Royale with unique entrants and live rival targets', () => {
     const model = createMatch('atlas', 'atlas', 'standard', 'normal', 1337, 0, 0, 'battle_royale');
     const slots = activeFighterSlots(model);
@@ -548,7 +560,7 @@ describe('deterministic combat rules', () => {
   it('keeps directionless rescue controls punch-first and kick-first', () => {
     expect(selectDirectionalStrike({ x: 0, z: 0 }, 'quick', 0)).toBe('jab');
     expect(selectDirectionalStrike({ x: 0, z: 0 }, 'quick', 1)).toBe('combo');
-    expect(selectDirectionalStrike({ x: 0, z: 0 }, 'quick', 2)).toBe('jab');
+    expect(selectDirectionalStrike({ x: 0, z: 0 }, 'quick', 2)).toBe('uppercut');
     expect(selectDirectionalStrike({ x: 0, z: 0 }, 'heavy')).toBe('front_kick');
   });
 

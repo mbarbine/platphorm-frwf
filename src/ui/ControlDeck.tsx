@@ -73,6 +73,9 @@ export function buildControlLabels(player: FighterRuntime, opponent: FighterRunt
     }
   } else if (player.state === 'downed' || player.moveId === 'kick_up') {
     labels.quick = 'GET UP'; labels.heavy = 'GET UP'; labels.grapple = 'GET UP'; labels.counter = moveLabel('kick_up'); labels.context = 'RECOVER FIRST';
+  } else if (player.state === 'pinning') {
+    for (const id of Object.keys(labels) as ControlId[]) labels[id] = 'HOLD COVER';
+    labels.context = 'COVERING';
   } else if (player.state === 'pinned') {
     labels.quick = 'RECOVER'; labels.heavy = 'RECOVER'; labels.grapple = 'RECOVER'; labels.counter = 'KICK OUT'; labels.context = 'KICK OUT';
   } else {
@@ -119,6 +122,7 @@ export function buildControlReadout(player: FighterRuntime, opponent: FighterRun
     if (move.id === 'taunt') active.add('taunt');
     if (move.id === 'kick_up') active.add('counter');
   } else if (!paused && player.state === 'downed') state = 'DOWNED · KICK-UP WINDOW OPEN';
+  else if (!paused && player.state === 'pinning') state = 'COVERING · HOLD FOR THE COUNT';
   else if (!paused && player.state === 'pinned') state = 'SHOULDERS DOWN · KICK OUT';
   else if (!paused && player.state === 'climbing') state = `TURNBUCKLE CLIMB · STAGE ${player.climbStage} / 3`;
   else if (!paused && player.ropeRebound > 0) state = 'ROPES LOADED · REBOUND WINDOW OPEN';
@@ -138,6 +142,7 @@ export function buildControlReadout(player: FighterRuntime, opponent: FighterRun
     ? `${keys.quick} ${labels.quick} WHIFF · ${keys.heavy} ${labels.heavy} WHIFF · ${keys.grapple} COLLAR REACH · MOVE IN FOR CONTACT`
     : `${keys.quick} ${labels.quick} · ${keys.heavy} ${labels.heavy} · ${keys.grapple} COLLAR LOCK · ${keys.jump} JUMP · ${keys.block} GUARD`;
   if (paused) callout = 'SIMULATION STOPPED · RESUME TO WRESTLE';
+  else if (player.state === 'pinning') callout = 'HOLD THE COVER · SHOULDERS MUST STAY DOWN';
   else if (player.state === 'pinned') callout = `${keys.counter} RAPIDLY · KICK OUT BEFORE THREE`;
   else if (player.state === 'downed' || player.moveId === 'kick_up') callout = `${keys.counter} · LIVEWIRE KICK-UP`;
   else if (player.ropeRebound > 0) callout = directionId === 'LEFT'
@@ -157,6 +162,7 @@ export function buildControlReadout(player: FighterRuntime, opponent: FighterRun
   else if (hasRing && canTransitionThroughRopes(player.position)) callout = `${actionKey} · ${ringside ? 'ENTER RING' : 'EXIT TO RINGSIDE'} THROUGH CENTER ROPE`;
   else if (hasRing && !nearCorner && (Math.abs(player.position.x) > 4.1 || Math.abs(player.position.z) > 3.2)) callout = `NEAR ROPES · SPRINT TO REBOUND · ${actionKey} AT APRON TO EXIT RING`;
   else if (player.counterWindow > 0) callout = `${keys.counter} NOW · REVERSE THE ATTACK`;
+  else if (distance <= GRAPPLE_ACQUISITION_RANGE && controlStyle === 'arcade') callout = `${keys.quick} JAB → COMBO → UPPERCUT · ${keys.heavy} KICK · ${keys.grapple} CLINCH`;
   else if (distance <= GRAPPLE_ACQUISITION_RANGE) callout = `${keys.grapple} BODY SLAM · BACK/DOWN + ${keys.grapple} PILEDRIVER · CONTACT MUST LAND · ${keys.quick} RAPID COMBO`;
   else if (distance < 4.8 && movementHeld && !runHeld) callout = `IN RANGE · RAPID ${keys.quick}=JAB→ONE-TWO · ${keys.heavy}=KICK · HOLD WASD+${keys.quick}/${keys.heavy} FOR DIRECTIONAL STRIKES`;
 

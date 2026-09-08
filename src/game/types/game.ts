@@ -303,6 +303,7 @@ export interface FallEvent {
 }
 
 export interface MatchModel {
+  pinCover?: { attacker: FighterSlot; defender: FighterSlot; age: number; established: boolean; separation: number; shoulderHeight: number; lostSeconds: number; facing: number };
   venue?: CombatVenue;
   toyTestMode: boolean;
   labMode: boolean;

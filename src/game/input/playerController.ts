@@ -17,7 +17,7 @@ export function planarInputVelocity(direction: Vec2, speed: number): Vec2 {
   return { x: direction.x * scale, z: direction.z * scale };
 }
 
-/** A short, cancellable physical step into a clinch; never teleports or awards contact. */
+/** A short, cancellable physical step into attack reach; never teleports or awards contact. */
 export class PlayerController {
   private pending: { event: ActionEvent; expiresAt: number; target: string; range: number; pin: boolean } | null = null;
   private runtimeId = -1;
@@ -37,9 +37,10 @@ export class PlayerController {
         ? { ...event, direction: { x: event.action === 'grapple' && actor.state === 'grappling' ? 1 : 0, y: 0 } } : event;
       const pin = event.action === 'contextAction' && target.state === 'downed';
       const grapple = event.action === 'grapple' && !['downed', 'defeated', 'victorious'].includes(target.state);
-      const range = pin ? 1.5 : GRAPPLE_ACQUISITION_RANGE;
-      if (event.phase === 'started' && (pin || grapple) && standing && !model.grapple
-        && distance > range && distance <= 3.8) {
+      const strike = (event.action === 'quickStrike' || event.action === 'heavyStrike') && !['downed', 'defeated', 'victorious'].includes(target.state);
+      const range = pin ? 1.5 : strike ? event.action === 'quickStrike' ? 1.18 : 1.4 : GRAPPLE_ACQUISITION_RANGE;
+      if (event.phase === 'started' && (pin || grapple || strike) && standing && !model.grapple
+        && distance > range && distance <= (strike ? 2.8 : 3.8)) {
         this.pending = { event: normalized, expiresAt: model.elapsed + 1.5, target: model.targets.player, range, pin };
       } else {
         if (event.phase === 'started' && ['quickStrike', 'heavyStrike', 'dodgeCounter', 'jump'].includes(event.action)) this.reset();

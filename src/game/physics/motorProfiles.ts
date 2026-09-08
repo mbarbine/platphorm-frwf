@@ -72,6 +72,7 @@ export const motorChainForSegment = (segment: BodySegmentId): MotorChain => {
 };
 
 export const selectMotorProfile = (fighter: FighterRuntime): MotorProfile => {
+  if (fighter.state === 'pinning' || fighter.state === 'pinned') return MOTOR_PROFILES.getUp;
   if (fighter.state === 'defeated') return MOTOR_PROFILES.knockout;
   if (fighter.state === 'downed') return MOTOR_PROFILES.downed;
   if (fighter.state === 'recovering') return MOTOR_PROFILES.getUp;

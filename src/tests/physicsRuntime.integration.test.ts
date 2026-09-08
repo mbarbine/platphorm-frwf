@@ -3,7 +3,7 @@ import { ColliderDesc, JointData, RigidBodyDesc, World, init } from '@dimforge/r
 import type { RigidBody } from '@dimforge/rapier3d-compat';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { FIGHTERS, fighterById } from '../game/data/fighters';
-import { buildBodySchema } from '../game/physics/bodySchema';
+import { buildBodySchema, torsoColliderArgs } from '../game/physics/bodySchema';
 import type { BodySegmentId, BodySegmentSchema } from '../game/physics/bodySchema';
 import { arenaCollisionGroups, fighterCollisionGroups } from '../game/physics/collisionGroups';
 import { BodyWorksRuntime } from '../game/physics/physicsRuntime';
@@ -29,7 +29,8 @@ const createHeadlessRig = (world: World, fighterId: FighterId, slot: FighterSlot
     const body = world.createRigidBody(RigidBodyDesc.dynamic()
       .setTranslation(x + segment.localPosition[0], 1.8 + segment.localPosition[1], segment.localPosition[2])
       .setLinearDamping(.55).setAngularDamping(2.2).setCanSleep(true).enabledRotations(false, false, false).setAdditionalSolverIterations(4).setCcdEnabled(segment.attackEligible || ['head', 'pelvis', 'abdomen', 'chest'].includes(segment.id)));
-    const collider = segment.id === 'head' ? ColliderDesc.ball(segment.radius)
+    const torsoArgs = torsoColliderArgs(segment);
+    const collider = torsoArgs ? ColliderDesc.roundCuboid(...torsoArgs) : segment.id === 'head' ? ColliderDesc.ball(segment.radius)
       : segment.id.includes('Foot') || segment.id.includes('Hand')
         ? ColliderDesc.cuboid(segment.radius, segment.id.includes('Foot') ? segment.radius * .5 : segment.halfLength, segment.id.includes('Foot') ? segment.halfLength * 1.35 : segment.radius)
         : ColliderDesc.capsule(segment.halfLength, segment.radius);
@@ -443,7 +444,7 @@ it.each([
       stepGrappleHarness(world, runtime, model);
       airborneBeforeDamage ||= runtime.pendingLandingCount() > 0 && model.opponent.health === 100;
     }
-    expect(airborneBeforeDamage).toBe(true);
+    expect(airborneBeforeDamage, JSON.stringify({state:model.player.state,grapple:model.grapple,metrics:runtime.metrics})).toBe(true);
     expect(runtime.metrics.gripCreateCount).toBeGreaterThanOrEqual(2);
     expect(model.playerStats.grapples, JSON.stringify({ state: model.opponent.state, metrics: runtime.metrics })).toBe(1);
     expect(model.opponent.health).toBeLessThan(100);
@@ -451,4 +452,44 @@ it.each([
     expect(runtime.metrics.emergencyResetCount).toBe(0);
     expect(runtime.metrics.numericalFaultCount).toBe(0);
   } finally { runtime.reset(); world.free(); }
+});
+
+
+it('requires a real cross-body cover before counting a physical pin', () => {
+  const {world,runtime,model,player,opponent}=makeGrappleHarness();
+  try {
+    for(let f=0;f<50;f++) stepGrappleHarness(world,runtime,model);
+    runtime.prepareLabFall('opponent','back',model.opponent.facing);
+    model.opponent.state='downed'; model.opponent.stateElapsed=0; model.opponent.health=10; model.opponent.stamina=5; model.opponent.downTimer=15;
+    for(let f=0;f<60;f++) stepGrappleHarness(world,runtime,model);
+    expect(requestCommand(model,'player','context')).toBe(true);
+    expect(model.player.pinCount).toBe(0);
+    let established=false; let maximumCount=0;
+    for(let f=0;f<500 && !model.resolved;f++) {
+      stepGrappleHarness(world,runtime,model);
+      established ||= model.pinCover?.established===true;
+      if(model.player.pinCount>maximumCount) {
+        expect(model.pinCover?.established,JSON.stringify(model.pinCover)).toBe(true);
+        maximumCount=model.player.pinCount;
+      }
+    }
+    expect(established,JSON.stringify({cover:model.pinCover,p:player.bodies.chest.translation(),o:opponent.bodies.chest.translation(),state:model.player.state})).toBe(true);
+    expect(maximumCount).toBeGreaterThanOrEqual(2);
+    expect(runtime.metrics.emergencyResetCount).toBe(0);
+  } finally {runtime.reset();world.free();}
+});
+
+
+it('connects an uppercut through the rising hand and preserves a standing base', () => {
+  const {world,runtime,model}=makeGrappleHarness();
+  try {
+    for(let f=0;f<60;f++) stepGrappleHarness(world,runtime,model);
+    expect(requestCommand(model,'player','quick',{x:0,z:-1})).toBe(true);
+    expect(model.player.moveId).toBe('uppercut');
+    for(let f=0;f<90;f++) stepGrappleHarness(world,runtime,model);
+    expect(model.opponent.health,JSON.stringify(runtime.metrics)).toBeLessThan(100);
+    expect(model.lastImpact?.moveId).toBe('uppercut');
+    expect(runtime.fighterSnapshot('player').upright).toBeGreaterThan(.7);
+    expect(runtime.metrics.emergencyResetCount).toBe(0);
+  } finally {runtime.reset();world.free();}
 });

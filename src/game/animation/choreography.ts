@@ -339,10 +339,9 @@ const strikeFrames = (moveId: string): readonly PoseKeyframe[] => {
   ];
   if (moveId === 'uppercut') return [
     { at: 0, pose: POSES.combatIdle },
-    // Deep coiled crouch and torso wind-up
-    { at: .46, pose: pose({ torso: [.48, .55, -.22], rightArm: [.6, -.25, .55], rightForearm: [-1.65, 0, 0], leftArm: [-.85, 0, -.45], leftForearm: [-1.22, 0, 0], leftLeg: [.45, 0, 0], rightLeg: [.55, 0, 0], leftShin: [-.92, 0, 0], rightShin: [-1.05, 0, 0], rootY: -.38, rootYaw: .38, rootTilt: .38 }) },
-    // Explosive upward lift, rising off the ground with maximum vertical extension
-    { at: .72, pose: pose({ torso: [-.48, -.35, .15], rightArm: [-2.45, 0, .18], rightForearm: [-.12, 0, 0], leftArm: [-.72, 0, -.55], leftForearm: [-1.15, 0, 0], leftLeg: [-.22, 0, 0], rightLeg: [-.3, 0, 0], rootY: .58, rootZ: .25, rootYaw: -.28, rootTilt: -.45 }) },
+    { at: .46, pose: pose({ torso: [.12, .18, -.04], rightArm: [-.15, 0, .16], rightForearm: [-1.65, 0, 0], leftArm: [-.85, 0, -.3], leftForearm: [-1.2, 0, 0], leftLeg: [-.16, 0, 0], rightLeg: [-.22, 0, 0], leftShin: [-.3, 0, 0], rightShin: [-.4, 0, 0], rootY: -.1, rootTilt: .08 }) },
+    { at: .72, pose: pose({ torso: [-.08, -.18, .04], rightArm: [-1.5, 0, .12], rightForearm: [-1.1, 0, 0], leftArm: [-.82, 0, -.3], leftForearm: [-1.2, 0, 0], rootTilt: -.05 }) },
+    { at: .86, pose: pose({ rightArm: [-1.1, 0, .16], rightForearm: [-1.25, 0, 0], leftArm: [-.85, 0, -.3], leftForearm: [-1.2, 0, 0] }) },
     { at: 1, pose: POSES.combatIdle },
   ];
   if (moveId === 'headbutt') return [

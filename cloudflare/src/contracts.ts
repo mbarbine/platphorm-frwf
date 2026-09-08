@@ -24,7 +24,7 @@ export const clientMessage = z.discriminatedUnion('type', [
 export const gameInfo = {
   name: 'RINGFALL: CHAOS CIRCUIT', canonicalUrl: 'https://frwf.platphormnews.com',
   map: 'volt-dome', fighters: fighterId.options, protocolVersion: PROTOCOL_VERSION,
-  local: { modes: ['singles', 'battle_royale'], rulesets: ['standard', 'chaos'], simulationHz: 60, renderer: 'Three.js + Rapier', inputs: ['keyboard', 'gamepad', 'touch', 'webxr'] },
+  local: { world: { locations: ['showground', 'backstage', 'ringside'], encounters: 6, venues: ['yard', 'backstage', 'dome'], combat: 'instanced_bouts', persistence: 'device_local_only' }, wrestling: ['physical strikes', 'paired throws', 'supported breakfalls', 'geometric cross-body covers'], modes: ['singles', 'battle_royale'], rulesets: ['standard', 'chaos'], simulationHz: 60, renderer: 'Three.js + Rapier', inputs: ['keyboard', 'gamepad', 'touch', 'webxr'] },
   online: { modes: ['private_singles'], simulationHz: 30, commands: ['move', 'run', 'quickStrike', 'heavyStrike', 'grapple', 'guard'], limitations: ['Online rules are a smaller swept-contact simulation; not BodyWorks parity.', 'Operator-created room tickets required.', 'No public matchmaking or persistent player identity.'] },
 } as const;
 

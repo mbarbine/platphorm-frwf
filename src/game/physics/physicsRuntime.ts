@@ -19,6 +19,7 @@ import type { Pose } from '../animation/poses';
 import { recoveryPose } from '../animation/recoveryMotion';
 import { locomotionPose } from '../animation/locomotion';
 import { throwDirection, throwMotionFor } from './throwMotion';
+import { BREAKFALL_POSE, COVER_POSE, COVERED_POSE, hasPhysicalCover, kneeFlexion } from './wrestlingPose';
 import type { QuaternionValue, Vector3Value } from './motorController';
 import { apronTransitionTarget, isRingside, RING_HARD_LIMIT, ROPE_REBOUND_ENTRY_SPEED, shouldReleaseRopeRebound, solveRopeReleaseDirection, solveRopeResponse } from './ringDynamics';
 import { computeStrikeForce, guardInterceptDriveProfile, guardInterceptSurfaceTarget, strikeDriveProfile, strikePelvisAcceleration } from './strikeDynamics';
@@ -821,6 +822,10 @@ export class BodyWorksRuntime {
       rig.rootStabilized = rootStabilized;
     }
     this.configureRotationalAuthority(rig, fighter, motorProfile);
+    if (fighter.state === 'pinning' || fighter.state === 'pinned') {
+      this.applyCoverController(key, fighter, rig, model, dt);
+      return;
+    }
     const intent = this.intents[key];
     const velocity = pelvis.linvel();
     const definition = fighterById(fighter.definitionId);
@@ -1044,6 +1049,50 @@ export class BodyWorksRuntime {
         body.setAngvel({ x: angular.x * .72, y: angular.y * .72, z: angular.z * .72 }, true);
       }
     }
+  }
+
+  private applyCoverController(key: FighterKey, fighter: FighterRuntime, rig: FighterRigRegistration, model: MatchModel, dt: number): void {
+    const attacker = FIGHTER_SLOTS.find(slot => model[slot].state === 'pinning');
+    const defender = FIGHTER_SLOTS.find(slot => model[slot].state === 'pinned');
+    if (!attacker || !defender) return;
+    if (!model.pinCover || model.pinCover.attacker !== attacker || model.pinCover.defender !== defender) {
+      model.pinCover = { attacker, defender, age: 0, established: false, separation: 99, shoulderHeight: 99, lostSeconds: 0, facing: model[defender].facing };
+    }
+    const cover = model.pinCover;
+    const pelvis = rig.bodies.pelvis; const target = this.rigs.get(defender)?.bodies.chest;
+    if (!pelvis || !target) return;
+    if (key === attacker) {
+      cover.age += dt;
+      const yaw = cover.facing + Math.PI / 2;
+      fighter.facing = yaw;
+      const p = pelvis.translation(); const chest = target.translation(); const v = pelvis.linvel();
+      const reach = .6 * fighterById(fighter.definitionId).physics.standingHeightM / 1.88;
+      this.applyRigAcceleration(rig, {
+        x: clamp((chest.x - Math.sin(yaw) * reach - p.x) * 24 - v.x * 8, -20, 20),
+        y: clamp((chest.y + .34 - p.y) * 26 - v.y * 9 + 18, -24, 30),
+        z: clamp((chest.z - Math.cos(yaw) * reach - p.z) * 24 - v.z * 8, -20, 20),
+      });
+      this.applyPoseDrive(rig, fighter, selectMotorProfile(fighter), COVER_POSE);
+    } else {
+      fighter.facing = cover.facing;
+      this.applyPoseDrive(rig, fighter, selectMotorProfile(fighter), COVERED_POSE);
+    }
+  }
+
+  private refreshCoverEvidence(model: MatchModel): void {
+    const cover = model.pinCover;
+    if (!cover) return;
+    if (model[cover.attacker].state !== 'pinning' || model[cover.defender].state !== 'pinned') { model.pinCover = undefined; return; }
+    const actor = this.rigs.get(cover.attacker)?.bodies.chest;
+    const defender = this.rigs.get(cover.defender)?.bodies.chest;
+    if (!actor || !defender) { cover.established = false; return; }
+    const a = actor.translation(); const b = defender.translation(); const q = defender.rotation();
+    const floor = this.isRingside(model[cover.defender].position) ? .4 : VOLT_DOME.ring.deckY;
+    cover.separation = Math.hypot(a.x - b.x, a.z - b.z);
+    cover.shoulderHeight = b.y - floor;
+    cover.established = hasPhysicalCover({ separation: cover.separation, chestClearance: a.y - b.y, shoulderHeight: cover.shoulderHeight,
+      defenderUpY: uprightFromRotation(q), defenderFrontY: 2 * (q.y * q.z - q.w * q.x), attackerUpY: uprightFromRotation(actor.rotation()) });
+    cover.lostSeconds = cover.established ? 0 : cover.lostSeconds + this.currentFixedDt;
   }
 
   private configureRotationalAuthority(rig: FighterRigRegistration, fighter: FighterRuntime, profile: MotorProfile): void {
@@ -1319,6 +1368,14 @@ export class BodyWorksRuntime {
     // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt for ~8x speedups.
     const separation = Math.sqrt(sepDx * sepDx + sepDz * sepDz);
     const move = getMove(fighter.moveId); if (separation > move.maximumRange + .65) return;
+    if (fighter.attackPhase === 'anticipation' && guardCandidates.length === 0 && separation < move.maximumRange + .25) {
+      const optimum = profile.source.includes('Hand') ? 1.02 : profile.source.includes('Foot') ? 1.3 : .78;
+      const p = pelvis.translation(); const velocity = pelvis.linvel();
+      const nx = (targetPosition.x - p.x) / Math.max(.001, separation); const nz = (targetPosition.z - p.z) / Math.max(.001, separation);
+      const approach = clamp((separation - optimum) * 32 - (velocity.x * nx + velocity.z * nz) * 7, 0, 18);
+      this.applyRigAcceleration(rig, {x:nx * approach,y:0,z:nz * approach});
+    }
+
     // Anticipation owns the visual chamber/wind-up. Only the active phase may
     // commit the contact drive; a light setup force keeps the physical chain
     // aligned without landing the glove before the authored strike window.
@@ -1666,7 +1723,9 @@ export class BodyWorksRuntime {
       const approachAcceleration = clamp((centerDistance - .82) * 7.5 + closingSpeed * 1.8, -2.2, 4.6);
       this.applyRigAcceleration(attackerRig, { x: centerNormalX * approachAcceleration * .58, y: 0, z: centerNormalZ * approachAcceleration * .58 });
       this.applyRigAcceleration(defenderRig, { x: -centerNormalX * approachAcceleration * .42, y: 0, z: -centerNormalZ * approachAcceleration * .42 });
-      const preferences: readonly [BodySegmentId, BodySegmentId, number][] = gripPreferences(move.id);
+      // Every standing entry acquires the same reachable collar-and-elbow tie.
+      // A waist-lock target cannot be reached while the entry pose holds a high guard.
+      const preferences: readonly [BodySegmentId, BodySegmentId, number][] = gripPreferences('slam');
       for (const [handId, targetId, targetAnchorX] of preferences) {
         if (this.grips.some((grip) => grip.attacker === grapple.attacker && grip.hand === handId)) continue;
         const hand = attackerRig.bodies[handId]; const target = defenderRig.bodies[targetId]; if (!hand || !target) continue;
@@ -1684,7 +1743,7 @@ export class BodyWorksRuntime {
         // Surface-to-hand tolerance: the first hand establishes a collar tie;
         // the second closes the elbow side once the bodies are physically
         // coupled. These are measured from collider surfaces, not body centres.
-        const catchDistance = acquiredHands > 0 ? 1.1 : 1.04;
+        const catchDistance = acquiredHands > 0 ? .46 : .34;
         if (distance > catchDistance) {
           // Reach is a compliant hand-to-anchor spring. It may guide the hand,
           // but cannot create a grip until the visible bodies are genuinely
@@ -1909,7 +1968,13 @@ export class BodyWorksRuntime {
   private applyPoseDrive(rig: FighterRigRegistration, fighter: FighterRuntime, motorProfile: MotorProfile, overridePose?: Pose): void {
     const definition = fighterById(fighter.definitionId);
     const fatigue = 1 - fighter.body.muscle;
-    const pose = overridePose ?? targetPoseFor(fighter); const targets = physicalPoseTargets(pose, fighter.facing);
+    const supportedFall = !overridePose && ['downed', 'airborne', 'defeated'].includes(fighter.state);
+    const pose = supportedFall ? BREAKFALL_POSE : overridePose ?? targetPoseFor(fighter);
+    const targets = physicalPoseTargets(pose, supportedFall ? 0 : fighter.facing);
+    if (supportedFall && rig.bodies.pelvis) {
+      const root = rig.bodies.pelvis.rotation();
+      for (const segment of Object.keys(targets) as BodySegmentId[]) targets[segment] = quaternionMultiply(root, targets[segment]);
+    }
     // A headbutt has to drive the actual head rigid body through the torso's
     // forward lean. Keeping the head locked to pelvis yaw made the animation
     // readable in the renderer while the physical head never reached contact.
@@ -1927,7 +1992,7 @@ export class BodyWorksRuntime {
       const segment = _segment as BodySegmentId;
       const body = rig.bodies[segment] as RapierRigidBody;
       if (!body) continue;
-      if (fighter.state === 'downed' && fighter.stateElapsed > .22) continue;
+      if (supportedFall && segment === 'pelvis') continue;
       // Locked neutral limbs are constraint-stabilized and need no motor. A
       // motor fighting a disabled rotation cannot animate the limb; it only
       // hammers Rapier's limit and was the source of the old standing buzz.
@@ -1949,7 +2014,11 @@ export class BodyWorksRuntime {
         : 6.5;
       const massTorqueCap = body.mass() * torquePerKg;
       const maximumTorque = Math.min(chain.maximumTorque * stiffnessScale, massTorqueCap);
-      if (fighter.state === 'recovering') {
+      if (supportedFall) {
+        body.setAngvel(chasePoseAngularVelocity(body.rotation(), targets[segment], body.angvel(), 4.2, 3.4, .16), true);
+      } else if (fighter.state === 'pinning' || fighter.state === 'pinned') {
+        body.setAngvel(chasePoseAngularVelocity(body.rotation(), targets[segment], body.angvel(), 6, 3.5, .24), true);
+      } else if (fighter.state === 'recovering') {
         // A get-up needs a reliable velocity-level active-ragdoll motor. The
         // ordinary torque servo is intentionally soft for impact reactions;
         // at that strength a folded knee can remain in a stable solver basin
@@ -2006,6 +2075,7 @@ export class BodyWorksRuntime {
     this.refreshActiveStrikeContacts(model);
     this.refreshPendingLandingContacts(model);
     this.refreshPhysicalSupportContacts();
+    this.refreshCoverEvidence(model);
     this.inspectNumericalHealth();
     this.containRigsToArena(model);
     const slots = model.matchMode === 'battle_royale' ? FIGHTER_SLOTS : FIGHTER_SLOTS.slice(0, 2);
@@ -2667,10 +2737,10 @@ const targetPoseFor = (fighter: FighterRuntime): Pose => {
 };
 
 const physicalPoseTargets = (pose: Pose, facing: number): Record<BodySegmentId, QuaternionValue> => {
-  const yaw = quaternionFromEuler([pose.rootTilt, facing + pose.rootYaw, pose.rootRoll]);
+  const yaw = quaternionMultiply(quaternionFromEuler([0, facing + pose.rootYaw, 0]), quaternionFromEuler([pose.rootTilt, 0, pose.rootRoll]));
   const chest = withYaw(yaw, pose.torso); const leftUpperArm = quaternionMultiply(chest, quaternionFromEuler(pose.leftArm)); const rightUpperArm = quaternionMultiply(chest, quaternionFromEuler(pose.rightArm));
   const leftForearm = quaternionMultiply(leftUpperArm, quaternionFromEuler(pose.leftForearm)); const rightForearm = quaternionMultiply(rightUpperArm, quaternionFromEuler(pose.rightForearm));
-  const leftThigh = withYaw(yaw, pose.leftLeg); const rightThigh = withYaw(yaw, pose.rightLeg); const leftShin = quaternionMultiply(leftThigh, quaternionFromEuler(pose.leftShin)); const rightShin = quaternionMultiply(rightThigh, quaternionFromEuler(pose.rightShin));
+  const leftThigh = withYaw(yaw, pose.leftLeg); const rightThigh = withYaw(yaw, pose.rightLeg); const leftShin = quaternionMultiply(leftThigh, quaternionFromEuler([kneeFlexion(pose.leftShin[0]), 0, 0])); const rightShin = quaternionMultiply(rightThigh, quaternionFromEuler([kneeFlexion(pose.rightShin[0]), 0, 0]));
   const abdomenOffset: Vector3Value = { x: pose.torso[0] * .45, y: pose.torso[1] * .45, z: pose.torso[2] * .45 };
   return {
     pelvis: yaw, abdomen: withYaw(yaw, [abdomenOffset.x, abdomenOffset.y, abdomenOffset.z]), chest, head: yaw,

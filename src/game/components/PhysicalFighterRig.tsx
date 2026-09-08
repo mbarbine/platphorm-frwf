@@ -1,11 +1,11 @@
-import { BallCollider, CapsuleCollider, CuboidCollider, RigidBody, useRevoluteJoint, useSphericalJoint } from '@react-three/rapier';
+import { BallCollider, CapsuleCollider, CuboidCollider, RoundCuboidCollider, RigidBody, useRevoluteJoint, useSphericalJoint } from '@react-three/rapier';
 import type { CollisionEnterPayload, ContactForcePayload, RapierRigidBody } from '@react-three/rapier';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { ReactNode, RefObject } from 'react';
 import { fighterById } from '../data/fighters';
 import { useMatchStore } from '../state/matchStore';
 import type { FighterRuntime } from '../types/game';
-import { buildBodySchema } from '../physics/bodySchema';
+import { buildBodySchema, torsoColliderArgs } from '../physics/bodySchema';
 import type { BodySegmentId, BodySegmentSchema } from '../physics/bodySchema';
 import { fighterCollisionGroups } from '../physics/collisionGroups';
 import { bodyWorksRuntime } from '../physics/physicsRuntime';
@@ -99,7 +99,8 @@ function SegmentBody({ schema, fighterId, side, base, bodyRef, onContactForce, o
     gripAnchorEligible: schema.gripAnchorEligible,
   }), [schema, side]);
   const isFoot = schema.id === 'leftFoot' || schema.id === 'rightFoot'; const isHand = schema.id === 'leftHand' || schema.id === 'rightHand'; const isHead = schema.id === 'head';
-  const collider: ReactNode = isHead ? <BallCollider args={[schema.radius]} mass={schema.massKg} />
+  const torsoArgs = torsoColliderArgs(schema);
+  const collider: ReactNode = torsoArgs ? <RoundCuboidCollider args={torsoArgs} mass={schema.massKg} friction={.76} restitution={.015} /> : isHead ? <BallCollider args={[schema.radius]} mass={schema.massKg} />
     : isFoot || isHand ? <CuboidCollider args={[schema.radius, isFoot ? schema.radius * .5 : schema.halfLength, isFoot ? schema.halfLength * 1.35 : schema.radius]} mass={schema.massKg} friction={isFoot ? 1.45 : .72} restitution={.02} />
     : <CapsuleCollider args={[schema.halfLength, schema.radius]} mass={schema.massKg} friction={.76} restitution={.015} />;
   const isCore = schema.id === 'pelvis' || schema.id === 'abdomen' || schema.id === 'chest';

@@ -27,7 +27,7 @@ export default defineConfig(({ mode }) => {
     // Vite's production build mode is not evidence of a production deploy.
     // Keep local/CI release diagnostics explicit so preview output can never
     // be mistaken for the live Vercel environment.
-    deploymentEnvironment: process.env.VERCEL_ENV ?? (process.env.CI ? 'ci' : mode === 'production' ? 'local-production-build' : mode),
+    deploymentEnvironment: process.env.VERCEL_ENV ?? process.env.FRWF_DEPLOYMENT_ENV ?? (process.env.CI ? 'ci' : mode === 'production' ? 'local-production-build' : mode),
     fighterCount: releaseManifestCounts.fighters,
     moveCount: releaseManifestCounts.moves,
     criticalAssetCount: releaseManifestCounts.criticalAssets,

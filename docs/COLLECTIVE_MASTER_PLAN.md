@@ -2,6 +2,12 @@
 
 Updated 2026-09-08 from the repository, the architecture proposal, the conversation, and another ordinary Chrome playthrough. This is the current ordering of the larger ROADMAP, not a declaration that its features have shipped.
 
+## Current quality decision — core wrestling remains unacceptable
+
+After 1.3.0, the user still describes the gameplay as Atari E.T.-level. Treat that as a failed product-quality result. The passing route, unit and browser checks establish only their stated technical behaviors. A fresh recorded ordinary-input exchange also showed a pin count while the attacker knelt beside the defender, and ordinary attack guidance during the cover. See [the core gameplay review](CORE_GAMEPLAY_QUALITY_REVIEW.md).
+
+The immediate priority is one coherent wrestling exchange: approach, contact, clinch, selectable throw, landing, recovery, physical cover and kickout. Establish shared two-wrestler interaction ownership, visible contact and phase-correct controls before further venue, move-count or spectacle expansion. The full open-world objective remains; its combat must first meet this standard. No new quality milestone is accepted merely because damage or victory counters advance.
+
 ## Product direction
 
 FRWF is to become an **open-world style wrestling game**: inhabit a wrestler, explore memorable places, encounter other wrestlers, start or accept fights, improvise environmental spots, develop rivalries and return to the world after a bout. The ring is a destination within that world. Preserve instant local matches as a quick-play option.
@@ -12,7 +18,7 @@ Working content direction, to be implemented and playtested: connect the Volt Do
 
 The user's real wrestler photographs guide Chad's physique, attire and identity. Supplied videos are references for timing, weight, crowd response and future paired-animation work. The converted background clips and crowd/music assets are useful atmosphere; they do not constitute mocap or solve the wrestling controller.
 
-## Review findings across the repository
+## Initial review findings across the repository (historical baseline)
 
 | Area | Current implementation and consequence | Next action |
 | --- | --- | --- |

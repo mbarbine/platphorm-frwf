@@ -31,6 +31,17 @@ describe('arcade wrestling approach', () => {
     model.paused = false; model.player.position.x = .3;
     expect(controller.read(input, model, 'arcade').actions).toHaveLength(0);
   });
+  it('steps into quick-strike reach and cancels the queued strike on guard', () => {
+    const model = createMatch('chad', 'vex', 'standard', 'normal');
+    model.player.position.x = -1; model.opponent.position.x = 1;
+    const controller = new PlayerController();
+    const event = createActionEvent('quickStrike', { source: 'keyboard', timestamp: 0 });
+    expect(controller.read({ ...input, actions: [event] }, model, 'arcade').actions).toHaveLength(0);
+    expect(controller.read(input, model, 'arcade').move.x).toBe(1);
+    controller.read({ ...input, block: true }, model, 'arcade');
+    model.player.position.x = .3;
+    expect(controller.read(input, model, 'arcade').actions).toHaveLength(0);
+  });
   it('approaches a downed rival to pin but cancels if they get up', () => {
     const model = createMatch('chad', 'vex', 'standard', 'normal');
     model.opponent.state = 'downed';

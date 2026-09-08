@@ -5,6 +5,7 @@ import type { Group, Vector3, Quaternion } from 'three';
 import { bodyWorksRuntime } from '../physics/physicsRuntime';
 import { useMatchStore } from '../state/matchStore';
 import { fighterById } from '../data/fighters';
+import type { BodySegmentId } from '../physics/bodySchema';
 import type { FighterId, FighterSlot } from '../types/game';
 
 function ChampionshipPlate() {
@@ -36,9 +37,11 @@ export function FighterAccessories({ fighterId, side, previewPose, modelScale = 
       const pose = previewPose ? previewPose(segment) : side ? bodyWorksRuntime.segmentSnapshot(side, segment) : undefined; if (!pose || !ref.current) continue;
       ref.current.position.copy(pose.position); ref.current.quaternion.set(pose.rotation.x, pose.rotation.y, pose.rotation.z, pose.rotation.w);
     }
+    if (head.current && fighterId === 'atlas') { const model = useMatchStore.getState().model; head.current.visible = Boolean(previewPose) || Boolean(side && model[side].state === 'victorious'); }
     if (waist.current) { const model = useMatchStore.getState().model; waist.current.visible = Boolean(previewPose) || model.elapsed < 2 || Boolean(side && model[side].state === 'victorious'); }
   });
   return <>
+    {side && <RingGear side={side} />}
     <group ref={head} scale={modelScale}>
       {fighterId === 'chad' ? <>
         <mesh position={[0, .02, -.005]}><sphereGeometry args={[.097, 24, 12, 0, Math.PI * 2, 0, Math.PI * .53]} /><meshStandardMaterial color="#141820" roughness={.92} /></mesh>
@@ -64,4 +67,23 @@ export function FighterAccessories({ fighterId, side, previewPose, modelScale = 
       </group></group>
     </>}
   </>;
+}
+
+
+/** Ring equipment follows solved joints, including throughout falls and covers. */
+function RingGear({ side }: { side: FighterSlot }) {
+  const refs = useRef(new Map<BodySegmentId, Group>());
+  useFrame(() => {
+    for (const [segment, group] of refs.current) {
+      const pose = bodyWorksRuntime.segmentSnapshot(side, segment);
+      if (pose) { group.position.copy(pose.position); group.quaternion.set(pose.rotation.x, pose.rotation.y, pose.rotation.z, pose.rotation.w); }
+    }
+  });
+  return <>{(['leftShin', 'rightShin', 'leftHand', 'rightHand', 'leftFoot', 'rightFoot'] as const).map(segment => <group key={segment} ref={group => { if (group) refs.current.set(segment, group); else refs.current.delete(segment); }}>
+    {segment.endsWith('Shin') ? <group position={[0, .14, .115]}>
+      <mesh castShadow scale={[.115, .145, .07]}><sphereGeometry args={[1, 12, 8]} /><meshStandardMaterial color="#1b2028" roughness={.9} /></mesh>
+      <mesh position={[0, 0, .065]} scale={[.07, .09, .012]}><sphereGeometry args={[1, 10, 6]} /><meshStandardMaterial color="#3c4249" roughness={.85} /></mesh>
+    </group> : segment.endsWith('Hand') ? <mesh position={[0, .045, 0]} rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[.064, .016, 6, 12]} /><meshStandardMaterial color="#d7d2c4" roughness={1} /></mesh>
+      : <group position={[0, .048, .1]}>{[-.035, 0, .035].map(z => <mesh key={z} position={[0, 0, z]} rotation={[Math.PI / 2, 0, Math.PI / 2]}><cylinderGeometry args={[.005, .005, .11, 5]} /><meshStandardMaterial color="#b3aa97" roughness={1} /></mesh>)}</group>}
+  </group>)}</>;
 }

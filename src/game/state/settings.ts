@@ -21,7 +21,7 @@ export interface Settings {
 
 export type ControlDeckMode = 'full' | 'compact' | 'prompts' | 'hidden';
 
-const DEFAULTS: Settings = { controlStyle: 'arcade', automaticReplays: false, masterVolume: .72, musicVolume: .28, effectsVolume: .86, crowdVolume: .66, shake: .48, reducedMotion: false, uiScale: 1, graphicsQuality: 'auto', controlDeckMode: 'compact', grappleGuide: 'minimal', cameraCuts: 'off', lowFlash: false, highContrast: false };
+const DEFAULTS: Settings = { controlStyle: 'arcade', automaticReplays: false, masterVolume: .72, musicVolume: .28, effectsVolume: .86, crowdVolume: .66, shake: .16, reducedMotion: false, uiScale: 1, graphicsQuality: 'auto', controlDeckMode: 'compact', grappleGuide: 'minimal', cameraCuts: 'off', lowFlash: true, highContrast: false };
 const STORAGE_KEY = 'ringfall-settings-v2';
 
 const load = (): Settings => {
