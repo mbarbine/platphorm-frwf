@@ -740,19 +740,16 @@ export class BodyWorksRuntime {
           z: clamp(desiredZ - center.velocityZ, -.38, .38),
         });
       }
-      for (const _segment in rig.bodies) {
-      const segment = _segment as BodySegmentId;
-      const body = rig.bodies[segment] as RapierRigidBody;
-      if (!body) continue;
+      let mass = 0; let verticalMomentum = 0;
+      for (const body of Object.values(rig.bodies)) {
         if (!body?.isValid()) continue;
-        // Pull distal limbs behind the falling core so a table spot lands on a
-        // shoulder/chest instead of letting boots touch first and lever the
-        // torso back upright. Constraints still own the resulting tuck.
-        const distalLimb = segment.includes('Hand') || segment.includes('Forearm') || segment.includes('Foot') || segment.includes('Shin');
-        const proximalLimb = segment.includes('UpperArm') || segment.includes('Thigh');
-        const limbTuck = !rising ? distalLimb ? 4.8 : proximalLimb ? 2.2 : 0 : 0;
-        const deltaY = clamp(targetVerticalVelocity + limbTuck - body.linvel().y, -.72, .5);
-        body.applyImpulse({ x: 0, y: body.mass() * deltaY, z: 0 }, true);
+        mass += body.mass(); verticalMomentum += body.linvel().y * body.mass();
+      }
+      const deltaY = clamp(targetVerticalVelocity - verticalMomentum / Math.max(.001, mass), -.72, .5);
+      // Accelerate the connected wrestler together. An upward velocity bonus
+      // on every hand and boot folded the legs over the torso during slams.
+      for (const body of Object.values(rig.bodies)) {
+        if (body?.isValid()) body.applyImpulse({ x: 0, y: body.mass() * deltaY, z: 0 }, true);
       }
     }
   }
@@ -819,16 +816,18 @@ export class BodyWorksRuntime {
     let installed = 0;
     for (const [parent, child, limits] of pairs) {
       const a = rig.bodies[parent]; const b = rig.bodies[child]; if (!a || !b) continue;
-      world.impulseJoints.forEachJointHandleAttachedToRigidBody(a.handle, handle => {
+      const handles: number[] = [];
+      world.impulseJoints.forEachJointHandleAttachedToRigidBody(a.handle, handle => { handles.push(handle); });
+      for (const handle of handles) {
         const joint = world.impulseJoints.get(handle);
-        if (!joint || joint.body1().handle !== a.handle || joint.body2().handle !== b.handle) return;
+        if (!joint || joint.body1().handle !== a.handle || joint.body2().handle !== b.handle) continue;
         // Rapier 0.19 exposes multi-axis limits through its typed raw joint
         // set. These are AngX/Y/Z (3/4/5), not the JointAxesMask bit flags.
         world.impulseJoints.raw.jointSetLimits(handle, 3, -limits[0], limits[0]);
         world.impulseJoints.raw.jointSetLimits(handle, 4, -limits[1], limits[1]);
         world.impulseJoints.raw.jointSetLimits(handle, 5, -limits[2], limits[2]);
         installed++;
-      });
+      }
     }
     rig.anatomicalLimitsInstalled = installed === pairs.length;
   }
@@ -2039,17 +2038,6 @@ export class BodyWorksRuntime {
       const root = rig.bodies.pelvis.rotation();
       for (const segment of Object.keys(targets) as BodySegmentId[]) targets[segment] = quaternionMultiply(root, targets[segment]);
     }
-    // Follow the solved spine, rather than independently aiming three free
-    // ball joints at world rotations while the pelvis rolls off the mat.
-    // Independent world targets allowed a full inversion at the waist.
-    const spineParents = { abdomen: 'pelvis', chest: 'abdomen', head: 'chest' } as const;
-    for (const [child, parent] of Object.entries(spineParents) as [keyof typeof spineParents, BodySegmentId][]) {
-      const parentBody = rig.bodies[parent]; if (!parentBody?.isValid()) continue;
-      const fraction = child === 'abdomen' ? .45 : child === 'chest' ? .55 : -.35;
-      targets[child] = quaternionMultiply(parentBody.rotation(), quaternionFromEuler([
-        pose.torso[0] * fraction, pose.torso[1] * fraction, pose.torso[2] * fraction,
-      ]));
-    }
     // A headbutt has to drive the actual head rigid body through the torso's
     // forward lean. Keeping the head locked to pelvis yaw made the animation
     // readable in the renderer while the physical head never reached contact.
@@ -2090,16 +2078,7 @@ export class BodyWorksRuntime {
       const speed = striking ? 9 * authority : onMat ? 3.8 : recovering ? 4 : 5.5;
       // One bounded velocity servo per body. The solver still owns every
       // constraint/contact; no second torque impulse can kick it off target.
-      const drive = chasePoseAngularVelocity(body.rotation(), targets[segment], body.angvel(), gain, speed, .65);
-      if (segment === 'abdomen' || segment === 'chest' || segment === 'head') {
-        const parentVelocity = rig.bodies[spineParents[segment]]?.angvel();
-        if (parentVelocity) {
-          drive.x += clamp(parentVelocity.x, -speed, speed) * .65;
-          drive.y += clamp(parentVelocity.y, -speed, speed) * .65;
-          drive.z += clamp(parentVelocity.z, -speed, speed) * .65;
-        }
-      }
-      body.setAngvel(drive, true);
+      body.setAngvel(chasePoseAngularVelocity(body.rotation(), targets[segment], body.angvel(), gain, speed, .65), true);
     }
   }
 

@@ -731,3 +731,22 @@ it.each(['back', 'front', 'left', 'right'] as const)('keeps the spine coherent t
     expect(runtime.metrics.emergencyResetCount).toBe(0);
   } finally { runtime.reset(); world.free(); }
 });
+
+
+it.each([-1, 1])('keeps boot lanes separate while shuffling sideways %s', (direction) => {
+  const { world, runtime, model, rig } = makeHarness('chad');
+  try {
+    model.labMode = true;
+    for (let frame = 0; frame < 60; frame++) stepHarness(world, runtime, model);
+    let minimumSeparation = Infinity;
+    for (let frame = 0; frame < 90; frame++) {
+      stepHarness(world, runtime, model, {x: direction, z: 0});
+      const q = rig.bodies.pelvis.rotation();
+      const left = rig.bodies.leftFoot.translation(); const right = rig.bodies.rightFoot.translation();
+      const across = (right.x-left.x)*(1-2*(q.y*q.y+q.z*q.z)) + (right.y-left.y)*2*(q.x*q.y+q.w*q.z) + (right.z-left.z)*2*(q.x*q.z-q.w*q.y);
+      minimumSeparation = Math.min(minimumSeparation, across);
+    }
+    expect(minimumSeparation).toBeGreaterThan(.16);
+    expect(runtime.metrics.emergencyResetCount).toBe(0);
+  } finally { runtime.reset(); world.free(); }
+});

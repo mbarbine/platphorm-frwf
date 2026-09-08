@@ -12,7 +12,11 @@ describe('readable wrestling motion', () => {
     expect(forward.leftLeg[0]).toBeCloseTo(-back.leftLeg[0]);
     const lateral = locomotionPose({ x: 3, z: 0 }, 0, Math.PI / 2);
     expect(lateral.leftLeg[0]).toBeCloseTo(0);
-    expect(Math.abs(lateral.leftLeg[2])).toBeGreaterThan(.1);
+    // Side shuffles must keep each boot on its side of the pelvis.
+    expect(lateral.leftLeg[2]).toBeLessThanOrEqual(.035);
+    const outward = locomotionPose({ x: 3, z: 0 }, 0, -Math.PI / 2);
+    expect(outward.leftLeg[2]).toBeLessThan(-.1);
+    expect(outward.rightLeg[2]).toBeGreaterThan(.1);
     expect(lateral.leftLeg[2]).toBeCloseTo(-lateral.rightLeg[2]);
     const turned = locomotionPose({ x: 3, z: 0 }, Math.PI / 2, Math.PI / 2);
     expect(turned.leftLeg[0]).toBeCloseTo(forward.leftLeg[0]);

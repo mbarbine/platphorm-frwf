@@ -20,6 +20,13 @@ describe('Bodyworks playability upgrade', () => {
     expect(shouldUsePerformanceFallback({ sampleCount: 12, frameP95Ms: 65, frameP99Ms: 110, framesOver100Ms: 3 })).toBe(true);
   });
 
+  it('keeps the selected render quality in the lab while dropping the decorative crowd', () => {
+    const input = { preference: 'quality' as const, width: 1440, devicePixelRatio: 2, hardwareConcurrency: 10, reducedMotion: false, physicsLab: false };
+    const match = resolveRuntimeQuality(input); const lab = resolveRuntimeQuality({ ...input, physicsLab: true });
+    expect(lab.dpr).toEqual(match.dpr);
+    expect(lab.antialias).toBe(true); expect(lab.shadows).toBe(true); expect(lab.crowdCount).toBe(0);
+  });
+
   it('authors distinct back, front, and side recoveries that converge on the standing stance', () => {
     const back = recoveryPose('back', 'downed', 0); const front = recoveryPose('front', 'downed', 0); const side = recoveryPose('left', 'downed', 0);
     expect(front.rootYaw).not.toBe(back.rootYaw); expect(side.rootRoll).not.toBe(back.rootRoll);
