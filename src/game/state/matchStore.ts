@@ -28,10 +28,10 @@ interface MatchStore {
   pause: (paused: boolean) => void;
   setLabMode: (active: boolean) => void;
   setToyTestMode: (active: boolean) => void;
-  configureLab: (player: FighterId, opponent: FighterId, seed: number, playerStaminaPercent: number, opponentStaminaPercent: number, playerAdditionalMass?: number, opponentAdditionalMass?: number) => void;
+  configureLab: (player: FighterId, opponent: FighterId, seed: number, playerStaminaPercent: number, opponentStaminaPercent: number, playerAdditionalMass?: number, opponentAdditionalMass?: number, venue?: CombatVenue) => void;
   requestLabCommand: (fighter: 'player' | 'opponent', command: GameCommand, direction?: Vec2, running?: boolean) => void;
   resolveLabKnockout: () => void;
-  prepareLabScenario: (playerPosition: Vec2, opponentPosition: Vec2, playerState?: Extract<FighterState, 'idle' | 'blocking' | 'downed'>, opponentHealth?: number, recoveryOrientation?: RecoveryOrientation, downTimer?: number, playerStaminaPercent?: number) => void;
+  prepareLabScenario: (playerPosition: Vec2, opponentPosition: Vec2, playerState?: Extract<FighterState, 'idle' | 'blocking' | 'downed'>, opponentHealth?: number, recoveryOrientation?: RecoveryOrientation, downTimer?: number, playerStaminaPercent?: number, surfaceOffset?: number) => void;
   setPhysicsAuthority: (active: boolean) => void;
   setNetworkAuthority: (active: boolean) => void;
   reconcileNetworkSnapshot: (local: ClientFighterState, remote: ClientFighterState, elapsed: number, hype: number, announcement: string | null) => void;
@@ -175,9 +175,10 @@ export const useMatchStore = create<MatchStore>((set) => ({
   }),
   setLabMode: (active) => set((state) => ({ model: { ...state.model, labMode: active, aiIntent: null, aiMovement: { x: 0, z: 0 }, aiRunning: false, aiBlockTimer: 0 }, revision: state.revision + 1 })),
   setToyTestMode: (active) => set((state) => ({ model: { ...state.model, toyTestMode: active }, revision: state.revision + 1 })),
-  configureLab: (playerId, opponentId, seed, playerStaminaPercent, opponentStaminaPercent, playerAdditionalMass = 0, opponentAdditionalMass = 0) => set((state) => {
+  configureLab: (playerId, opponentId, seed, playerStaminaPercent, opponentStaminaPercent, playerAdditionalMass = 0, opponentAdditionalMass = 0, venue) => set((state) => {
     bodyWorksRuntime.reset(); publishAccumulator = 0;
     const model = createMatch(playerId, opponentId, 'standard', 'normal', Math.max(1, Math.floor(seed)));
+    configureCombatVenue(model, venue ?? state.model.venue ?? 'dome');
     model.runtimeId = state.model.runtimeId + 1;
     model.labMode = true; model.physicsAuthority = true; model.announcement = 'LAB PAIR LOADED — INPUT LIVE'; model.announcementTimer = .8;
     model.player.stamina = model.player.staminaCap * Math.max(0, Math.min(100, playerStaminaPercent)) / 100;
@@ -196,7 +197,7 @@ export const useMatchStore = create<MatchStore>((set) => ({
     resolveMatch(state.model, 'player', 'KNOCKOUT', 'opponent');
     return { model: { ...state.model }, revision: state.revision + 1 };
   }),
-  prepareLabScenario: (playerPosition, opponentPosition, playerState = 'idle', opponentHealth = 100, recoveryOrientation = 'back', downTimer = 5, playerStaminaPercent) => set((state) => {
+  prepareLabScenario: (playerPosition, opponentPosition, playerState = 'idle', opponentHealth = 100, recoveryOrientation = 'back', downTimer = 5, playerStaminaPercent, surfaceOffset = 0) => set((state) => {
     if (!state.model.labMode) return state;
     bodyWorksRuntime.prepareLabPositions(playerPosition, opponentPosition);
     const player = createFighterRuntime(state.model.player.definitionId, { ...playerPosition }, state.model.player.beersDrunk);
@@ -204,7 +205,7 @@ export const useMatchStore = create<MatchStore>((set) => ({
     player.facing = Math.atan2(opponentPosition.x - playerPosition.x, opponentPosition.z - playerPosition.z);
     opponent.facing = Math.atan2(playerPosition.x - opponentPosition.x, playerPosition.z - opponentPosition.z);
     player.state = playerState; player.downTimer = playerState === 'downed' ? downTimer : 0; player.recoveryOrientation = recoveryOrientation;
-    if (playerState === 'downed') bodyWorksRuntime.prepareLabFall('player', recoveryOrientation, player.facing);
+    if (playerState === 'downed') bodyWorksRuntime.prepareLabFall('player', recoveryOrientation, player.facing, surfaceOffset);
     player.stamina = player.staminaCap * (playerStaminaPercent ?? state.model.player.stamina / Math.max(1, state.model.player.staminaCap) * 100) / 100;
     opponent.stamina = opponent.staminaCap * state.model.opponent.stamina / Math.max(1, state.model.opponent.staminaCap);
     opponent.health = Math.max(0, Math.min(100, opponentHealth));

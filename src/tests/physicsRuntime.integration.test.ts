@@ -37,7 +37,7 @@ const createHeadlessRig = (world: World, fighterId: FighterId, slot: FighterSlot
     const collider = torsoArgs ? ColliderDesc.roundCuboid(...torsoArgs) : segment.id === 'head' ? ColliderDesc.ball(segment.radius)
       : segment.id.includes('Foot') || segment.id.includes('Hand')
         ? ColliderDesc.cuboid(segment.radius, segment.id.includes('Foot') ? segment.radius * .5 : segment.halfLength, segment.id.includes('Foot') ? segment.halfLength * 1.35 : segment.radius).setTranslation(0, 0, segment.id.includes('Foot') ? .09 : 0)
-        : ColliderDesc.capsule(segment.halfLength, segment.radius);
+        : ColliderDesc.capsule(segment.halfLength, segment.radius).setTranslation(0, segment.id.includes('UpperArm') ? .065 : 0, 0);
     world.createCollider(collider.setMass(segment.massKg).setFriction(segment.id.includes('Foot') ? 1.45 : .76).setRestitution(.015).setCollisionGroups(fighterCollisionGroups(slot)), body);
     bodies[segment.id] = body;
   }

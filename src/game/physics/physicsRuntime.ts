@@ -548,13 +548,13 @@ export class BodyWorksRuntime {
     this.placeFighter('player', player); this.placeFighter('opponent', opponent);
   }
 
-  prepareLabFall(fighter: FighterKey, orientation: RecoveryOrientation, facing: number): void {
+  prepareLabFall(fighter: FighterKey, orientation: RecoveryOrientation, facing: number, surfaceOffset = 0): void {
     const rig = this.rigs.get(fighter); const pelvis = rig?.bodies.pelvis; if (!rig || !pelvis) return;
     const rootRotation = orientation === 'back' ? quaternionFromEuler([-Math.PI / 2, facing, 0])
       : orientation === 'front' ? quaternionFromEuler([Math.PI / 2, facing, 0])
         : orientation === 'left' ? quaternionFromEuler([0, facing, -Math.PI / 2])
           : quaternionFromEuler([0, facing, Math.PI / 2]);
-    const origin = pelvis.translation(); const anchorY = 2.13;
+    const origin = pelvis.translation(); const anchorY = 2.13 + surfaceOffset;
     for (const _segment in rig.bodies) {
       const segment = _segment as BodySegmentId;
       const body = rig.bodies[segment] as RapierRigidBody;

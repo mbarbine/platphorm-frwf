@@ -42,6 +42,7 @@ export async function loadContactSkin(id: FighterId) {
       const position = mesh.geometry.getAttribute('position');
       const weights = mesh.geometry.getAttribute('skinWeight'); const indices = mesh.geometry.getAttribute('skinIndex');
       const points: Vector3[] = [];
+      const selected = new Map<number, Vector3>();
       for (let i = 0; i < position.count; i++) {
         let maximum = 0; let dominant = '';
         for (let j = 0; j < 4; j++) if (weights.getComponent(i, j) > maximum) {
@@ -49,7 +50,18 @@ export async function loadContactSkin(id: FighterId) {
         }
         const handSide = segment?.includes('Hand') ? segment.replace('Hand', '') : null;
         if (segment && dominant !== segment && !(handSide && dominant.startsWith(handSide) && /Thumb|Index|Middle|Ring|Little/.test(dominant))) continue;
-        points.push(mesh.applyBoneTransform(i, new Vector3().fromBufferAttribute(position, i)));
+        const point = mesh.applyBoneTransform(i, new Vector3().fromBufferAttribute(position, i));
+        points.push(point); selected.set(i, point);
+      }
+      if (segment && mesh.geometry.index) {
+        const index = mesh.geometry.index;
+        // Include actual triangle interiors on a boot or fist. Vertex-only
+        // distances overestimate clearance across a broad sole or knuckle.
+        for (let i = 0; i < index.count; i += 3) {
+          const a = selected.get(index.getX(i)); const b = selected.get(index.getX(i + 1)); const c = selected.get(index.getX(i + 2));
+          if (!a || !b || !c) continue;
+          points.push(a.clone().add(b).add(c).multiplyScalar(1 / 3), a.clone().lerp(b, .5), b.clone().lerp(c, .5), c.clone().lerp(a, .5));
+        }
       }
       return points;
     },
@@ -59,7 +71,10 @@ export async function loadContactSkin(id: FighterId) {
 export function visibleSurfaceGap(source: readonly Vector3[], target: readonly Triangle[]): number {
   let squared = Infinity;
   const closest = new Vector3();
-  for (const a of source) for (const triangle of target) {
+  const bounded = target.map(triangle => ({ triangle, min: new Vector3().copy(triangle.a).min(triangle.b).min(triangle.c), max: new Vector3().copy(triangle.a).max(triangle.b).max(triangle.c) }));
+  for (const a of source) for (const { triangle, min, max } of bounded) {
+    const dx = Math.max(min.x - a.x, 0, a.x - max.x); const dy = Math.max(min.y - a.y, 0, a.y - max.y); const dz = Math.max(min.z - a.z, 0, a.z - max.z);
+    if (dx * dx + dy * dy + dz * dz >= squared) continue;
     triangle.closestPointToPoint(a, closest);
     squared = Math.min(squared, a.distanceToSquared(closest));
   }
