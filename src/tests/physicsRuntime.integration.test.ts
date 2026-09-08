@@ -191,6 +191,27 @@ describe('Rapier-backed Bodyworks integration', () => {
     world.free();
   });
 
+  it('keeps a lifted ringside wrestler outside the ropes instead of springing them back into the ring', () => {
+    const { world, runtime, model, rig } = makeHarness();
+    try {
+      model.labMode = true;
+      const floor = world.createRigidBody(RigidBodyDesc.fixed().setTranslation(0, .3, 0));
+      world.createCollider(ColliderDesc.cuboid(14, .1, 12).setCollisionGroups(arenaCollisionGroups), floor);
+      runtime.prepareLabPositions({ x: 0, z: -6.1 }, { x: 0, z: 2.4 });
+      for (let frame = 0; frame < 60; frame++) stepHarness(world, runtime, model);
+      // Perturb the connected rig vertically, as a ringside lift does. Raising
+      // it to rope height must not change which side of the ropes it occupies.
+      for (const body of Object.values(rig.bodies)) {
+        const position = body.translation();
+        body.setTranslation({ ...position, y: position.y + 1.5 }, true);
+      }
+      model.player.state = 'airborne'; model.player.stateElapsed = 0;
+      for (let frame = 0; frame < 60; frame++) stepHarness(world, runtime, model);
+      expect(model.player.position.z).toBeLessThan(-5.5);
+      expect(runtime.metrics.emergencyResetCount).toBe(0);
+    } finally { runtime.reset(); world.free(); }
+  });
+
   it('climbs from the ringside floor over the solid apron before moving into the ring', () => {
     const { world, runtime, model } = makeHarness();
     try {
