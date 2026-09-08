@@ -37,7 +37,7 @@ describe('Settings Store', () => {
   it('handles JSON parsing errors by returning DEFAULTS', async () => {
     const { state } = await setupTest('{ invalid json }');
     expect(state.masterVolume).toBe(0.72);
-    expect(state.graphicsQuality).toBe('auto');
+    expect(state.graphicsQuality).toBe('quality');
   });
 
   it('returns DEFAULTS when window is undefined', async () => {

@@ -335,3 +335,26 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 
 .player-camera-switch { position: absolute; right: max(14px, env(safe-area-inset-right)); top: 164px; pointer-events: auto; min-height: 44px; padding: 8px 14px; border: 1px solid #a99b75; border-radius: 6px; background: #11191ee8; color: #f3eedf; font-size: 11px; letter-spacing: .05em; cursor: pointer; }
 @media (max-width: 800px) { .player-camera-switch { top: 112px; right: 10px; max-width: 140px; font-size: 10px; } }
+
+/* Keep match condition visible on small screens as well as desktop. */
+.match-standing { display: grid; align-content: start; gap: .28rem; text-align: center; color: #f2f1e9; }
+.match-standing__verdict { font: 800 clamp(.6rem, 1vw, .88rem)/1.2 system-ui, sans-serif; color: #ede9d9; }
+.match-standing--ahead .match-standing__verdict { color: #bce879; }
+.match-standing--behind .match-standing__verdict, .match-standing--danger .match-standing__verdict { color: #ffad91; }
+.match-standing__health { display: flex; justify-content: center; gap: 1.1rem; }
+.match-standing__health span { display: grid; gap: .08rem; font: 700 .55rem system-ui, sans-serif; }
+.match-standing__health strong { font: 800 1.35rem/1 system-ui, sans-serif; font-variant-numeric: tabular-nums; }
+.match-standing__health span:first-child { color: #8ae2ee; }
+.match-standing__objective { font: 750 .54rem/1.3 system-ui, sans-serif; }
+.match-standing__crowd { color: #aaa99f; font: 600 .48rem/1.3 system-ui, sans-serif; }
+@media (hover: none), (pointer: coarse), (max-width: 900px) {
+  .hud__fighters { grid-template-columns: minmax(0, 1fr) 106px minmax(0, 1fr); }
+  .match-standing { gap: .12rem; }
+  .match-standing__verdict { font-size: .5rem; }
+  .match-standing__health { gap: .65rem; }
+  .match-standing__health span { font-size: .42rem; }
+  .match-standing__health strong { font-size: 1rem; }
+  .match-standing__objective { font-size: .4rem; }
+  .match-standing .match-timer { margin-top: 0; }
+  .match-standing__crowd { display: none; }
+}

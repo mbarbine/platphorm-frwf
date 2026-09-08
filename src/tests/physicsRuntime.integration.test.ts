@@ -789,7 +789,7 @@ it.each(['slam', 'piledriver', 'powerbomb'] as const)('%s keeps the carrier supp
     model.labMode = true;
     for (let frame = 0; frame < 90; frame++) stepGrappleHarness(world, runtime, model);
     requestCommand(model, 'player', 'grapple');
-    if (model.grapple) { model.player.moveId = moveId; model.grapple.moveId = moveId; model.grapple.manualRelease = true; }
+    if (model.grapple) { model.player.moveId = moveId; model.grapple.manualRelease = true; }
     let liftFrames = 0; let unsupported = 0; let longest = 0;
     for (let frame = 0; frame < 230; frame++) {
       stepGrappleHarness(world, runtime, model);

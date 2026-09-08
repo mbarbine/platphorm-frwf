@@ -1,3 +1,4 @@
+import { locomotionPose } from '../game/animation/locomotion';
 import { describe, expect, it } from 'vitest';
 import { fighterById } from '../game/data/fighters';
 import { integrateLocomotion, locomotionProfile } from '../game/physics/bodyDynamics';
@@ -33,4 +34,15 @@ describe('arcade locomotion feel', () => {
     expect(atlas.walkSpeed).toBeLessThan(2.5); expect(vex.walkSpeed).toBeLessThan(2.5);
     expect(atlas.runSpeed / atlas.walkSpeed).toBeGreaterThan(2);
   });
+});
+
+it('backsteps keep a short low shuffle and a guard instead of reversing a sprint', () => {
+  for (const speed of [1.8, 4.8]) {
+    const poses = Array.from({ length: 32 }, (_, index) => locomotionPose({ x: 0, z: -speed }, 0, index / 32 * Math.PI * 2));
+    const forward = Array.from({ length: 32 }, (_, index) => locomotionPose({ x: 0, z: speed }, 0, index / 32 * Math.PI * 2));
+    const excursion = (samples: typeof poses, limb: 'leftLeg' | 'leftShin') => Math.max(...samples.map(pose => Math.abs(pose[limb][0])));
+    expect(excursion(poses, 'leftLeg')).toBeLessThan(excursion(forward, 'leftLeg') * .7);
+    expect(excursion(poses, 'leftShin')).toBeLessThan(.31);
+    for (const pose of poses) { expect(pose.rootTilt).toBeGreaterThanOrEqual(0); expect(pose.leftForearm[0]).toBeLessThan(-.8); }
+  }
 });

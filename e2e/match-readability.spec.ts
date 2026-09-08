@@ -1,0 +1,43 @@
+import { expect, test } from '@playwright/test';
+
+test.use({ video: 'on', trace: 'retain-on-failure' });
+
+test('shows the real match condition while backstepping and changing playing cameras', async ({ page }) => {
+  const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/?physicsLab=1');
+  await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
+  await page.getByRole('button', { name: 'PLAY', exact: true }).click();
+  await page.locator('[data-fighter-select-id="dale"]').click();
+  await page.getByRole('button', { name: /LOCK IN DALE/ }).click();
+  await page.getByRole('button', { name: 'START MATCH' }).click();
+  const hud = page.locator('.hud'); const lab = page.getByTestId('physics-lab'); const standing = page.getByTestId('match-standing');
+  await expect(page.getByTestId('game-canvas')).toHaveAttribute('data-simulation-ready', 'true', { timeout: 45000 });
+  await expect(hud).toHaveAttribute('data-match-mode', 'battle_royale');
+  await expect(standing).toContainText('5 LEFT');
+  await expect(standing).toContainText('YOU'); await expect(standing).toContainText('TARGET');
+  await page.screenshot({ path: 'test-results/readability-battle-default.png' });
+  await lab.getByRole('button', { name: 'CLOSE-RANGE INPUT', exact: true }).click();
+  await expect(hud).toHaveAttribute('data-match-mode', 'singles');
+  await lab.getByRole('button', { name: 'MINIMIZE PHYSICS LAB' }).click();
+  const tutorial = page.getByRole('button', { name: 'Close tutorial' });
+  if (await tutorial.isVisible()) await tutorial.click();
+  const camera = page.getByRole('button', { name: 'Change playing camera' });
+  await camera.click(); await expect(camera).toContainText('Chase');
+  await camera.click(); await expect(camera).toContainText('First person');
+  const before = { x: Number(await hud.getAttribute('data-player-x')), z: Number(await hud.getAttribute('data-player-z')) };
+  await page.keyboard.down('s');
+  await expect.poll(async () => Math.hypot(Number(await hud.getAttribute('data-player-x')) - before.x, Number(await hud.getAttribute('data-player-z')) - before.z), { timeout: 10000 }).toBeGreaterThan(.6);
+  await page.screenshot({ path: 'test-results/readability-first-person-backstep.png' });
+  await page.keyboard.up('s');
+  await expect(hud).toHaveAttribute('data-player-state', 'idle', { timeout: 10000 });
+  await expect.poll(async () => Number(await hud.getAttribute('data-player-support-feet'))).toBeGreaterThanOrEqual(1);
+  await camera.click(); await expect(camera).toContainText('Broadcast');
+  await page.screenshot({ path: 'test-results/readability-grounded.png' });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(standing).toBeVisible();
+  const bounds = await standing.boundingBox();
+  expect(bounds && bounds.x >= 0 && bounds.x + bounds.width <= 390).toBe(true);
+  await page.screenshot({ path: 'test-results/readability-mobile.png' });
+  await expect(hud).toHaveAttribute('data-physics-emergency-resets', '0');
+  expect(errors).toEqual([]);
+});

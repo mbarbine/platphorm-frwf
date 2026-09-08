@@ -28,7 +28,8 @@ describe('deterministic combat rules', () => {
     const model = createMatch('atlas', 'atlas', 'standard', 'normal', 1337, 0, 0, 'battle_royale');
     const slots = activeFighterSlots(model);
     expect(slots).toHaveLength(5);
-    expect(new Set(slots.map((slot) => model[slot].definitionId))).toEqual(new Set(FIGHTERS.map(({ id }) => id)));
+    expect(new Set(slots.map((slot) => model[slot].definitionId)).size).toBe(5);
+    for (const slot of slots) expect(FIGHTERS.some(({ id }) => id === model[slot].definitionId)).toBe(true);
     expect(new Set(slots.map((slot) => `${model[slot].position.x}:${model[slot].position.z}`)).size).toBe(5);
     for (const slot of slots) {
       expect(model.targets[slot]).not.toBe(slot);
@@ -704,7 +705,7 @@ describe('deterministic combat rules', () => {
     expect(tooFar.player.moveId).toBe('grapple_miss'); expect(tooFar.grapple).toBeNull();
   });
 
-  it('completes one hundred neutral body-slam intents without fake renderer-free damage or a stuck attacker', () => {
+  it('completes all roster pairings of neutral body-slam intents without fake renderer-free damage or a stuck attacker', () => {
     const fighters = FIGHTERS.map((fighter) => fighter.id);
     let attempts = 0;
     for (const attacker of fighters) for (const defender of fighters) for (const side of [-1, 1] as const) for (const lane of [-.32, .32] as const) {
@@ -718,7 +719,7 @@ describe('deterministic combat rules', () => {
       expect(['idle', 'locomotion']).toContain(model.player.state); expect(model.grapple).toBeNull();
       attempts += 1;
     }
-    expect(attempts).toBe(100);
+    expect(attempts).toBe(fighters.length ** 2 * 4);
   });
 
   it('climbs a turnbuckle before launching a playable aerial attack', () => {

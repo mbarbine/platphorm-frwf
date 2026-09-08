@@ -9,7 +9,8 @@ describe('readable wrestling motion', () => {
   it('backs up and side steps in facing space instead of walking forward in every direction', () => {
     const forward = locomotionPose({ x: 0, z: 3 }, 0, Math.PI / 2);
     const back = locomotionPose({ x: 0, z: -3 }, 0, Math.PI / 2);
-    expect(forward.leftLeg[0]).toBeCloseTo(-back.leftLeg[0]);
+    expect(back.leftLeg[0]).toBeLessThan(0);
+    expect(Math.abs(back.leftLeg[0])).toBeLessThan(forward.leftLeg[0]);
     const lateral = locomotionPose({ x: 3, z: 0 }, 0, Math.PI / 2);
     expect(lateral.leftLeg[0]).toBeCloseTo(0);
     // Side shuffles must keep each boot on its side of the pelvis.

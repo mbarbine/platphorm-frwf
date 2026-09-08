@@ -1,3 +1,4 @@
+import { matchStanding } from './matchStanding';
 import { PLAYER_CAMERA_MODES } from '../game/camera/playerCamera';
 import { venueFor } from '../game/data/venues';
 import { combatInputDirection } from '../game/input/playerController';
@@ -71,6 +72,8 @@ const GRAPPLE_GUIDE = [
 
 export function HUD({ device, paused }: { device: ControlDevice; paused: boolean }) {
   const model = useMatchStore((state) => state.model); const replayActive = useMatchStore((state) => state.replayActive); const targetSlot = model.targets.player; const target = model[targetSlot]; const player = fighterById(model.player.definitionId); const opponent = fighterById(target.definitionId);
+  const standing = matchStanding(model);
+  const cameraMode = useSettings(state => state.playerCamera);
   const physics = bodyWorksRuntime.metrics;
   const continuousStrike = bodyWorksRuntime.continuousStrikeDiagnostics();
   const alignment = bodyWorksRuntime.presentationAlignmentSnapshot();
@@ -116,7 +119,13 @@ export function HUD({ device, paused }: { device: ControlDevice; paused: boolean
     <span hidden data-player-chest={playerChest ? `${playerChest.x.toFixed(3)},${playerChest.y.toFixed(3)},${playerChest.z.toFixed(3)}` : ''} data-player-head={playerHead ? `${playerHead.x.toFixed(3)},${playerHead.y.toFixed(3)},${playerHead.z.toFixed(3)}` : ''} data-opponent-head={opponentHead ? `${opponentHead.x.toFixed(3)},${opponentHead.y.toFixed(3)},${opponentHead.z.toFixed(3)}` : ''} />
     <div className="hud__fighters">
       <div className="fighter-hud"><div className="fighter-hud__name"><span>YOU</span><b>{player.name}</b></div><Meter label="HEALTH" value={model.player.health} kind="health" /><Meter label={`STAMINA · ${model.player.beersDrunk} BEER`} value={model.player.stamina} max={model.player.staminaCap} kind="stamina" /><Meter label="BALANCE" value={model.player.body.balance} kind="balance" /><Meter label="MOMENTUM" value={model.player.momentum} kind="momentum" /></div>
-      <div className="hype"><span>CROWD HYPE</span><b>{Math.round(model.hype)}</b><div><i style={{ width: `${model.hype}%` }} /></div><code className="match-timer">{`${Math.floor(model.elapsed / 60).toString().padStart(2, '0')}:${(Math.floor(model.elapsed) % 60).toString().padStart(2, '0')}`}</code><small>{venueFor(model).name.toUpperCase()}</small></div>
+      <div className={`match-standing match-standing--${standing.tone}`} data-testid="match-standing">
+        <b className="match-standing__verdict">{standing.label}</b>
+        <div className="match-standing__health"><span>YOU <strong>{standing.health}</strong></span><span>TARGET <strong>{standing.target}</strong></span></div>
+        <small className="match-standing__objective">{standing.objective}</small>
+        <code className="match-timer">{`${Math.floor(model.elapsed / 60).toString().padStart(2, '0')}:${(Math.floor(model.elapsed) % 60).toString().padStart(2, '0')}`}</code>
+        <small className="match-standing__crowd">CROWD {Math.round(model.hype)} · {venueFor(model).name.toUpperCase()}</small>
+      </div>
       <div className="fighter-hud fighter-hud--right"><div className="fighter-hud__name"><span>{model.matchMode === 'battle_royale' ? 'CURRENT TARGET' : `${model.difficulty.toUpperCase()} AI`}</span><b>{opponent.name}</b></div><Meter label="HEALTH" value={target.health} kind="health" /><Meter label="STAMINA" value={target.stamina} max={target.staminaCap} kind="stamina" /><Meter label="BALANCE" value={target.body.balance} kind="balance" /><Meter label="MOMENTUM" value={target.momentum} kind="momentum" /></div>
     </div>
     <ImpactReadout impact={model.lastImpact} />
@@ -130,7 +139,7 @@ export function HUD({ device, paused }: { device: ControlDevice; paused: boolean
       })}</div>)}
     </div>}
     {model.matchMode === 'battle_royale' && <div className="battle-royale-roster" data-testid="battle-royale-roster" data-remaining={FIGHTER_SLOTS.filter((slot) => model[slot].state !== 'defeated').length}>{FIGHTER_SLOTS.map((slot) => { const runtime = model[slot]; const definition = fighterById(runtime.definitionId); const physical = rosterPhysics[slot]; return <div key={slot} className={`${slot === 'player' ? 'is-player' : ''}${slot === targetSlot ? ' is-target' : ''}${runtime.state === 'defeated' ? ' is-eliminated' : ''}`} data-fighter-slot={slot} data-fighter-state={runtime.state} data-fighter-state-seconds={runtime.stateElapsed.toFixed(2)} data-fighter-pelvis-y={physical.pelvisY.toFixed(3)} data-fighter-support-feet={physical.supportFeet}><span style={{ background: definition.palette.primary }} /><b>{definition.name}</b><i style={{ width: `${runtime.health}%` }} /><small>{runtime.state === 'defeated' ? 'OUT' : `${Math.ceil(runtime.health)} HP`}</small></div>; })}</div>}
-    <button type="button" className="player-camera-switch" aria-label="Change playing camera" onClick={() => { const settings = useSettings.getState(); const index = PLAYER_CAMERA_MODES.findIndex(mode => mode.id === settings.playerCamera); settings.update({ playerCamera: PLAYER_CAMERA_MODES[(index + 1) % PLAYER_CAMERA_MODES.length]!.id }); }}>CAMERA · {PLAYER_CAMERA_MODES.find(mode => mode.id === useSettings.getState().playerCamera)?.label}</button>
+    <button type="button" className="player-camera-switch" aria-label="Change playing camera" onClick={() => { const settings = useSettings.getState(); const index = PLAYER_CAMERA_MODES.findIndex(mode => mode.id === settings.playerCamera); settings.update({ playerCamera: PLAYER_CAMERA_MODES[(index + 1) % PLAYER_CAMERA_MODES.length]!.id }); }}>CAMERA · {PLAYER_CAMERA_MODES.find(mode => mode.id === cameraMode)?.label}</button>
     {model.matchMode === 'battle_royale' && <button type="button" className="target-switch" data-testid="target-switch" aria-label="Switch target wrestler" disabled={model.player.state === 'defeated' || model.resolved} onClick={() => useMatchStore.getState().cyclePlayerTarget()}>SWITCH TARGET <kbd>TAB</kbd><small>GAMEPAD VIEW</small></button>}
     {showPrompts && recentActionFeedback && <div className={`action-strip action-strip--${recentActionFeedback.status}`} data-testid="action-strip" data-action={recentActionFeedback.event.action} data-action-label={actionConfirmation} data-status={recentActionFeedback.status}><span>INPUT</span><b>{actionConfirmation}</b><small>{recentActionFeedback.reason?.toUpperCase() ?? recentActionFeedback.status.toUpperCase()}</small></div>}
     {showDeck && <ControlDeck grapplePhase={model.grapple?.attacker === 'player' ? model.grapple.phase : null} hasRing={venueFor(model).hasRing} mode={controlDeckMode} device={device} player={model.player} opponent={target} speed={playerPhysics.speed} distance={distance} paused={paused} direction={combatDirectionInput} controlStyle={controlStyle} runHeld={playerIntent.run} contextPreview={contextPreview.displayName} propPreview={propPreview.displayName} />}
