@@ -63,10 +63,10 @@ export function ShowgroundEnvironment() {
       <Box key={`${y}-${side}-z`} position={[11 + side * 5.8, y, -10]} size={[.055, .055, 9]} color="#ddd0ae" />,
     ]))}
     <WorldSign text="FRWF • MAIN EVENT" position={[11, 4.5, -15.4]} width={9} />
-    <WorldSign text="CORNER SCHOOL" position={[-13.5, 3.2, -20.6]} width={8} />
+    <WorldSign text="BACKSTAGE FIGHT CLUB" position={[-13.5, 3.2, -20.6]} width={8} />
     <WorldSign text="BURGERS / BAD DECISIONS" position={[16.8, 2.95, 19.13]} width={5.8} />
-    <WorldSign text="FRWF SHOWGROUND" position={[0, 4.3, 25.5]} width={8} />
-    {[-4.5, 4.5].map(x => <Box key={x} position={[x, 2.2, 25.5]} size={[.25, 4.4, .25]} color="#564a36" />)}
+    <WorldSign text="FRWF SHOWGROUND" position={[0, 6.5, 27.5]} width={8} />
+    {[-4.5, 4.5].map(x => <Box key={x} position={[x, 3.3, 27.5]} size={[.25, 6.6, .25]} color="#564a36" />)}
     {Array.from({ length: 26 }, (_, i) => {
       const x = i % 2 ? -27 - i % 3 : 27 + i % 4; const z = -29 + Math.floor(i / 2) * 4.7;
       return <group key={i} position={[x, 0, z]}><Box position={[0, 2, 0]} size={[.55, 4, .55]} color="#5b5140" /><mesh position={[0, 5, 0]} castShadow><icosahedronGeometry args={[2.6 + i % 3 * .3, 1]} /><meshStandardMaterial color={i % 2 ? '#425b36' : '#536b3d'} roughness={1} /></mesh></group>;

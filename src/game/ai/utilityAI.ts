@@ -1,3 +1,4 @@
+import { venueFor } from '../data/venues';
 import { getMove, MOVES } from '../data/moves';
 import { BALANCE } from '../data/balance';
 import { distance, seededRandom } from '../utils/math';
@@ -44,7 +45,7 @@ export const isActionLegal = (model: MatchModel, command: GameCommand, actorKey:
     const cornerX = Math.sign(target.position.x || actor.position.x || 1) * 5.35; const cornerZ = Math.sign(target.position.z || actor.position.z || 1) * 3.85;
     const dx = target.position.x - cornerX; const dz = target.position.z - cornerZ;
     // OPTIMIZATION: Replacing slow Math.hypot with zero-allocation squared-magnitude comparison (<= 9.9225 equivalent to <= 3.15).
-    return dx * dx + dz * dz <= 9.9225;
+    return (venueFor(model).hasRing && dx * dx + dz * dz <= 9.9225) || model.props.some(p => p.kind === 'table' && !p.broken && distance(p.position, target.position) <= 2.6);
   }
   if (actor.state === 'climbing' && actor.climbStage === 3 && (command === 'quick' || command === 'heavy')) {
     const move = command === 'quick' ? MOVES.aerial_elbow : MOVES.aerial_kick;
@@ -60,10 +61,10 @@ export const isActionLegal = (model: MatchModel, command: GameCommand, actorKey:
     const pinInProgress = FIGHTER_SLOTS.some((slot) => model[slot].state === 'pinning' || model[slot].state === 'pinned');
     if (pinEligible && target.state === 'downed' && targetDistance <= 1.6) return !pinInProgress;
     const nearCorner = Math.abs(actor.position.x) > 4.35 && Math.abs(actor.position.z) > 2.95;
-    if (nearCorner && ['idle', 'locomotion'].includes(actor.state)) return true;
+    if (venueFor(model).hasRing && nearCorner && ['idle', 'locomotion'].includes(actor.state)) return true;
     const nearApron = (Math.abs(actor.position.x) > 4.62 && Math.abs(actor.position.x) < 6.9 && Math.abs(actor.position.z) < 3.55)
       || (Math.abs(actor.position.z) > 3.05 && Math.abs(actor.position.z) < 5.6 && Math.abs(actor.position.x) < 5.15);
-    return nearApron && ['idle', 'locomotion'].includes(actor.state);
+    return venueFor(model).hasRing && nearApron && ['idle', 'locomotion'].includes(actor.state);
   }
   if (command === 'grapple' && model.grapple) return false;
   let selectedMove;
@@ -106,7 +107,7 @@ export const chooseAiDecision = (model: MatchModel, definition: FighterDefinitio
     aggressive: definition.personality.aggressive / 100,
     reckless: definition.personality.reckless / 100,
   };
-  const actorRingside = Math.abs(actor.position.x) > 5.82 || Math.abs(actor.position.z) > 4.32;
+  const actorRingside = venueFor(model).hasRing && (Math.abs(actor.position.x) > 5.82 || Math.abs(actor.position.z) > 4.32);
   const targetInRing = Math.abs(target.position.x) <= 5.72 && Math.abs(target.position.z) <= 4.22;
   const availableRingsideProp = model.ruleset === 'chaos' && !actor.heldPropId && model.props.some((prop) => !prop.broken && !prop.heldBy && prop.kind !== 'table' && isRingside(prop.position));
   if (actor.state === 'downed') return { command: isActionLegal(model, 'dodge', actorKey) && roll < (model.difficulty === 'hard' ? .72 : .48) ? 'dodge' : null, move: { x: 0, z: 0 }, run: false, nextSeed };
@@ -217,7 +218,7 @@ export const chooseAiDecision = (model: MatchModel, definition: FighterDefinitio
     const towardProp = { x: propDelta.x / propMagnitude, z: propDelta.z / propMagnitude };
     const atSideApron = (Math.abs(actor.position.x) > 5.02 && Math.abs(actor.position.x) < 5.82 && Math.abs(actor.position.z) < 2.9)
       || (Math.abs(actor.position.z) > 3.52 && Math.abs(actor.position.z) < 4.32 && Math.abs(actor.position.x) < 4.25);
-    if (atSideApron && isActionLegal(model, 'context', actorKey)) return { command: 'context', move: { x: 0, z: 0 }, run: false, nextSeed };
+    if (venueFor(model).hasRing && atSideApron && isActionLegal(model, 'context', actorKey)) return { command: 'context', move: { x: 0, z: 0 }, run: false, nextSeed };
     if (propDistance <= 2.15 && isActionLegal(model, 'interact', actorKey)) return { command: 'interact', move: { x: 0, z: 0 }, run: false, nextSeed };
     return { command: null, move: towardProp, run: propDistance > 4.2, nextSeed };
   }
@@ -225,7 +226,7 @@ export const chooseAiDecision = (model: MatchModel, definition: FighterDefinitio
   const nearRopes = Math.abs(actor.position.x) > 4.1 || Math.abs(actor.position.z) > 3.2;
 
   // Rope rebound setup: run away from opponent to build a clothesline charge (athletic fighters)
-  if (actor.ropeRebound <= 0 && !nearRopes && !physicallyCompromised && separation > 2.0 && model.elapsed > 5 && target.state === 'staggered') {
+  if (venueFor(model).hasRing && actor.ropeRebound <= 0 && !nearRopes && !physicallyCompromised && separation > 2.0 && model.elapsed > 5 && target.state === 'staggered') {
     if (roll < personality.athletic * .22) return { command: null, move: { x: -toward.x, z: -toward.z }, run: true, nextSeed };
   }
 

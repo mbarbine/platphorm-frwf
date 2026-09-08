@@ -342,7 +342,7 @@ function PropVisual({ kind }: { kind: PropRuntime['kind'] }) {
   return <group rotation={[0, 0, .1]}><mesh><boxGeometry args={[1.35, .85, .1]} /><meshStandardMaterial color="#ff3c91" emissive="#951654" emissiveIntensity={.4} /></mesh><mesh position={[0, -.82, 0]}><boxGeometry args={[.08, .85, .08]} /><meshStandardMaterial color="#d8e3eb" /></mesh></group>;
 }
 
-function PhysicalProp({ prop, initialPosition }: { prop: PropRuntime; initialPosition: [number, number, number] }) {
+export function PhysicalProp({ prop, initialPosition }: { prop: PropRuntime; initialPosition: [number, number, number] }) {
   const body = useRef<RapierRigidBody | null>(null);
   const replayActive = useMatchStore((state) => state.replayActive);
   const spawnPosition = useRef(initialPosition).current;

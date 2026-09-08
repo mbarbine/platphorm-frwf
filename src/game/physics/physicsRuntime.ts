@@ -1,3 +1,4 @@
+import { VENUES, venueFor, type CombatVenue } from '../data/venues';
 import { planarInputVelocity } from '../input/playerController';
 import type { RapierRigidBody } from '@react-three/rapier';
 import type { ImpulseJoint, JointData, World } from '@dimforge/rapier3d-compat';
@@ -267,6 +268,8 @@ const rotatedLocalPoint = (body: RapierRigidBody, local: Vector3Value): Vector3V
 
 /** Imperative simulation state. It is intentionally outside React and Zustand. */
 export class BodyWorksRuntime {
+  private venue: CombatVenue = 'dome';
+  private isRingside(position: { x: number; z: number }): boolean { return VENUES[this.venue].hasRing && isRingside(position); }
   private jointData: typeof JointData | null = null;
   private readonly rigs = new Map<FighterKey, FighterRigRegistration>();
   private readonly intents: Record<FighterKey, IntentState> = { player: EMPTY_INTENT(), opponent: EMPTY_INTENT(), rival1: EMPTY_INTENT(), rival2: EMPTY_INTENT(), rival3: EMPTY_INTENT() };
@@ -563,7 +566,7 @@ export class BodyWorksRuntime {
 
   private placeFighter(fighter: FighterKey, target: Vec2): void {
     const rig = this.rigs.get(fighter); const pelvis = rig?.bodies.pelvis; if (!rig || !pelvis) return;
-    const placementPelvisY = rig.restPelvisY - (isRingside(target) ? 1.46 : 0);
+    const placementPelvisY = rig.restPelvisY - (this.isRingside(target) ? 1.46 : 0);
     for (const _segment in rig.bodies) {
       const segment = _segment as BodySegmentId;
       const body = rig.bodies[segment] as RapierRigidBody;
@@ -577,7 +580,7 @@ export class BodyWorksRuntime {
       body.setTranslation({ x: target.x + offset.x, y: placementPelvisY + offset.y, z: target.z + offset.z }, true);
       body.setLinvel({ x: 0, y: 0, z: 0 }, true); body.setAngvel({ x: 0, y: 0, z: 0 }, true); body.setRotation({ x: 0, y: 0, z: 0, w: 1 }, true);
     }
-    rig.rootStabilized = false; rig.skeletonStabilized = false; rig.rotationSignature = ''; rig.rotationallyDynamic.clear(); rig.supportContacts.clear(); rig.supportContacts.add('leftFoot'); rig.supportContacts.add('rightFoot'); rig.jumpQueued = false; rig.ropeContact = null; rig.ringsideEstablished = isRingside(target); rig.reboundTracking = false; rig.cornerAnchor = null; rig.apronAnchor = null; rig.jointFaultFrames = 0; rig.jointFaultReported = false; rig.settlingFrames = 0; rig.landingSupportFrames = 0; rig.airborneSeconds = 0; rig.recoveryOrientationCaptured = false; rig.lastSafeCenter = { ...target }; rig.neutralAnchor = { ...target };
+    rig.rootStabilized = false; rig.skeletonStabilized = false; rig.rotationSignature = ''; rig.rotationallyDynamic.clear(); rig.supportContacts.clear(); rig.supportContacts.add('leftFoot'); rig.supportContacts.add('rightFoot'); rig.jumpQueued = false; rig.ropeContact = null; rig.ringsideEstablished = this.isRingside(target); rig.reboundTracking = false; rig.cornerAnchor = null; rig.apronAnchor = null; rig.jointFaultFrames = 0; rig.jointFaultReported = false; rig.settlingFrames = 0; rig.landingSupportFrames = 0; rig.airborneSeconds = 0; rig.recoveryOrientationCaptured = false; rig.lastSafeCenter = { ...target }; rig.neutralAnchor = { ...target };
   }
 
   setFootContact(fighter: FighterKey, foot: BodySegmentId, touching: boolean): void {
@@ -632,7 +635,7 @@ export class BodyWorksRuntime {
 
   private absorbCompletedLanding(defender: FighterKey, surface: string | null): void {
     const rig = this.rigs.get(defender); if (!rig) return;
-    const surfaceY = surface === 'ring' ? VOLT_DOME.ring.deckY : surface === 'floor' ? .4 : null;
+    const surfaceY = surface === 'ring' ? VOLT_DOME.ring.deckY : surface === 'floor' ? (VENUES[this.venue].hasRing ? .4 : VENUES[this.venue].floorY) : null;
     const core = (['pelvis', 'abdomen', 'chest', 'head'] as const).map((segment) => rig.bodies[segment]).filter((body): body is RapierRigidBody => Boolean(body?.isValid()));
     const lowestCore = core.reduce((lowest, body) => Math.min(lowest, body.translation().y), Number.POSITIVE_INFINITY);
     // The correction is coherent across the articulated tree and runs only
@@ -664,6 +667,7 @@ export class BodyWorksRuntime {
   }
 
   beforeFixedStep(dt: number, model: MatchModel, world?: World): void {
+    this.venue = model.venue ?? 'dome';
     this.stepStartedAt = performance.now();
     this.currentFixedDt = dt;
     this.metrics.currentMotorSaturations = 0;
@@ -832,7 +836,7 @@ export class BodyWorksRuntime {
         : ['idle', 'attacking', 'grappling', 'victorious'].includes(fighter.state) ? .045 : 0;
     const ringPelvisY = 1.8 + 1.12 * (definition.physics.standingHeightM / 1.88) - fighter.body.pelvisDrop * .32 - grappleHipLoad - stanceDrop;
     const physicalCenter = this.rigPlanarCenter(rig); const physicalPosition = { x: physicalCenter.x, z: physicalCenter.z };
-    const outsideRopes = isRingside(physicalPosition);
+    const outsideRopes = this.isRingside(physicalPosition);
     // Crossing the rope line is not the same as reaching the lower floor. A
     // ring-height body that leaks a few centimetres outside must remain at mat
     // height and be returned by the rope spring; treating planar position as
@@ -846,8 +850,8 @@ export class BodyWorksRuntime {
       const transition = apronTransitionTarget(physicalPosition); rig.apronAnchor = { ...transition, age: 0 }; rig.ropeContact = null;
     }
     const battleReturn = model.matchMode === 'battle_royale' && onRingsideFloor && !['defeated', 'victorious', 'climbing'].includes(fighter.state);
-    const pursuingChaosProp = model.ruleset === 'chaos' && !fighter.heldPropId && model.props.some((prop) => !prop.broken && !prop.heldBy && prop.kind !== 'table' && isRingside(prop.position));
-    const aiReturn = key !== 'player' && onRingsideFloor && !pursuingChaosProp && !isRingside(model[model.targets[key]].position) && ['idle', 'locomotion'].includes(fighter.state);
+    const pursuingChaosProp = model.ruleset === 'chaos' && !fighter.heldPropId && model.props.some((prop) => !prop.broken && !prop.heldBy && prop.kind !== 'table' && this.isRingside(prop.position));
+    const aiReturn = key !== 'player' && onRingsideFloor && !pursuingChaosProp && !this.isRingside(model[model.targets[key]].position) && ['idle', 'locomotion'].includes(fighter.state);
     if (!rig.apronAnchor && (battleReturn || aiReturn)) {
       const transition = apronTransitionTarget(physicalPosition);
       rig.apronAnchor = { ...transition, age: 0 };
@@ -943,7 +947,7 @@ export class BodyWorksRuntime {
     // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt for ~8x speedups.
     const reboundSpeed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z); const followingRebound = fighter.ropeRebound > 0 && reboundSpeed > 1.2;
     if (fighter.ropeRebound <= 0 || targetDistance <= 1.12) rig.reboundTracking = false;
-    const targetTrackingRebound = followingRebound && rig.reboundTracking && targetDistance > 1.12 && !isRingside(opponent.position);
+    const targetTrackingRebound = followingRebound && rig.reboundTracking && targetDistance > 1.12 && !this.isRingside(opponent.position);
     const reboundDirectionX = targetTrackingRebound ? targetX / Math.max(.001, targetDistance) : velocity.x / Math.max(.001, reboundSpeed);
     const reboundDirectionZ = targetTrackingRebound ? targetZ / Math.max(.001, targetDistance) : velocity.z / Math.max(.001, reboundSpeed);
     const inputVelocity = planarInputVelocity(intent.move, desiredSpeed);
@@ -1419,6 +1423,7 @@ export class BodyWorksRuntime {
   }
 
   private applyRopeController(rig: FighterRigRegistration, fighter: FighterRuntime, model: MatchModel): void {
+    if (!venueFor(model).hasRing) { rig.ropeContact = null; fighter.ropeRebound = 0; return; }
     const pelvis = rig.bodies.pelvis;
     const battleContained = model.matchMode === 'battle_royale' && !model.labMode && !['defeated', 'victorious'].includes(fighter.state);
     // Falls and knockdowns must also meet the ropes. Letting Singles ragdolls
@@ -1432,7 +1437,7 @@ export class BodyWorksRuntime {
     // already working on the ringside floor. Reapplying the spring from the
     // outside pulled wrestlers through the apron and made ringside grapples
     // impossible; returning is owned by the explicit apron transition.
-    const outside = isRingside({ x: position.x, z: position.z });
+    const outside = this.isRingside({ x: position.x, z: position.z });
     if (outside && position.y < rig.restPelvisY - .62 && !rig.ropeContact) rig.ringsideEstablished = true;
     if (!outside && position.y >= rig.restPelvisY - .62) rig.ringsideEstablished = false;
     // Height alone cannot switch a ringside body back into ring containment:
@@ -1508,7 +1513,7 @@ export class BodyWorksRuntime {
       useTargetLane ? { x: targetX, z: targetZ } : { x: 0, z: 0 },
       contact.axis,
       contact.side,
-      isRingside(opponent.position),
+      this.isRingside(opponent.position),
     );
     const desiredX = releaseDirection.x * releaseSpeed; const desiredZ = releaseDirection.z * releaseSpeed;
     this.applyRigVelocityDelta(rig, { x: desiredX - center.velocityX, y: 0, z: desiredZ - center.velocityZ });
@@ -1516,7 +1521,7 @@ export class BodyWorksRuntime {
     // phase. Opening it on first rope contact let players throw the stiff-arm
     // while still travelling out of the ring and made the move miss by design.
     fighter.ropeRebound = 1.65;
-    rig.reboundTracking = !isRingside(opponent.position);
+    rig.reboundTracking = !this.isRingside(opponent.position);
     rig.ropeContact = null;
   }
 
@@ -1600,7 +1605,7 @@ export class BodyWorksRuntime {
     const preLiftPhase = ['reach', 'acquire', 'clinch', 'load'].includes(grapple.phase);
     const groundedLock = (fighter: FighterRuntime, pelvis: RapierRigidBody | undefined): boolean => {
       if (!pelvis?.isValid()) return false;
-      const surfaceY = isRingside(fighter.position) ? .4 : VOLT_DOME.ring.deckY;
+      const surfaceY = this.isRingside(fighter.position) ? .4 : VOLT_DOME.ring.deckY;
       return pelvis.translation().y <= surfaceY + .78 && uprightFromRotation(pelvis.rotation()) < .58;
     };
     const attackerGroundLocked = groundedLock(attacker, attackerPelvisAtStart);
@@ -1627,10 +1632,10 @@ export class BodyWorksRuntime {
       const table = model.props.find((prop) => prop.kind === 'table' && !prop.broken);
       // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt for ~8x speedup.
       const tableDistance = table ? Math.sqrt((table.position.x - defender.position.x) * (table.position.x - defender.position.x) + (table.position.z - defender.position.z) * (table.position.z - defender.position.z)) : Number.POSITIVE_INFINITY;
-      if (move.id === 'corner_smash') {
+      if (venueFor(model).hasRing && move.id === 'corner_smash') {
         this.grappleEnvironmentTarget = { attacker: grapple.attacker, defender: grapple.defender, attackInstanceId: attacker.attackInstanceId, surface: 'turnbuckle', position: { x: Math.sign(defender.position.x || attacker.position.x || 1) * 5.35, z: Math.sign(defender.position.z || attacker.position.z || 1) * 3.85 } };
       } else {
-        this.grappleEnvironmentTarget = table && tableDistance <= 2.6 && (isRingside(attacker.position) || isRingside(defender.position))
+        this.grappleEnvironmentTarget = table && tableDistance <= 2.6 && (!venueFor(model).hasRing || this.isRingside(attacker.position) || this.isRingside(defender.position))
           ? { attacker: grapple.attacker, defender: grapple.defender, attackInstanceId: attacker.attackInstanceId, surface: 'table', position: { ...table.position } }
           : null;
       }
@@ -2185,7 +2190,7 @@ export class BodyWorksRuntime {
       const bodyMass = body.mass(); mass += bodyMass; weightedVerticalVelocity += body.linvel().y * bodyMass;
       lowestCenterY = Math.min(lowestCenterY, body.translation().y);
     }
-    const surfaceY = isRingside(fighter.position) ? .4 : VOLT_DOME.ring.deckY;
+    const surfaceY = this.isRingside(fighter.position) ? .4 : VOLT_DOME.ring.deckY;
     const nearGround = lowestCenterY <= surfaceY + .44;
     const settledVertically = mass > 0 && Math.abs(weightedVerticalVelocity / mass) <= 1.05;
     rig.landingSupportFrames = fighter.stateElapsed >= .2 && this.hasExternalSupport(rig) && nearGround && settledVertically ? rig.landingSupportFrames + 1 : 0;
@@ -2292,11 +2297,11 @@ export class BodyWorksRuntime {
     for (const key of slots) {
       const rig = this.rigs.get(key); const pelvis = rig?.bodies.pelvis; if (!rig || !pelvis?.isValid()) continue;
       const battleContained = model.matchMode === 'battle_royale' && !model.labMode && !['defeated', 'victorious'].includes(model[key].state);
-      const maximumX = battleContained ? RING_HARD_LIMIT.x - .08 : VOLT_DOME.playable.halfWidth - .34;
-      const maximumZ = battleContained ? RING_HARD_LIMIT.z - .08 : VOLT_DOME.playable.halfDepth - .34;
+      const maximumX = battleContained ? RING_HARD_LIMIT.x - .08 : venueFor(model).halfWidth - .34;
+      const maximumZ = battleContained ? RING_HARD_LIMIT.z - .08 : venueFor(model).halfDepth - .34;
       const pelvisPosition = pelvis.translation();
       const activeFighter = !['defeated', 'victorious'].includes(model[key].state);
-      const belowDeck = activeFighter && Math.abs(pelvisPosition.x) <= RING_HARD_LIMIT.x && Math.abs(pelvisPosition.z) <= RING_HARD_LIMIT.z && pelvisPosition.y < 1.22;
+      const belowDeck = activeFighter && (!venueFor(model).hasRing || (Math.abs(pelvisPosition.x) <= RING_HARD_LIMIT.x && Math.abs(pelvisPosition.z) <= RING_HARD_LIMIT.z)) && pelvisPosition.y < 1.22;
       let brokenTree = belowDeck || rig.jointFaultFrames > 45 || ![pelvisPosition.x, pelvisPosition.y, pelvisPosition.z].every(Number.isFinite);
       for (const body of Object.values(rig.bodies)) {
         if (!body?.isValid()) continue;
@@ -2312,7 +2317,7 @@ export class BodyWorksRuntime {
         const modelPosition = model[key].position;
         const anchorX = clamp(Number.isFinite(pelvisPosition.x) ? rig.lastSafeCenter.x : modelPosition.x, -maximumX, maximumX);
         const anchorZ = clamp(Number.isFinite(pelvisPosition.z) ? rig.lastSafeCenter.z : modelPosition.z, -maximumZ, maximumZ);
-        const anchorY = rig.restPelvisY - (isRingside({ x: anchorX, z: anchorZ }) ? 1.48 : 0);
+        const anchorY = rig.restPelvisY - (this.isRingside({ x: anchorX, z: anchorZ }) ? 1.48 : 0);
         for (const _segment in rig.bodies) {
       const segment = _segment as BodySegmentId;
       const body = rig.bodies[segment] as RapierRigidBody;
@@ -2344,7 +2349,7 @@ export class BodyWorksRuntime {
     const fighter = model[key];
     if (!['airborne', 'downed', 'recovering', 'pinned', 'defeated'].includes(fighter.state)) return;
     const rig = this.rigs.get(key); if (!rig) return;
-    const surfaceY = isRingside(fighter.position) ? .4 : VOLT_DOME.ring.deckY;
+    const surfaceY = this.isRingside(fighter.position) ? .4 : VOLT_DOME.ring.deckY;
     const coreRadii = { pelvis: .22, abdomen: .21, chest: .27, head: HEAD_COLLIDER_RADIUS } as const;
     const lowestCoreClearance = (Object.keys(coreRadii) as (keyof typeof coreRadii)[]).reduce((lowest, segment) => {
       const body = rig.bodies[segment];
@@ -2421,7 +2426,7 @@ export class BodyWorksRuntime {
     const supportScore = this.supportScore(rig); if (key === 'player') this.metrics.supportScore = supportScore;
     // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt for ~8x speedup.
     fighter.body.balance = clamp(supportScore * 58 + upright * 42 - Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z) * 1.1, 0, 100);
-    const physicallyOnRingsideFloor = isRingside(fighter.position) && position.y < rig.restPelvisY - .62;
+    const physicallyOnRingsideFloor = this.isRingside(fighter.position) && position.y < rig.restPelvisY - .62;
     const groundedPelvisY = rig.restPelvisY - (physicallyOnRingsideFloor ? 1.46 : 0);
     fighter.body.verticalOffset = Math.max(0, position.y - groundedPelvisY);
     fighter.body.verticalVelocity = velocity.y;
@@ -2447,6 +2452,7 @@ export class BodyWorksRuntime {
   }
 
   reset(): void {
+    this.venue = 'dome';
     if (this.world) this.releaseAllGrips(this.world);
     if (this.world) for (const grip of [...this.propGrips.values()]) this.releasePropGrip(this.world, grip, null);
     if (this.instrumentedWorld && this.originalRemoveImpulseJoint) this.instrumentedWorld.removeImpulseJoint = this.originalRemoveImpulseJoint;

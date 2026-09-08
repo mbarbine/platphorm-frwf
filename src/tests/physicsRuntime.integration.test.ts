@@ -1,3 +1,4 @@
+import { configureCombatVenue, VENUES, type CombatVenue } from '../game/data/venues';
 import { ColliderDesc, JointData, RigidBodyDesc, World, init } from '@dimforge/rapier3d-compat';
 import type { RigidBody } from '@dimforge/rapier3d-compat';
 import { beforeAll, describe, expect, it } from 'vitest';
@@ -75,15 +76,16 @@ const stepHarness = (world: World, runtime: BodyWorksRuntime, model: MatchModel,
   for (const contact of runtime.consumeContacts()) applyPhysicalContact(model, contact);
 };
 
-const makeGrappleHarness = (): { world: World; runtime: BodyWorksRuntime; model: MatchModel; player: HeadlessRig; opponent: HeadlessRig } => {
+const makeGrappleHarness = (venue?: CombatVenue): { world: World; runtime: BodyWorksRuntime; model: MatchModel; player: HeadlessRig; opponent: HeadlessRig } => {
   const world = new World({ x: 0, y: -18, z: 0 }); world.timestep = STEP; world.numSolverIterations = 8; world.numInternalPgsIterations = 2; world.maxCcdSubsteps = 2;
   const mat = world.createRigidBody(RigidBodyDesc.fixed().setTranslation(0, 1.52, 0));
-  world.createCollider(ColliderDesc.cuboid(6, .325, 4.5).setFriction(1.1).setCollisionGroups(arenaCollisionGroups), mat);
+  world.createCollider(ColliderDesc.cuboid(venue ? VENUES[venue].halfWidth + 1 : 6, .325, venue ? VENUES[venue].halfDepth + 1 : 4.5).setFriction(1.1).setCollisionGroups(arenaCollisionGroups), mat);
   const runtime = new BodyWorksRuntime(); const model = createMatch('atlas', 'nova', 'standard', 'normal', 1217);
+  if (venue) configureCombatVenue(model, venue);
   model.physicsAuthority = true; model.labMode = true; model.aiThinkTimer = 999; model.aiControllers.opponent.thinkTimer = 999;
   model.player.position = { x: -.8, z: 0 }; model.opponent.position = { x: .8, z: 0 };
   model.player.facing = Math.PI / 2; model.opponent.facing = -Math.PI / 2;
-  runtime.setJointData(JointData); runtime.registerLandingSurface('ring', 'ring', mat);
+  runtime.setJointData(JointData); runtime.registerLandingSurface('ring', venue && venue !== 'dome' ? 'floor' : 'ring', mat);
   const player = createHeadlessRig(world, 'atlas', 'player', -.8); const opponent = createHeadlessRig(world, 'nova', 'opponent', .8);
   runtime.registerFighter('player', player.bodies, player.joints); runtime.registerFighter('opponent', opponent.bodies, opponent.joints);
   runtime.setFootContact('player', 'leftFoot', true); runtime.setFootContact('player', 'rightFoot', true);
@@ -378,4 +380,49 @@ describe('Rapier-backed Bodyworks integration', () => {
       world.free();
     }
   }, 30_000);
+});
+
+
+describe('outdoor venue physical locomotion', () => {
+  it('walks across the former rope line on a continuous floor without a ringside drop', () => {
+    const { world, runtime, model } = makeHarness();
+    try {
+      configureCombatVenue(model, 'yard'); model.labMode = true;
+      const ground = world.createRigidBody(RigidBodyDesc.fixed().setTranslation(0, 1.645, 0));
+      world.createCollider(ColliderDesc.cuboid(17, .2, 15).setFriction(1.1).setCollisionGroups(arenaCollisionGroups), ground);
+      runtime.registerLandingSurface('yard-floor', 'floor', ground);
+      for (let frame = 0; frame < 600; frame++) stepHarness(world, runtime, model, { x: 1, z: 0 });
+      expect(model.player.position.x).toBeGreaterThan(6.2);
+      expect(model.player.position.x).toBeLessThanOrEqual(8.8);
+      expect(model.player.ropeRebound).toBe(0);
+      expect(runtime.fighterSnapshot('player').pelvisY).toBeGreaterThan(2.5);
+      expect(runtime.metrics.emergencyResetCount).toBe(0);
+    } finally { runtime.reset(); world.free(); }
+  });
+});
+
+
+it('lands an outdoor table spot on the registered wooden surface before breaking it', () => {
+  const { world, runtime, model } = makeGrappleHarness('yard');
+  try {
+    const table = model.props.find(p => p.kind === 'table'); if (!table) throw new Error('Missing venue table');
+    const body = world.createRigidBody(RigidBodyDesc.fixed().setTranslation(table.position.x, VENUES.yard.floorY + .9, table.position.z));
+    world.createCollider(ColliderDesc.cuboid(1.5, .065, .65).setCollisionGroups(arenaCollisionGroups), body);
+    runtime.registerLandingSurface(table.id, 'table', body);
+    for (let i = 0; i < 45; i++) stepGrappleHarness(world, runtime, model);
+    model.player.position = { x: -.8, z: -1.7 }; model.opponent.position = { x: .8, z: -1.7 };
+    runtime.prepareLabPositions(model.player.position, model.opponent.position);
+    for (let i = 0; i < 30; i++) stepGrappleHarness(world, runtime, model);
+    expect(requestCommand(model, 'player', 'grapple')).toBe(true);
+    expect(requestCommand(model, 'player', 'context')).toBe(true);
+    let landedOnTable = false;
+    for (let i = 0; i < 540 && !table.broken; i++) {
+      stepGrappleHarness(world, runtime, model);
+      landedOnTable ||= runtime.metrics.lastContactPair === 'chest>table';
+    }
+    expect(landedOnTable).toBe(true); expect(table.broken).toBe(true);
+    expect(model.opponent.health).toBeLessThan(100); expect(model.playerStats.grapples).toBe(1);
+    expect(runtime.pendingLandingCount()).toBe(0); expect(runtime.metrics.emergencyResetCount).toBe(0);
+    expect(model.highlights.some(h => h.label === 'Wooden Table Crash')).toBe(true);
+  } finally { runtime.reset(); world.free(); }
 });

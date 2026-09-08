@@ -1,3 +1,4 @@
+import type { CombatVenue } from '../data/venues';
 import { opponentFor } from '../data/fighters';
 import type { Difficulty, FighterId, Ruleset, Vec2 } from '../types/game';
 
@@ -19,14 +20,17 @@ export const WORLD_OBSTACLES: readonly WorldObstacle[] = [
   { id: 'picnic-one', x: -12, z: 17, halfX: 2, halfZ: 1, height: .8, color: '#ae8052' },
   { id: 'picnic-two', x: -15, z: 10, halfX: 2, halfZ: 1, height: .8, color: '#ae8052' },
 ];
-export interface WorldEncounter { id: string; title: string; host: FighterId; position: Vec2; description: string; difficulty: Difficulty; rules: Ruleset; region: RegionId }
+export interface WorldEncounter { id: string; title: string; host: FighterId; position: Vec2; description: string; difficulty: Difficulty; rules: Ruleset; region: RegionId; venue: CombatVenue; requiredVictories?: number }
 export const WORLD_ENCOUNTERS: readonly WorldEncounter[] = [
-  { id: 'warmup', title: 'Backyard warm-up', host: 'vex', position: { x: 0, z: 10 }, description: 'An easy Singles bout. Close the distance, strike, then grapple.', difficulty: 'easy', rules: 'standard', region: 'showground' },
-  { id: 'sparring', title: 'Corner school', host: 'nova', position: { x: -13.5, z: -13 }, description: 'A low-pressure practice bout with Nova. Learn the same controls used in every match.', difficulty: 'easy', rules: 'standard', region: 'backstage' },
-  { id: 'main-event', title: 'The Claw’s open challenge', host: 'chad', position: { x: 11, z: -2.5 }, description: 'A full Singles match in the Volt Dome. Win here to earn your first main-event victory.', difficulty: 'normal', rules: 'standard', region: 'ringside' },
+  { id: 'warmup', title: 'Backyard warm-up', host: 'vex', position: { x: 0, z: 10 }, description: 'Wrestle outdoors in the backyard fight pit. Close the distance, secure a clinch, then throw.', difficulty: 'easy', rules: 'standard', region: 'showground', venue: 'yard' },
+  { id: 'sparring', title: 'Backstage fight club', host: 'nova', position: { x: -13.5, z: -13 }, description: 'A close-quarters wrestling bout in the locker yard. Work a clinch into a wooden-table slam.', difficulty: 'easy', rules: 'standard', region: 'backstage', venue: 'backstage' },
+  { id: 'main-event', title: 'The Claw’s open challenge', host: 'chad', position: { x: 11, z: -2.5 }, description: 'A full Singles match in the Volt Dome. Win here to earn your first main-event victory.', difficulty: 'normal', rules: 'standard', region: 'ringside', venue: 'dome' },
+  { id: 'scrapyard', title: 'Tables & trouble', host: 'brick', position: { x: 15, z: 7 }, description: 'A no-disqualification backyard brawl. Chairs and a wooden table are in play. Win two different encounters to enter.', difficulty: 'normal', rules: 'chaos', region: 'showground', venue: 'yard', requiredVictories: 2 },
+  { id: 'technical', title: 'The reversal test', host: 'nova', position: { x: -12, z: 23 }, description: 'Face a hard technical rival in the backyard. Protect your stamina and watch for the counter window.', difficulty: 'hard', rules: 'standard', region: 'showground', venue: 'yard', requiredVictories: 2 },
+  { id: 'championship', title: 'Showground championship', host: 'chad', position: { x: 19, z: -19 }, description: 'The circuit finale: The Claw, hard difficulty, full Singles wrestling in Volt Dome. Earn three distinct encounter victories to enter.', difficulty: 'hard', rules: 'standard', region: 'ringside', venue: 'dome', requiredVictories: 3 },
 ];
 export const regionAt = (p: Vec2): RegionId => p.x < -5 && p.z < -6 ? 'backstage' : p.x > 3 && p.z < 3 ? 'ringside' : 'showground';
-export const REGION_NAMES: Record<RegionId, string> = { showground: 'FRWF Showground', backstage: 'Backstage / Corner School', ringside: 'The Main Event' };
+export const REGION_NAMES: Record<RegionId, string> = { showground: 'FRWF Showground', backstage: 'Backstage Fight Club', ringside: 'The Main Event' };
 export const nearbyEncounter = (p: Vec2): WorldEncounter | undefined => WORLD_ENCOUNTERS.find(e => Math.hypot(e.position.x - p.x, e.position.z - p.z) <= 2.8);
 export function canStandAt(p: Vec2, radius = .38): boolean {
   return Number.isFinite(p.x) && Number.isFinite(p.z) && p.x >= WORLD_BOUNDS.minX + radius && p.x <= WORLD_BOUNDS.maxX - radius && p.z >= WORLD_BOUNDS.minZ + radius && p.z <= WORLD_BOUNDS.maxZ - radius && !WORLD_ENCOUNTERS.some(e => Math.hypot(e.position.x - p.x, e.position.z - p.z) < radius + .48) && !WORLD_OBSTACLES.some(o => p.x > o.x - o.halfX - radius && p.x < o.x + o.halfX + radius && p.z > o.z - o.halfZ - radius && p.z < o.z + o.halfZ + radius);
@@ -48,7 +52,7 @@ export function moveThroughWorld(position: Vec2, direction: Vec2, distance: numb
 export function encounterForFighter(encounter: WorldEncounter, fighter: FighterId): WorldEncounter {
   if (encounter.host !== fighter) return encounter;
   return { ...encounter, host: opponentFor(fighter),
-    title: encounter.id === 'main-event' ? 'Main-event title defense' : encounter.title,
-    description: encounter.id === 'main-event' ? 'Defend your place in the main event in a full Singles bout.' : 'An easy Singles practice bout. Close the distance, strike, then grapple.',
+    title: encounter.id === 'main-event' ? 'Main-event title defense' : encounter.id === 'championship' ? 'Championship title defense' : encounter.title,
+    description: encounter.id === 'main-event' || encounter.id === 'championship' ? `Defend your place in a ${encounter.difficulty} Singles bout. Your rival uses the same wrestling rules and physical controls.` : encounter.description,
   };
 }

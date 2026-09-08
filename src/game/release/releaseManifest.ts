@@ -5,7 +5,7 @@ import { PRESENTATION_RIG_VERSION } from '../presentation/presentationManifest';
 export const RELEASE_MANIFEST = {
   fighterVersion: 'ringfall-fighters-2.0.0',
   moveVersion: 'ringfall-moves-2.1.0',
-  arenaVersion: 'volt-dome-2.0.0',
+  arenaVersion: 'frwf-venues-3.0.0',
   assetVersion: 'ringfall-assets-2.0.0',
   presentationRigVersion: PRESENTATION_RIG_VERSION,
   fighterIds: FIGHTERS.map((fighter) => fighter.id),

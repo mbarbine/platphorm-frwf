@@ -136,3 +136,9 @@ Platform remediation: extensionless static health/docs/release routes declare JS
 The Cloudflare suite now bundles the Worker and executes real local workerd/Durable Object/D1/R2 integration checks: actual storage probes, empty leaderboards, protected room creation, distinct tickets, invalid socket rejection, trace identity, origin checks and JSON-RPC IDs/batch bounds. Installed Miniflare 5's supported v4-options converter bridges the harness configuration. This does not deploy Cloudflare, add missing production storage bindings, wire the browser transport or certify cloud multiplayer/save functionality.
 
 Release checks and exact deployment identity are recorded in `docs/SHOWGROUND_RELEASE.md`. Next product work: improve paired wrestling animation and contact readability, author more satisfying encounters and environmental interactions, and extend the world beyond arena handoffs. Physical iPhone/controller play, motion capture, cloud identity/saves and authoritative online parity remain open.
+
+## Circuit and physical venues pass — September 8, 2026
+
+Implemented the next layer of the open-world wrestling direction: three physical combat venues, six explorable encounter hosts, device-local circuit reputation and mastery, encounter tracking, harder unlocked rivals, breakable wooden tables and Arcade-aware mobile labels. Venue rules now govern physical floor height, boundaries, rope/corner availability, AI traversal, camera and ground marker. See [the circuit release report](CIRCUIT_UPGRADE_RELEASE.md) for validation and limitations.
+
+The next structural milestone is sharing the world scene and physical simulation so fights can begin without scene handoff. Character motion quality remains a separate major workstream: authored paired throws and recoveries need continued visual review before real human motion clips are introduced. Local progression must remain clearly separate from future account-backed progression and leaderboards.

@@ -1,5 +1,5 @@
 # RINGFALL: CHAOS CIRCUIT
-Local-first 3D wrestling game with articulated physics in the Volt Dome. Fresh local setup defaults to Singles; five-wrestler Battle Royale is also available. Explore Showground adds a connected yard, backstage and ringside with nearby bout offers and device-local saves. Bouts take place in the Volt Dome and return to the grounds; seamless outdoor combat and cloud progression are not implemented.
+Local-first 3D wrestling game with articulated physics in the Volt Dome. Fresh local setup defaults to Singles; five-wrestler Battle Royale is also available. Explore Showground adds a connected yard, backstage and ringside with nearby bout offers and device-local saves. Six encounters open physical bouts in the backyard, backstage or Volt Dome and return to the grounds. Earn device-local circuit reputation and mastery medals to unlock harder rivals. Exploration and combat use separate scenes; seamless combat and cloud progression are not implemented.
 Public game: /
 Health: /api/health
 API docs: /api/docs

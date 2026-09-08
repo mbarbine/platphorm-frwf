@@ -1,3 +1,5 @@
+import { WORLD_ENCOUNTERS } from '../game/world/showground';
+import { VENUES } from '../game/data/venues';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -39,4 +41,13 @@ describe('PlatPhorm static game contract', () => {
     const hosting = JSON.parse(read('vercel.json')) as { headers: { source: string; headers: { key: string; value: string }[] }[] };
     expect(hosting.headers.find(rule => rule.source === '/api/(health|v1/health|docs|release)')?.headers).toContainEqual({ key: 'Content-Type', value: 'application/json; charset=utf-8' });
   });
+});
+
+
+it('keeps public circuit discovery aligned with shipped encounters and venues', () => {
+  const index = JSON.parse(read('public/llms-index.json'));
+  expect(index.data.world.encounters).toBe(WORLD_ENCOUNTERS.length);
+  expect([...index.data.world.venues].sort()).toEqual(Object.keys(VENUES).sort());
+  expect(index.data.world.combat).toContain('separate scenes');
+  expect(index.data.world.persistence).toContain('No cloud save or trusted leaderboard');
 });

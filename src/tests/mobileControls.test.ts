@@ -1,3 +1,6 @@
+import { useSettings } from '../game/state/settings';
+import { createMatch } from '../game/systems/combat';
+import { getMove } from '../game/data/moves';
 import { describe, expect, it, afterEach } from 'vitest';
 import React from 'react';
 import { render, screen, cleanup } from '@testing-library/react';
@@ -33,5 +36,25 @@ describe('MobileControls component', () => {
     const actionBtn = screen.getByRole('button', { name: /^Action:/i });
     expect(actionBtn).toBeTruthy();
     expect(actionBtn.getAttribute('aria-label')).toContain('Action:');
+  });
+});
+
+
+describe('mobile move labels follow real Arcade execution', () => {
+  afterEach(() => cleanup());
+  it('shows the Arcade suplex choice rather than the neutral technical piledriver', () => {
+    const model = createMatch('atlas', 'nova', 'standard', 'easy');
+    model.player.state = 'grappling'; model.player.moveId = 'slam'; model.player.attackPhase = 'anticipation';
+    useSettings.setState({ controlStyle: 'arcade' }); useMatchStore.setState({ model });
+    render(React.createElement(MobileControls, { onPause: () => {}, paused: false }));
+    expect(screen.getByRole('button', { name: /^Grapple:/i }).getAttribute('data-move-label')).toBe(getMove('suplex').displayName.toUpperCase());
+  });
+  it('only advertises release when a physical lift is actually established', () => {
+    const model = createMatch('atlas', 'nova', 'standard', 'easy');
+    model.player.state = 'grappling'; model.player.moveId = 'slam'; model.player.attackPhase = 'anticipation';
+    model.grapple = { attacker: 'player', defender: 'opponent', position: 'collarTie', leverage: 1, tension: 0, rotation: 0, lift: 1, struggle: 0, age: .5, gripCount: 2, phase: 'lift' };
+    useMatchStore.setState({ model });
+    render(React.createElement(MobileControls, { onPause: () => {}, paused: false }));
+    expect(screen.getByRole('button', { name: /^Quick strike:/i }).getAttribute('data-move-label')).toBe('RELEASE THROW');
   });
 });

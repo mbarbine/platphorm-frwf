@@ -1,3 +1,4 @@
+import type { CombatVenue } from '../data/venues';
 export type FighterId = 'atlas' | 'vex' | 'nova' | 'brick' | 'chad';
 export type FighterSlot = 'player' | 'opponent' | 'rival1' | 'rival2' | 'rival3';
 export type AiFighterSlot = Exclude<FighterSlot, 'player'>;
@@ -300,6 +301,7 @@ export interface FallEvent {
 }
 
 export interface MatchModel {
+  venue?: CombatVenue;
   toyTestMode: boolean;
   labMode: boolean;
   matchMode: MatchMode;

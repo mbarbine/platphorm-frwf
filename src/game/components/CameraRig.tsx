@@ -1,3 +1,4 @@
+import { venueFor } from '../data/venues';
 import { useFrame, useThree } from '@react-three/fiber';
 import { useMemo, useRef } from 'react';
 import { Vector3 } from 'three';
@@ -200,7 +201,7 @@ export function CameraRig() {
         // Spectator first-person is an eye-line camera, not a rigid-body debug
         // camera. Clamp it above the local floor and look level so a transient
         // crouch or noisy head snapshot cannot leave the viewer at boot height.
-        const floorY = isRingside(target.position) ? 0 : 1.5;
+        const floorY = venueFor(model).hasRing && isRingside(target.position) ? 0 : 1.5;
         const eyeY = Math.max(headY + .12, floorY + 1.82);
         desired.set(headX + forwardX * 0.38, eyeY, headZ + forwardZ * 0.38);
         desiredTarget.set(headX + forwardX * 5, eyeY + .03, headZ + forwardZ * 5);
@@ -307,7 +308,7 @@ export function CameraRig() {
     const bounds = bodyBounds.current;
     bounds.min.x = minimumX - .5; bounds.max.x = maximumX + .5;
     bounds.min.z = minimumZ - .5; bounds.max.z = maximumZ + .5;
-    const floor = isRingside(model.player.position) ? 0 : 1.5;
+    const floor = venueFor(model).hasRing && isRingside(model.player.position) ? 0 : 1.5;
     bounds.min.y = floor; bounds.max.y = floor + 2.3;
     for (let i = 0; i < framingSlotsCount; i++) {
       bodyWorksRuntime.expandFighterBounds(framingSlotsRef.current[i] as FighterSlot, bounds);

@@ -1,3 +1,5 @@
+import { useSettings } from '../game/state/settings';
+import { combatInputDirection } from '../game/input/playerController';
 import { useEffect, useRef, useState } from 'react';
 import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from 'react';
 import { mobileInput } from '../game/input/mobileInput';
@@ -41,6 +43,9 @@ export function MobileControls({ onPause, paused }: MobileControlsProps) {
   const pointer = useRef<number | null>(null);
   const [stick, setStick] = useState({ x: 0, z: 0 });
   const model = useMatchStore((state) => state.model);
+  const preferredStyle = useSettings(s => s.controlStyle);
+  const style = model.labMode || model.networkAuthority ? 'technical' : preferredStyle;
+  const direction = combatInputDirection(stick, style);
   const player = model.player;
   const opponent = model[model.targets.player];
   const contextResolution = resolveContextAction(model, 'player', stick);
@@ -50,18 +55,18 @@ export function MobileControls({ onPause, paused }: MobileControlsProps) {
   const targetDz = player.position.z - opponent.position.z;
   const targetDistanceSq = targetDx * targetDx + targetDz * targetDz;
   const contextLabel = contextResolution.displayName;
-  const quickMove = player.state === 'grappling' ? selectDirectionalGrapple(stick, 'quick')
+  const quickMove = player.state === 'grappling' ? selectDirectionalGrapple(direction, 'quick')
     : player.state === 'climbing' && player.climbStage === 3 ? 'aerial_elbow'
-      : opponent.state === 'downed' ? 'ground' : selectDirectionalStrike(stick, 'quick', player.comboStep);
-  const heavyMove = player.state === 'grappling' ? selectDirectionalGrapple(stick, 'heavy')
+      : opponent.state === 'downed' ? 'ground' : selectDirectionalStrike(direction, 'quick', player.comboStep);
+  const heavyMove = player.state === 'grappling' ? selectDirectionalGrapple(direction, 'heavy')
     : player.state === 'climbing' && player.climbStage === 3 ? 'aerial_kick'
-      : player.ropeRebound > 0 ? 'stiff_arm' : player.heldPropId ? 'prop' : selectDirectionalStrike(stick, 'heavy', player.comboStep);
-  const grappleMove = player.state === 'grappling' ? selectDirectionalGrapple(stick, 'grapple') : null;
-  const quickLabel = player.state === 'downed' ? 'NO STRIKE' : getMove(quickMove).displayName.toUpperCase();
+      : player.ropeRebound > 0 ? 'stiff_arm' : player.heldPropId ? 'prop' : selectDirectionalStrike(direction, 'heavy', player.comboStep);
+  const grappleMove = player.state === 'grappling' ? selectDirectionalGrapple(style === 'arcade' ? { x: 1, z: 0 } : direction, 'grapple') : null;
+  const quickLabel = model.grapple?.attacker === 'player' && model.grapple.phase === 'lift' ? 'RELEASE THROW' : player.state === 'downed' ? 'NO STRIKE' : getMove(quickMove).displayName.toUpperCase();
   const powerLabel = player.state === 'downed' ? 'NO STRIKE' : getMove(heavyMove).displayName.toUpperCase();
   const grappleLabel = player.state === 'climbing' || player.state === 'downed' || player.state === 'pinned' ? 'NO LOCK'
     : grappleMove ? getMove(grappleMove).displayName.toUpperCase()
-      : targetDistanceSq <= GRAPPLE_ACQUISITION_RANGE * GRAPPLE_ACQUISITION_RANGE ? 'VOLTAGE SLAM' : 'COLLAR REACH (MISS)';
+      : style === 'arcade' && targetDistanceSq > GRAPPLE_ACQUISITION_RANGE ** 2 && targetDistanceSq <= 3.8 ** 2 ? 'CLOSE & GRAPPLE' : targetDistanceSq <= GRAPPLE_ACQUISITION_RANGE * GRAPPLE_ACQUISITION_RANGE ? 'VOLTAGE SLAM' : 'COLLAR REACH (MISS)';
   const strikeLocked = player.state === 'downed' || player.state === 'pinned' || (player.state === 'climbing' && player.climbStage < 3);
   const grappleLocked = player.state === 'downed' || player.state === 'pinned' || player.state === 'climbing';
 

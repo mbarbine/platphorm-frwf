@@ -1,3 +1,4 @@
+import { configureCombatVenue, venueFor } from '../data/venues';
 import { FIGHTERS, fighterById } from '../data/fighters';
 import { getMove } from '../data/moves';
 import { BALANCE } from '../data/balance';
@@ -111,7 +112,7 @@ export const cyclePlayerTarget = (model: MatchModel, direction = 1): boolean => 
 
 export const resetTransientState = (model: MatchModel): MatchModel => {
   const reset = createMatch(model.player.definitionId, model.opponent.definitionId, model.ruleset, model.difficulty, model.seed + 97, model.player.beersDrunk, model.opponent.beersDrunk, model.matchMode);
-  reset.labMode = model.labMode; reset.toyTestMode = model.toyTestMode; return reset;
+  configureCombatVenue(reset, model.venue ?? 'dome'); reset.labMode = model.labMode; reset.toyTestMode = model.toyTestMode; return reset;
 };
 
 export const getAttackPhase = (move: MoveDefinition, elapsed: number): 'anticipation' | 'active' | 'recovery' | null => {
@@ -560,12 +561,12 @@ export const requestCommand = (model: MatchModel, actorKey: FighterSlot, command
     if (!resolution.legalState) return false;
     if (resolution.actionId === 'kickout') { actor.pinEscape += 18 + actor.stamina * .04; return true; }
     if (resolution.actionId === 'corner_move' || resolution.actionId === 'environmental_wrestling_move') {
-      const selected = getMove('corner_smash'); const current = actor.moveId ? getMove(actor.moveId) : selected;
+      const selected = getMove(resolution.actionId === 'corner_move' ? 'corner_smash' : 'slam'); const current = actor.moveId ? getMove(actor.moveId) : selected;
       const extraCost = Math.max(0, selected.staminaCost - current.staminaCost); if (actor.stamina < extraCost) return false;
       actor.stamina = clamp(actor.stamina - extraCost, 0, actor.staminaCap); actor.moveId = selected.id;
       actor.phaseElapsed = Math.min(actor.phaseElapsed, selected.anticipationDuration * .42);
       if (model.grapple?.attacker === actorKey) retargetGrapple(model.grapple, selected.id);
-      model.announcement = resolution.actionId === 'corner_move' ? 'CORNER CALL — RAIL SHOT!' : 'DESK SPOT CALLED!'; model.announcementTimer = 1.05;
+      model.announcement = resolution.actionId === 'corner_move' ? 'CORNER CALL — RAIL SHOT!' : 'TABLE SPOT CALLED!'; model.announcementTimer = 1.05;
       return true;
     }
     if (resolution.actionId === 'finisher') {
@@ -774,7 +775,9 @@ const updatePin = (model: MatchModel, dt: number, playerInput: FrameInput): void
     const difficultyFactor = model.difficulty === 'hard' ? 1.08 : .92;
     pinned.pinEscape += dt * (9 + pinned.health * .2 + pinned.stamina * .08) * difficultyFactor;
   }
-  const count = Math.min(3, Math.floor(pinning.stateElapsed) + 1);
+  // Each count is a full second. Announcing three at two seconds used to
+  // disable kick-outs during the final part of an unfinished cover.
+  const count = Math.min(3, Math.floor(pinning.stateElapsed + 1e-8));
   if (count !== pinning.pinCount) {
     pinning.pinCount = count; pinned.pinCount = count;
     model.announcement = count === 1 ? 'ONE' : count === 2 ? 'TWO' : 'THREE';
@@ -789,7 +792,7 @@ const updatePin = (model: MatchModel, dt: number, playerInput: FrameInput): void
     model.slowMotion = Math.max(model.slowMotion, .36); model.hitStop = Math.max(model.hitStop, .14);
     model.hype = clamp(model.hype + 16, 0, 100); model.announcement = `${count}.9 — KICKOUT!`; model.announcementTimer = 1.6;
     addImpact(model, pinned.position, 'nearfall', 1.9);
-  } else if (count >= 3 && pinning.stateElapsed >= 2.85) {
+  } else if (count >= 3 && pinning.stateElapsed >= 3 - 1e-8) {
     if (model.toyTestMode) {
       pinning.state = 'idle'; pinned.state = 'downed'; beginFall(model, pinnedKey, FALL_REASONS.KnockdownMove); pinned.downTimer = .8; pinning.pinCount = 0; pinned.pinCount = 0; pinned.pinEscape = 0;
     } else resolveMatch(model, pinningKey, 'PINFALL', pinnedKey);
@@ -927,22 +930,22 @@ const updateFighter = (model: MatchModel, actorKey: FighterSlot, dt: number, mov
   const impactSpeed = Math.sqrt(actor.velocity.x * actor.velocity.x + actor.velocity.z * actor.velocity.z);
   const deliberateRingOut = (actor.state === 'downed' || actor.state === 'staggered') && impactSpeed > 2.7;
   const rebound = model.chaosEvent?.type === 'OVERDRIVE ROPES' ? 1.18 : .88;
-  if (!model.physicsAuthority && !outside && !deliberateRingOut && Math.abs(actor.position.x) > ropeX) {
+  if (venueFor(model).hasRing && !model.physicsAuthority && !outside && !deliberateRingOut && Math.abs(actor.position.x) > ropeX) {
     actor.position.x = Math.sign(actor.position.x) * ropeX; actor.velocity.x *= -rebound;
     actor.body.sideVelocity += Math.sign(actor.position.x) * impactSpeed * .055;
     actor.body.balance = clamp(actor.body.balance - impactSpeed * .9, 0, 100);
     if (actor.ropeRebound <= 0) addImpact(model, actor.position, 'rope', .55, { force: impactSpeed * actor.body.mass / 100, outcome: 'absorbed' });
     actor.ropeRebound = 1.1;
   }
-  if (!model.physicsAuthority && !outside && !deliberateRingOut && Math.abs(actor.position.z) > ropeZ) {
+  if (venueFor(model).hasRing && !model.physicsAuthority && !outside && !deliberateRingOut && Math.abs(actor.position.z) > ropeZ) {
     actor.position.z = Math.sign(actor.position.z) * ropeZ; actor.velocity.z *= -rebound;
     actor.body.leanVelocity += Math.sign(actor.position.z) * impactSpeed * .045;
     actor.body.balance = clamp(actor.body.balance - impactSpeed * .9, 0, 100);
     if (actor.ropeRebound <= 0) addImpact(model, actor.position, 'rope', .55, { force: impactSpeed * actor.body.mass / 100, outcome: 'absorbed' });
     actor.ropeRebound = 1.1;
   }
-  actor.position.x = clamp(actor.position.x, -VOLT_DOME.playable.halfWidth, VOLT_DOME.playable.halfWidth);
-  actor.position.z = clamp(actor.position.z, -VOLT_DOME.playable.halfDepth, VOLT_DOME.playable.halfDepth);
+  actor.position.x = clamp(actor.position.x, -venueFor(model).halfWidth, venueFor(model).halfWidth);
+  actor.position.z = clamp(actor.position.z, -venueFor(model).halfDepth, venueFor(model).halfDepth);
   if (actor.state === 'idle' && inputLength <= .08) {
     const desiredFacing = Math.atan2(target.position.x - actor.position.x, target.position.z - actor.position.z);
     const turn = Math.atan2(Math.sin(desiredFacing - actor.facing), Math.cos(desiredFacing - actor.facing));
@@ -1135,11 +1138,11 @@ const applyPhysicalTableStress = (model: MatchModel, contact: BodyWorksContact, 
   table.failureStage = nextStage;
   if (nextStage === 'failed') {
     table.broken = true; model.hype = clamp(model.hype + 28, 0, 100);
-    addImpact(model, table.position, 'table', 2.1, { force: contact.maximumForce, outcome: 'fall', highlight: { label: 'Commentary Desk Collapse', score: Math.round(table.stress + move.hypeValue + 24), kind: 'table' } });
-    model.announcement = 'COMMENTARY DESK — WRECKED!'; model.announcementTimer = 2;
+    addImpact(model, table.position, 'table', 2.1, { force: contact.maximumForce, outcome: 'fall', highlight: { label: venueFor(model).hasRing ? 'Commentary Desk Collapse' : 'Wooden Table Crash', score: Math.round(table.stress + move.hypeValue + 24), kind: 'table' } });
+    model.announcement = venueFor(model).hasRing ? 'COMMENTARY DESK — WRECKED!' : 'WOODEN TABLE — SHATTERED!'; model.announcementTimer = 2;
   } else {
     model.hype = clamp(model.hype + (nextStage === 'cracked' ? 12 : 5), 0, 100);
-    model.announcement = nextStage === 'cracked' ? 'COMMENTARY DESK — CRACKING!' : 'DESK BUCKLES UNDER THE IMPACT!'; model.announcementTimer = 1.25;
+    model.announcement = nextStage === 'cracked' ? 'TABLE — CRACKING!' : 'TABLE BUCKLES UNDER THE IMPACT!'; model.announcementTimer = 1.25;
   }
 };
 

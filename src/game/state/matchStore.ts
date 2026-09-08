@@ -1,3 +1,4 @@
+import { configureCombatVenue, venueFor, type CombatVenue } from '../data/venues';
 import { create } from 'zustand';
 import { advanceMatch, applyPhysicalContact, createFighterRuntime, createMatch, cyclePlayerTarget, requestAction, requestCommand, resetTransientState, resolveMatch } from '../systems/combat';
 import type { FrameInput } from '../systems/combat';
@@ -19,6 +20,7 @@ interface MatchStore {
   revision: number;
   replayActive: boolean;
   configure: (player: FighterId, opponent: FighterId, rules: Ruleset, difficulty: Difficulty, playerBeers?: number, opponentBeers?: number, matchMode?: MatchMode) => void;
+  configureVenue: (venue: CombatVenue) => void;
   advance: (dt: number, input: FrameInput) => void;
   pause: (paused: boolean) => void;
   setLabMode: (active: boolean) => void;
@@ -85,6 +87,7 @@ export const useMatchStore = create<MatchStore>((set) => ({
     bodyWorksRuntime.reset(); useSpectatorStore.getState().reset(); publishAccumulator = 0;
     return { model: createMatch(player, opponent, rules, difficulty, 1337, playerBeers, opponentBeers, matchMode), revision: state.revision + 1, replayActive: false };
   }),
+  configureVenue: venue => set(state => { configureCombatVenue(state.model, venue); return { model: { ...state.model }, revision: state.revision + 1 }; }),
   advance: (dt, input) => set((state) => {
     const model = state.model;
     if (model.paused || model.resolved) {
@@ -112,7 +115,7 @@ export const useMatchStore = create<MatchStore>((set) => ({
       if (accepted && buffered.command === 'context' && !wasClimbing && model.player.state === 'climbing') bodyWorksRuntime.requestCornerClimb('player', model.player.position);
       if (accepted && buffered.command === 'context' && wasClimbing && model.player.state === 'climbing') bodyWorksRuntime.requestCornerClimb('player', model.player.position, model.player.climbStage || 1);
       if (accepted && wasClimbing && model.player.moveId && getMove(model.player.moveId).category === 'aerial') bodyWorksRuntime.requestCornerDive('player', model[model.targets.player].position);
-      if (accepted && buffered.command === 'context' && !wasClimbing && wasNearApron && model.player.state === 'locomotion') bodyWorksRuntime.requestApronTransition('player', model.player.position);
+      if (venueFor(model).hasRing && accepted && buffered.command === 'context' && !wasClimbing && wasNearApron && model.player.state === 'locomotion') bodyWorksRuntime.requestApronTransition('player', model.player.position);
       const displayName = buffered.command === 'grapple' && !wasGrappling && model.player.moveId ? getMove(model.player.moveId).displayName.toUpperCase()
         : model.player.moveId ? getMove(model.player.moveId).displayName.toUpperCase()
           : contextPreview ?? propPreview ?? undefined;
@@ -127,7 +130,7 @@ export const useMatchStore = create<MatchStore>((set) => ({
     if (!wasPlayerInactive && ['defeated', 'victorious'].includes(model.player.state)) bodyWorksRuntime.rejectPendingActions('player', model.elapsed, 'Fighter is no longer active');
     for (const slot of AI_FIGHTER_SLOTS) {
       const fighter = model[slot];
-      if (model.aiControllers[slot].intent === 'context' && ['idle', 'locomotion'].includes(fighter.state) && fighter.invulnerability > .3) {
+      if (venueFor(model).hasRing && model.aiControllers[slot].intent === 'context' && ['idle', 'locomotion'].includes(fighter.state) && fighter.invulnerability > .3) {
         bodyWorksRuntime.requestApronTransition(slot, fighter.position);
       }
     }

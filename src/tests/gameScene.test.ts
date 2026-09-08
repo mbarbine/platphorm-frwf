@@ -1,3 +1,4 @@
+vi.mock('../game/world/FightVenue', () => ({ FightVenue: () => null }));
 vi.mock('../game/components/RendererHealth', () => ({ RendererHealth: () => null }));
 vi.mock('../game/components/HumanoidFighter', () => ({ HumanoidFighter: () => null }));
 import { describe, expect, it, vi, beforeEach } from 'vitest';

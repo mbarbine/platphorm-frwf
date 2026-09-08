@@ -1,3 +1,5 @@
+import { venueFor } from '../data/venues';
+import { FightVenue } from '../world/FightVenue';
 import { RendererHealth } from './RendererHealth';
 import { PlayerController } from '../input/playerController';
 import { Canvas, useFrame } from '@react-three/fiber';
@@ -238,7 +240,7 @@ function PlayerControlBeacon() {
     const battleIdentity = model.matchMode === 'battle_royale' && !['defeated', 'victorious'].includes(model.player.state) && !model.resolved;
     group.visible = battleIdentity || controllable;
     if (!group.visible) return;
-    group.position.set(model.player.position.x, Math.abs(model.player.position.x) <= 5.82 && Math.abs(model.player.position.z) <= 4.32 ? 1.94 : .08, model.player.position.z);
+    group.position.set(model.player.position.x, (!venueFor(model).hasRing || (Math.abs(model.player.position.x) <= 5.82 && Math.abs(model.player.position.z) <= 4.32)) ? 1.94 : .08, model.player.position.z);
     group.rotation.y = Math.atan2(intent.move.x, intent.move.z);
     if (direction.current) direction.current.visible = controllable && hasMagnitude;
     const pulse = 1 + Math.sin(clock.elapsedTime * 8) * .045; group.scale.setScalar(intent.run && hasMagnitude ? pulse * 1.1 : pulse);
@@ -303,6 +305,7 @@ export function GameScene(props: Props) {
         data-toy-test={toyTestMode ? 'true' : 'false'}
         data-graphics-tier={quality.tier}
         data-auto-performance-fallback={automaticPerformanceFallback ? 'true' : 'false'}
+        data-combat-venue={diagnosticModel.venue ?? 'dome'}
         data-physics-bodies={bodyWorksRuntime.metrics.bodyCount}
         data-physics-steps={bodyWorksRuntime.metrics.fixedSteps}
         data-physics-emergency-resets={bodyWorksRuntime.metrics.emergencyResetCount}
@@ -349,7 +352,7 @@ export function GameScene(props: Props) {
             numInternalPgsIterations={2}
             maxCcdSubsteps={2}
           >
-            <Arena crowdCount={quality.crowdCount} performanceMode={quality.tier === 'performance'} />
+            {diagnosticModel.venue && diagnosticModel.venue !== 'dome' ? <FightVenue venue={diagnosticModel.venue} /> : <Arena crowdCount={quality.crowdCount} performanceMode={quality.tier === 'performance'} />}
             <Fighters detail={fighterDetail} showPhysical={lab && labDebug} />
             <ReplayDirector />
             <PlayerControlBeacon />
