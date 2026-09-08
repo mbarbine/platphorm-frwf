@@ -86,7 +86,9 @@ interface SegmentBodyProps {
 
 function SegmentBody({ schema, fighterId, side, base, bodyRef, onContactForce, onFootContact, showVisuals }: SegmentBodyProps) {
   const position: [number, number, number] = [base[0] + schema.localPosition[0], base[1] + schema.localPosition[1], base[2] + schema.localPosition[2]];
-  const userData: RigUserData = {
+  // Rapier reapplies mutable body options when userData changes identity.
+  // Keep this stable so UI updates cannot relock the motor-controlled joints.
+  const userData = useMemo<RigUserData>(() => ({
     bodyWorks: true,
     fighter: side,
     segment: schema.id,
@@ -95,7 +97,7 @@ function SegmentBody({ schema, fighterId, side, base, bodyRef, onContactForce, o
     colliderRole: schema.colliderRole,
     damageMultiplier: schema.damageMultiplier,
     gripAnchorEligible: schema.gripAnchorEligible,
-  };
+  }), [schema, side]);
   const isFoot = schema.id === 'leftFoot' || schema.id === 'rightFoot'; const isHand = schema.id === 'leftHand' || schema.id === 'rightHand'; const isHead = schema.id === 'head';
   const collider: ReactNode = isHead ? <BallCollider args={[schema.radius]} mass={schema.massKg} />
     : isFoot || isHand ? <CuboidCollider args={[schema.radius, isFoot ? schema.radius * .5 : schema.halfLength, isFoot ? schema.halfLength * 1.35 : schema.radius]} mass={schema.massKg} friction={isFoot ? 1.45 : .72} restitution={.02} />

@@ -27,7 +27,7 @@ const createHeadlessRig = (world: World, fighterId: FighterId, slot: FighterSlot
   for (const segment of schema) {
     const body = world.createRigidBody(RigidBodyDesc.dynamic()
       .setTranslation(x + segment.localPosition[0], 1.8 + segment.localPosition[1], segment.localPosition[2])
-      .setLinearDamping(.55).setAngularDamping(2.2).setCanSleep(true).setCcdEnabled(segment.attackEligible || segment.id === 'head'));
+      .setLinearDamping(.55).setAngularDamping(2.2).setCanSleep(true).enabledRotations(false, false, false).setAdditionalSolverIterations(4).setCcdEnabled(segment.attackEligible || ['head', 'pelvis', 'abdomen', 'chest'].includes(segment.id)));
     const collider = segment.id === 'head' ? ColliderDesc.ball(segment.radius)
       : segment.id.includes('Foot') || segment.id.includes('Hand')
         ? ColliderDesc.cuboid(segment.radius, segment.id.includes('Foot') ? segment.radius * .5 : segment.halfLength, segment.id.includes('Foot') ? segment.halfLength * 1.35 : segment.radius)
@@ -46,7 +46,7 @@ const createHeadlessRig = (world: World, fighterId: FighterId, slot: FighterSlot
     const [a, b] = anchors(parent, child); a.x = parentX; world.createImpulseJoint(JointData.spherical(a, b), bodies[parent], bodies[child], true);
   };
   const revolute = (parent: BodySegmentId, child: BodySegmentId, limits: readonly [number, number]): void => {
-    const [a, b] = anchors(parent, child); const data = JointData.revolute(a, b, { x: 1, y: 0, z: 0 }); data.limitsEnabled = true; data.limits = [...limits];
+    const [a, b] = anchors(parent, child); if (child.includes('Foot')) b.z = -.03; const data = JointData.revolute(a, b, { x: 1, y: 0, z: 0 }); data.limitsEnabled = true; data.limits = [...limits];
     world.createImpulseJoint(data, bodies[parent], bodies[child], true);
   };
   spherical('pelvis', 'abdomen'); spherical('abdomen', 'chest'); spherical('chest', 'head');
@@ -58,7 +58,7 @@ const createHeadlessRig = (world: World, fighterId: FighterId, slot: FighterSlot
 };
 
 const makeHarness = (fighterId: FighterId = 'atlas'): { world: World; runtime: BodyWorksRuntime; model: MatchModel; rig: HeadlessRig } => {
-  const world = new World({ x: 0, y: -18, z: 0 }); world.timestep = STEP;
+  const world = new World({ x: 0, y: -18, z: 0 }); world.timestep = STEP; world.numSolverIterations = 8; world.numInternalPgsIterations = 2; world.maxCcdSubsteps = 2;
   const mat = world.createRigidBody(RigidBodyDesc.fixed().setTranslation(0, 1.52, 0));
   world.createCollider(ColliderDesc.cuboid(6, .325, 4.5).setFriction(1.1).setCollisionGroups(arenaCollisionGroups), mat);
   const runtime = new BodyWorksRuntime(); const model = createMatch(fighterId, fighterId === 'nova' ? 'atlas' : 'nova', 'standard', 'normal', 913); model.physicsAuthority = true; model.aiThinkTimer = 999; model.aiControllers.opponent.thinkTimer = 999;
@@ -76,7 +76,7 @@ const stepHarness = (world: World, runtime: BodyWorksRuntime, model: MatchModel,
 };
 
 const makeGrappleHarness = (): { world: World; runtime: BodyWorksRuntime; model: MatchModel; player: HeadlessRig; opponent: HeadlessRig } => {
-  const world = new World({ x: 0, y: -18, z: 0 }); world.timestep = STEP;
+  const world = new World({ x: 0, y: -18, z: 0 }); world.timestep = STEP; world.numSolverIterations = 8; world.numInternalPgsIterations = 2; world.maxCcdSubsteps = 2;
   const mat = world.createRigidBody(RigidBodyDesc.fixed().setTranslation(0, 1.52, 0));
   world.createCollider(ColliderDesc.cuboid(6, .325, 4.5).setFriction(1.1).setCollisionGroups(arenaCollisionGroups), mat);
   const runtime = new BodyWorksRuntime(); const model = createMatch('atlas', 'nova', 'standard', 'normal', 1217);
@@ -100,6 +100,24 @@ const stepGrappleHarness = (world: World, runtime: BodyWorksRuntime, model: Matc
 beforeAll(async () => { await init(); });
 
 describe('Rapier-backed Bodyworks integration', () => {
+  it.each(['back', 'front', 'left', 'right'] as const)('recovers from a %s fall to supported player control', (orientation) => {
+    const { world, runtime, model } = makeHarness();
+    try {
+      model.labMode = true;
+      for (let frame = 0; frame < 45; frame++) stepHarness(world, runtime, model);
+      runtime.prepareLabFall('player', orientation, model.player.facing);
+      model.player.state = 'downed'; model.player.stateElapsed = 0; model.player.downTimer = .75;
+      model.player.recoveryOrientation = orientation;
+      for (let frame = 0; frame < 300; frame++) stepHarness(world, runtime, model);
+      const snapshot = runtime.fighterSnapshot('player');
+      expect(model.player.state, JSON.stringify(snapshot)).toBe('idle');
+      expect(snapshot.upright).toBeGreaterThan(.8);
+      expect(snapshot.supportFeet).toBeGreaterThan(0);
+      expect(runtime.metrics.emergencyResetCount).toBe(0);
+      expect(requestCommand(model, 'player', 'heavy')).toBe(true);
+    } finally { runtime.reset(); world.free(); }
+  });
+
   it('holds a 16-body fighter upright without planar drift through a one-minute fixed-step soak', () => {
     const { world, runtime, model, rig } = makeHarness(); stepHarness(world, runtime, model);
     const initialPosition = { ...model.player.position };
@@ -213,6 +231,9 @@ describe('Rapier-backed Bodyworks integration', () => {
   it('locks one physical recovery side instead of flickering between slanted downed poses', () => {
     const { world, runtime, model, rig } = makeHarness();
     model.player.state = 'downed'; model.player.stateElapsed = .3; model.player.downTimer = 20;
+    runtime.prepareLabFall('player', 'back', model.player.facing);
+    // Capture orientation from a settled contact before perturbing the torso.
+    for (let frame = 0; frame < 60; frame++) stepHarness(world, runtime, model);
     const orientations: string[] = [];
     for (let frame = 0; frame < 16; frame += 1) {
       const angle = Math.PI / 2; const half = Math.sin(angle / 2); const w = Math.cos(angle / 2);

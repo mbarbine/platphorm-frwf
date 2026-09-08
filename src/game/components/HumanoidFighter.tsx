@@ -8,7 +8,7 @@ import { FighterAccessories } from './FighterAccessories';
 
 /** A standard skinned glTF asset, driven by the same solved bones as contact. */
 export function HumanoidFighter({ runtime, side }: { runtime: FighterRuntime; side: FighterSlot }) {
-  const { scene, bones, fingers } = useHumanoidAsset(runtime.definitionId);
+  const { scene, bones, fingers, modelScale } = useHumanoidAsset(runtime.definitionId);
   const curl = useMemo(() => new Quaternion(), []);
   const curlAxis = useMemo(() => new Vector3(1, 0, 0), []);
 
@@ -25,5 +25,5 @@ export function HumanoidFighter({ runtime, side }: { runtime: FighterRuntime; si
     scene.updateMatrixWorld(true);
   });
 
-  return <><primitive object={scene} dispose={null} /><FighterAccessories fighterId={runtime.definitionId} side={side} /></>;
+  return <><primitive object={scene} dispose={null} /><FighterAccessories fighterId={runtime.definitionId} side={side} modelScale={modelScale} /></>;
 }

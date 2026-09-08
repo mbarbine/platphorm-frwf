@@ -95,7 +95,7 @@ async function bootstrap(): Promise<void> {
   console.log(`   Tick:    ${SERVER_CONFIG.SERVER_TICK_RATE} Hz`);
 }
 
-if (process.env.NODE_ENV !== 'test' && !process.env.VITEST && typeof globalThis.describe !== 'function') {
+if (process.env.NODE_ENV !== 'test' && !process.env.VITEST) {
   void bootstrap().catch((err) => { console.error('Server failed to start:', err); process.exit(1); });
 }
 

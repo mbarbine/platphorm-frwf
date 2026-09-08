@@ -1,5 +1,6 @@
 import { useLoader } from '@react-three/fiber';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
+import { fitHumanoid } from '../presentation/fitHumanoid';
 import { Bone, SkinnedMesh } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
@@ -11,8 +12,9 @@ export function useHumanoidAsset(fighterId: FighterId) {
   const asset = assets.fighters.find((entry) => entry.id === fighterId);
   if (!asset) throw new Error(`Missing character asset: ${fighterId}`);
   const gltf = useLoader(GLTFLoader, asset.url);
-  return useMemo(() => {
+  const instance = useMemo(() => {
     const scene = clone(gltf.scene);
+    const fit = fitHumanoid(scene, fighterId);
     const bones = new Map<BodySegmentId, Bone>();
     const fingers: { bone: Bone; rest: Bone['quaternion'] }[] = [];
     scene.traverse((node) => {
@@ -22,6 +24,8 @@ export function useHumanoidAsset(fighterId: FighterId) {
       }
       if (node instanceof SkinnedMesh) { node.castShadow = true; node.receiveShadow = true; node.frustumCulled = false; }
     });
-    return { scene, bones, fingers };
-  }, [gltf]);
+    return { scene, bones, fingers, modelScale: fit.scale, dispose: fit.dispose };
+  }, [gltf, fighterId]);
+  useEffect(() => () => instance.dispose(), [instance]);
+  return instance;
 }

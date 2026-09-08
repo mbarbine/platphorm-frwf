@@ -415,7 +415,7 @@ describe('authoritative server contract', () => {
   it('vercel.json header configuration contains valid JSON and no duplicate header keys', async () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
-    const vercelJsonPath = path.resolve(process.cwd(), 'vercel.json');
+    const vercelJsonPath = path.resolve(import.meta.dirname, '../../../vercel.json');
     const rawContent = fs.readFileSync(vercelJsonPath, 'utf-8');
     const parsed = JSON.parse(rawContent);
 

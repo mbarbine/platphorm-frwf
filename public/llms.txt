@@ -1,7 +1,7 @@
 # RINGFALL: CHAOS CIRCUIT
-Original local-first 3D arcade wrestling game with articulated physics, adaptive quality, an expanded interactive Volt Dome, environmental grapples, and a stable multi-mode camera director. Default play is a five-wrestler Battle Royale free-for-all; Singles remains available.
+Local-first 3D wrestling game with articulated physics in the Volt Dome. Fresh local setup defaults to Singles; five-wrestler Battle Royale is also available. Open-world wrestling is the development direction, not a currently delivered mode.
 Public game: /
 Health: /api/health
 API docs: /api/docs
 OpenAPI: /openapi.yaml
-No backend, login, runtime network requests, protected actions, or MCP execution are implemented.
+Characters, music, crowd audio and original FRWF background footage load as bundled assets. Local matches need no login. The optional online client uses a separately configured Colyseus service; production availability and gameplay parity require independent verification. The separate Cloudflare backend is not wired into this browser client. Static frontend discovery does not certify gameplay quality or backend deployment.

@@ -2395,7 +2395,14 @@ export class BodyWorksRuntime {
     const groundedPelvisY = rig.restPelvisY - (physicallyOnRingsideFloor ? 1.46 : 0);
     fighter.body.verticalOffset = Math.max(0, position.y - groundedPelvisY);
     fighter.body.verticalVelocity = velocity.y;
-    if (fighter.state === 'recovering' && rig.supportContacts.size === 0) fighter.body.balance = Math.min(fighter.body.balance, 69);
+    // Support alone can score 58/100 balance. The old >=70 completion gate
+    // therefore locked a still-sideways pelvis as soon as one foot touched.
+    // Keep recovery motors active until the actual core is standing over feet.
+    if (fighter.state === 'recovering') {
+      const headHeight = (rig.bodies.head?.translation().y ?? position.y) - position.y;
+      const standingCore = upright >= .92 && headHeight >= (rig.restOffsets.head?.y ?? .9) * .75;
+      if (rig.supportContacts.size === 0 || !standingCore) fighter.body.balance = Math.min(fighter.body.balance, 69);
+    }
     if (fighter.state !== 'downed') rig.recoveryOrientationCaptured = false;
     // OPTIMIZATION: Replacing slow Math.hypot with zero-allocation squared check.
     if (!preserveRecoveryOrientation && fighter.state === 'downed' && !rig.recoveryOrientationCaptured && (velocity.x * velocity.x + velocity.y * velocity.y + velocity.z * velocity.z) < 1.6 * 1.6) {

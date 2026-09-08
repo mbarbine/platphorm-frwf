@@ -345,6 +345,8 @@ function PropVisual({ kind }: { kind: PropRuntime['kind'] }) {
 function PhysicalProp({ prop, initialPosition }: { prop: PropRuntime; initialPosition: [number, number, number] }) {
   const body = useRef<RapierRigidBody | null>(null);
   const replayActive = useMatchStore((state) => state.replayActive);
+  const spawnPosition = useRef(initialPosition).current;
+  const userData = useMemo(() => ({ surface: true, prop: prop.id, kind: prop.kind }), [prop.id, prop.kind]);
   useEffect(() => {
     const rigidBody = body.current; if (!rigidBody || prop.kind === 'table') return;
     return bodyWorksRuntime.registerProp(prop.id, prop.kind, rigidBody);
@@ -373,19 +375,20 @@ function PhysicalProp({ prop, initialPosition }: { prop: PropRuntime; initialPos
     bodyWorksRuntime.recordContact({ time: model.elapsed, sourceFighter: source, sourceSegment: 'rightHand', targetFighter: targetData.fighter, targetSegment: targetData.segment, targetRegion: targetData.region, totalForce: payload.totalForceMagnitude, maximumForce: payload.maxForceMagnitude, forceDirection: [payload.maxForceDirection.x, payload.maxForceDirection.y, payload.maxForceDirection.z], point: [propPosition.x, propPosition.y, propPosition.z], relativeSpeed, attackInstanceId, moveId, attackPhaseAtContact: 'active', sourceObjectId: prop.id, targetSurface: null, isLanding: false });
   };
   const mass = prop.kind === 'chair' ? 3.4 : prop.kind === 'trash' ? 4.8 : prop.kind === 'bell' ? 1.3 : .75;
-  return <RigidBody ref={body} type="dynamic" position={initialPosition} colliders="cuboid" mass={mass} linearDamping={1.15} angularDamping={1.05} restitution={prop.kind === 'chair' ? .2 : prop.kind === 'trash' ? .16 : .34} collisionGroups={propCollisionGroups} solverGroups={propCollisionGroups} userData={{ surface: true, prop: prop.id, kind: prop.kind }} onContactForce={onContactForce}>
+  return <RigidBody ref={body} type="dynamic" position={spawnPosition} colliders="cuboid" mass={mass} linearDamping={1.15} angularDamping={1.05} restitution={prop.kind === 'chair' ? .2 : prop.kind === 'trash' ? .16 : .34} collisionGroups={propCollisionGroups} solverGroups={propCollisionGroups} userData={userData} onContactForce={onContactForce}>
     <group visible={!replayActive}><PropVisual kind={prop.kind} /></group>
   </RigidBody>;
 }
 
 function BrokenTable({ x, z }: { x: number; z: number }) {
+  const userData = useMemo(() => ({ surface: true, kind: 'broken-table' }), []);
   const fragments: { offset: [number, number]; velocity: [number, number, number]; spin: [number, number, number] }[] = [
     { offset: [-.9, .36], velocity: [-2.4, 3.2, 1.4], spin: [1.8, -.8, 2.4] },
     { offset: [.9, .36], velocity: [2.4, 3.5, 1.2], spin: [-1.4, .9, -2.1] },
     { offset: [-.9, -.36], velocity: [-2.1, 2.8, -1.6], spin: [-1.2, -1.1, 2] },
     { offset: [.9, -.36], velocity: [2.1, 3, -1.5], spin: [1.4, 1, -2.3] },
   ];
-  return <>{fragments.map((fragment, index) => <RigidBody key={index} type="dynamic" position={[x + fragment.offset[0], 1.05, z + fragment.offset[1]]} colliders="cuboid" mass={2.1} linearVelocity={fragment.velocity} angularVelocity={fragment.spin} linearDamping={.7} angularDamping={.9} collisionGroups={propCollisionGroups} solverGroups={propCollisionGroups} userData={{ surface: true, kind: 'broken-table' }}>
+  return <>{fragments.map((fragment, index) => <RigidBody key={index} type="dynamic" position={[x + fragment.offset[0], 1.05, z + fragment.offset[1]]} colliders="cuboid" mass={2.1} linearVelocity={fragment.velocity} angularVelocity={fragment.spin} linearDamping={.7} angularDamping={.9} collisionGroups={propCollisionGroups} solverGroups={propCollisionGroups} userData={userData}>
     <mesh castShadow><boxGeometry args={[1.55, .14, .56]} /><meshStandardMaterial color={index % 2 === 0 ? '#30394a' : '#202736'} metalness={.55} roughness={.38} emissive="#15a9c8" emissiveIntensity={.18} /></mesh>
   </RigidBody>)}</>;
 }
@@ -443,6 +446,7 @@ function EntranceLane() {
 
 function FlexBarricadePanel({ axis, position, length, accent }: { axis: 'x' | 'z'; position: [number, number, number]; length: number; accent: string }) {
   const body = useRef<RapierRigidBody | null>(null); const anchor = useRef({ x: position[0], y: position[1], z: position[2] });
+  const userData = useMemo(() => ({ surface: true, kind: 'barricade-flex' }), []);
   useFrame(() => {
     const rigidBody = body.current; if (!rigidBody?.isValid()) return;
     const current = rigidBody.translation(); const velocity = rigidBody.linvel(); const target = anchor.current;
@@ -454,7 +458,7 @@ function FlexBarricadePanel({ axis, position, length, accent }: { axis: 'x' | 'z
   });
   const size: [number, number, number] = axis === 'x' ? [length, .82, .18] : [.18, .82, length];
   const collider: [number, number, number] = axis === 'x' ? [length / 2, .41, .09] : [.09, .41, length / 2];
-  return <RigidBody ref={body} type="dynamic" position={position} colliders={false} mass={44} gravityScale={0} lockRotations linearDamping={4.2} angularDamping={8} collisionGroups={propCollisionGroups} solverGroups={propCollisionGroups} userData={{ surface: true, kind: 'barricade-flex' }}>
+  return <RigidBody ref={body} type="dynamic" position={position} colliders={false} mass={44} gravityScale={0} lockRotations linearDamping={4.2} angularDamping={8} collisionGroups={propCollisionGroups} solverGroups={propCollisionGroups} userData={userData}>
     <CuboidCollider args={collider} friction={.86} restitution={.08} />
     <mesh castShadow><boxGeometry args={size} /><meshStandardMaterial color="#33394c" emissive={accent} emissiveIntensity={.32} metalness={.7} roughness={.28} /></mesh>
     <mesh position={axis === 'x' ? [0, .48, -.105] : [-.105, .48, 0]}><boxGeometry args={axis === 'x' ? [length * .9, .06, .055] : [.055, .06, length * .9]} /><meshStandardMaterial color={accent} emissive={accent} emissiveIntensity={1.55} /></mesh>
