@@ -1,7 +1,7 @@
 import { useFrame } from '@react-three/fiber';
 import { useEffect, useMemo, useRef } from 'react';
 import { CanvasTexture, SRGBColorSpace } from 'three';
-import type { Group } from 'three';
+import type { Group, Vector3, Quaternion } from 'three';
 import { bodyWorksRuntime } from '../physics/physicsRuntime';
 import { useMatchStore } from '../state/matchStore';
 import { fighterById } from '../data/fighters';
@@ -28,15 +28,15 @@ function ChampionshipPlate() {
 }
 
 /** Identity details remain attached to solved anatomy throughout a throw. */
-export function FighterAccessories({ fighterId, side }: { fighterId: FighterId; side: FighterSlot }) {
+export function FighterAccessories({ fighterId, side, previewPose }: { fighterId: FighterId; side?: FighterSlot; previewPose?: (segment: 'head' | 'pelvis' | 'chest') => { position: Vector3; rotation: Quaternion } | undefined }) {
   const head = useRef<Group>(null); const waist = useRef<Group>(null); const chest = useRef<Group>(null);
   const fighter = fighterById(fighterId);
   useFrame(() => {
     for (const [ref, segment] of [[head, 'head'], [waist, 'pelvis'], [chest, 'chest']] as const) {
-      const pose = bodyWorksRuntime.segmentSnapshot(side, segment); if (!pose || !ref.current) continue;
+      const pose = previewPose ? previewPose(segment) : side ? bodyWorksRuntime.segmentSnapshot(side, segment) : undefined; if (!pose || !ref.current) continue;
       ref.current.position.copy(pose.position); ref.current.quaternion.set(pose.rotation.x, pose.rotation.y, pose.rotation.z, pose.rotation.w);
     }
-    if (waist.current) { const model = useMatchStore.getState().model; waist.current.visible = model.elapsed < 2 || model[side].state === 'victorious'; }
+    if (waist.current) { const model = useMatchStore.getState().model; waist.current.visible = Boolean(previewPose) || model.elapsed < 2 || Boolean(side && model[side].state === 'victorious'); }
   });
   return <>
     <group ref={head}>
