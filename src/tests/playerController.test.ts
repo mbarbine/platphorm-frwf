@@ -5,6 +5,16 @@ import { createActionEvent } from '../game/input/actionLayer';
 
 const input = { move: { x: 0, z: 0 }, run: false, block: false, actions: [] };
 describe('arcade wrestling approach', () => {
+  it('gives lateral steering back immediately instead of dragging the player toward a queued attack', () => {
+    const model = createMatch('chad', 'vex', 'standard', 'normal');
+    model.player.position.x = -1; model.opponent.position.x = 1;
+    const controller = new PlayerController();
+    controller.read({ ...input, actions: [createActionEvent('quickStrike', { source: 'keyboard', timestamp: 0 })] }, model, 'arcade');
+    const strafe = { x: 0, z: 1 };
+    expect(controller.read({ ...input, move: strafe }, model, 'arcade').move).toEqual(strafe);
+    model.player.position.x = .3;
+    expect(controller.read(input, model, 'arcade').actions).toHaveLength(0);
+  });
   it('steps into a grapple from the starting gap and only submits it in physical reach', () => {
     const model = createMatch('chad', 'vex', 'standard', 'normal');
     const controller = new PlayerController();

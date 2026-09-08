@@ -330,3 +330,5 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .physics-lab[data-minimized=true] { width: auto; max-height: none; padding: .3rem; }
 .physics-lab[data-minimized=true] > :not(.physics-lab__visibility) { display: none; }
 .physics-lab[data-minimized=true] .physics-lab__visibility { margin: 0; }
+
+.physics-lab__ownership { padding: .5rem 0 .1rem; color: var(--acid); font: 800 .6rem var(--font-tech); line-height: 1.5; }

@@ -15,6 +15,8 @@ import { resolvedSpectatorTarget, useSpectatorStore } from '../state/spectatorSt
 import { isRingside } from '../physics/ringDynamics';
 import { bodyFramingDistance, placeBroadcastCamera } from '../camera/bodyFraming';
 
+const BROADCAST_YAW = Math.PI / 4;
+
 const isFiniteNumber = (value: unknown): value is number => Number.isFinite(value as number);
 const safeNumber = (value: unknown, fallback: number): number => isFiniteNumber(value) ? value : fallback;
 const boundedPrediction = (position: number, velocity: number, seconds: number): number => {
@@ -665,9 +667,9 @@ export function CameraRig() {
       if (cameraCuts === 'off' && !replayActive) {
         // Fit after target smoothing: a rapidly lifted body must remain visible
         // even while the camera catches up. Pull back immediately, ease in slowly.
-        const required = bodyFramingDistance(bounds, smoothedTarget, perspective.fov, perspective.aspect);
+        const required = bodyFramingDistance(bounds, smoothedTarget, perspective.fov, perspective.aspect, BROADCAST_YAW);
         framingDistance.current = Math.max(required, framingDistance.current + (required - framingDistance.current) * (1 - Math.exp(-clampedDt * 2.4)));
-        placeBroadcastCamera(camera.position, smoothedTarget, framingDistance.current);
+        placeBroadcastCamera(camera.position, smoothedTarget, framingDistance.current, BROADCAST_YAW);
         lookAtSafe(perspective, smoothedTarget);
       }
     }

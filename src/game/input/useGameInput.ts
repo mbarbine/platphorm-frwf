@@ -105,6 +105,8 @@ export const useGameInput = (
 
   useEffect(() => {
     const down = (event: KeyboardEvent): void => {
+      const target = event.target;
+      if (target instanceof HTMLElement && (target.isContentEditable || target.matches('input, textarea, select'))) return;
       const action = KEYBOARD_ACTIONS[event.code];
       if (event.repeat && action) return;
       const targetCycle = keyboardTargetCycle(event.code, event.shiftKey);

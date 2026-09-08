@@ -66,26 +66,46 @@ const SCENARIOS: readonly LabScenario[] = [
   { id: 'reset', label: 'COMPLETE RUNTIME RESET', steps: [], duration: 1_200 },
 ] as const;
 
-const dispatchKey = (code: string, down: boolean): void => { window.dispatchEvent(new KeyboardEvent(down ? 'keydown' : 'keyup', { code, key: code, bubbles: true })); };
+const scriptedKeys = new Set<string>();
+const dispatchKey = (code: string, down: boolean): void => { if (down) scriptedKeys.add(code); else scriptedKeys.delete(code); window.dispatchEvent(new KeyboardEvent(down ? 'keydown' : 'keyup', { code, key: code, bubbles: true })); };
 export function PhysicsLab() {
   const model = useMatchStore((state) => state.model); const revision = useMatchStore((state) => state.revision);
   const rate = usePhysicsLabStore((state) => state.rate); const debug = usePhysicsLabStore((state) => state.debug);
-  const [active, setActive] = useState<string | null>(null); const fps = useRef(0); const timers = useRef<number[]>([]); const lastScenario = useRef<LabScenario | null>(null);
+  const [active, setActive] = useState<string | null>(null); const fps = useRef(0); const timers = useRef<number[]>([]); const automationActive = useRef(false); const lastScenario = useRef<LabScenario | null>(null);
   const [playerId, setPlayerId] = useState<FighterId>(model.player.definitionId); const [opponentId, setOpponentId] = useState<FighterId>(model.opponent.definitionId);
   const [minimized, setMinimized] = useState(false);
   const [venue, setVenue] = useState<CombatVenue>(model.venue ?? 'dome');
   const [seed, setSeed] = useState(model.seed); const [playerStamina, setPlayerStamina] = useState(100); const [opponentStamina, setOpponentStamina] = useState(100);
   const [playerMass, setPlayerMass] = useState(0); const [opponentMass, setOpponentMass] = useState(0);
   const frames = useRef(0); const lastFpsAt = useRef(performance.now());
-  const clearTimers = (): void => { for (const timer of timers.current) { window.clearTimeout(timer); window.clearInterval(timer); } timers.current = []; };
+  const clearTimers = (): void => { automationActive.current = false; for (const timer of timers.current) { window.clearTimeout(timer); window.clearInterval(timer); } timers.current = []; for (const code of [...scriptedKeys]) dispatchKey(code, false); };
   useEffect(() => {
     let frame = 0; const tick = (): void => { frames.current += 1; frame = requestAnimationFrame(tick); }; frame = requestAnimationFrame(tick);
     const interval = window.setInterval(() => { const now = performance.now(); fps.current = Math.round(frames.current * 1_000 / Math.max(1, now - lastFpsAt.current)); frames.current = 0; lastFpsAt.current = now; }, 1_000);
     return () => { cancelAnimationFrame(frame); window.clearInterval(interval); clearTimers(); useMatchStore.getState().pause(false); };
   }, []);
 
+  useEffect(() => {
+    const takeOver = (event: KeyboardEvent): void => {
+      if (!automationActive.current || !event.isTrusted || !/^(Key[WASDJKLIFCQE]|Arrow(Up|Down|Left|Right)|Space|ShiftLeft|ShiftRight)$/.test(event.code)) return;
+      if (event.target instanceof HTMLElement && (event.target.isContentEditable || event.target.matches('input, textarea, select'))) return;
+      clearTimers(); setActive(null);
+      bodyWorksRuntime.rejectPendingActions('player', useMatchStore.getState().model.elapsed, 'manual input took over lab');
+    };
+    // Capture before the game receives this key: release scripted holds first,
+    // then let the actual player's key become the sole input owner.
+    window.addEventListener('keydown', takeOver, true);
+    return () => window.removeEventListener('keydown', takeOver, true);
+  }, []);
+  const takeControl = (): void => {
+    clearTimers(); setActive(null); setMinimized(true);
+    bodyWorksRuntime.rejectPendingActions('player', model.elapsed, 'manual control');
+    usePhysicsLabStore.getState().setRate(1); usePhysicsLabStore.getState().setDebug(false);
+    useMatchStore.getState().pause(false);
+  };
+
   const run = (scenario: LabScenario): void => {
-    clearTimers(); useMatchStore.getState().pause(false); setActive(scenario.id); lastScenario.current = scenario;
+    clearTimers(); automationActive.current = true; useMatchStore.getState().pause(false); setActive(scenario.id); lastScenario.current = scenario;
     if (scenario.id === 'reset') {
       useMatchStore.getState().configureLab(playerId, opponentId, seed, playerStamina, opponentStamina, playerMass, opponentMass);
       timers.current.push(window.setTimeout(() => setActive(null), scenario.duration));
@@ -198,7 +218,7 @@ export function PhysicsLab() {
       if (reboundPressAt !== null && !reboundReleased) dispatchKey('KeyK', false);
       if (slamPressAt !== null && !slamReleased) dispatchKey('KeyK', false);
       if (stagedKey) dispatchKey(stagedKey, false);
-      setActive(null);
+      automationActive.current = false; setActive(null);
     }, 8);
     timers.current.push(scheduler);
   };
@@ -220,7 +240,8 @@ export function PhysicsLab() {
   return <aside className="physics-lab" data-minimized={minimized} data-testid="physics-lab" data-lab-scenario={active ?? 'idle'} data-lab-fps={fps.current} data-lab-step-ms={metrics.lastStepMs.toFixed(3)} data-lab-avg-step-ms={metrics.averageStepMs.toFixed(3)} data-lab-p95-step-ms={metrics.p95StepMs.toFixed(3)} data-lab-max-step-ms={metrics.maximumStepMs.toFixed(3)} data-lab-replay-kb={(metrics.replayEstimatedBytes / 1024).toFixed(1)} data-lab-strike-distance={metrics.lastStrikeDistance.toFixed(3)} data-lab-min-strike-distance={metrics.minimumStrikeDistance.toFixed(3)} data-lab-min-strike-planar={metrics.minimumStrikePlanarDistance.toFixed(3)} data-lab-min-strike-vertical={metrics.minimumStrikeVerticalDistance.toFixed(3)} data-lab-current-joint-separation={metrics.currentJointSeparation.toFixed(3)} data-lab-joint-separation={metrics.maximumJointSeparation.toFixed(3)} data-lab-numerical-faults={metrics.numericalFaultCount} data-lab-support-score={metrics.supportScore.toFixed(3)} data-lab-rate={rate} data-lab-debug={debug ? 'true' : 'false'}>
     <button className="physics-lab__visibility" aria-expanded={!minimized} onClick={() => setMinimized(value => !value)}>{minimized ? 'SHOW PHYSICS LAB' : 'MINIMIZE PHYSICS LAB'}</button>
     <header><span>RINGFALL BODYWORKS</span><b>PHYSICS LAB</b><small>REAL INPUT · REAL RAPIER · FIXED 60 HZ AUTHORITY</small><small data-testid="release-diagnostic">v{RELEASE_IDENTITY.applicationVersion} · {RELEASE_IDENTITY.shortGitSha} · F{RELEASE_IDENTITY.fighterCount} M{RELEASE_IDENTITY.moveCount} · {RELEASE_IDENTITY.deploymentEnvironment}</small></header>
-    <div className="physics-lab__toolbar"><button onClick={() => useMatchStore.getState().pause(!model.paused)}>{model.paused ? 'PLAY' : 'PAUSE'}</button><button onClick={stepOnce}>STEP</button>{([.25, .5, 1] as LabPlaybackRate[]).map((value) => <button className={rate === value ? 'active' : ''} key={value} onClick={() => usePhysicsLabStore.getState().setRate(value)}>{value}×</button>)}<button className={debug ? 'active' : ''} onClick={() => usePhysicsLabStore.getState().setDebug(!debug)}>DEBUG RIG</button><button disabled={!lastScenario.current || active !== null} onClick={() => lastScenario.current && run(lastScenario.current)}>REPEAT</button><button disabled={!lastScenario.current} onClick={() => lastScenario.current && run(lastScenario.current)}>RESET</button></div>
+    <div className="physics-lab__ownership">{active ? 'SCRIPTED RUN · ANY PLAY KEY TAKES CONTROL' : 'MANUAL CONTROL · WASD / J / K / L'}</div>
+    <div className="physics-lab__toolbar"><button onClick={takeControl}>TAKE CONTROL</button><button onClick={() => useMatchStore.getState().pause(!model.paused)}>{model.paused ? 'PLAY' : 'PAUSE'}</button><button onClick={stepOnce}>STEP</button>{([.25, .5, 1] as LabPlaybackRate[]).map((value) => <button className={rate === value ? 'active' : ''} key={value} onClick={() => usePhysicsLabStore.getState().setRate(value)}>{value}×</button>)}<button className={debug ? 'active' : ''} onClick={() => usePhysicsLabStore.getState().setDebug(!debug)} aria-pressed={debug}>COLLISION OVERLAY</button><button disabled={!lastScenario.current || active !== null} onClick={() => lastScenario.current && run(lastScenario.current)}>REPEAT</button><button disabled={!lastScenario.current} onClick={() => lastScenario.current && run(lastScenario.current)}>RESET</button></div>
     <details className="physics-lab__setup"><summary>PAIR / SEED / STAMINA / MASS</summary><div><label>VENUE<select value={venue} onChange={event => setVenue(event.target.value as CombatVenue)}>{Object.entries(VENUES).map(([id, value]) => <option key={id} value={id}>{value.name}</option>)}</select></label><label>PLAYER<select value={playerId} onChange={(event) => setPlayerId(event.target.value as FighterId)}>{FIGHTERS.map((fighter) => <option key={fighter.id} value={fighter.id}>{fighter.name}</option>)}</select></label><label>OPPONENT<select value={opponentId} onChange={(event) => setOpponentId(event.target.value as FighterId)}>{FIGHTERS.map((fighter) => <option key={fighter.id} value={fighter.id}>{fighter.name}</option>)}</select></label><label>SEED<input type="number" value={seed} onChange={(event) => setSeed(Number(event.target.value) || 1)} /></label><label>P1 GAS {playerStamina}%<input type="range" min="10" max="100" step="5" value={playerStamina} onChange={(event) => setPlayerStamina(Number(event.target.value))} /></label><label>CPU GAS {opponentStamina}%<input type="range" min="10" max="100" step="5" value={opponentStamina} onChange={(event) => setOpponentStamina(Number(event.target.value))} /></label><label>P1 MASS +{playerMass} KG<input type="range" min="0" max="80" step="5" value={playerMass} onChange={(event) => setPlayerMass(Number(event.target.value))} /></label><label>CPU MASS +{opponentMass} KG<input type="range" min="0" max="80" step="5" value={opponentMass} onChange={(event) => setOpponentMass(Number(event.target.value))} /></label><button onClick={applyPair}>LOAD PAIR</button></div></details>
     <div className="physics-lab__diagnostics">{diagnostics.map(([label, value]) => <div key={label}><span>{label}</span><b>{value}</b></div>)}</div>
     <div className="physics-lab__scenarios">{SCENARIOS.map((scenario) => <button key={scenario.id} disabled={active !== null || scenario.id === 'tableRecovery' && (!model.venue || model.venue === 'dome')} className={active === scenario.id ? 'active' : ''} onClick={() => run(scenario)}>{active === scenario.id ? 'RUNNING · ' : ''}{scenario.label}</button>)}</div>

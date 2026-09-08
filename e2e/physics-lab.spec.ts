@@ -12,10 +12,10 @@ test('Bodyworks lab exposes live Rapier diagnostics and drives real jump/walk in
   const hud = page.locator('.hud'); const lab = page.getByTestId('physics-lab'); const deck = page.getByTestId('control-deck');
   await expect(lab).toBeVisible(); await expect(hud).toHaveAttribute('data-physics-bodies', '32', { timeout: 30_000 }); await expect(hud).toHaveAttribute('data-physics-joints', '30');
   await lab.getByRole('button', { name: '0.5×' }).click(); await expect(lab).toHaveAttribute('data-lab-rate', '0.5');
-  await lab.getByRole('button', { name: 'DEBUG RIG' }).click(); await expect(lab).toHaveAttribute('data-lab-debug', 'true');
+  await lab.getByRole('button', { name: 'COLLISION OVERLAY' }).click(); await expect(lab).toHaveAttribute('data-lab-debug', 'true');
   await lab.getByRole('button', { name: 'PAUSE', exact: true }).click(); await expect(lab.getByRole('button', { name: 'PLAY', exact: true })).toBeVisible();
   await lab.getByRole('button', { name: 'STEP', exact: true }).click(); await expect(lab.getByRole('button', { name: 'PLAY', exact: true })).toBeVisible();
-  await lab.getByRole('button', { name: 'DEBUG RIG' }).click(); await expect(lab).toHaveAttribute('data-lab-debug', 'false');
+  await lab.getByRole('button', { name: 'COLLISION OVERLAY' }).click(); await expect(lab).toHaveAttribute('data-lab-debug', 'false');
   await lab.getByRole('button', { name: '1×' }).click(); await expect(lab).toHaveAttribute('data-lab-rate', '1');
   await lab.getByRole('button', { name: 'PLAY', exact: true }).click();
   await expect(deck).toBeVisible(); await expect(deck).toContainText('LIVE WRESTLING CONTROLS');

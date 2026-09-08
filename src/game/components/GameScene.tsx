@@ -218,13 +218,13 @@ function SpectatorFreeCamera() {
   return <OrbitControls makeDefault enabled={enabled} enableDamping dampingFactor={.09} enablePan enableZoom minDistance={2.4} maxDistance={32} minPolarAngle={.16} maxPolarAngle={Math.PI * .49} target={[target.position.x, 2.5, target.position.z]} />;
 }
 
-function Fighters({ detail, showPhysical }: { detail: FighterDetail; showPhysical: boolean }) {
+function Fighters({ detail }: { detail: FighterDetail }) {
   const model = useMatchStore((state) => state.model); const runtimeId = model.runtimeId;
   const replayActive = useMatchStore((state) => state.replayActive);
   const slots = model.matchMode === 'battle_royale' ? FIGHTER_SLOTS : FIGHTER_SLOTS.slice(0, 2);
   return <group key={runtimeId} visible={!replayActive}>
-    {slots.map((slot) => <PhysicalFighterRig key={`physics-${slot}`} runtime={model[slot]} side={slot} showVisuals={showPhysical} />)}
-    {!showPhysical && slots.map((slot) => <Suspense key={`visual-${slot}`} fallback={<FighterModel runtime={model[slot]} counterpart={model[model.targets[slot]]} side={slot} detail={detail} />}><HumanoidFighter runtime={model[slot]} side={slot} /></Suspense>)}
+    {slots.map((slot) => <PhysicalFighterRig key={`physics-${slot}`} runtime={model[slot]} side={slot} showVisuals={false} />)}
+    {slots.map((slot) => <Suspense key={`visual-${slot}`} fallback={<FighterModel runtime={model[slot]} counterpart={model[model.targets[slot]]} side={slot} detail={detail} />}><HumanoidFighter runtime={model[slot]} side={slot} /></Suspense>)}
   </group>;
 }
 
@@ -352,7 +352,7 @@ export function GameScene(props: Props) {
             maxCcdSubsteps={2}
           >
             {diagnosticModel.venue && diagnosticModel.venue !== 'dome' ? <FightVenue venue={diagnosticModel.venue} /> : <Arena crowdCount={quality.crowdCount} performanceMode={quality.tier === 'performance'} />}
-            <Fighters detail={fighterDetail} showPhysical={lab && labDebug} />
+            <Fighters detail={fighterDetail} />
             <ReplayDirector />
             <PlayerControlBeacon />
             <ImpactEffects />
