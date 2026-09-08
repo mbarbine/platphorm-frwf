@@ -8,7 +8,7 @@ const metadata = vi.hoisted(() => new Map<string, object>());
 vi.mock('@react-three/rapier', () => ({
   interactionGroups: () => 0,
   RigidBody: ({ name, position, userData }: { name: string; position: number[]; userData: object }) => { captured.set(name, [...position]); metadata.set(name, userData); return null; },
-  BallCollider: () => null, CuboidCollider: () => null, CapsuleCollider: () => null,
+  BallCollider: () => null, CuboidCollider: () => null, CapsuleCollider: () => null, RoundCuboidCollider: () => null,
   useSphericalJoint: () => null, useRevoluteJoint: () => null,
 }));
 vi.mock('../game/physics/physicsRuntime', () => ({ bodyWorksRuntime: { registerFighter: () => () => {} } }));

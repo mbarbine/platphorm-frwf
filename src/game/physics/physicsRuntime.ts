@@ -6,7 +6,7 @@ import type { FrameInput } from '../systems/combat';
 import { AI_FIGHTER_SLOTS, FALL_REASONS, FIGHTER_SLOTS } from '../types/game';
 import type { AttackPhase, BodyRegion, FighterRuntime, FighterSlot, GameCommand, MatchModel, PropRuntime, RecoveryOrientation, Vec2 } from '../types/game';
 import { clamp } from '../utils/math';
-import { CORE_SEGMENTS, HEAD_COLLIDER_RADIUS } from './bodySchema';
+import { CORE_SEGMENTS, HEAD_COLLIDER_RADIUS, buildBodySchema, torsoColliderArgs } from './bodySchema';
 import type { BodySegmentId } from './bodySchema';
 import { chasePoseAngularVelocity, computeMotorTorque, strikePoseChain } from './motorController';
 import { PhysicsReplayBuffer } from './replayBuffer';
@@ -1034,8 +1034,14 @@ export class BodyWorksRuntime {
     const landing = this.pendingLandings.get(key);
     // Both halves of the authored move drive the real linked bodies. Previously
     // a grabbed defender used combat idle, then the unrelated diving pose.
-    const pairedPose = carrier?.moveId && fighter.state === 'grabbed'
-      ? getPairedPose(getMove(carrier.moveId), 'victim', carrier.attackPhase, carrier.phaseElapsed, carrier.definitionId) ?? undefined
+    const lifting = model.grapple?.phase === 'lift';
+    // The physical lift begins before the generic anticipation clock reaches
+    // the authored carry pose. Hold both people at the carry beat together.
+    const carryElapsed = (moveId: string) => getMove(moveId).anticipationDuration * .98;
+    const pairedPose = lifting && model.grapple?.attacker === key && fighter.moveId
+      ? getPairedPose(getMove(fighter.moveId), 'actor', 'anticipation', carryElapsed(fighter.moveId), fighter.definitionId) ?? undefined
+      : carrier?.moveId && fighter.state === 'grabbed'
+      ? getPairedPose(getMove(carrier.moveId), 'victim', carrier.attackPhase, lifting ? carryElapsed(carrier.moveId) : carrier.phaseElapsed, carrier.definitionId) ?? undefined
       : landing ? getPairedPose(getMove(landing.moveId), 'victim', 'recovery', getMove(landing.moveId).anticipationDuration + getMove(landing.moveId).activeDuration + Math.min(.3, model.elapsed - landing.releasedAt), model[landing.attacker].definitionId) ?? POSES.downed
         : undefined;
     this.applyPoseDrive(rig, fighter, motorProfile, pairedPose);
@@ -1056,7 +1062,7 @@ export class BodyWorksRuntime {
     const defender = FIGHTER_SLOTS.find(slot => model[slot].state === 'pinned');
     if (!attacker || !defender) return;
     if (!model.pinCover || model.pinCover.attacker !== attacker || model.pinCover.defender !== defender) {
-      model.pinCover = { attacker, defender, age: 0, established: false, separation: 99, shoulderHeight: 99, lostSeconds: 0, facing: model[defender].facing };
+      model.pinCover = { attacker, defender, age: 0, contactAge: 99, established: false, separation: 99, shoulderHeight: 99, lostSeconds: 0, facing: model[defender].facing };
     }
     const cover = model.pinCover;
     const pelvis = rig.bodies.pelvis; const target = this.rigs.get(defender)?.bodies.chest;
@@ -1068,9 +1074,9 @@ export class BodyWorksRuntime {
       const p = pelvis.translation(); const chest = target.translation(); const v = pelvis.linvel();
       const reach = .6 * fighterById(fighter.definitionId).physics.standingHeightM / 1.88;
       this.applyRigAcceleration(rig, {
-        x: clamp((chest.x - Math.sin(yaw) * reach - p.x) * 24 - v.x * 8, -20, 20),
-        y: clamp((chest.y + .34 - p.y) * 26 - v.y * 9 + 18, -24, 30),
-        z: clamp((chest.z - Math.cos(yaw) * reach - p.z) * 24 - v.z * 8, -20, 20),
+        x: clamp((chest.x - Math.sin(yaw) * reach * Math.sin(COVER_POSE.rootTilt) - p.x) * 24 - v.x * 8, -20, 20),
+        y: clamp((chest.y + .25 - reach * Math.cos(COVER_POSE.rootTilt) - p.y) * 26 - v.y * 9 + 18, -24, 30),
+        z: clamp((chest.z - Math.cos(yaw) * reach * Math.sin(COVER_POSE.rootTilt) - p.z) * 24 - v.z * 8, -20, 20),
       });
       this.applyPoseDrive(rig, fighter, selectMotorProfile(fighter), COVER_POSE);
     } else {
@@ -1090,7 +1096,15 @@ export class BodyWorksRuntime {
     const floor = this.isRingside(model[cover.defender].position) ? .4 : VOLT_DOME.ring.deckY;
     cover.separation = Math.hypot(a.x - b.x, a.z - b.z);
     cover.shoulderHeight = b.y - floor;
-    cover.established = hasPhysicalCover({ separation: cover.separation, chestClearance: a.y - b.y, shoulderHeight: cover.shoulderHeight,
+    let torsoContact = false;
+    for (const aSegment of ['chest', 'abdomen'] as const) for (const bSegment of ['chest', 'abdomen'] as const) {
+      const aBody = this.rigs.get(cover.attacker)?.bodies[aSegment]; const bBody = this.rigs.get(cover.defender)?.bodies[bSegment];
+      if (aBody?.numColliders() && bBody?.numColliders()) this.world?.contactPair(aBody.collider(0), bBody.collider(0), manifold => {
+        torsoContact ||= manifold.numSolverContacts() > 0;
+      });
+    }
+    cover.contactAge = torsoContact ? 0 : (cover.contactAge ?? 99) + this.currentFixedDt;
+    cover.established = hasPhysicalCover({ torsoContact: cover.contactAge < .1, separation: cover.separation, chestClearance: a.y - b.y, shoulderHeight: cover.shoulderHeight,
       defenderUpY: uprightFromRotation(q), defenderFrontY: 2 * (q.y * q.z - q.w * q.x), attackerUpY: uprightFromRotation(actor.rotation()) });
     cover.lostSeconds = cover.established ? 0 : cover.lostSeconds + this.currentFixedDt;
   }
@@ -2014,7 +2028,9 @@ export class BodyWorksRuntime {
         : 6.5;
       const massTorqueCap = body.mass() * torquePerKg;
       const maximumTorque = Math.min(chain.maximumTorque * stiffnessScale, massTorqueCap);
-      if (supportedFall) {
+      if (fighter.state === 'airborne' && overridePose) {
+        body.setAngvel(chasePoseAngularVelocity(body.rotation(), targets[segment], body.angvel(), 5, 5, .22), true);
+      } else if (supportedFall) {
         body.setAngvel(chasePoseAngularVelocity(body.rotation(), targets[segment], body.angvel(), 4.2, 3.4, .16), true);
       } else if (fighter.state === 'pinning' || fighter.state === 'pinned') {
         body.setAngvel(chasePoseAngularVelocity(body.rotation(), targets[segment], body.angvel(), 6, 3.5, .24), true);
@@ -2429,9 +2445,18 @@ export class BodyWorksRuntime {
     const coreRadii = { pelvis: .22, abdomen: .21, chest: .27, head: HEAD_COLLIDER_RADIUS } as const;
     const lowestCoreClearance = (Object.keys(coreRadii) as (keyof typeof coreRadii)[]).reduce((lowest, segment) => {
       const body = rig.bodies[segment];
-      return body?.isValid() ? Math.min(lowest, body.translation().y - coreRadii[segment]) : lowest;
+      if (!body?.isValid()) return lowest;
+      let radius: number = coreRadii[segment];
+      if (segment === 'chest') {
+        const schema = buildBodySchema(fighterById(fighter.definitionId)).find(entry => entry.id === 'chest');
+        const args = schema && torsoColliderArgs(schema); const q = body.rotation();
+        if (args) radius = Math.abs(2 * (q.x * q.y + q.w * q.z)) * args[0]
+          + Math.abs(1 - 2 * (q.x * q.x + q.z * q.z)) * args[1]
+          + Math.abs(2 * (q.y * q.z - q.w * q.x)) * args[2] + args[3];
+      }
+      return Math.min(lowest, body.translation().y - radius);
     }, Number.POSITIVE_INFINITY);
-    if (!Number.isFinite(lowestCoreClearance) || lowestCoreClearance >= surfaceY + .008) return;
+    if (!Number.isFinite(lowestCoreClearance) || lowestCoreClearance >= surfaceY - .025) return;
     // Preserve the entire articulated pose while moving the connected tree out
     // of the fixed surface. This is a bounded penetration correction, not a
     // standing reset: the wrestler remains downed and must recover normally.

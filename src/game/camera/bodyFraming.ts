@@ -9,7 +9,7 @@ export function bodyFramingDistance(bounds: FramingBounds, target: FramingPoint,
   const sin = Math.sin(pitch); const cos = Math.cos(pitch);
   const vertical = Math.tan(Math.max(20, Math.min(90, fov)) * Math.PI / 360) * .72;
   const horizontal = vertical * Math.max(.3, aspect);
-  let distance = 7.8;
+  let distance = 6.8;
   for (let corner = 0; corner < 8; corner++) {
     const dx = (corner & 1 ? bounds.max.x : bounds.min.x) - target.x;
     const dy = (corner & 2 ? bounds.max.y : bounds.min.y) - target.y;

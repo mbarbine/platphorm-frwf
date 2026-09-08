@@ -891,7 +891,7 @@ const updateFighter = (model: MatchModel, actorKey: FighterSlot, dt: number, mov
       && model.grapple?.attacker === actorKey && model.grapple.gripCount >= 2
       && model.grapple.age < .5 && ['clinch', 'load', 'acquire', 'reach'].includes(model.grapple.phase);
     const holdingLift = model.physicsAuthority && actorKey === 'player' && actor.attackPhase === 'anticipation'
-      && model.grapple?.attacker === actorKey && model.grapple.phase === 'lift' && (model.grapple.liftElapsed ?? 0) < 1.2;
+      && model.grapple?.attacker === actorKey && model.grapple.phase === 'lift' && (model.grapple.liftElapsed ?? 0) < 1.8;
     actor.phaseElapsed = waitingForPhysicalGrip ? Math.min(actor.phaseElapsed + dt, move.anticipationDuration * .28)
       : choosingThrow ? Math.min(actor.phaseElapsed + dt, move.anticipationDuration * .32)
         : holdingLift ? Math.min(actor.phaseElapsed + dt, move.anticipationDuration * .76) : actor.phaseElapsed + dt;

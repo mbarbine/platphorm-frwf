@@ -68,7 +68,7 @@
       "vars": {
         "ENVIRONMENT": "production",
         "PUBLIC_ORIGIN": "https://frwf.platphormnews.com",
-        "RELEASE": "1.4.0"
+        "RELEASE": "1.4.1"
       },
       "durable_objects": {
         "bindings": [

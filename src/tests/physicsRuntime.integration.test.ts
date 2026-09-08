@@ -311,9 +311,11 @@ describe('Rapier-backed Bodyworks integration', () => {
     expect(requestCommand(model, 'player', 'heavy')).toBe(true);
     stepGrappleHarness(world, runtime, model);
     let sawTwoGrips = false; let sawLift = false; let sawLanding = false; let peakPelvisY = restingPelvisY;
+    const samples: unknown[] = [];
     for (let frame = 0; frame < 540 && model.opponent.health === 100; frame += 1) {
       stepGrappleHarness(world, runtime, model);
       peakPelvisY = Math.max(peakPelvisY, runtime.fighterSnapshot('opponent').pelvisY);
+      if (frame % 30 === 0) samples.push({ frame, phase: model.grapple?.phase, position: { ...model.opponent.position }, pelvis: runtime.fighterSnapshot('opponent').pelvisY, pending: runtime.pendingLandingCount() });
       sawTwoGrips ||= runtime.metrics.gripCreateCount >= 2;
       sawLift ||= model.grapple?.phase === 'lift';
       sawLanding ||= runtime.metrics.lastContactPair === 'chest>ring';
@@ -322,7 +324,7 @@ describe('Rapier-backed Bodyworks integration', () => {
     expect(sawLift, JSON.stringify({ grapple: model.grapple, player: model.player, metrics: runtime.metrics })).toBe(true);
     expect(peakPelvisY, JSON.stringify({ restingPelvisY, peakPelvisY, opponent: model.opponent, metrics: runtime.metrics })).toBeGreaterThan(restingPelvisY + .55);
     expect(peakPelvisY - restingPelvisY, 'a body slam lifts to shoulder height, not above the arena').toBeLessThan(1.8);
-    expect(sawLanding, JSON.stringify({ opponent: model.opponent, metrics: runtime.metrics })).toBe(true);
+    expect(sawLanding, JSON.stringify({ samples, opponent: model.opponent, metrics: runtime.metrics })).toBe(true);
     expect(model.opponent.health).toBeLessThan(100);
     expect(model.playerStats.grapples).toBe(1);
     expect(runtime.pendingLandingCount()).toBe(0);

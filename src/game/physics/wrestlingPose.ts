@@ -12,16 +12,18 @@ export const BREAKFALL_POSE: Pose = {
 
 export const COVERED_POSE: Pose = { ...BREAKFALL_POSE, rootTilt: -Math.PI / 2 };
 export const COVER_POSE: Pose = {
-  ...BREAKFALL_POSE, rootTilt: Math.PI / 2,
-  leftArm: [-.4, 0, -.55], rightArm: [-.4, 0, .55],
-  leftForearm: [-.85, 0, 0], rightForearm: [-.85, 0, 0],
-  leftLeg: [.04, 0, -.18], rightLeg: [.2, 0, .22],
+  ...BREAKFALL_POSE, rootTilt: 1.25,
+  leftArm: [-.8, 0, -.48], rightArm: [-.9, 0, .48],
+  leftForearm: [-.5, 0, 0], rightForearm: [-.5, 0, 0],
+  leftLeg: [-.45, 0, -.18], rightLeg: [-.25, 0, .22],
+  leftShin: [-.9, 0, 0], rightShin: [-.7, 0, 0],
 };
 
 /** Authored flexion is negative; Rapier knee hinges permit positive flexion. */
 export const kneeFlexion = (authored: number): number => Math.max(0, Math.min(2.45, -authored));
 
 export interface CoverEvidence {
+  torsoContact: boolean;
   separation: number;
   chestClearance: number;
   shoulderHeight: number;
@@ -31,7 +33,7 @@ export interface CoverEvidence {
 }
 
 export function hasPhysicalCover(e: CoverEvidence): boolean {
-  return Object.values(e).every(Number.isFinite) && e.separation < .48
+  return e.torsoContact && [e.separation, e.chestClearance, e.shoulderHeight, e.defenderUpY, e.defenderFrontY, e.attackerUpY].every(Number.isFinite) && e.separation < .48
     && e.chestClearance > .15 && e.chestClearance < .52
     && e.shoulderHeight < .46 && Math.abs(e.defenderUpY) < .48
     && e.defenderFrontY > .65 && Math.abs(e.attackerUpY) < .55;

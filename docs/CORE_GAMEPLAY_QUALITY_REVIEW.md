@@ -34,14 +34,18 @@ Keep the open-world roadmap, but postpone additional places and spectacle until 
 - Other network sites: not changed or certified; platform standardization remains per-site work.
 
 
-## 1.4.0 implementation
+## 1.4.1 implementation
+
+The user committed and deployed an intermediate 1.4.0 during this work. Version 1.4.1 contains the subsequent contact/cover corrections and revised default-graphics journey.
 
 This pass repairs the contact and presentation defects found above. It is not a claim of photorealism or completed open-world gameplay.
 
+- Chest colliders now preserve shoulder width with a shallower rounded cross-section. The floor penetration fallback uses the rotated chest dimensions and only corrects actual penetration; its old spherical approximation lifted the visible torso before contact. Cover posture lowers the hips, bends the knees and puts weight onto the opponent.
 - Physical knee motor targets now match the hinge flexion direction. Fallen wrestlers retain passive limb support relative to their actual pelvis rather than switching off every limb motor. Gravity and solved landing contacts still determine the fall.
-- All standing throw choices enter through the same reachable collar tie. Hand acquisition tolerances shrink from 1.04/1.1 to 0.34/0.40 world units from the target surface. This remains a tolerant spring grip, not exact finger contact.
+- Carry poses now follow the physical lift phase for both wrestlers; the old generic animation clock still showed the attacker crouching while the victim had already been lifted. The manual release beat is longer and still has an automatic fallback.
+- All standing throw choices enter through the same reachable collar tie. Hand acquisition tolerances shrink from 1.04/1.1 to 0.34/0.46 world units from the target surface. This remains a tolerant spring grip, not exact finger contact.
 - Uppercuts use a compact loaded stance, a rising bent-elbow path and a short physical step. Arcade quick attacks cycle jab, combination and uppercut. Nearby strikes have cancellable approach assistance; guard, retreat, pause, target loss and expiry cancel it.
-- Major throws leave a longer follow-up window. Pinning drives an actual cross-body pose. Counting requires torso overlap, appropriate vertical separation, a supine defender and shoulders near the floor. Lost geometry resets the count; persistent failure releases the interaction. These are geometric checks, not a new collision manifold or referee-vision system.
+- Major throws leave a longer follow-up window. Pinning drives an actual cross-body pose. Counting requires recent solved torso contact (100 ms tolerance for solver chatter), torso overlap, appropriate vertical separation, a supine defender and shoulders near the floor. Lost geometry resets the count; persistent failure releases the interaction. This combines existing solver manifolds with geometric checks, not a referee-vision system.
 - Pin controls now say COVERING/HOLD COVER instead of READY TO FIGHT. Routine duplicate messages and oversized hit text are suppressed. Default screen shake is reduced, low-flash defaults on, and standard bouts omit lasers and moving light decorations. Saved settings are preserved.
 - Round ring ropes, neutral ring lighting, joint-attached knee pads, wrist tape and boot laces improve readable wrestling detail. Atlas's crown stays in preview/victory rather than floating through combat. The existing human assets are preserved; no captured motion or new photoreal character scan is included.
 
@@ -52,6 +56,8 @@ Vercel remains the canonical host. Cloudflare production now has a static-assets
 Cloudflare static assets preserve frame restrictions and safe browser headers. Worker API responses retain PLATPHORM_API_KEY authorization, bounded input parsing, JSON-RPC introspection and local trace context. No cross-site trace export or new integration is claimed. Client discovery describes the new local controls and cover evidence. Other network repositories are neither changed nor certified by this game release.
 
 ### Validation scope
+
+Existing tests are retained only for their narrow regression claims. They are not an acceptance score or certification of playability. The ordinary exchange journey now follows visible throw/pin prompts at default graphics and records its video; hidden state cannot choose the next action. Visual review already rejected two earlier passing cover implementations in this pass.
 
 The unit/physics checks cover uppercut contact, legal knee flexion, real solver-driven cover establishment, no pin counting from state flags, loss of cover, cancelled approaches and the neutral uppercut sequence. Browser checks cover menu entry, ordinary throw/cover controls, recovery, render lifecycle, mobile entry and world combat. Release evidence records exact commands and outcomes separately; an assertion passing is not proof that the game meets the user's quality bar.
 
