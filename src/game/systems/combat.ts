@@ -231,6 +231,8 @@ export const applyMoveHit = (model: MatchModel, actorKey: FighterSlot, targetKey
   const contactQuality = contact ? clamp(contact.relativeSpeed * .22 + contact.maximumForce / 950, .28, 1.35) : 1;
   const actorClutch = inSingles && actor.health < 35;
   const clutchDamageMultiplier = actorClutch ? 1.15 : 1.0;
+  const comebackMomentum = Math.max(actor.momentum - BALANCE.comeback.minimumMomentumForBonus, 0) / (100 - BALANCE.comeback.minimumMomentumForBonus);
+  const comebackDamage = actor.health < BALANCE.comeback.healthThreshold && actor.stamina > 6 ? 1 + BALANCE.comeback.attackerDamageMultiplier * comebackMomentum * .35 : 1;
   let comboDamageMultiplier = 1.0;
   if (inSingles && actor.comboStep >= 2) {
     if (move.category === 'quick') {
@@ -239,7 +241,8 @@ export const applyMoveHit = (model: MatchModel, actorKey: FighterSlot, targetKey
       comboDamageMultiplier = 1.2;
     }
   }
-  const scaledDamage = move.damage * BALANCE.damageScale * (.78 + actorDefinition.stats.power / 250) * (1.08 - targetDefinition.stats.stamina / 900) * contactQuality * clutchDamageMultiplier * comboDamageMultiplier;
+  const momentumDamage = 1 + (actor.momentum / 300);
+  const scaledDamage = move.damage * BALANCE.damageScale * (.78 + actorDefinition.stats.power / 250) * (1.08 - targetDefinition.stats.stamina / 900) * contactQuality * clutchDamageMultiplier * comboDamageMultiplier * momentumDamage * comebackDamage;
   const damage = Math.round(scaledDamage * 10) / 10;
   const baseImpact = calculateImpact(actor, target, move, model.impactSequence);
   const planarDirection = contact ? normalize({ x: contact.forceDirection[0], z: contact.forceDirection[2] }) : baseImpact.direction;
@@ -304,6 +307,7 @@ export const applyMoveHit = (model: MatchModel, actorKey: FighterSlot, targetKey
       : 1.0;
     actor.momentum = clamp(actor.momentum + move.momentumGain * variety * (model.ruleset === 'chaos' ? 1.2 : 1) * surge * comboMomentumMultiplier, 0, 100);
     model.hype = clamp(model.hype + move.hypeValue * variety * BALANCE.hypeScale, 0, 100);
+    if (comebackDamage > 1) model.hype = clamp(model.hype + BALANCE.comeback.crowdSwingGain, 0, 100);
     actor.recentMoves = [...actor.recentMoves.slice(-4), move.id];
     stats.damageDealt = Math.round((stats.damageDealt + damage) * 10) / 10;
     if (move.category === 'grapple') stats.grapples += 1;
@@ -818,6 +822,10 @@ const updateFighter = (model: MatchModel, actorKey: FighterSlot, dt: number, mov
   actor.stateElapsed += dt;
   actor.invulnerability = Math.max(0, actor.invulnerability - dt);
   actor.ropeRebound = Math.max(0, actor.ropeRebound - dt);
+  const momentumDecay = ['attacking', 'grappling', 'grabbed', 'staggered', 'pinning', 'recovering', 'airborne', 'jumping'].includes(actor.state)
+    ? BALANCE.momentum.activeDecayPerSecond
+    : BALANCE.momentum.passiveDecayPerSecond;
+  actor.momentum = clamp(actor.momentum - dt * momentumDecay, 0, 100);
   auditFallState(model, actorKey, dt);
   const landing = stepBodyDynamics(actor, dt);
   if (!model.physicsAuthority && landing.landed && landing.landingEnergy > 2.2) {
