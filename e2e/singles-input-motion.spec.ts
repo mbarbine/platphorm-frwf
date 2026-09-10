@@ -1,18 +1,19 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
-const enterOrdinarySingles = async (page: Page): Promise<void> => {
+const enterOrdinarySingles = async (page: Page, difficulty: 'easy' | 'normal' = 'normal'): Promise<void> => {
   await page.goto('/');
   await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
   await page.getByRole('button', { name: 'PLAY', exact: true }).click();
   await page.getByRole('button', { name: /LOCK IN ATLAS/ }).click();
   await page.getByRole('button', { name: /^STANDARD/ }).click();
+  if (difficulty === 'easy') await page.getByRole('button', { name: /^EASY/ }).click();
   await page.getByRole('button', { name: 'START MATCH' }).click();
 };
 
-test('ordinary Singles executes strike keys visibly and a jump returns control', async ({ page }) => {
+test('Easy Singles executes strike keys visibly and a jump returns control', async ({ page }) => {
   test.setTimeout(180_000);
-  await enterOrdinarySingles(page);
+  await enterOrdinarySingles(page, 'easy');
   const hud = page.locator('.hud'); const root = page.locator('html');
   await expect(hud).toHaveAttribute('data-match-mode', 'singles');
   await expect(hud).toHaveAttribute('data-physics-bodies', '32', { timeout: 30_000 });
@@ -21,6 +22,7 @@ test('ordinary Singles executes strike keys visibly and a jump returns control',
     const sample = (): void => {
       const live = document.querySelector('.hud'); if (!live) return;
       const move = live.getAttribute('data-player-move') ?? '';
+      if (live.getAttribute('data-player-state') === 'recovering') document.documentElement.dataset.sawOrdinaryAttackMotion = 'get_up';
       if (move && move !== 'taunt') document.documentElement.dataset.sawOrdinaryAttackMotion = move;
       if (live.getAttribute('data-player-state') === 'jumping') {
         document.documentElement.dataset.sawOrdinaryJump = 'true';
@@ -32,16 +34,23 @@ test('ordinary Singles executes strike keys visibly and a jump returns control',
     new MutationObserver(sample).observe(document.body, { subtree: true, attributes: true, childList: true }); sample();
   });
 
+  // The rival stays live, but the Easy opening allows orientation. A
+  // standing strike is illegal while held; wait for an actual action window.
+  await expect.poll(async () => await hud.getAttribute('data-player-state'), { timeout: 20000, intervals: [100] }).toMatch(/^(idle|locomotion|downed)$/);
   const stateBeforeStrike = await hud.getAttribute('data-player-state');
-  if (stateBeforeStrike === 'recovering') {
-    await expect.poll(async () => await hud.getAttribute('data-player-state'), { timeout: 15_000, intervals: [100, 200, 400] }).toMatch(/idle|locomotion/);
-  }
   await page.keyboard.press('j');
   await expect(hud.locator('[data-last-action]')).toHaveAttribute('data-last-action', 'quickStrike', { timeout: 8_000 });
   await expect(hud.locator('[data-last-action]')).toHaveAttribute('data-last-action-status', 'executed', { timeout: 8_000 });
-  await expect(root).toHaveAttribute('data-saw-ordinary-attack-motion', stateBeforeStrike === 'downed' ? 'kick_up' : /jab|combo|kick_up/, { timeout: 8_000 });
+  await expect(root).toHaveAttribute('data-saw-ordinary-attack-motion', stateBeforeStrike === 'downed' ? 'get_up' : /jab|combo|get_up/, { timeout: 8_000 });
   await expect.poll(async () => await hud.getAttribute('data-player-state'), { timeout: 15_000, intervals: [100, 200, 400] }).toMatch(/idle|locomotion/);
 
+  // Create space with normal controls before testing a jump. The live rival
+  // can legitimately acquire a grip between a standing-state read and C.
+  await page.keyboard.down('Shift'); await page.keyboard.down('s');
+  try {
+    await expect.poll(async () => hud.evaluate(el => Math.hypot(Number(el.getAttribute('data-player-x')) - Number(el.getAttribute('data-opponent-x')), Number(el.getAttribute('data-player-z')) - Number(el.getAttribute('data-opponent-z')))), { timeout: 15000, intervals: [100] }).toBeGreaterThan(3.3);
+  } finally { await page.keyboard.up('s'); await page.keyboard.up('Shift'); }
+  await expect.poll(async () => await hud.getAttribute('data-player-state'), { timeout: 15000, intervals: [100] }).toMatch(/^(idle|locomotion)$/);
   const restingY = Number(await hud.getAttribute('data-player-pelvis-y'));
   await page.keyboard.press('c');
   await expect(root).toHaveAttribute('data-saw-ordinary-jump', 'true', { timeout: 8_000 });
@@ -49,15 +58,17 @@ test('ordinary Singles executes strike keys visibly and a jump returns control',
   await expect.poll(async () => await hud.getAttribute('data-player-state'), { timeout: 12_000, intervals: [100, 200, 400] }).toMatch(/idle|locomotion|downed|recovering/);
   await expect.poll(async () => Number(await hud.getAttribute('data-player-vertical')), { timeout: 5_000 }).toBeLessThan(.2);
 
+  await page.keyboard.down('Shift'); await page.keyboard.down('s');
+  try {
+    await expect.poll(async () => hud.evaluate(el => Math.hypot(Number(el.getAttribute('data-player-x')) - Number(el.getAttribute('data-opponent-x')), Number(el.getAttribute('data-player-z')) - Number(el.getAttribute('data-opponent-z')))), { timeout: 15000, intervals: [100] }).toBeGreaterThan(3.3);
+  } finally { await page.keyboard.up('s'); await page.keyboard.up('Shift'); }
   await page.evaluate(() => { delete document.documentElement.dataset.sawOrdinaryAttackMotion; });
-  if ((await hud.getAttribute('data-player-state')) === 'recovering') {
-    await expect.poll(async () => await hud.getAttribute('data-player-state'), { timeout: 15_000, intervals: [100, 200, 400] }).toMatch(/idle|locomotion|downed/);
-  }
+  await expect.poll(async () => await hud.getAttribute('data-player-state'), { timeout: 20000, intervals: [100] }).toMatch(/^(idle|locomotion|downed)$/);
   const stateBeforeHeavy = await hud.getAttribute('data-player-state');
   await page.keyboard.press('k');
   await expect(hud.locator('[data-last-action]')).toHaveAttribute('data-last-action', 'heavyStrike', { timeout: 8_000 });
   await expect(hud.locator('[data-last-action]')).toHaveAttribute('data-last-action-status', 'executed', { timeout: 8_000 });
-  await expect(root).toHaveAttribute('data-saw-ordinary-attack-motion', stateBeforeHeavy === 'downed' ? 'kick_up' : /front_kick|low_kick|high_kick|roundhouse|stiff_arm|rebound|kick_up/, { timeout: 8_000 });
+  await expect(root).toHaveAttribute('data-saw-ordinary-attack-motion', stateBeforeHeavy === 'downed' ? 'get_up' : /front_kick|low_kick|high_kick|roundhouse|stiff_arm|rebound|get_up/, { timeout: 8_000 });
   await expect(hud).toHaveAttribute('data-physics-emergency-resets', '0');
 });
 
@@ -70,6 +81,7 @@ test('ordinary Singles AI pursues and physically attacks an idle player', async 
     const sample = (): void => {
       const live = document.querySelector('.hud'); if (!live) return;
       const move = live.getAttribute('data-opponent-move') ?? '';
+      if (live.getAttribute('data-player-state') === 'recovering') document.documentElement.dataset.sawOrdinaryAttackMotion = 'get_up';
       if (move && move !== 'taunt') document.documentElement.dataset.sawIdleOpponentAttack = move;
       const readout = live.querySelector('[data-testid="impact-readout"]');
       if (readout?.getAttribute('data-impact-owner') === 'opponent') document.documentElement.dataset.sawPlayerHitReadout = 'true';

@@ -95,7 +95,7 @@ async function bootstrap(): Promise<void> {
   console.log(`   Tick:    ${SERVER_CONFIG.SERVER_TICK_RATE} Hz`);
 }
 
-if (process.env.NODE_ENV !== 'test' && !process.env.VITEST && typeof globalThis.describe !== 'function') {
+if (process.env.NODE_ENV !== 'test' && !process.env.VITEST) {
   void bootstrap().catch((err) => { console.error('Server failed to start:', err); process.exit(1); });
 }
 
@@ -129,6 +129,8 @@ export function rateLimiter(req: express.Request, res: express.Response, next: e
   } else {
     rateData.count++;
     if (rateData.count > MAX_REQUESTS) {
+      const retryAfterSeconds = Math.max(1, Math.ceil((rateData.resetTime - now) / 1000));
+      res.setHeader('Retry-After', retryAfterSeconds.toString());
       res.status(429).json({
         error: {
           code: 'too_many_requests',

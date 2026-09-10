@@ -3,7 +3,7 @@
 // Both the browser bundle and the Node.js game server import from here.
 // ──────────────────────────────────────────────────────────────────────────────
 
-export type FighterId = 'atlas' | 'vex' | 'nova' | 'brick' | 'chad';
+export type FighterId = 'atlas' | 'vex' | 'nova' | 'brick' | 'chad' | 'dale';
 export type Ruleset = 'standard' | 'chaos';
 export type Difficulty = 'normal' | 'hard';
 export type PlayerRole = 'player1' | 'player2' | 'spectator';

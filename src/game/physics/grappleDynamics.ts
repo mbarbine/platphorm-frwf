@@ -64,6 +64,7 @@ export const createGrappleRuntime = (attacker: FighterKey, defender: FighterKey,
   age: 0,
   gripCount: 0,
   phase: 'reach',
+  liftElapsed: 0,
 });
 
 export const retargetGrapple = (grapple: GrappleRuntime, moveId: string): void => {

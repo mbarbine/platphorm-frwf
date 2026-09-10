@@ -1,3 +1,4 @@
+import { venueFor } from '../data/venues';
 import { getMove } from '../data/moves';
 import { BALANCE } from '../data/balance';
 import type { FighterSlot, MatchModel, Vec2 } from '../types/game';
@@ -64,7 +65,7 @@ export const resolveContextAction = (model: MatchModel, actorKey: FighterSlot, d
   }
 
   // F4 — a wrestler already on top resolves the aerial before any corner/traversal branch.
-  if (actor.state === 'climbing' && actor.climbStage === 3 && separation <= getMove('aerial').maximumRange && !['defeated', 'victorious'].includes(target.state)) {
+  if (venueFor(model).hasRing && actor.state === 'climbing' && actor.climbStage === 3 && separation <= getMove('aerial').maximumRange && !['defeated', 'victorious'].includes(target.state)) {
     return resolved('top_rope_aerial', getMove('aerial').displayName.toUpperCase(), targetKey, 'Top-rope target is in aerial range', 4);
   }
 
@@ -73,25 +74,25 @@ export const resolveContextAction = (model: MatchModel, actorKey: FighterSlot, d
   const tdx = target.position.x - cornerX;
   const tdz = target.position.z - cornerZ;
   const targetCornerDistanceSq = tdx * tdx + tdz * tdz;
-  if (actor.state === 'grappling' && actor.attackPhase === 'anticipation' && model.grapple?.attacker === actorKey && targetCornerDistanceSq <= 9.9225) {
+  if (venueFor(model).hasRing && actor.state === 'grappling' && actor.attackPhase === 'anticipation' && model.grapple?.attacker === actorKey && targetCornerDistanceSq <= 9.9225) {
     return resolved('corner_move', getMove('corner_smash').displayName.toUpperCase(), targetKey, 'Secured clinch is inside the corner-call lane', 5);
   }
 
   const table = model.props.find((prop) => prop.kind === 'table' && !prop.broken);
   const tableDistance = table ? distance(target.position, table.position) : Number.POSITIVE_INFINITY;
   if (actor.state === 'grappling' && actor.attackPhase === 'anticipation' && model.grapple?.attacker === actorKey && table && tableDistance <= 2.6) {
-    return resolved('environmental_wrestling_move', 'COMMENTARY DESK SPOT', table.id, 'Secured clinch is aligned with the commentary desk', 6);
+    return resolved('environmental_wrestling_move', venueFor(model).hasRing ? 'COMMENTARY DESK SPOT' : 'WOODEN TABLE SPOT', table.id, 'Secured clinch is aligned with the table', 6);
   }
 
-  if (actor.state === 'climbing' && actor.climbStage < 3) {
+  if (venueFor(model).hasRing && actor.state === 'climbing' && actor.climbStage < 3) {
     return resolved('turnbuckle_climb', actor.climbStage === 1 ? 'CLIMB MIDDLE ROPE' : 'CLIMB TOP ROPE', 'turnbuckle', 'Continue the active staged climb', 7);
   }
   const nearCorner = Math.abs(actor.position.x) > 4.35 && Math.abs(actor.position.z) > 2.95;
-  if (nearCorner && ['idle', 'locomotion'].includes(actor.state)) {
+  if (venueFor(model).hasRing && nearCorner && ['idle', 'locomotion'].includes(actor.state)) {
     return resolved('turnbuckle_climb', 'CLIMB LOWER ROPE', 'turnbuckle', 'Standing inside the turnbuckle climb lane', 7);
   }
 
-  if (canTraverseRopes(actor.position) && ['idle', 'locomotion'].includes(actor.state) && !model.grapple) {
+  if (venueFor(model).hasRing && canTraverseRopes(actor.position) && ['idle', 'locomotion'].includes(actor.state) && !model.grapple) {
     const ringside = Math.abs(actor.position.x) > 5.82 || Math.abs(actor.position.z) > 4.32;
     return resolved('ring_traversal', ringside ? 'ENTER RING' : 'EXIT RING', 'center_rope', ringside ? 'Ringside at a supported center-rope lane' : 'Inside at a supported center-rope lane', 8);
   }

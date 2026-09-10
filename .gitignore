@@ -6,6 +6,7 @@ playwright-report
 *.tsbuildinfo
 .DS_Store
 coverage
+.wrangler
 .env*
 npm-debug.log*
 pnpm-debug.log*

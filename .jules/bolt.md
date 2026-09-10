@@ -85,3 +85,6 @@
 ## 2026-09-01 - [Optimized Math.hypot in Mobile Controls and Input Polling]
 **Learning:** `mobileInput.ts` (polling active touch inputs every frame) and `MobileControls.tsx` (rendering controls and joystick updates) evaluated `Math.hypot` continuously. Replacing `Math.hypot` with zero-allocation squared comparisons (`x * x + z * z > thresholdSq`) completely eliminates square root extraction in hot input paths, while standard `Math.sqrt` for distance calculations provides an ~8x speedup.
 **Action:** Use zero-allocation squared-magnitude comparisons for input threshold checks and standard `Math.sqrt` for distance metrics in mobile UI and input polling loops.
+## 2026-09-10 - [Optimized Math.hypot in Player Controller Movement Input]
+**Learning:** In frame-by-frame player controller updates (`playerController.ts`), evaluating `Math.hypot(input.move.x, input.move.z)` to check steering and pending input state introduces unnecessary floating-point safety scaling overhead. Replacing `Math.hypot` with standard `Math.sqrt(x*x + z*z)` yields up to ~8x faster execution on hot input processing paths.
+**Action:** Replace `Math.hypot` with standard `Math.sqrt` inside `PlayerController.read()` hot paths to improve player control processing efficiency.

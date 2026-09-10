@@ -1,21 +1,21 @@
 # RINGFALL: CHAOS CIRCUIT
 
-> **BodyWorks certification is in progress.** Earlier Gold Master wording and deployment evidence describe the previous production release, not the current physics rewrite. The live source-of-truth ledger is [`docs/bodyworks/CAPABILITY_PLAN.md`](docs/bodyworks/CAPABILITY_PLAN.md) and the current status is [`docs/bodyworks/STATUS.md`](docs/bodyworks/STATUS.md). Production stays unchanged until the consolidated gate passes.
+> **BodyWorks certification is in progress.** Earlier Gold Master wording and deployment evidence describe the previous production release, not the current physics rewrite. The live source-of-truth ledger is [`docs/bodyworks/CAPABILITY_PLAN.md`](docs/bodyworks/CAPABILITY_PLAN.md) and the current status is [`docs/bodyworks/STATUS.md`](docs/bodyworks/STATUS.md). See `docs/SHOWGROUND_RELEASE.md` for the current pass and its release evidence.
 
-An original, local-first 3D arcade wrestling game built with React, TypeScript, Vite, Three.js, React Three Fiber, Rapier, Zustand, and Vitest.
+An original, local-first 3D wrestling game with connected showground exploration and instanced arena bouts, built with React, TypeScript, Vite, Three.js, React Three Fiber, Rapier, Zustand, and Vitest.
 
-Five original fighters collide in **The Volt Dome** across two-to-four-minute matches. Combat rules are deterministic and phase-based. A 16-body articulated Rapier contact rig per fighter owns locomotion, hand contact, two-hand grips, lift weight, knockback, and measured landings, while a richer hierarchical wrestler model mirrors that authoritative state to keep the player-facing silhouette stable and expressive.
+Five original fighters compete in **The Volt Dome** in Singles and five-wrestler Battle Royale. Combat rules are deterministic and phase-based. A 16-body articulated Rapier contact rig per fighter owns locomotion, hand contact, two-hand grips, lift weight, knockback, and measured landings, while a richer hierarchical wrestler model mirrors that authoritative state to keep the player-facing silhouette stable and expressive.
 
 ## Run locally
 
-Requires Node.js 22.13 or later and pnpm 11.13.0, as pinned in `package.json`.
+Requires Node.js 22.13 or later and the pnpm version pinned in `package.json`.
 
 ```bash
 pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-Open the local URL printed by Vite. The game has no backend, login, cloud state, advertisements, remote assets, or runtime network requests.
+Open the local URL printed by Vite. Local play needs no account or running game server; bundled media and character assets load over HTTP. Choose **Explore Showground** to walk between the yard, backstage and ringside and start nearby bouts, or **Play** for quick arena setup. World position and completed bout records save on this device when storage is available. Optional Colyseus and separate Cloudflare implementations are described in `docs/architecture.md`; neither implies cloud save or production multiplayer parity.
 
 Production and verification commands:
 

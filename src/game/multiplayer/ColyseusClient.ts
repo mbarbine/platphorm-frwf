@@ -1,3 +1,4 @@
+import { gameServerEndpoint } from './serverEndpoint';
 import { Client } from 'colyseus.js';
 import type { Room } from 'colyseus.js';
 import type { ActionEvent, CommandMessage, SelectFighterMessage } from '@frwf/game-protocol';
@@ -66,10 +67,15 @@ export interface ColyseusClientOptions {
   onVersionRejected?: (info: { serverVersion: string }) => void;
 }
 
-const DEFAULT_SERVER_URL = import.meta.env.VITE_GAME_SERVER_URL ?? 'ws://localhost:2567';
+const DEFAULT_SERVER_URL = gameServerEndpoint;
 
 export class ColyseusClient {
-  private readonly sdk: Client;
+  private sdkInstance: Client | null = null;
+
+  private get sdk(): Client {
+    if (!this.options.serverUrl) throw new Error('Online play is not connected to a game server yet.');
+    return this.sdkInstance ??= new Client(this.options.serverUrl);
+  }
   private room: Room<ClientRoomState> | null = null;
   private commandSeq = 0;
   private status: ConnectionStatus = 'disconnected';
@@ -77,9 +83,8 @@ export class ColyseusClient {
   private readonly options: Required<ColyseusClientOptions>;
 
   constructor(options: ColyseusClientOptions = {}) {
-    this.sdk = new Client(options.serverUrl ?? DEFAULT_SERVER_URL);
     this.options = {
-      serverUrl: options.serverUrl ?? DEFAULT_SERVER_URL,
+      serverUrl: options.serverUrl ?? DEFAULT_SERVER_URL ?? '',
       onStatusChange: options.onStatusChange ?? (() => undefined),
       onStateChange: options.onStateChange ?? (() => undefined),
       onSnapshot: options.onSnapshot ?? (() => undefined),
@@ -155,8 +160,9 @@ export class ColyseusClient {
 
   async leave(consented = true): Promise<void> {
     this.intentionalLeave = true;
-    await this.room?.leave(consented);
+    const room = this.room;
     this.room = null;
+    await room?.leave(consented);
     this.setStatus('disconnected');
   }
 
@@ -210,6 +216,7 @@ export class ColyseusClient {
 
   private attachRoomListeners(): void {
     if (!this.room) return;
+    const attachedRoom = this.room;
 
     this.room.onStateChange((state) => this.options.onStateChange(state));
     this.room.onMessage('snapshot', (msg) => this.options.onSnapshot(msg));
@@ -219,6 +226,7 @@ export class ColyseusClient {
     this.room.onMessage('roomState', (msg) => this.options.onRoomState(msg));
     this.room.onMessage('versionRejected', (msg) => this.options.onVersionRejected(msg));
     this.room.onLeave((code) => {
+      if (this.room !== attachedRoom) return;
       if (code === 1000 || this.intentionalLeave) {
         this.setStatus('disconnected');
       } else {

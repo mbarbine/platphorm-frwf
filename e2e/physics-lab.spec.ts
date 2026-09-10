@@ -12,10 +12,10 @@ test('Bodyworks lab exposes live Rapier diagnostics and drives real jump/walk in
   const hud = page.locator('.hud'); const lab = page.getByTestId('physics-lab'); const deck = page.getByTestId('control-deck');
   await expect(lab).toBeVisible(); await expect(hud).toHaveAttribute('data-physics-bodies', '32', { timeout: 30_000 }); await expect(hud).toHaveAttribute('data-physics-joints', '30');
   await lab.getByRole('button', { name: '0.5×' }).click(); await expect(lab).toHaveAttribute('data-lab-rate', '0.5');
-  await lab.getByRole('button', { name: 'DEBUG RIG' }).click(); await expect(lab).toHaveAttribute('data-lab-debug', 'true');
+  await lab.getByRole('button', { name: 'COLLISION OVERLAY' }).click(); await expect(lab).toHaveAttribute('data-lab-debug', 'true');
   await lab.getByRole('button', { name: 'PAUSE', exact: true }).click(); await expect(lab.getByRole('button', { name: 'PLAY', exact: true })).toBeVisible();
   await lab.getByRole('button', { name: 'STEP', exact: true }).click(); await expect(lab.getByRole('button', { name: 'PLAY', exact: true })).toBeVisible();
-  await lab.getByRole('button', { name: 'DEBUG RIG' }).click(); await expect(lab).toHaveAttribute('data-lab-debug', 'false');
+  await lab.getByRole('button', { name: 'COLLISION OVERLAY' }).click(); await expect(lab).toHaveAttribute('data-lab-debug', 'false');
   await lab.getByRole('button', { name: '1×' }).click(); await expect(lab).toHaveAttribute('data-lab-rate', '1');
   await lab.getByRole('button', { name: 'PLAY', exact: true }).click();
   await expect(deck).toBeVisible(); await expect(deck).toContainText('LIVE WRESTLING CONTROLS');
@@ -116,16 +116,16 @@ test('Bodyworks lab exposes live Rapier diagnostics and drives real jump/walk in
     await lab.getByRole('button', { name: 'ROPE LOAD + STIFF-ARM' }).click();
   }
   await expect(page.locator('html')).toHaveAttribute('data-saw-stiff-arm-knockdown', 'true', { timeout: 90_000 });
-  await expect(lab.getByRole('button', { name: 'KICK-UP RECOVERY' })).toBeEnabled({ timeout: 4_000 });
+  await expect(lab.getByRole('button', { name: 'GET-UP BUTTON' })).toBeEnabled({ timeout: 4_000 });
   await page.evaluate(() => {
     const observe = (): void => {
       const liveHud = document.querySelector('.hud'); const liveDeck = document.querySelector('[data-testid="control-deck"]');
-      if (liveHud?.getAttribute('data-player-move') === 'kick_up') document.documentElement.dataset.sawKickUpMove = 'true';
-      if (liveDeck?.getAttribute('data-control-state')?.includes('KICK-UP') && liveDeck.querySelector('[data-control="counter"]')?.classList.contains('is-active')) document.documentElement.dataset.sawKickUpControl = 'true';
+      if (liveHud?.getAttribute('data-player-state') === 'recovering') document.documentElement.dataset.sawKickUpMove = 'true';
+      if (liveDeck?.getAttribute('data-control-state')?.includes('GETTING UP') && liveDeck.querySelector('[data-control="counter"]')?.classList.contains('is-active')) document.documentElement.dataset.sawKickUpControl = 'true';
     };
     new MutationObserver(observe).observe(document.body, { subtree: true, attributes: true, childList: true }); observe();
   });
-  await lab.getByRole('button', { name: 'KICK-UP RECOVERY' }).click();
+  await lab.getByRole('button', { name: 'GET-UP BUTTON' }).click();
   await expect(page.locator('html')).toHaveAttribute('data-saw-kick-up-move', 'true', { timeout: 4_000 });
   await expect(page.locator('html')).toHaveAttribute('data-saw-kick-up-control', 'true', { timeout: 4_000 });
   await expect(hud).toHaveAttribute('data-physics-emergency-resets', '0'); expect(errors).toEqual([]);

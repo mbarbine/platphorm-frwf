@@ -176,7 +176,9 @@ describe('authoritative server contract', () => {
     const event = (action: ActionEvent['action'], sequence: number, direction: ActionEvent['direction'], phase: ActionEvent['phase'] = 'started'): ActionEvent => ({ action, sequence, direction, phase, timestamp: sequence * 16, source: 'network' });
     const tick = intervals.get(1000 / SERVER_CONFIG.SERVER_TICK_RATE); expect(tick).toBeDefined();
     let movementSequence = 0;
-    for (let frame = 0; frame < 16; frame += 1) {
+    for (let frame = 0; frame < 90; frame += 1) {
+      const first = room.state.fighters.get('p1'); const second = room.state.fighters.get('p2');
+      if (first && second && Math.hypot(second.posX - first.posX, second.posZ - first.posZ) < 1.1) break;
       if (frame % 6 === 0) {
         movementSequence += 1;
         handlers.get('command')?.(p1, { seq: movementSequence, event: event('move', movementSequence, { x: 1, y: 0 }, frame === 0 ? 'started' : 'held') });
@@ -415,7 +417,7 @@ describe('authoritative server contract', () => {
   it('vercel.json header configuration contains valid JSON and no duplicate header keys', async () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
-    const vercelJsonPath = path.resolve(process.cwd(), 'vercel.json');
+    const vercelJsonPath = path.resolve(import.meta.dirname, '../../../vercel.json');
     const rawContent = fs.readFileSync(vercelJsonPath, 'utf-8');
     const parsed = JSON.parse(rawContent);
 
@@ -447,6 +449,7 @@ describe('authoritative server contract', () => {
 
     const res = {
       status: vi.fn().mockReturnThis(),
+      setHeader: vi.fn(),
       json: vi.fn(),
     } as any;
 
@@ -460,10 +463,11 @@ describe('authoritative server contract', () => {
     expect(next).toHaveBeenCalledTimes(100);
     expect(res.status).not.toHaveBeenCalled();
 
-    // 2. The 101st request should be rejected with status 429
+    // 2. The 101st request should be rejected with status 429 and Retry-After header
     rateLimiter(req, res, next);
 
     expect(next).toHaveBeenCalledTimes(100); // Should not have been called a 101st time
+    expect(res.setHeader).toHaveBeenCalledWith('Retry-After', expect.any(String));
     expect(res.status).toHaveBeenCalledWith(429);
     expect(res.json).toHaveBeenCalledWith({
       error: {

@@ -5,7 +5,7 @@ const KEY = 'ringfall-tutorial-complete-v2';
 
 export function Tutorial({ device }: { device: ControlDevice }) {
   const [visible, setVisible] = useState(() => localStorage.getItem(KEY) !== 'true');
-  const [timeRemaining, setTimeRemaining] = useState(13_000);
+  const [timeRemaining, setTimeRemaining] = useState(7_000);
   const [isPaused, setIsPaused] = useState(false);
 
   const close = (): void => {

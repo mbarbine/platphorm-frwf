@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { VENUES, type CombatVenue } from '../data/venues';
 import { FIGHTERS } from '../data/fighters';
 import { bodyWorksRuntime } from '../physics/physicsRuntime';
 import { useMatchStore } from '../state/matchStore';
@@ -26,11 +27,13 @@ const SCENARIOS: readonly LabScenario[] = [
   { id: 'turn', label: 'RAPID TURN', steps: [...hold('KeyA', 0, 500), ...hold('KeyD', 560, 650)], duration: 1_800 },
   { id: 'separation', label: 'SOFT SEPARATION', steps: [], duration: 2_600 },
   { id: 'ropes', label: 'RUN INTO ROPES', steps: [...hold('KeyD', 0, 2_050), ...hold('ShiftLeft', 0, 2_050)], duration: 2_800 },
-  { id: 'ropeStrike', label: 'ROPE LOAD + STIFF-ARM', steps: [...hold('KeyD', 0, 2_200), ...hold('ShiftLeft', 0, 2_200)], duration: 3_600 },
+  { id: 'ropeStrike', label: 'ROPE LOAD + STIFF-ARM', steps: [...hold('KeyA', 0, 2_200), ...hold('ShiftLeft', 0, 2_200)], duration: 3_600 },
   { id: 'apronReturn', label: 'APRON RETURN', steps: tap('KeyF', 900, 180), duration: 3_400 },
   { id: 'jump', label: 'STANDING JUMP', steps: tap('KeyC', 220, 480), duration: 2_200 },
   { id: 'landing', label: 'JUMP + LANDING', steps: tap('KeyC', 220, 480), duration: 2_600 },
-  { id: 'kickup', label: 'KICK-UP RECOVERY', steps: tap('Space', 620, 180), duration: 2_100 },
+  { id: 'kickup', label: 'GET-UP BUTTON', steps: tap('Space', 620, 180), duration: 2_100 },
+  { id: 'tableRecovery', label: 'TABLE — MANUAL GET-UP', steps: [], duration: 14_000 },
+  { id: 'manualRecovery', label: 'DOWNED — MANUAL GET-UP', steps: [], duration: 14_000 },
   { id: 'recoveryBack', label: 'BACK GET-UP', steps: [], duration: 3_400 },
   { id: 'recoveryFront', label: 'FRONT GET-UP', steps: [], duration: 3_400 },
   { id: 'recoverySide', label: 'SIDE GET-UP', steps: [], duration: 3_400 },
@@ -63,29 +66,52 @@ const SCENARIOS: readonly LabScenario[] = [
   { id: 'reset', label: 'COMPLETE RUNTIME RESET', steps: [], duration: 1_200 },
 ] as const;
 
-const dispatchKey = (code: string, down: boolean): void => { window.dispatchEvent(new KeyboardEvent(down ? 'keydown' : 'keyup', { code, key: code, bubbles: true })); };
+const scriptedKeys = new Set<string>();
+const dispatchKey = (code: string, down: boolean): void => { if (down) scriptedKeys.add(code); else scriptedKeys.delete(code); window.dispatchEvent(new KeyboardEvent(down ? 'keydown' : 'keyup', { code, key: code, bubbles: true })); };
 export function PhysicsLab() {
   const model = useMatchStore((state) => state.model); const revision = useMatchStore((state) => state.revision);
   const rate = usePhysicsLabStore((state) => state.rate); const debug = usePhysicsLabStore((state) => state.debug);
-  const [active, setActive] = useState<string | null>(null); const fps = useRef(0); const timers = useRef<number[]>([]); const lastScenario = useRef<LabScenario | null>(null);
+  const [active, setActive] = useState<string | null>(null); const fps = useRef(0); const timers = useRef<number[]>([]); const automationActive = useRef(false); const lastScenario = useRef<LabScenario | null>(null);
   const [playerId, setPlayerId] = useState<FighterId>(model.player.definitionId); const [opponentId, setOpponentId] = useState<FighterId>(model.opponent.definitionId);
+  const [minimized, setMinimized] = useState(false);
+  const [venue, setVenue] = useState<CombatVenue>(model.venue ?? 'dome');
   const [seed, setSeed] = useState(model.seed); const [playerStamina, setPlayerStamina] = useState(100); const [opponentStamina, setOpponentStamina] = useState(100);
   const [playerMass, setPlayerMass] = useState(0); const [opponentMass, setOpponentMass] = useState(0);
   const frames = useRef(0); const lastFpsAt = useRef(performance.now());
-  const clearTimers = (): void => { for (const timer of timers.current) { window.clearTimeout(timer); window.clearInterval(timer); } timers.current = []; };
+  const clearTimers = (): void => { automationActive.current = false; for (const timer of timers.current) { window.clearTimeout(timer); window.clearInterval(timer); } timers.current = []; for (const code of [...scriptedKeys]) dispatchKey(code, false); };
   useEffect(() => {
     let frame = 0; const tick = (): void => { frames.current += 1; frame = requestAnimationFrame(tick); }; frame = requestAnimationFrame(tick);
     const interval = window.setInterval(() => { const now = performance.now(); fps.current = Math.round(frames.current * 1_000 / Math.max(1, now - lastFpsAt.current)); frames.current = 0; lastFpsAt.current = now; }, 1_000);
     return () => { cancelAnimationFrame(frame); window.clearInterval(interval); clearTimers(); useMatchStore.getState().pause(false); };
   }, []);
 
+  useEffect(() => {
+    const takeOver = (event: KeyboardEvent): void => {
+      if (!automationActive.current || !event.isTrusted || !/^(Key[WASDJKLIFCQE]|Arrow(Up|Down|Left|Right)|Space|ShiftLeft|ShiftRight)$/.test(event.code)) return;
+      if (event.target instanceof HTMLElement && (event.target.isContentEditable || event.target.matches('input, textarea, select'))) return;
+      clearTimers(); setActive(null);
+      bodyWorksRuntime.rejectPendingActions('player', useMatchStore.getState().model.elapsed, 'manual input took over lab');
+    };
+    // Capture before the game receives this key: release scripted holds first,
+    // then let the actual player's key become the sole input owner.
+    window.addEventListener('keydown', takeOver, true);
+    return () => window.removeEventListener('keydown', takeOver, true);
+  }, []);
+  const takeControl = (): void => {
+    clearTimers(); setActive(null); setMinimized(true);
+    bodyWorksRuntime.rejectPendingActions('player', model.elapsed, 'manual control');
+    usePhysicsLabStore.getState().setRate(1); usePhysicsLabStore.getState().setDebug(false);
+    useMatchStore.getState().pause(false);
+  };
+
   const run = (scenario: LabScenario): void => {
-    clearTimers(); useMatchStore.getState().pause(false); setActive(scenario.id); lastScenario.current = scenario;
+    clearTimers(); automationActive.current = true; useMatchStore.getState().pause(false); setActive(scenario.id); lastScenario.current = scenario;
     if (scenario.id === 'reset') {
       useMatchStore.getState().configureLab(playerId, opponentId, seed, playerStamina, opponentStamina, playerMass, opponentMass);
-      timers.current.push(window.setTimeout(() => setActive(null), scenario.duration));
+      timers.current.push(window.setTimeout(() => { clearTimers(); setActive(null); }, scenario.duration));
       return;
     }
+    if (model.matchMode !== 'singles') useMatchStore.getState().configureLab(playerId, opponentId, seed, playerStamina, opponentStamina, playerMass, opponentMass, venue);
     const closeRange = ['inputRange', 'jab', 'headbutt', 'blockedJab', 'hook', 'frontKick', 'guard', 'kick', 'lock', 'slam', 'failedLift', 'gripBreak', 'suplex', 'german', 'powerbomb', 'clothesline', 'spear', 'soakRound'].includes(scenario.id);
     const recoveryOrientation: RecoveryOrientation | null = scenario.id === 'recoveryFront' ? 'front' : scenario.id === 'recoverySide' ? 'left' : scenario.id === 'recoveryBack' ? 'back' : null;
     if (scenario.id === 'separation') useMatchStore.getState().prepareLabScenario({ x: -.12, z: 0 }, { x: .12, z: 0 });
@@ -100,14 +126,17 @@ export function PhysicsLab() {
     // forearms now bridge this 1.15 m lane before the jab can reach the chest.
     else if (scenario.id === 'blockedJab') useMatchStore.getState().prepareLabScenario({ x: 0, z: -.575 }, { x: 0, z: .575 }, 'blocking');
     else if (recoveryOrientation) useMatchStore.getState().prepareLabScenario({ x: 0, z: -.7 }, { x: 0, z: 3.4 }, 'downed', 100, recoveryOrientation, .75);
+    else if (scenario.id === 'tableRecovery') useMatchStore.getState().prepareLabScenario({ x: 0, z: -3.6 }, { x: 3, z: 0 }, 'downed', 100, 'back', 15, 0, .965);
+    else if (scenario.id === 'manualRecovery') useMatchStore.getState().prepareLabScenario({ x: 0, z: -.7 }, { x: 0, z: 3.4 }, 'downed', 100, 'back', 15, 0);
     else if (scenario.id === 'kickup') useMatchStore.getState().prepareLabScenario({ x: 0, z: -.7 }, { x: 0, z: 3.4 }, 'downed');
     // Give the run enough in-ring distance to build a genuinely loaded entry.
     // Starting inside the rope engagement band only tested a slow shove into
     // the spring and could never satisfy the production rebound threshold.
-    else if (scenario.id === 'ropeStrike') useMatchStore.getState().prepareLabScenario({ x: -4.25, z: .08 }, { x: 0, z: .08 });
-    // Two .235 m head spheres need a non-overlapping but genuinely reachable
-    // lane. Chest colliders remain separated at .64 m while the authored brow
-    // drive can close the final head-surface gap during the active window.
+    // Run away from the opponent into the near rope; return through the
+    // opponent's lane. Running through the opponent first tests obstruction.
+    else if (scenario.id === 'ropeStrike') useMatchStore.getState().prepareLabScenario({ x: -2.8, z: .08 }, { x: 0, z: .08 });
+    // Keep the bodies initially separate; the physical brow drive must
+    // close the head-surface gap during the active window.
     else if (scenario.id === 'headbutt') useMatchStore.getState().prepareLabScenario({ x: 0, z: -.32 }, { x: 0, z: .32 });
     else if (closeRange) useMatchStore.getState().prepareLabScenario({ x: 0, z: -.4 }, { x: 0, z: .4 }, 'idle', scenario.id === 'soakRound' ? 1 : 100, 'back', 5, scenario.id === 'failedLift' ? 34 : undefined);
     else if (scenario.id === 'miss' || scenario.id === 'jabWhiff') useMatchStore.getState().prepareLabScenario({ x: 0, z: -2.6 }, { x: 0, z: 2.6 });
@@ -126,8 +155,7 @@ export function PhysicsLab() {
     const scheduler = window.setInterval(() => {
       const current = useMatchStore.getState().model; const elapsedMs = (current.elapsed - startedAt) * 1_000;
       if (performance.now() - wallStartedAt > Math.max(60_000, Math.min(180_000, scenario.duration * 20))) {
-        window.clearInterval(scheduler);
-        for (const step of scenario.steps) if (step.down) dispatchKey(step.code, false);
+        clearTimers();
         document.documentElement.dataset.labScenarioAbort = `${scenario.id}:simulation-timeout`;
         setActive(null); return;
       }
@@ -190,15 +218,15 @@ export function PhysicsLab() {
       if (reboundPressAt !== null && !reboundReleased) dispatchKey('KeyK', false);
       if (slamPressAt !== null && !slamReleased) dispatchKey('KeyK', false);
       if (stagedKey) dispatchKey(stagedKey, false);
-      setActive(null);
+      automationActive.current = false; setActive(null);
     }, 8);
     timers.current.push(scheduler);
   };
 
-  const applyPair = (): void => { clearTimers(); setActive(null); useMatchStore.getState().configureLab(playerId, opponentId, seed, playerStamina, opponentStamina, playerMass, opponentMass); };
+  const applyPair = (): void => { clearTimers(); setActive(null); useMatchStore.getState().configureLab(playerId, opponentId, seed, playerStamina, opponentStamina, playerMass, opponentMass, venue); };
   const stepOnce = (): void => {
-    useMatchStore.getState().pause(false);
-    requestAnimationFrame(() => requestAnimationFrame(() => useMatchStore.getState().pause(true)));
+    useMatchStore.getState().pause(true);
+    usePhysicsLabStore.getState().requestStep();
   };
   const player = bodyWorksRuntime.fighterSnapshot('player'); const opponent = bodyWorksRuntime.fighterSnapshot('opponent'); const metrics = bodyWorksRuntime.metrics; const alignment = bodyWorksRuntime.presentationAlignmentSnapshot();
   const diagnostics = useMemo(() => [
@@ -209,12 +237,14 @@ export function PhysicsLab() {
     ['TASK', `${model.player.state} · ${model.player.moveId ?? 'none'} · ${metrics.taskCount}`], ['PHASE', `${model.player.attackPhase ?? 'none'} · ${model.grapple?.phase ?? 'free'}`], ['TASK TIMEOUTS', metrics.taskTimeoutCount], ['WINDOW', model.player.counterWindow > 0 ? 'COUNTER OPEN' : 'closed'],
     ['CONTACTS', metrics.contactCount], ['STRIKE NOW / MIN', `${metrics.lastStrikeDistance.toFixed(3)} / ${metrics.minimumStrikeDistance.toFixed(3)} M`], ['STRIKE PLANAR / Y', `${metrics.minimumStrikePlanarDistance.toFixed(3)} / ${metrics.minimumStrikeVerticalDistance.toFixed(3)} M`], ['FORCE / LOAD', `${model.lastImpact?.force?.toFixed(1) ?? '0'} / ${metrics.maximumGripLoad.toFixed(1)}`], ['JOINT NOW / MAX', `${metrics.currentJointSeparation.toFixed(3)} / ${metrics.maximumJointSeparation.toFixed(3)} M`], ['MOTOR LIMIT', `${metrics.currentMotorSaturations} NOW · ${metrics.motorSaturationCount} TOTAL`], ['SUPPORT / FAULT', `${metrics.supportScore.toFixed(2)} / ${metrics.lastNumericalFault}`], ['ALIGN AVG / MAX', `${alignment.averageError.toFixed(2)} / ${alignment.maximumError.toFixed(2)} M · ${alignment.maximumSegment ?? 'physical'}`], ['DRAWS / TRIS', `${renderDiagnostics.drawCalls} / ${Math.round(renderDiagnostics.triangles / 1_000)}K`], ['GEO / TEX / SHADER', `${renderDiagnostics.geometries} / ${renderDiagnostics.textures} / ${renderDiagnostics.shaderPrograms}`], ['FRAME P95 / P99', `${renderDiagnostics.frameP95Ms.toFixed(1)} / ${renderDiagnostics.frameP99Ms.toFixed(1)} ms`], ['RESETS / BOUNDS', `${metrics.emergencyResetCount} / ${metrics.containmentCount}`], ['REPLAY', `${bodyWorksRuntime.replay.size} · ${(metrics.replayEstimatedBytes / 1024).toFixed(0)} KB`],
   ] as const, [alignment.averageError, alignment.maximumError, alignment.maximumSegment, metrics.averageStepMs, metrics.bodyCount, metrics.contactCount, metrics.containmentCount, metrics.currentJointSeparation, metrics.currentMotorSaturations, metrics.emergencyResetCount, metrics.gripCount, metrics.gripCreateCount, metrics.jointCount, metrics.lastNumericalFault, metrics.lastStrikeDistance, metrics.maximumGripLoad, metrics.maximumJointSeparation, metrics.maximumStepMs, metrics.minimumStrikeDistance, metrics.minimumStrikePlanarDistance, metrics.minimumStrikeVerticalDistance, metrics.motorSaturationCount, metrics.p95StepMs, metrics.replayEstimatedBytes, metrics.supportScore, metrics.taskCount, metrics.taskTimeoutCount, metrics.worldBodyCount, metrics.worldJointCount, model, opponent.pelvisY, player.pelvisY, player.speed, player.supportFeet, player.upright, revision]);
-  return <aside className="physics-lab" data-testid="physics-lab" data-lab-scenario={active ?? 'idle'} data-lab-fps={fps.current} data-lab-step-ms={metrics.lastStepMs.toFixed(3)} data-lab-avg-step-ms={metrics.averageStepMs.toFixed(3)} data-lab-p95-step-ms={metrics.p95StepMs.toFixed(3)} data-lab-max-step-ms={metrics.maximumStepMs.toFixed(3)} data-lab-replay-kb={(metrics.replayEstimatedBytes / 1024).toFixed(1)} data-lab-strike-distance={metrics.lastStrikeDistance.toFixed(3)} data-lab-min-strike-distance={metrics.minimumStrikeDistance.toFixed(3)} data-lab-min-strike-planar={metrics.minimumStrikePlanarDistance.toFixed(3)} data-lab-min-strike-vertical={metrics.minimumStrikeVerticalDistance.toFixed(3)} data-lab-current-joint-separation={metrics.currentJointSeparation.toFixed(3)} data-lab-joint-separation={metrics.maximumJointSeparation.toFixed(3)} data-lab-numerical-faults={metrics.numericalFaultCount} data-lab-support-score={metrics.supportScore.toFixed(3)} data-lab-rate={rate} data-lab-debug={debug ? 'true' : 'false'}>
+  return <aside className="physics-lab" data-minimized={minimized} data-testid="physics-lab" data-lab-scenario={active ?? 'idle'} data-lab-fps={fps.current} data-lab-step-ms={metrics.lastStepMs.toFixed(3)} data-lab-avg-step-ms={metrics.averageStepMs.toFixed(3)} data-lab-p95-step-ms={metrics.p95StepMs.toFixed(3)} data-lab-max-step-ms={metrics.maximumStepMs.toFixed(3)} data-lab-replay-kb={(metrics.replayEstimatedBytes / 1024).toFixed(1)} data-lab-strike-distance={metrics.lastStrikeDistance.toFixed(3)} data-lab-min-strike-distance={metrics.minimumStrikeDistance.toFixed(3)} data-lab-min-strike-planar={metrics.minimumStrikePlanarDistance.toFixed(3)} data-lab-min-strike-vertical={metrics.minimumStrikeVerticalDistance.toFixed(3)} data-lab-current-joint-separation={metrics.currentJointSeparation.toFixed(3)} data-lab-joint-separation={metrics.maximumJointSeparation.toFixed(3)} data-lab-numerical-faults={metrics.numericalFaultCount} data-lab-support-score={metrics.supportScore.toFixed(3)} data-lab-rate={rate} data-lab-debug={debug ? 'true' : 'false'}>
+    <button className="physics-lab__visibility" aria-expanded={!minimized} onClick={() => setMinimized(value => !value)}>{minimized ? 'SHOW PHYSICS LAB' : 'MINIMIZE PHYSICS LAB'}</button>
     <header><span>RINGFALL BODYWORKS</span><b>PHYSICS LAB</b><small>REAL INPUT · REAL RAPIER · FIXED 60 HZ AUTHORITY</small><small data-testid="release-diagnostic">v{RELEASE_IDENTITY.applicationVersion} · {RELEASE_IDENTITY.shortGitSha} · F{RELEASE_IDENTITY.fighterCount} M{RELEASE_IDENTITY.moveCount} · {RELEASE_IDENTITY.deploymentEnvironment}</small></header>
-    <div className="physics-lab__toolbar"><button onClick={() => useMatchStore.getState().pause(!model.paused)}>{model.paused ? 'PLAY' : 'PAUSE'}</button><button onClick={stepOnce}>STEP</button>{([.25, .5, 1] as LabPlaybackRate[]).map((value) => <button className={rate === value ? 'active' : ''} key={value} onClick={() => usePhysicsLabStore.getState().setRate(value)}>{value}×</button>)}<button className={debug ? 'active' : ''} onClick={() => usePhysicsLabStore.getState().setDebug(!debug)}>DEBUG RIG</button><button disabled={!lastScenario.current || active !== null} onClick={() => lastScenario.current && run(lastScenario.current)}>REPEAT</button><button disabled={!lastScenario.current} onClick={() => lastScenario.current && run(lastScenario.current)}>RESET</button></div>
-    <details className="physics-lab__setup"><summary>PAIR / SEED / STAMINA / MASS</summary><div><label>PLAYER<select value={playerId} onChange={(event) => setPlayerId(event.target.value as FighterId)}>{FIGHTERS.map((fighter) => <option key={fighter.id} value={fighter.id}>{fighter.name}</option>)}</select></label><label>OPPONENT<select value={opponentId} onChange={(event) => setOpponentId(event.target.value as FighterId)}>{FIGHTERS.map((fighter) => <option key={fighter.id} value={fighter.id}>{fighter.name}</option>)}</select></label><label>SEED<input type="number" value={seed} onChange={(event) => setSeed(Number(event.target.value) || 1)} /></label><label>P1 GAS {playerStamina}%<input type="range" min="10" max="100" step="5" value={playerStamina} onChange={(event) => setPlayerStamina(Number(event.target.value))} /></label><label>CPU GAS {opponentStamina}%<input type="range" min="10" max="100" step="5" value={opponentStamina} onChange={(event) => setOpponentStamina(Number(event.target.value))} /></label><label>P1 MASS +{playerMass} KG<input type="range" min="0" max="80" step="5" value={playerMass} onChange={(event) => setPlayerMass(Number(event.target.value))} /></label><label>CPU MASS +{opponentMass} KG<input type="range" min="0" max="80" step="5" value={opponentMass} onChange={(event) => setOpponentMass(Number(event.target.value))} /></label><button onClick={applyPair}>LOAD PAIR</button></div></details>
+    <div className="physics-lab__ownership">{active ? 'SCRIPTED RUN · ANY PLAY KEY TAKES CONTROL' : 'MANUAL CONTROL · WASD / J / K / L'}</div>
+    <div className="physics-lab__toolbar"><button onClick={takeControl}>TAKE CONTROL</button><button onClick={() => { clearTimers(); setActive(null); usePhysicsLabStore.getState().setRate(1); useMatchStore.getState().configure(playerId, opponentId, 'standard', 'normal', 0, 0, 'battle_royale'); useMatchStore.getState().pause(false); setMinimized(true); }}>BATTLE ROYALE PLAYTEST</button><button onClick={() => useMatchStore.getState().pause(!model.paused)}>{model.paused ? 'PLAY' : 'PAUSE'}</button><button onClick={stepOnce}>STEP</button>{([.25, .5, 1] as LabPlaybackRate[]).map((value) => <button className={rate === value ? 'active' : ''} key={value} onClick={() => usePhysicsLabStore.getState().setRate(value)}>{value}×</button>)}<button className={debug ? 'active' : ''} onClick={() => usePhysicsLabStore.getState().setDebug(!debug)} aria-pressed={debug}>COLLISION OVERLAY</button><button disabled={!lastScenario.current || active !== null} onClick={() => lastScenario.current && run(lastScenario.current)}>REPEAT</button><button disabled={!lastScenario.current} onClick={() => lastScenario.current && run(lastScenario.current)}>RESET</button></div>
+    <details className="physics-lab__setup"><summary>PAIR / SEED / STAMINA / MASS</summary><div><label>VENUE<select value={venue} onChange={event => setVenue(event.target.value as CombatVenue)}>{Object.entries(VENUES).map(([id, value]) => <option key={id} value={id}>{value.name}</option>)}</select></label><label>PLAYER<select value={playerId} onChange={(event) => setPlayerId(event.target.value as FighterId)}>{FIGHTERS.map((fighter) => <option key={fighter.id} value={fighter.id}>{fighter.name}</option>)}</select></label><label>OPPONENT<select value={opponentId} onChange={(event) => setOpponentId(event.target.value as FighterId)}>{FIGHTERS.map((fighter) => <option key={fighter.id} value={fighter.id}>{fighter.name}</option>)}</select></label><label>SEED<input type="number" value={seed} onChange={(event) => setSeed(Number(event.target.value) || 1)} /></label><label>P1 GAS {playerStamina}%<input type="range" min="10" max="100" step="5" value={playerStamina} onChange={(event) => setPlayerStamina(Number(event.target.value))} /></label><label>CPU GAS {opponentStamina}%<input type="range" min="10" max="100" step="5" value={opponentStamina} onChange={(event) => setOpponentStamina(Number(event.target.value))} /></label><label>P1 MASS +{playerMass} KG<input type="range" min="0" max="80" step="5" value={playerMass} onChange={(event) => setPlayerMass(Number(event.target.value))} /></label><label>CPU MASS +{opponentMass} KG<input type="range" min="0" max="80" step="5" value={opponentMass} onChange={(event) => setOpponentMass(Number(event.target.value))} /></label><button onClick={applyPair}>LOAD PAIR</button></div></details>
     <div className="physics-lab__diagnostics">{diagnostics.map(([label, value]) => <div key={label}><span>{label}</span><b>{value}</b></div>)}</div>
-    <div className="physics-lab__scenarios">{SCENARIOS.map((scenario) => <button key={scenario.id} disabled={active !== null} className={active === scenario.id ? 'active' : ''} onClick={() => run(scenario)}>{active === scenario.id ? 'RUNNING · ' : ''}{scenario.label}</button>)}</div>
+    <div className="physics-lab__scenarios">{SCENARIOS.map((scenario) => <button key={scenario.id} disabled={active !== null || scenario.id === 'tableRecovery' && (!model.venue || model.venue === 'dome')} className={active === scenario.id ? 'active' : ''} onClick={() => run(scenario)}>{active === scenario.id ? 'RUNNING · ' : ''}{scenario.label}</button>)}</div>
     <footer>SUPPORT · COM · MOTORS · CONSTRAINTS · ATTACK WINDOWS LIVE</footer>
   </aside>;
 }

@@ -1,3 +1,4 @@
+import { CrowdReaction } from './CrowdReaction';
 import type { ImpactEvent, Vec2 } from '../types/game';
 import type { Settings } from '../state/settings';
 
@@ -10,6 +11,7 @@ class AudioEngine {
   private master: GainNode | null = null;
   private effects: GainNode | null = null;
   private crowd: GainNode | null = null;
+  private reaction: CrowdReaction | null = null;
   private noiseBuffer: AudioBuffer | null = null;
   private readonly activeVoices: OscillatorNode[] = [];
 
@@ -20,11 +22,13 @@ class AudioEngine {
       this.effects.connect(this.master); this.crowd.connect(this.master); this.master.connect(this.context.destination);
       const buffer = this.context.createBuffer(1, this.context.sampleRate * 2, this.context.sampleRate);
       const data = buffer.getChannelData(0); let seed = 29;
-      for (let index = 0; index < data.length; index += 1) { seed = Math.imul(seed, 48271) % 2147483647; data[index] = ((seed / 2147483647) * 2 - 1) * (.35 + Math.sin(index / 1800) * .08); }
+      for (let index = 0; index < data.length; index += 1) { seed ^= seed << 13; seed ^= seed >>> 17; seed ^= seed << 5; data[index] = ((seed >>> 0) / 2147483648 - 1) * .7; }
       const source = this.context.createBufferSource(); const filter = this.context.createBiquadFilter(); const bed = this.context.createGain();
       source.buffer = buffer; source.loop = true; filter.type = 'lowpass'; filter.frequency.value = 520; bed.gain.value = .055;
       source.connect(filter); filter.connect(bed); bed.connect(this.crowd); source.start();
       this.noiseBuffer = buffer;
+      this.reaction = new CrowdReaction(this.context, this.crowd);
+      void this.reaction.load();
     }
     void this.context.resume(); this.configure(settings); this.play('confirm', settings);
   }
@@ -35,6 +39,17 @@ class AudioEngine {
     this.master.gain.setTargetAtTime(settings.masterVolume, now, .03);
     this.effects.gain.setTargetAtTime(settings.effectsVolume, now, .03);
     this.crowd.gain.setTargetAtTime(settings.crowdVolume, now, .03);
+  }
+
+  connectMusic(media: HTMLMediaElement): { volume: (value: number) => void; dispose: () => void } | null {
+    if (!this.context || !this.master) return null;
+    const source = this.context.createMediaElementSource(media);
+    const gain = this.context.createGain();
+    source.connect(gain); gain.connect(this.master);
+    return {
+      volume: (value) => gain.gain.setTargetAtTime(value, this.context?.currentTime ?? 0, .04),
+      dispose: () => { source.disconnect(); gain.disconnect(); },
+    };
   }
 
   setListener(pose: ListenerPose): void {
@@ -48,16 +63,20 @@ class AudioEngine {
   play(name: SoundName, settings: Settings): void { this.playAt(name, settings); }
 
   move(moveId: string, settings: Settings, position: Vec2): void {
-    const sound: SoundName = moveId === 'jab' ? 'jab' : moveId === 'combo' || moveId === 'high_punch' ? 'cross'
-      : moveId === 'heavy' ? 'hook' : moveId === 'uppercut' ? 'uppercut' : moveId === 'headbutt' ? 'heavy'
-        : moveId === 'low_kick' ? 'lowKick' : ['front_kick', 'high_kick', 'roundhouse'].includes(moveId) ? 'highKick'
-          : moveId === 'slam' || moveId === 'mountain_drop' ? 'slam' : moveId === 'suplex' || moveId === 'skyhook' ? 'suplex'
-            : moveId === 'piledriver' ? 'powerbomb' : moveId === 'powerbomb' ? 'powerbomb' : moveId === 'spinebuster' ? 'spinebuster'
-              : moveId === 'stiff_arm' || moveId === 'rebound' ? 'clothesline' : moveId === 'spear' ? 'spear'
-                : moveId.startsWith('aerial') || moveId === 'aerial' ? 'aerial' : moveId === 'finisher' ? 'finisher'
-                  : moveId === 'prop' || moveId === 'prop_throw' ? 'prop' : moveId === 'kick_up' ? 'kickout'
-                    : ['grapple_miss', 'takedown', 'whip', 'arm_drag', 'clutch', 'side_toss', 'corner_smash'].includes(moveId) ? 'grapple' : 'impact';
-    this.playAt(sound, settings, position);
+    if (!this.context || !this.effects || !this.noiseBuffer || document.hidden) return;
+    this.configure(settings);
+    // A swing is air movement. The crack and body weight only play after contact.
+    const now = this.context.currentTime; const source = this.context.createBufferSource();
+    const filter = this.context.createBiquadFilter(); const gain = this.context.createGain();
+    const kick = moveId.includes('kick') || moveId === 'roundhouse';
+    source.buffer = this.noiseBuffer; filter.type = 'bandpass'; filter.Q.value = .6;
+    filter.frequency.setValueAtTime(kick ? 380 : 650, now);
+    filter.frequency.exponentialRampToValueAtTime(kick ? 900 : 1400, now + .1);
+    gain.gain.setValueAtTime(.0001, now); gain.gain.exponentialRampToValueAtTime(.075, now + .06);
+    gain.gain.exponentialRampToValueAtTime(.0001, now + .17);
+    source.connect(filter); filter.connect(gain); const release = this.connectSpatial(gain, this.effects, position);
+    source.addEventListener('ended', () => { source.disconnect(); filter.disconnect(); release(); }, { once: true });
+    source.start(now); source.stop(now + .18);
   }
 
   playAt(name: SoundName, settings: Settings, position?: Vec2): void {
@@ -101,36 +120,57 @@ class AudioEngine {
                 : event.moveId === 'slam' || event.moveId === 'mountain_drop' ? 'slam' : null;
     const crowdEvent = ['finisher', 'table', 'nearfall', 'ko'].includes(event.kind);
     const sound = event.kind === 'blocked' ? 'block' : moveImpact ?? map[event.kind];
-    if (crowdEvent) this.play(sound, settings); else this.playAt(sound, settings, event.position);
-    if (['heavy', 'grapple', 'weapon', 'finisher', 'table', 'ko'].includes(event.kind)) this.impactTransient(event.intensity, event.position);
-    if (crowdEvent) this.play('cheer', settings);
+    this.configure(settings);
+    if (['light', 'heavy', 'blocked', 'grapple', 'weapon', 'finisher', 'table'].includes(event.kind)) this.impactTransient(event);
+    else if (crowdEvent) this.play(sound, settings); else this.playAt(sound, settings, event.position);
+    if (crowdEvent && settings.crowdVolume > 0 && settings.masterVolume > 0 && !document.hidden) {
+      if (!this.reaction?.play()) this.play('cheer', settings);
+    }
   }
+
+  stopReaction(): void { this.reaction?.stop(); }
 
   private connectSpatial(node: AudioNode, output: AudioNode, position?: Vec2): () => void {
     if (!this.context || !position) { node.connect(output); return () => node.disconnect(); }
-    const panner = this.context.createPanner(); panner.panningModel = 'HRTF'; panner.distanceModel = 'inverse'; panner.refDistance = 2.2; panner.maxDistance = 34; panner.rolloffFactor = 1.15;
+    const panner = this.context.createPanner(); panner.panningModel = 'HRTF'; panner.distanceModel = 'inverse'; panner.refDistance = 7; panner.maxDistance = 34; panner.rolloffFactor = .8;
     panner.positionX.value = position.x; panner.positionY.value = 2.15; panner.positionZ.value = position.z;
     node.connect(panner); panner.connect(output);
     return () => { node.disconnect(); panner.disconnect(); };
   }
 
-  private impactTransient(intensity: number, position: Vec2): void {
-    if (!this.context || !this.effects || !this.noiseBuffer) return;
+  private impactTransient(event: ImpactEvent): void {
+    if (!this.context || !this.effects || !this.noiseBuffer || document.hidden) return;
     const now = this.context.currentTime;
-    const transientBus = this.context.createGain(); const releaseTransientBus = this.connectSpatial(transientBus, this.effects, position);
-    const noise = this.context.createBufferSource(); const noiseFilter = this.context.createBiquadFilter(); const noiseGain = this.context.createGain();
-    noise.buffer = this.noiseBuffer; noiseFilter.type = 'bandpass'; noiseFilter.frequency.value = 170 + intensity * 85; noiseFilter.Q.value = .7;
-    noiseGain.gain.setValueAtTime(Math.min(.38, .08 + intensity * .088), now); noiseGain.gain.exponentialRampToValueAtTime(.0001, now + .17);
-    noise.connect(noiseFilter); noiseFilter.connect(noiseGain); noiseGain.connect(transientBus); noise.start(now); noise.stop(now + .15);
-    const sub = this.context.createOscillator(); const subGain = this.context.createGain();
-    sub.type = 'sine'; sub.frequency.setValueAtTime(78 + intensity * 8, now); sub.frequency.exponentialRampToValueAtTime(34, now + .2);
-    subGain.gain.setValueAtTime(Math.min(.3, .1 + intensity * .07), now); subGain.gain.exponentialRampToValueAtTime(.0001, now + .21);
-    sub.connect(subGain); subGain.connect(transientBus);
-    sub.addEventListener('ended', () => {
-      noise.disconnect(); noiseFilter.disconnect(); noiseGain.disconnect(); sub.disconnect(); subGain.disconnect(); releaseTransientBus();
-    }, { once: true });
-    sub.start(now); sub.stop(now + .23);
+    const punch = ['jab', 'combo', 'high_punch', 'heavy', 'uppercut'].includes(event.moveId ?? '');
+    const kick = ['low_kick', 'front_kick', 'high_kick', 'roundhouse'].includes(event.moveId ?? '');
+    const blocked = event.kind === 'blocked';
+    const weight = Math.max(.65, Math.min(1.5, event.intensity));
+    const duration = punch ? .14 : kick ? .21 : .32;
+    const bus = this.context.createGain();
+    const release = this.connectSpatial(bus, this.effects, event.position);
+    const layers: AudioNode[] = [];
+    for (const [frequency, peak, decay] of [
+      [blocked ? 850 : punch ? 1850 : kick ? 1100 : 650, blocked ? .32 : .65, punch ? .055 : .085],
+      [punch ? 280 : kick ? 180 : 110, .52, duration],
+    ] as const) {
+      const noise = this.context.createBufferSource(); const filter = this.context.createBiquadFilter(); const gain = this.context.createGain();
+      noise.buffer = this.noiseBuffer; filter.type = 'bandpass'; filter.frequency.value = frequency; filter.Q.value = .65;
+      gain.gain.setValueAtTime(.0001, now); gain.gain.exponentialRampToValueAtTime(peak * weight, now + .002);
+      gain.gain.exponentialRampToValueAtTime(.0001, now + decay);
+      noise.connect(filter); filter.connect(gain); gain.connect(bus);
+      noise.start(now, (event.id % 7) * .13); noise.stop(now + duration);
+      layers.push(noise, filter, gain);
+    }
+    const body = this.context.createOscillator(); const gain = this.context.createGain();
+    body.type = 'sine'; body.frequency.setValueAtTime(punch ? 115 : kick ? 88 : 66, now);
+    body.frequency.exponentialRampToValueAtTime(punch ? 58 : 35, now + duration);
+    gain.gain.setValueAtTime(.0001, now); gain.gain.exponentialRampToValueAtTime((blocked ? .1 : .24) * weight, now + .003);
+    gain.gain.exponentialRampToValueAtTime(.0001, now + duration);
+    body.connect(gain); gain.connect(bus);
+    body.addEventListener('ended', () => { for (const node of layers) node.disconnect(); body.disconnect(); gain.disconnect(); release(); }, { once: true });
+    body.start(now); body.stop(now + duration + .01);
   }
+
 }
 
 export const audioEngine = new AudioEngine();

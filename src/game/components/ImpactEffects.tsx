@@ -1,119 +1,91 @@
 import { useFrame } from '@react-three/fiber';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import type { Group, Mesh, MeshBasicMaterial } from 'three';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Object3D, type InstancedMesh, type Mesh, type MeshBasicMaterial } from 'three';
 import { useMatchStore } from '../state/matchStore';
 import { useSettings } from '../state/settings';
+import { venueFor } from '../data/venues';
+import { bodyWorksRuntime } from '../physics/physicsRuntime';
+import { impactPresentation, type ImpactPresentation } from '../presentation/impactPresentation';
 
-interface Burst { id: number; x: number; z: number; color: string; count: number; kind: 'body' | 'mat'; tier: 'light' | 'heavy' | 'major' | 'finisher'; intensity: number; lowFlash: boolean }
-interface HitFlash { id: number; x: number; z: number; y: number; scale: number }
+interface Burst { id: number; presentation: ImpactPresentation }
 
 export function ImpactEffects() {
-  const impact = useMatchStore((state) => state.model.lastImpact);
-  const impactId = impact?.id ?? 0;
-  const lowFlash = useSettings((state) => state.lowFlash);
+  const impact = useMatchStore(state => state.model.lastImpact);
+  const lowFlash = useSettings(state => state.lowFlash);
+  const reducedMotion = useSettings(state => state.reducedMotion);
   const [bursts, setBursts] = useState<Burst[]>([]);
-  const [hitFlashes, setHitFlashes] = useState<HitFlash[]>([]);
+  const seen = useRef(0);
   useEffect(() => {
-    if (!impact) return;
-    const color = impact.kind === 'counter' || impact.kind === 'blocked' ? '#58f5ff' : impact.kind === 'finisher' || impact.kind === 'ko' ? '#fff13b' : impact.kind === 'weapon' ? '#ff4a88' : impact.kind === 'grapple' || impact.kind === 'table' ? '#dcff46' : '#ff8b3d';
-    const kind = ['grapple', 'finisher', 'table', 'nearfall', 'ko'].includes(impact.kind) ? 'mat' : 'body';
-    const isAerial = impact.moveId && ['aerial', 'aerial_kick', 'aerial_elbow'].includes(impact.moveId);
-    const tier = impact.kind === 'finisher' || impact.kind === 'ko' ? 'finisher' : impact.kind === 'grapple' || impact.kind === 'table' || isAerial ? 'major' : impact.kind === 'heavy' || impact.kind === 'weapon' || impact.kind === 'counter' ? 'heavy' : 'light';
-    const baseCount = tier === 'light' ? 6 : tier === 'heavy' ? 14 : tier === 'major' ? 24 : 32;
-    const count = Math.min(38, Math.round(baseCount + impact.intensity * 5.5));
-    setBursts((current) => current.some((burst) => burst.id === impact.id) ? current : [...current.slice(-5), { id: impact.id, x: impact.position.x, z: impact.position.z, color, kind, tier, intensity: impact.intensity, lowFlash, count: lowFlash ? Math.max(4, Math.ceil(count * .58)) : count }]);
-    // Contact flash sphere at the impact body region
-    if (!lowFlash && ['light', 'heavy', 'counter', 'weapon', 'grapple', 'table', 'finisher', 'ko'].includes(impact.kind)) {
-      const matImpact = ['grapple', 'table', 'finisher', 'ko'].includes(impact.kind);
-      const y = matImpact ? 2.08 : impact.region === 'head' ? 3.85 : impact.region === 'pelvis' || impact.region?.includes('Leg') ? 2.15 : 3.25;
-      const scale = matImpact ? 1.9 : impact.kind === 'heavy' || impact.kind === 'counter' ? 1.55 : 1.18;
-      setHitFlashes((prev) => [...prev.slice(-4), { id: impact.id, x: impact.position.x, z: impact.position.z, y, scale }]);
-    }
-  }, [impactId, lowFlash]);
-  const player = useMatchStore((state) => state.model.player); const opponent = useMatchStore((state) => state.model.opponent);
-  return <>{bursts.map((burst) => <BurstView key={burst.id} burst={burst} />)}
-    {hitFlashes.map((flash) => <HitFlashView key={flash.id} flash={flash} />)}
-    {player.counterWindow > 0 && <CounterCue x={player.position.x} z={player.position.z} />}
-    {opponent.counterWindow > 0 && <CounterCue x={opponent.position.x} z={opponent.position.z} hostile />}
-    {player.state === 'blocking' && <GuardCue x={player.position.x} z={player.position.z} facing={player.facing} />}
-    {opponent.state === 'blocking' && <GuardCue x={opponent.position.x} z={opponent.position.z} facing={opponent.facing} hostile />}
+    if (!impact) { seen.current = 0; setBursts([]); return; }
+    if (seen.current === impact.id) return;
+    seen.current = impact.id;
+    const model = useMatchStore.getState().model;
+    const profile = venueFor(model);
+    const ringside = profile.hasRing && (Math.abs(impact.position.x) > 5.82 || Math.abs(impact.position.z) > 4.32);
+    const presentation = impactPresentation(impact, ringside ? .4 : profile.floorY, reducedMotion, lowFlash);
+    setBursts(current => [...current.slice(-5), { id: impact.id, presentation }]);
+  }, [impact, lowFlash, reducedMotion]);
+  const expire = useCallback((id: number) => setBursts(current => current.filter(burst => burst.id !== id)), []);
+  const player = useMatchStore(state => state.model.player);
+  const opponent = useMatchStore(state => state.model.opponent);
+  return <>
+    {bursts.map(burst => <ContactBurst key={burst.id} burst={burst} expire={expire} reducedMotion={reducedMotion} lowFlash={lowFlash} />)}
+    {player.counterWindow > 0 && <DefenseCue fighter="player" counter reducedMotion={reducedMotion} />}
+    {opponent.counterWindow > 0 && <DefenseCue fighter="opponent" counter reducedMotion={reducedMotion} />}
+    {player.state === 'blocking' && <DefenseCue fighter="player" reducedMotion={reducedMotion} />}
+    {opponent.state === 'blocking' && <DefenseCue fighter="opponent" reducedMotion={reducedMotion} />}
   </>;
 }
 
-function HitFlashView({ flash }: { flash: HitFlash }) {
-  const ref = useRef<Mesh>(null);
-  const age = useRef(0);
-  useFrame((_, dt) => {
-    age.current += dt;
-    if (!ref.current) return;
-    const opacity = Math.max(0, 1 - age.current * 4.2);
-    const scale = flash.scale * (1 + age.current * 3.4);
-    ref.current.scale.setScalar(scale);
-    if (ref.current.material) (ref.current.material as MeshBasicMaterial).opacity = opacity;
+function ContactBurst({ burst, expire, reducedMotion, lowFlash }: { burst: Burst; expire: (id: number) => void; reducedMotion: boolean; lowFlash: boolean }) {
+  const particles = useRef<InstancedMesh>(null); const ring = useRef<Mesh>(null);
+  const age = useRef(0); const expired = useRef(false);
+  const dummy = useMemo(() => new Object3D(), []); const p = burst.presentation;
+  useFrame(({ camera }, dt) => {
+    if (useMatchStore.getState().model.paused || expired.current) return;
+    age.current += Math.min(dt, .05);
+    const progress = Math.min(1, age.current / p.duration);
+    if (progress >= 1) { expired.current = true; expire(burst.id); return; }
+    if (ring.current) {
+      if (!p.ground) ring.current.quaternion.copy(camera.quaternion);
+      ring.current.scale.setScalar(reducedMotion ? 1 : 1 + progress * (p.ground ? 2.5 : 1));
+      (ring.current.material as MeshBasicMaterial).opacity = (1 - progress) * (lowFlash ? .16 : .38);
+    }
+    if (!particles.current) return;
+    for (let i = 0; i < p.particles; i++) {
+      const angle = i * 2.39996 + burst.id; const speed = .8 + (i % 5) * .22;
+      const travel = reducedMotion ? 0 : age.current * speed;
+      dummy.position.set(Math.cos(angle) * travel, Math.max(-.04, travel * (.5 + (i % 3) * .2) - 2.6 * age.current ** 2), Math.sin(angle) * travel);
+      dummy.rotation.set(0, angle, 0); dummy.scale.setScalar((p.ground ? .032 : .018) * (1 - progress));
+      dummy.updateMatrix(); particles.current.setMatrixAt(i, dummy.matrix);
+    }
+    particles.current.instanceMatrix.needsUpdate = true;
+    (particles.current.material as MeshBasicMaterial).opacity = (1 - progress) * .65;
   });
-  return (
-    <mesh ref={ref} position={[flash.x, flash.y, flash.z]}>
-      <sphereGeometry args={[.24, 10, 8]} />
-      <meshBasicMaterial color="#ffffff" transparent opacity={1} toneMapped={false} depthWrite={false} />
+  return <group position={p.position}>
+    <mesh ref={ring} rotation={p.ground ? [-Math.PI / 2, 0, 0] : [0, 0, 0]}>
+      <ringGeometry args={[p.radius * .8, p.radius, 24]} /><meshBasicMaterial color={p.color} transparent opacity={.35} depthWrite={false} side={2} />
     </mesh>
-  );
-}
-
-function CounterCue({ x, z, hostile = false }: { x: number; z: number; hostile?: boolean }) {
-  const root = useRef<Group>(null); const age = useRef(0);
-  useFrame((_, dt) => { age.current += dt; if (root.current) { const pulse = 1 + Math.sin(age.current * 18) * .13; root.current.scale.set(pulse, pulse, pulse); root.current.rotation.y += dt * 1.8; } });
-  const color = hostile ? '#ff4a88' : '#67f7ff';
-  return <group ref={root} position={[x, 2.12, z]}>
-    <mesh rotation={[-Math.PI / 2, 0, 0]}><torusGeometry args={[.72, .045, 6, 24]} /><meshBasicMaterial color={color} transparent opacity={.88} toneMapped={false} depthWrite={false} /></mesh>
-    {[0, Math.PI / 2, Math.PI, Math.PI * 1.5].map((angle) => <mesh key={angle} position={[Math.cos(angle) * .72, .08, Math.sin(angle) * .72]} rotation={[0, -angle, Math.PI / 2]}><coneGeometry args={[.1, .28, 4]} /><meshBasicMaterial color="#ffffff" toneMapped={false} /></mesh>)}
+    {p.particles > 0 && <instancedMesh ref={particles} args={[undefined, undefined, p.particles]} frustumCulled={false}>
+      <sphereGeometry args={[1, 5, 4]} /><meshBasicMaterial color={p.color} transparent opacity={0} depthWrite={false} />
+    </instancedMesh>}
   </group>;
 }
 
-function GuardCue({ x, z, facing, hostile = false }: { x: number; z: number; facing: number; hostile?: boolean }) {
-  const shield = useRef<Mesh>(null); const age = useRef(0);
-  useFrame((_, dt) => { age.current += dt; if (shield.current) shield.current.scale.setScalar(.96 + Math.sin(age.current * 8) * .04); });
-  const forwardX = Math.sin(facing); const forwardZ = Math.cos(facing);
-  return <mesh ref={shield} position={[x + forwardX * .48, 3.12, z + forwardZ * .48]} rotation={[0, facing, 0]}>
-    <circleGeometry args={[.58, 6]} /><meshBasicMaterial color={hostile ? '#ff6a9c' : '#55efff'} transparent opacity={.2} toneMapped={false} depthWrite={false} side={2} />
+function DefenseCue({ fighter, counter = false, reducedMotion }: { fighter: 'player' | 'opponent'; counter?: boolean; reducedMotion: boolean }) {
+  const ref = useRef<Mesh>(null); const age = useRef(0);
+  useFrame((_, dt) => {
+    const body = bodyWorksRuntime.segmentSnapshot(fighter, counter ? 'pelvis' : 'chest');
+    if (!ref.current || !body) return;
+    const model = useMatchStore.getState().model; const actor = model[fighter];
+    if (!model.paused) age.current += dt;
+    ref.current.position.copy(body.position);
+    if (counter) { ref.current.position.y += .3; ref.current.rotation.set(0, actor.facing, 0); }
+    else { ref.current.position.x += Math.sin(actor.facing) * .38; ref.current.position.z += Math.cos(actor.facing) * .38; ref.current.rotation.set(0, actor.facing, 0); }
+    ref.current.scale.setScalar(reducedMotion ? 1 : 1 + Math.sin(age.current * 9) * .035);
+  });
+  return <mesh ref={ref}>
+    <ringGeometry args={counter ? [.34, .39, 4] : [.34, .36, 32, 1, .3, Math.PI * .8]} />
+    <meshBasicMaterial color={fighter === 'player' ? '#68e2ed' : '#f2a273'} transparent opacity={counter ? .72 : .35} depthWrite={false} side={2} />
   </mesh>;
 }
-
-function BurstView({ burst }: { burst: Burst }) {
-  const root = useRef<Group>(null);
-  const materials = useRef<MeshBasicMaterial[]>([]);
-  const age = useRef(0);
-  const directions = useMemo(() => Array.from({ length: burst.count }, (_, index) => ({
-    x: Math.cos((index / burst.count) * Math.PI * 2 + index * .7), y: .3 + (index % 4) * .18, z: Math.sin((index / burst.count) * Math.PI * 2 + index * .7),
-  })), [burst.count]);
-  useFrame((_, dt) => {
-    age.current += dt;
-    const expansion = burst.tier === 'light' ? 7.2 : burst.tier === 'heavy' ? 5.8 : burst.tier === 'major' ? 4.4 : 3.6;
-    if (root.current) {
-      root.current.scale.setScalar(1 + age.current * expansion);
-      // Spiraling rotation over time for gorgeous visual delight!
-      root.current.rotation.y += dt * 3.5;
-      root.current.rotation.x += dt * 1.2;
-    }
-    const fade = burst.tier === 'light' ? 3.7 : burst.tier === 'heavy' ? 3.05 : burst.tier === 'major' ? 2.35 : 1.85;
-    for (const material of materials.current) material.opacity = Math.max(0, 1 - age.current * fade);
-  });
-  const register = (material: MeshBasicMaterial | null): void => { if (material && !materials.current.includes(material)) materials.current.push(material); };
-  return <group ref={root} position={[burst.x, burst.kind === 'mat' ? 1.98 : 3.25, burst.z]}>
-    {burst.tier !== 'light' && <mesh rotation={burst.kind === 'mat' ? [-Math.PI / 2, 0, 0] : [0, 0, 0]}>
-      <ringGeometry args={[.18, burst.tier === 'finisher' ? .34 : .26, 24]} /><meshBasicMaterial ref={register} color={burst.color} transparent depthWrite={false} opacity={.9} toneMapped={false} />
-    </mesh>}
-    <mesh scale={burst.kind === 'mat' ? [1.4, .08, 1.4] : [.7, .7, .18]}>
-      <sphereGeometry args={[.19, 8, 6]} /><meshBasicMaterial ref={register} color="#ffffff" transparent depthWrite={false} opacity={burst.lowFlash ? .28 : .8} toneMapped={false} />
-    </mesh>
-    {(burst.tier === 'major' || burst.tier === 'finisher') && <>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} scale={[1.5, 1.5, 1]}><ringGeometry args={[.26, .32, 28]} /><meshBasicMaterial ref={register} color="#ffffff" transparent depthWrite={false} opacity={.58} toneMapped={false} /></mesh>
-      <mesh position={[0, .035, 0]} rotation={[-Math.PI / 2, 0, 0]} scale={[1.2 + burst.intensity * .12, 1.2 + burst.intensity * .12, 1]}><circleGeometry args={[.26, 24]} /><meshBasicMaterial ref={register} color={burst.color} transparent depthWrite={false} opacity={.16} toneMapped={false} /></mesh>
-    </>}
-    {burst.tier === 'finisher' && !burst.lowFlash && Array.from({ length: 8 }, (_, index) => index / 8 * Math.PI * 2).map((angle) => <mesh key={angle} position={[Math.cos(angle) * .18, .26, Math.sin(angle) * .18]} rotation={[0, -angle, 0]}><boxGeometry args={[.025, .6, .025]} /><meshBasicMaterial ref={register} color={indexColor(angle, burst.color)} transparent depthWrite={false} opacity={.75} toneMapped={false} /></mesh>)}
-    {directions.map((direction, index) => <mesh key={index} position={[direction.x * .18, direction.y * .18, direction.z * .18]} rotation={[direction.z, direction.x, direction.y]}>
-      <tetrahedronGeometry args={[.08, 0]} /><meshBasicMaterial ref={register} color={burst.color} transparent depthWrite={false} opacity={1} toneMapped={false} />
-    </mesh>)}
-  </group>;
-}
-
-const indexColor = (angle: number, accent: string): string => Math.round(angle * 10) % 2 === 0 ? '#ffffff' : accent;
