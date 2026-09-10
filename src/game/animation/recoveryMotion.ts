@@ -3,6 +3,8 @@ import { mixPose } from './choreography';
 import { POSES } from './poses';
 import type { Pose } from './poses';
 
+export const RECOVERY_DURATION = 1.2;
+
 const DOWNED: Readonly<Record<RecoveryOrientation, Pose>> = {
   back: { ...POSES.downed },
   front: { ...POSES.downed, rootTilt: 1.5, rootYaw: Math.PI, leftArm: [-.35, 0, -.62], rightArm: [-.35, 0, .62], leftForearm: [-1.15, 0, 0], rightForearm: [-1.15, 0, 0] },
@@ -19,7 +21,7 @@ const KNEEL: Readonly<Record<RecoveryOrientation, Pose>> = {
 
 export const recoveryPose = (orientation: RecoveryOrientation, state: 'downed' | 'recovering', elapsed: number): Pose => {
   if (state === 'downed') return DOWNED[orientation];
-  const progress = Math.max(0, Math.min(1, elapsed / .7));
+  const progress = Math.max(0, Math.min(1, elapsed / RECOVERY_DURATION));
   if (progress >= 1) return POSES.combatIdle;
   if (progress < .48) return mixPose(DOWNED[orientation], KNEEL[orientation], progress / .48);
   return mixPose(KNEEL[orientation], POSES.combatIdle, (progress - .48) / .52);

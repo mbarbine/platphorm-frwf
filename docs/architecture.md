@@ -1,33 +1,35 @@
-# RINGFALL architecture
+# FRWF runtime architecture
 
-## Runtime boundary
+Reviewed 2026-09-08. Product direction: an open-world style wrestling game. The current implementation combines bounded arena combat with a connected showground exploration slice and device-local continuity. See [the collective master plan](COLLECTIVE_MASTER_PLAN.md) for the implementation order and acceptance criteria.
 
-RINGFALL is a static, local-first Vite application. It has no application server, database, login, telemetry client, runtime fetch, or mutating API. Zustand owns the in-memory match model. The deterministic combat model, Rapier world, rendered wrestler hierarchy, procedural audio, and HUD advance in the browser.
+## Delivered browser experience
 
-The initial React shell does not import the arena synchronously. `GameScene` is lazy and begins preloading only after the player enters the menu or signals intent on Play. The production build creates independent chunks for React, Three core, React Three Fiber, Drei, React Rapier, and Rapier WASM. Rapier's `JointData` factory is injected only after the lazy game scene loads, keeping the WASM dependency out of the initial shell.
+Vercel serves a Vite/React application, not Next.js. `App.tsx` owns menus, local match setup, the optional online lobby, pause/settings and results. Fresh local setup selects Singles; five-wrestler Battle Royale remains available. Settings persist through optional localStorage. Match state is in memory. Bundled glTF characters, MP3 music/crowd and original FRWF archive videos load over HTTP; the old claim of no runtime network requests was incorrect.
 
-## Simulation ownership
+The game scene loads lazily. Three and its loaders share one runtime chunk; Rapier WASM is separate. The current delivery remains substantial: the Rapier chunk alone is approximately 842 KB gzip. No service-worker world streaming is implemented; localStorage preserves showground position and records when available.
 
-The deterministic combat system owns legal states, stamina, health, Momentum, move phases, AI decisions, match resolution, and rematch state. Rapier owns physical body positions, contacts, support, elastic rope response, grips, props, and landing evidence during a shipping match. Simulation advances at a fixed 60 Hz step before each Rapier update; contacts are consumed after the physics step.
+## Rules, physics and presentation
 
-Each wrestler has 16 rigid bodies and 15 anatomical joints. Locomotion computes mass-weighted planar center-of-mass velocity and applies the same bounded velocity correction to every segment. The hidden collision tree keeps stable segment rotations in every state; bounded forces, coherent whole-body translation, physical contacts, and measured landing surfaces remain authoritative. The separate production mesh authors the readable rotations for grabs, throws, aerials, knockdowns, recovery, and climbing without feeding a second pose solver back into Rapier.
+`systems/combat.ts` owns move legality, resources, AI, phases, pinfall and results. `state/matchStore.ts` bridges input, simulation and UI publication. Rules advance at 60 Hz alongside Rapier; ordinary UI publication is throttled. `physics/physicsRuntime.ts` owns bodies, joint motors, locomotion support, grips, contacts, props, landings and recovery. Local damage depends on physical evidence.
 
-Visual wrestler meshes mirror the authoritative physical model through authored walk, run, strike, grapple, reaction, and recovery poses. The visual hierarchy supplies readable character performance; the hidden articulated rig supplies collision and impact truth.
+Each active wrestler has 16 dynamic rigid bodies and 15 joints. React supplies immutable spawn transforms and stable body metadata; publishing solved positions must not reapply spawn positions or rotational locks. The runtime changes rotational authority as moves and recovery require it. Loose props, table fragments and flexible barricades also need stable body metadata.
 
-## Contact and environmental authority
+`HumanoidFighter.tsx` binds a skinned glTF character to solved segment transforms. The asset generator uses MakeHuman CC0 graphical data, with provenance in the asset manifest. This is a prototype human mesh, not a finished likeness or motion-captured wrestler. Character rest proportions, contact anatomy, paired throw alignment and recovery still need visible validation. Replay still has a separate legacy presentation path.
 
-Strikes are eligible only during active frames and use a stance/velocity-aligned swept volume so a few milliseconds of distal joint lag cannot invalidate a visibly correct hit. Grapples require two bounded hand-to-body spring grips and do not award damage at acquisition. Those grips preserve a visible collar-and-elbow lock without creating the closed cross-rig Rapier joint loop that caused solver vibration. A grapple scores only when the thrown defender's body produces a measured ring, floor, or commentary-table landing.
+`PlayerController` supplies cancellable approach assistance for local Arcade grapples and pins. Technical controls retain directional move selection. A bounded action buffer records accepted, rejected and expired commands. Pausing clears pending actions. Rendering failures are surfaced through a scene boundary and a WebGL context interruption overlay; a compile or unit-test pass does not certify GPU recovery.
 
-Normal movement compresses the ropes but cannot tunnel through their hard elastic tier. The rebound controller reverses the complete articulated mass and opens the Railway Stiff-Arm window only after inward release. Center-rope context actions own intentional apron transitions, so ordinary locomotion and explicit ring traversal remain distinct.
+## World boundary
 
-Throw and dive velocity changes are distributed by each segment's own mass. This keeps the articulated body coherent and prevents a pelvis-only impulse from stretching joints or catapulting the wrestler. The commentary desk applies bounded targeting only when the defender is already close enough for a deliberate environmental spot; collapse still requires a physical table landing.
+`data/arena.ts` defines Volt Dome. `data/venues.ts` adds backyard and backstage profiles with continuous floors, distinct bounds and no ring traversal. `world/FightVenue.tsx` provides matching physical floors, barriers, registered wooden landing surfaces and dynamic loose props. Combat, AI, camera height, context actions, ground marker and physical containment use the selected venue. Camera framing and targeting remain tied to active opponents. `MatchMode` contains Singles and Battle Royale only. A separate `game/world/WorldSession` owns exploration position and local encounter records. The showground connects yard, backstage and ringside through a shared obstacle map, with a following camera and nearby encounter offers. Offers hand off to instanced arena bouts and restore the world position afterward. Six encounters include distinct-victory unlocks and objective medals. `world/circuit.ts` derives device-local reputation from unique encounter wins and mastery, with no repeated-win farming. Optional additive save fields preserve v1 saves. Exploration and fighting still hand off between scenes; seamless combat, cloud progression and region streaming remain unimplemented.
 
-## Arena and camera
+## Online and platform boundary
 
-`data/arena.ts` is the common geometry contract for the expanded Volt Dome floor, playable limits, barricades, desk, entrance lane, and steps. `Arena.tsx` separates physical surfaces from decorative broadcast architecture. Ropes, ring, floor, desk, steps, chair/sign/trash props, posts, fixed safety rails, and damped movable barricade panels participate in collision. Crowd, LEDs, truss, stage, and lighting do not add solver load.
+The browser's online client uses Colyseus. `server/` contains the Node Colyseus service; `packages/game-core` contains a simplified deterministic online simulation and `packages/game-protocol` its shared messages. This is distinct from the full local Rapier simulation. Online parity, reconciliation and production deployment must be verified independently.
 
-`camera/cameraDirector.ts` chooses the semantic shot. `CameraRig.tsx` owns shot continuity, placement, target damping, FOV, and impact response. Camera-relative movement freezes its basis while input is held or a cinematic action is active, decoupling control meaning from shot changes.
+`cloudflare/` contains a separate Worker/Durable Object implementation, scoped room tickets, D1 result persistence and R2 asset support. The browser is not connected to that transport. Its production environment does not yet declare D1/R2 bindings; no Cloudflare cutover is established by the presence of these files. Choose and prove one authoritative online path before removing the other.
 
-## Cleanup lifecycle
+The frontend ships static health, OpenAPI and discovery surfaces; the Worker has its own API/MCP/trace-header implementation. They must not imply that an undeployed Worker is serving the canonical frontend host. Platform credentials stay server-side. Trace export and a fleet-wide compliance certification are not established by this review.
 
-Every rematch resets commands, contacts, pending landings, grips, prop joints, replay frames, rolling timing samples, metrics, and world registrations. React keys include `runtimeId`, forcing old physical rigs and broken-table fragments to unmount before the next match. The bounded browser soak asserts that bodies and joints return to their expected counts across six complete rematches and checks heap growth when Chromium exposes precise memory information.
+## Verification boundary
+
+Unit tests exercise rules and helpers; browser tests exercise real rendering and input. Lab scenarios are useful isolation tools but do not replace the ordinary menu-to-match journey. Ordinary-input and idle-opponent contact regressions passed in the preceding mobile/recovery repair. See the master plan and showground release report for current evidence; physical-device and final gameplay-quality acceptance remain open.

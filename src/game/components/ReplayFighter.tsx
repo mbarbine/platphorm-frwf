@@ -51,10 +51,11 @@ function RecordedProps({ frameRef }: { frameRef: React.RefObject<PhysicsReplayFr
 export function ReplayDirector() {
   const active = useMatchStore((state) => state.replayActive); const lastImpact = useMatchStore((state) => state.model.lastImpact);
   const playerId = useMatchStore((state) => state.model.player.definitionId); const opponentId = useMatchStore((state) => state.model.opponent.definitionId);
+  const automaticReplays = useSettings((state) => state.automaticReplays);
   const reducedMotion = useSettings((state) => state.reducedMotion);
   const replayedImpact = useRef(0); const physicsFrames = useRef<readonly PhysicsReplayFrame[]>([]); const elapsed = useRef(0); const physicsFrame = useRef<PhysicsReplayFrame | null>(null);
   useEffect(() => {
-    if (!lastImpact || lastImpact.id === replayedImpact.current || reducedMotion) return;
+    if (!lastImpact || lastImpact.id === replayedImpact.current || reducedMotion || !automaticReplays) return;
     // A physical landing can emit both its move impact and its mat/body response
     // while a replay is already open. Treat those as part of the current spot so
     // Skip never closes one overlay only to immediately queue another.
@@ -63,7 +64,7 @@ export function ReplayDirector() {
     const replayWorthy = majorSlam || lastImpact.kind === 'finisher' || lastImpact.kind === 'table' || lastImpact.kind === 'ko';
     if (!replayWorthy || bodyWorksRuntime.replay.size < 45) return;
     replayedImpact.current = lastImpact.id; useMatchStore.getState().startReplay();
-  }, [active, lastImpact, reducedMotion]);
+  }, [active, automaticReplays, lastImpact, reducedMotion]);
   useEffect(() => {
     if (!active) { physicsFrame.current = null; return; }
     physicsFrames.current = bodyWorksRuntime.replay.chronological().slice(-150);

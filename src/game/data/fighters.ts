@@ -51,6 +51,16 @@ export const FIGHTERS: readonly FighterDefinition[] = [
     physics: { massKg: 109, standingHeightM: 1.91, shoulderWidthM: .57, hipWidthM: .39, armLength: 1.07, legLength: 1, torsoLength: 1.04, centerOfMassBias: -.05, reachM: 2.02, muscleStrength: .92, gripStrength: .97, balanceRecovery: .7, jointStiffness: .84 },
     stats: { power: 88, speed: 67, stamina: 42, technique: 74, charisma: 94 },
   },
+  {
+    id: 'dale', name: 'DALE DAMAGE', nickname: 'The Wrecking Crew', archetype: 'Towering Powerhouse',
+    bio: '6′4″, 225 lb of bearded backyard trouble. Dale traps an opponent’s face under his raised arm for Welcome to the Jungle.',
+    signature: 'WELCOME TO THE JUNGLE', taunt: 'Spreads his arms, plants his boots, and dares anyone to move him.', tendency: 'aggressive',
+    personality: { cowardly: 6, showman: 80, technical: 65, aggressive: 90, reckless: 45, dirty: 35, athletic: 52, powerhouse: 99 },
+    palette: { primary: '#b84932', secondary: '#172329', skin: '#b98464', emissive: '#d7b877' },
+    proportions: { height: 1.08, width: 1.12, headwear: 'bandana' },
+    physics: { massKg: 102.0583, standingHeightM: 1.9304, shoulderWidthM: .58, hipWidthM: .39, armLength: 1.08, legLength: 1.03, torsoLength: 1.06, centerOfMassBias: -.06, reachM: 2.06, muscleStrength: 1, gripStrength: .96, balanceRecovery: .65, jointStiffness: .94 },
+    stats: { power: 99, speed: 48, stamina: 73, technique: 68, charisma: 87 },
+  },
 ] as const;
 
 // Precompute fast O(1) lookup map for fighters to avoid repetitive array .find calls

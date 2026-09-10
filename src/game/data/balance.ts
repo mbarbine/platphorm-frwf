@@ -24,6 +24,16 @@ export const BALANCE = {
     staminaThreshold: 15,
     minimumMoveDamage: 11,
   },
+  momentum: {
+    passiveDecayPerSecond: 11,
+    activeDecayPerSecond: 2.6,
+  },
+  comeback: {
+    healthThreshold: 30,
+    attackerDamageMultiplier: 1.2,
+    minimumMomentumForBonus: 62,
+    crowdSwingGain: 7,
+  },
 } as const;
 
 export const BALANCE_RUBRIC = [
@@ -33,4 +43,5 @@ export const BALANCE_RUBRIC = [
   { system: 'Guard', target: 'Reliable defense that loses to pressure and drains stamina', knobs: 'chip, hold drain, impact drain, guard break' },
   { system: 'Grapple readability', target: 'Lock, directional selection, lift, impact, safe release', knobs: 'anticipation, active, recovery, tether distance' },
   { system: 'Crowd Hype', target: 'Ordinary offense builds slowly; spectacle drives A/S ratings', knobs: 'hypeScale, variety decay, event bonuses' },
+  { system: 'Momentum', target: 'Momentum spikes on offense, then naturally dissipates; comeback damage ramps with risk', knobs: 'momentum decay rates, comeback health gate, hit-streak value' },
 ] as const;

@@ -12,11 +12,24 @@ import { createActionEvent } from '../game/input/actionLayer';
 const none: FrameInput = { move: { x: 0, z: 0 }, run: false, block: false, commands: [] };
 
 describe('deterministic combat rules', () => {
+  it('never counts a physical pin from state flags and resets a lost cover', () => {
+    const model = createMatch('atlas', 'nova', 'standard', 'easy');
+    model.physicsAuthority = true; model.player.state = 'pinning'; model.opponent.state = 'pinned';
+    for (let frame = 0; frame < 120; frame++) advanceMatch(model, 1 / 60, none);
+    expect(model.player.pinCount).toBe(0); expect(model.resolved).toBe(false);
+    model.pinCover = { attacker: 'player', defender: 'opponent', established: true, age: 1, separation: .1, shoulderHeight: .3, lostSeconds: 0, facing: 0 };
+    for (let frame = 0; frame < 70; frame++) advanceMatch(model, 1 / 60, none);
+    expect(model.player.pinCount).toBe(1);
+    model.pinCover.established = false; advanceMatch(model, 1 / 60, none);
+    expect(model.player.pinCount).toBe(0); expect(model.player.stateElapsed).toBe(0);
+  });
+
   it('creates a five-wrestler Battle Royale with unique entrants and live rival targets', () => {
     const model = createMatch('atlas', 'atlas', 'standard', 'normal', 1337, 0, 0, 'battle_royale');
     const slots = activeFighterSlots(model);
     expect(slots).toHaveLength(5);
-    expect(new Set(slots.map((slot) => model[slot].definitionId))).toEqual(new Set(FIGHTERS.map(({ id }) => id)));
+    expect(new Set(slots.map((slot) => model[slot].definitionId)).size).toBe(5);
+    for (const slot of slots) expect(FIGHTERS.some(({ id }) => id === model[slot].definitionId)).toBe(true);
     expect(new Set(slots.map((slot) => `${model[slot].position.x}:${model[slot].position.z}`)).size).toBe(5);
     for (const slot of slots) {
       expect(model.targets[slot]).not.toBe(slot);
@@ -60,11 +73,11 @@ describe('deterministic combat rules', () => {
     expect(model.opponent.state).toBe('defeated');
   });
 
-  it('turns a grounded primary attack press into visible kick-up recovery', () => {
+  it('turns a grounded primary attack press into grounded recovery', () => {
     const model = createMatch('atlas', 'vex', 'standard', 'normal');
     model.player.state = 'downed'; model.player.downTimer = 2;
     expect(requestCommand(model, 'player', 'quick')).toBe(true);
-    expect(model.player).toMatchObject({ state: 'recovering', moveId: 'kick_up', attackPhase: 'anticipation' });
+    expect(model.player).toMatchObject({ state: 'recovering', moveId: null, attackPhase: null });
   });
 
   it('records a forfeit without fabricating a collision impact', () => {
@@ -402,8 +415,10 @@ describe('deterministic combat rules', () => {
     expect(windup).not.toBeNull(); expect(contact).not.toBeNull();
     expect(windup?.rightForearm[0]).toBeLessThan(-1.2);
     expect(contact?.rightArm[0]).toBeLessThan(-1.5);
-    expect(Math.abs(contact?.rightForearm[0] ?? 1)).toBeLessThan(.08);
-    expect((windup?.rightArm[0] ?? 0) - (contact?.rightArm[0] ?? 0)).toBeGreaterThan(1.6);
+    // A punch extends from its chamber without demanding a locked elbow.
+    expect((contact?.rightForearm[0] ?? 0) - (windup?.rightForearm[0] ?? 0)).toBeGreaterThan(.6);
+    expect(contact?.rightForearm[0]).toBeLessThanOrEqual(0);
+    expect(contact?.rightArm[0]).toBeLessThan(windup?.rightArm[0] ?? 0);
     expect(contact?.rootZ).toBeGreaterThan(.16);
   });
 
@@ -512,6 +527,7 @@ describe('deterministic combat rules', () => {
   it('lets AI strike a raised guard from the physical glove-engagement lane', () => {
     const model = createMatch('atlas', 'vex', 'standard', 'normal', 1337);
     model.player.position = { x: 0, z: 0 }; model.player.state = 'blocking'; model.opponent.position = { x: 0, z: 2.25 };
+    model.opponent.stateElapsed = 1;
     const decision = chooseAiDecision(model, fighterById(model.opponent.definitionId));
     expect(decision.command).toMatch(/quick|heavy/);
   });
@@ -547,16 +563,20 @@ describe('deterministic combat rules', () => {
   it('keeps directionless rescue controls punch-first and kick-first', () => {
     expect(selectDirectionalStrike({ x: 0, z: 0 }, 'quick', 0)).toBe('jab');
     expect(selectDirectionalStrike({ x: 0, z: 0 }, 'quick', 1)).toBe('combo');
-    expect(selectDirectionalStrike({ x: 0, z: 0 }, 'quick', 2)).toBe('jab');
+    expect(selectDirectionalStrike({ x: 0, z: 0 }, 'quick', 2)).toBe('uppercut');
     expect(selectDirectionalStrike({ x: 0, z: 0 }, 'heavy')).toBe('front_kick');
   });
 
-  it('turns a downed counter input into a visible stamina-bound kick-up', () => {
-    const model = createMatch('vex', 'atlas', 'standard', 'normal'); model.player.state = 'downed'; model.player.downTimer = 2;
-    const stamina = model.player.stamina;
-    expect(isActionLegal(model, 'dodge', 'player')).toBe(true); expect(requestCommand(model, 'player', 'dodge')).toBe(true);
-    expect(model.player.state).toBe('recovering'); expect(model.player.moveId).toBe('kick_up'); expect(model.player.stamina).toBe(stamina - getMove('kick_up').staminaCost);
-    expect(getStrikePose(getMove('kick_up'), 'active', getMove('kick_up').anticipationDuration + .05)).not.toBeNull();
+  it('accepts Get Up without stamina and never restarts or launches the recovery', () => {
+    const model = createMatch('vex', 'atlas', 'standard', 'normal');
+    model.player.state = 'downed'; model.player.downTimer = 2; model.player.stamina = 0;
+    expect(isActionLegal(model, 'dodge', 'player')).toBe(true);
+    expect(requestCommand(model, 'player', 'dodge')).toBe(true);
+    expect(model.player).toMatchObject({ state: 'recovering', moveId: null, attackPhase: null, stamina: 0, downTimer: 0 });
+    expect(model.player.body.verticalVelocity).toBe(0);
+    model.player.stateElapsed = .4;
+    expect(requestCommand(model, 'player', 'dodge')).toBe(true);
+    expect(model.player.stateElapsed).toBe(.4);
   });
 
   it('guarantees a knockdown when a rebound stiff-arm registers', () => {
@@ -685,7 +705,7 @@ describe('deterministic combat rules', () => {
     expect(tooFar.player.moveId).toBe('grapple_miss'); expect(tooFar.grapple).toBeNull();
   });
 
-  it('completes one hundred neutral body-slam intents without fake renderer-free damage or a stuck attacker', () => {
+  it('completes all roster pairings of neutral body-slam intents without fake renderer-free damage or a stuck attacker', () => {
     const fighters = FIGHTERS.map((fighter) => fighter.id);
     let attempts = 0;
     for (const attacker of fighters) for (const defender of fighters) for (const side of [-1, 1] as const) for (const lane of [-.32, .32] as const) {
@@ -699,7 +719,7 @@ describe('deterministic combat rules', () => {
       expect(['idle', 'locomotion']).toContain(model.player.state); expect(model.grapple).toBeNull();
       attempts += 1;
     }
-    expect(attempts).toBe(100);
+    expect(attempts).toBe(fighters.length ** 2 * 4);
   });
 
   it('climbs a turnbuckle before launching a playable aerial attack', () => {

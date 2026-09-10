@@ -1,8 +1,13 @@
+import { gameServerEndpoint } from '../game/multiplayer/serverEndpoint';
+import { venueFor } from '../game/data/venues';
+import { circuitProgress, earnedMedals, CIRCUIT_OBJECTIVES } from '../game/world/circuit';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { FIGHTERS, fighterById, opponentFor } from '../game/data/fighters';
 import { BALANCE } from '../game/data/balance';
 import { useMatchStore } from '../game/state/matchStore';
 import { useSettings } from '../game/state/settings';
+import { ArchiveBackdrop, ArenaLoading } from '../ui/ArchiveBackdrop';
+import { BackgroundMusic } from '../game/audio/BackgroundMusic';
 import { audioEngine } from '../game/audio/audioEngine';
 import type { ControlDevice, Difficulty, FighterId, MatchMode, Ruleset } from '../game/types/game';
 import { HUD } from '../ui/HUD';
@@ -11,25 +16,31 @@ import { Tutorial } from '../ui/Tutorial';
 import { MobileControls } from '../ui/MobileControls';
 import { RELEASE_IDENTITY } from '../game/release/releaseIdentity';
 import { SpectatorControls } from '../ui/SpectatorControls';
+import { useWorldSession } from '../game/world/worldSession';
+import type { WorldEncounter } from '../game/world/showground';
 import { useMultiplayerStore } from '../game/multiplayer/MultiplayerStore';
 
 const importGameScene = () => import('../game/components/GameScene');
 let gameScenePromise: ReturnType<typeof importGameScene> | null = null;
 const loadGameScene = (): ReturnType<typeof importGameScene> => gameScenePromise ??= importGameScene();
 const GameScene = lazy(async () => ({ default: (await loadGameScene()).GameScene }));
+const WorldScene = lazy(async () => ({ default: (await import('../game/world/WorldScene')).WorldScene }));
 const FighterPreview = lazy(async () => ({ default: (await import('../ui/FighterPreview')).FighterPreview }));
 const SettingsPanel = lazy(async () => ({ default: (await import('../ui/SettingsPanel')).SettingsPanel }));
 const PhysicsLab = lazy(async () => ({ default: (await import('../game/components/PhysicsLab')).PhysicsLab }));
 
-type Screen = 'init' | 'main' | 'how' | 'settings' | 'select' | 'rules' | 'match' | 'results' | 'multiplayer_lobby';
+type Screen = 'init' | 'main' | 'how' | 'settings' | 'select' | 'rules' | 'match' | 'results' | 'multiplayer_lobby' | 'world';
 
 export function App() {
   const settings = useSettings();
   const [screen, setScreen] = useState<Screen>('init'); const [selected, setSelected] = useState<FighterId>('atlas'); const [rules, setRules] = useState<Ruleset>('standard');
-  const [matchMode, setMatchMode] = useState<MatchMode>('singles');
+  const [matchMode, setMatchMode] = useState<MatchMode>('battle_royale');
   const [difficulty, setDifficulty] = useState<Difficulty>('normal'); const [device, setDevice] = useState<ControlDevice>('keyboard'); const [paused, setPaused] = useState(false);
+  const [matchSettings, setMatchSettings] = useState(false);
+  const [selectionTarget, setSelectionTarget] = useState<'match' | 'world' | 'online'>('match');
+  const [worldEncounter, setWorldEncounter] = useState<WorldEncounter | null>(null);
   const [beers, setBeers] = useState(0);
-  const [runtimePreload, setRuntimePreload] = useState<'idle' | 'loading' | 'ready'>('idle');
+  const [runtimePreload, setRuntimePreload] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [joinRoomId, setJoinRoomId] = useState('');
   const [copied, setCopied] = useState(false);
 
@@ -135,36 +146,59 @@ export function App() {
     }
   };
   const preloadRuntime = useCallback((): void => {
-    if (runtimePreload !== 'idle') return;
+    if (runtimePreload !== 'idle' && runtimePreload !== 'error') return;
     setRuntimePreload('loading');
-    void loadGameScene().then(() => setRuntimePreload('ready'));
+    void loadGameScene().then(() => setRuntimePreload('ready')).catch(() => { gameScenePromise = null; setRuntimePreload('error'); });
   }, [runtimePreload]);
   const enter = (): void => { audioEngine.unlock(settings); setScreen('main'); preloadRuntime(); };
-  const start = (): void => { configure(selected, opponentId, rules, difficulty, beers, 0, physicsLab ? 'singles' : matchMode); if (physicsLab) useMatchStore.getState().setLabMode(true); if (toyTest) useMatchStore.getState().setToyTestMode(true); setPaused(false); confirm('match'); audioEngine.play('bell', settings); };
+  const start = (): void => { configure(selected, opponentId, rules, difficulty, beers, 0, matchMode); if (physicsLab) useMatchStore.getState().setLabMode(true); if (toyTest) useMatchStore.getState().setToyTestMode(true); setPaused(false); confirm('match'); audioEngine.play('bell', settings); };
   const togglePause = useCallback(() => {
     const next = !useMatchStore.getState().model.paused;
     useMatchStore.getState().pause(next);
     setPaused(next);
+    if (next) audioEngine.stopReaction();
   }, []);
-  const finish = useCallback(() => setScreen('results'), []);
+  useEffect(() => {
+    const suspend = () => {
+      if (document.hidden && screen === 'match' && !useMatchStore.getState().model.networkAuthority) {
+        useMatchStore.getState().pause(true); setPaused(true); audioEngine.stopReaction();
+      }
+    };
+    document.addEventListener('visibilitychange', suspend);
+    return () => document.removeEventListener('visibilitychange', suspend);
+  }, [screen]);
+  const finish = useCallback(() => {
+    if (worldEncounter) useWorldSession.getState().finish(useMatchStore.getState().model.result?.winner === 'player', useMatchStore.getState().model.result ?? undefined);
+    setScreen('results');
+  }, [worldEncounter]);
+  const enterWorldBout = (encounter: WorldEncounter): void => {
+    const player = useWorldSession.getState().save.fighter;
+    configure(player, encounter.host, encounter.rules, encounter.difficulty, 0, 0, 'singles');
+    useMatchStore.getState().configureVenue(encounter.venue);
+    setWorldEncounter(encounter); setPaused(false); confirm('match'); audioEngine.play('bell', settings);
+  };
+  const returnToWorld = (): void => { useWorldSession.getState().abandon(); setWorldEncounter(null); setPaused(false); setMatchSettings(false); confirm('world'); };
   const doRematch = (): void => {
     if (useMatchStore.getState().model.networkAuthority) {
       useMultiplayerStore.getState().voteRematch(); setScreen('multiplayer_lobby'); return;
     }
+    if (worldEncounter) useWorldSession.getState().begin(worldEncounter.id);
     rematch(); setPaused(false); confirm('match'); audioEngine.play('bell', settings);
   };
 
-  const menuBackdrop = screen !== 'match' && <div className="backdrop"><div className="backdrop__ring" /><div className="backdrop__beam backdrop__beam--a" /><div className="backdrop__beam backdrop__beam--b" /></div>;
+  const menuBackdrop = screen !== 'match' && screen !== 'world' && <div className="backdrop"><div className="backdrop__ring" /><div className="backdrop__beam backdrop__beam--a" /><div className="backdrop__beam backdrop__beam--b" /></div>;
   return <main className={`app app--${screen}${toyTest ? ' app--toy-test' : ''}`}>
+    <BackgroundMusic active={screen !== 'init' && !paused} />
     {menuBackdrop}
-    {screen === 'init' && <section className="init-screen"><Logo /><div className="init-card"><span>SYSTEM CHECK</span><b>LOCAL ARENA READY</b><small>WebGL · deterministic combat · procedural audio</small></div><button className="button button--hero" onClick={enter}>ENTER THE VOLT DOME</button><p>No network connection required after installation.</p></section>}
-    {screen === 'main' && <section className="menu-screen"><Logo /><div className="menu-copy"><p>NEON UNDERGROUND ARCADE WRESTLING</p><h1>MAKE THE DOME<br /><em>LOSE CONTROL.</em></h1><span>Five originals. One electric ring. Every match tells a different story.</span></div><nav className="main-nav" aria-label="Main menu"><button className="button button--hero" onPointerEnter={preloadRuntime} onFocus={preloadRuntime} onClick={() => { preloadRuntime(); confirm('select'); }}>PLAY</button><button className="button button--hero" style={{ marginTop: '0.5rem', background: 'linear-gradient(135deg, #7000ff 0%, #ff007b 100%)' }} onPointerEnter={preloadRuntime} onFocus={preloadRuntime} onClick={() => { preloadRuntime(); confirm('multiplayer_lobby'); }}>PLAY ONLINE</button><button className="button button--quiet" onClick={() => confirm('how')}>HOW TO PLAY</button><button className="button button--quiet" onClick={() => confirm('settings')}>SETTINGS</button></nav><footer data-runtime-preload={runtimePreload} data-release-sha={RELEASE_IDENTITY.gitSha}>RINGFALL v{RELEASE_IDENTITY.applicationVersion} · BUILD {RELEASE_IDENTITY.shortGitSha} · ARENA {runtimePreload === 'ready' ? 'PRIMED' : runtimePreload === 'loading' ? 'WARMING' : 'STANDBY'}</footer></section>}
+    {screen !== 'match' && screen !== 'world' && <ArchiveBackdrop active={screen !== 'init'} />}
+    {screen === 'init' && <section className="init-screen"><Logo /><div className="init-card"><span>SYSTEM CHECK</span><b>LOCAL ARENA READY</b><small>Local wrestling · original FRWF footage</small></div><button className="button button--hero" onClick={enter}>ENTER THE VOLT DOME</button><p>Step into the ring. Make it unforgettable.</p></section>}
+    {screen === 'main' && <section className="menu-screen"><Logo /><div className="menu-copy"><p>FRWF / BACKYARD WRESTLING</p><h1>MAKE THE DOME<br /><em>LOSE CONTROL.</em></h1><span>Explore the grounds. Meet the originals. Earn your place in the ring.</span></div><nav className="main-nav" aria-label="Main menu"><button className="button button--hero" onPointerEnter={preloadRuntime} onFocus={preloadRuntime} onClick={() => { setSelectionTarget('world'); setSelected(useWorldSession.getState().save.fighter); confirm('select'); }}>EXPLORE SHOWGROUND</button><button className="button button--hero" onPointerEnter={preloadRuntime} onFocus={preloadRuntime} onClick={() => { setSelectionTarget('match'); setWorldEncounter(null); preloadRuntime(); confirm('select'); }}>PLAY</button><button className="button button--hero" style={{ marginTop: '0.5rem', background: 'linear-gradient(135deg, #7000ff 0%, #ff007b 100%)' }} onPointerEnter={preloadRuntime} onFocus={preloadRuntime} onClick={() => { preloadRuntime(); confirm('multiplayer_lobby'); }}>PLAY ONLINE</button><button className="button button--quiet" onClick={() => confirm('how')}>HOW TO PLAY</button><button className="button button--quiet" onClick={() => confirm('settings')}>SETTINGS</button></nav><footer data-runtime-preload={runtimePreload} data-release-sha={RELEASE_IDENTITY.gitSha}>RINGFALL v{RELEASE_IDENTITY.applicationVersion} · BUILD {RELEASE_IDENTITY.shortGitSha} · ARENA {runtimePreload === 'ready' ? 'PRIMED' : runtimePreload === 'loading' ? 'WARMING' : 'STANDBY'}</footer></section>}
     {screen === 'how' && <section className="panel panel--how"><div className="section-heading"><span>CORNER COACH</span><h2>HOW TO PLAY</h2></div><div className="how-grid">
-      <article><b>1 · MOVE WITH PURPOSE</b><p>Use WASD to circle your opponent. Hold Shift only when you want to sprint or hit the ropes.</p></article><article><b>2 · STRIKE CLEANLY</b><p>J throws the fast strike. K throws the power strike. Your direction changes the exact punch or kick without adding another button.</p></article><article><b>3 · WRESTLE UP CLOSE</b><p>Get chest-to-chest and press L for a collar lock. Then use J, K, or L with a direction to choose a takedown, slam, or throw.</p></article><article><b>4 · DEFEND</b><p>Hold I to guard. Tap Space to dodge or reverse during the counter window. Space also helps you recover when down.</p></article><article><b>5 · FOLLOW THE ACTION PROMPT</b><p>F only appears when it matters: pin a downed rival, use a finisher, climb a corner, or move through the ropes.</p></article><article><b>6 · ADVANCED TOOLS</b><p>C jumps, E handles props, and Q taunts. Learn those after the five core controls feel natural.</p></article>
+      <article><b>1 · MOVE WITH PURPOSE</b><p>Use <kbd>WASD</kbd> to circle your opponent. Hold <kbd>Shift</kbd> only when you want to sprint or hit the ropes.</p></article><article><b>2 · STRIKE CLEANLY</b><p><kbd>J</kbd> throws the fast strike. <kbd>K</kbd> throws the power strike. Arcade controls keep these attacks consistent while you move. Technical controls add directional variations.</p></article><article><b>3 · WRESTLE UP CLOSE</b><p>Get chest-to-chest and press <kbd>L</kbd> for a collar lock. Then use <kbd>J</kbd>, <kbd>K</kbd>, or <kbd>L</kbd> with a direction to choose a takedown, slam, or throw.</p></article><article><b>4 · DEFEND</b><p>Hold <kbd>I</kbd> to guard. Tap <kbd>Space</kbd> to dodge or reverse during the counter window. <kbd>Space</kbd> also helps you recover when down.</p></article><article><b>5 · FOLLOW THE ACTION PROMPT</b><p><kbd>F</kbd> only appears when it matters: pin a downed rival, use a finisher, climb a corner, or move through the ropes.</p></article><article><b>6 · ADVANCED TOOLS</b><p><kbd>C</kbd> jumps, <kbd>E</kbd> handles props, and <kbd>Q</kbd> taunts. Learn those after the five core controls feel natural.</p></article>
     </div><button className="button" onClick={() => confirm('main')}>BACK TO MENU</button></section>}
     {screen === 'settings' && <Suspense fallback={<div className="canvas-fallback"><b>OPENING CONTROL ROOM</b></div>}><SettingsPanel onBack={() => confirm('main')} /></Suspense>}
-    {screen === 'select' && <section className="select-screen"><div className="section-heading"><span>CHOOSE YOUR SIGNAL</span><h2>FIGHTER SELECT</h2></div><div className="select-layout"><div className="roster" role="list" onKeyDown={handleRosterKeyDown}>{FIGHTERS.map((candidate) => <button key={candidate.id} data-fighter-select-id={candidate.id} className={candidate.id === selected ? 'roster-card roster-card--active' : 'roster-card'} aria-pressed={candidate.id === selected} onClick={() => { setSelected(candidate.id); setBeers(0); audioEngine.play('menu', settings); }}><span style={{ background: candidate.palette.primary }} /><div><b>{candidate.name}</b><small>{candidate.archetype}</small></div></button>)}</div><Suspense fallback={<div className="fighter-preview preview-loading">ASSEMBLING FIGHTER…</div>}><FighterPreview fighterId={selected} /></Suspense><article className="fighter-dossier"><span>{fighter.nickname}</span><h3>{fighter.name}</h3><b>{fighter.archetype}</b><p>{fighter.bio}</p><div className="stats">{Object.entries(fighter.stats).map(([label, value]) => <div key={label}><span>{label}</span><i><u style={{ width: `${value}%` }} /></i><b>{value}</b></div>)}</div><div className="signature"><span>SIGNATURE FINISHER</span><b>{fighter.signature}</b></div></article></div><div aria-live="polite" style={{ position: 'absolute', width: '1px', height: '1px', padding: 0, margin: '-1px', overflow: 'hidden', clip: 'rect(0, 0, 0, 0)', border: 0 }}>Selected fighter: {fighter.name}, {fighter.archetype}. Signature: {fighter.signature}</div><div className="button-row"><button className="button button--quiet" onClick={() => confirm('main')}>BACK</button><button className="button button--hero" onClick={() => confirm('rules')}>LOCK IN {fighter.name}</button></div></section>}
-    {screen === 'rules' && <section className="panel rules-screen"><div className="section-heading"><span>TALE OF THE TAPE</span><h2>MATCH SETUP</h2></div><div className="versus"><div><span style={{ color: fighter.palette.primary }}>YOU</span><b>{fighter.name}</b><small>{fighter.archetype}</small></div><strong>{matchMode === 'battle_royale' ? 'VS ALL' : 'VS'}</strong><div><span style={{ color: opponent.palette.primary }}>{matchMode === 'battle_royale' ? 'FULL ROSTER' : 'CPU'}</span><b>{matchMode === 'battle_royale' ? 'FOUR RIVALS' : opponent.name}</b><small>{matchMode === 'battle_royale' ? 'Every wrestler · no teams' : opponent.archetype}</small></div></div><div className="option-grid"><fieldset><legend>MATCH MODE</legend><button className={matchMode === 'singles' ? 'option active' : 'option'} aria-pressed={matchMode === 'singles'} onClick={() => setMatchMode('singles')}><b>SINGLES · RECOMMENDED</b><span>Readable one-on-one wrestling · pin or knockout</span></button><button data-testid="battle-royale-mode" className={matchMode === 'battle_royale' ? 'option active' : 'option'} aria-pressed={matchMode === 'battle_royale'} onClick={() => setMatchMode('battle_royale')}><b>BATTLE ROYALE</b><span>Five-wrestler free-for-all for experienced players</span></button></fieldset><fieldset><legend>RULESET</legend><button className={rules === 'standard' ? 'option active' : 'option'} aria-pressed={rules === 'standard'} onClick={() => setRules('standard')}><b>STANDARD</b><span>Pure competition · no starting weapons · balanced Momentum</span></button><button className={rules === 'chaos' ? 'option active' : 'option'} aria-pressed={rules === 'chaos'} onClick={() => setRules('chaos')}><b>CHAOS CIRCUIT</b><span>Props · arena events · faster Momentum · hotter environment</span></button></fieldset><fieldset><legend>RIVAL AI</legend><button className={difficulty === 'normal' ? 'option active' : 'option'} aria-pressed={difficulty === 'normal'} onClick={() => setDifficulty('normal')}><b>NORMAL</b><span>Readable reactions · strategic mistakes · first-session friendly</span></button><button className={difficulty === 'hard' ? 'option active' : 'option'} aria-pressed={difficulty === 'hard'} onClick={() => setDifficulty('hard')}><b>HARD</b><span>Sharper spacing · stronger counters · fair shared stats</span></button></fieldset></div><BeerLocker fighterId={selected} beers={beers} onChange={setBeers} /><div className="prematch-strip"><span>CONTROL DEVICE <b>{device.toUpperCase()}</b></span><span>VENUE <b>THE VOLT DOME</b></span><span>WIN CONDITION <b>{matchMode === 'battle_royale' ? 'LAST WRESTLER STANDING' : 'PIN OR KO'}</b></span></div><div className="button-row"><button className="button button--quiet" onClick={() => confirm('select')}>CHANGE FIGHTER</button><button className="button button--hero" onClick={start}>{physicsLab || matchMode === 'singles' ? 'START MATCH' : 'START MATCH · BATTLE ROYALE'}</button></div></section>}
+    {screen === 'select' && <section className="select-screen"><div className="section-heading"><span>CHOOSE YOUR SIGNAL</span><h2>FIGHTER SELECT</h2></div><div className="select-layout"><div className="roster" role="list" onKeyDown={handleRosterKeyDown}>{FIGHTERS.map((candidate) => <button key={candidate.id} data-fighter-select-id={candidate.id} className={candidate.id === selected ? 'roster-card roster-card--active' : 'roster-card'} aria-pressed={candidate.id === selected} onClick={() => { setSelected(candidate.id); setBeers(0); audioEngine.play('menu', settings); }}><span style={{ background: candidate.palette.primary }} /><div><b>{candidate.name}</b><small>{candidate.archetype}</small></div></button>)}</div><Suspense fallback={<div className="fighter-preview preview-loading">ASSEMBLING FIGHTER…</div>}><FighterPreview fighterId={selected} /></Suspense><article className="fighter-dossier"><span>{fighter.nickname}</span><h3>{fighter.name}</h3><b>{fighter.archetype}</b><p>{fighter.bio}</p><div className="stats">{Object.entries(fighter.stats).map(([label, value]) => <div key={label}><span>{label}</span><i><u style={{ width: `${value}%` }} /></i><b>{value}</b></div>)}</div><div className="signature"><span>SIGNATURE FINISHER</span><b>{fighter.signature}</b></div></article></div><div aria-live="polite" style={{ position: 'absolute', width: '1px', height: '1px', padding: 0, margin: '-1px', overflow: 'hidden', clip: 'rect(0, 0, 0, 0)', border: 0 }}>Selected fighter: {fighter.name}, {fighter.archetype}. Signature: {fighter.signature}</div><div className="button-row"><button className="button button--quiet" onClick={() => confirm('main')}>BACK</button><button className="button button--hero" onClick={() => { if (selectionTarget === 'world') { useWorldSession.getState().enter(selected); confirm('world'); } else if (selectionTarget === 'online') confirm('multiplayer_lobby'); else confirm('rules'); }}>LOCK IN {fighter.name}</button></div></section>}
+    {screen === 'rules' && <section className="panel rules-screen"><div className="section-heading"><span>TALE OF THE TAPE</span><h2>MATCH SETUP</h2></div><div className="versus"><div><span style={{ color: fighter.palette.primary }}>YOU</span><b>{fighter.name}</b><small>{fighter.archetype}</small></div><strong>{matchMode === 'battle_royale' ? 'VS ALL' : 'VS'}</strong><div><span style={{ color: opponent.palette.primary }}>{matchMode === 'battle_royale' ? 'FREE FOR ALL' : 'CPU'}</span><b>{matchMode === 'battle_royale' ? 'FOUR RIVALS' : opponent.name}</b><small>{matchMode === 'battle_royale' ? 'Four rivals from the roster · no teams' : opponent.archetype}</small></div></div><div className="option-grid"><fieldset><legend>MATCH MODE</legend><button className={matchMode === 'singles' ? 'option active' : 'option'} aria-pressed={matchMode === 'singles'} onClick={() => setMatchMode('singles')}><b>SINGLES</b><span>Readable one-on-one wrestling · pin or knockout</span></button><button data-testid="battle-royale-mode" className={matchMode === 'battle_royale' ? 'option active' : 'option'} aria-pressed={matchMode === 'battle_royale'} onClick={() => setMatchMode('battle_royale')}><b>BATTLE ROYALE</b><span>Five-wrestler free-for-all · last wrestler standing</span></button></fieldset><fieldset><legend>RULESET</legend><button className={rules === 'standard' ? 'option active' : 'option'} aria-pressed={rules === 'standard'} onClick={() => setRules('standard')}><b>STANDARD</b><span>Pure competition · no starting weapons · balanced Momentum</span></button><button className={rules === 'chaos' ? 'option active' : 'option'} aria-pressed={rules === 'chaos'} onClick={() => setRules('chaos')}><b>CHAOS CIRCUIT</b><span>Props · arena events · faster Momentum · hotter environment</span></button></fieldset><fieldset><legend>RIVAL AI</legend><button className={difficulty === 'easy' ? 'option active' : 'option'} aria-pressed={difficulty === 'easy'} onClick={() => setDifficulty('easy')}><b>EASY / CORNER SCHOOL</b><span>Longer opening · slower decisions · space to learn</span></button><button className={difficulty === 'normal' ? 'option active' : 'option'} aria-pressed={difficulty === 'normal'} onClick={() => setDifficulty('normal')}><b>NORMAL</b><span>Steady pressure · strikes and grapples · space to recover</span></button><button className={difficulty === 'hard' ? 'option active' : 'option'} aria-pressed={difficulty === 'hard'} onClick={() => setDifficulty('hard')}><b>HARD</b><span>Sharper spacing · stronger counters · fair shared stats</span></button></fieldset></div><BeerLocker fighterId={selected} beers={beers} onChange={setBeers} /><div className="prematch-strip"><span>CONTROL DEVICE <b>{device.toUpperCase()}</b></span><span>VENUE <b>THE VOLT DOME</b></span><span>WIN CONDITION <b>{matchMode === 'battle_royale' ? 'LAST WRESTLER STANDING' : 'PIN OR KO'}</b></span></div><div className="button-row"><button className="button button--quiet" onClick={() => confirm('select')}>CHANGE FIGHTER</button><button className="button button--hero" onClick={start}>{physicsLab || matchMode === 'singles' ? 'START MATCH' : 'START MATCH · BATTLE ROYALE'}</button></div></section>}
     {screen === 'multiplayer_lobby' && <section className="panel rules-screen multiplayer-lobby">
       <div className="section-heading"><span>CONNECT WITH RIVALS</span><h2>ONLINE MULTIPLAYER</h2></div>
 
@@ -177,7 +211,7 @@ export function App() {
             <b>{fighter.name}</b>
             <small>{fighter.archetype}</small>
           </div>
-          <button className="button button--quiet" onClick={() => setScreen('select')}>CHANGE FIGHTER</button>
+          <button className="button button--quiet" onClick={() => { setSelectionTarget('online'); setScreen('select'); }}>CHANGE FIGHTER</button>
         </div>
 
         <div className="option-grid" style={{ marginTop: '1rem' }}>
@@ -231,7 +265,7 @@ export function App() {
         <div style={{ textAlign: 'center', marginTop: '1rem' }}>
           <button className="button" style={{ minWidth: '240px' }} onClick={() => {
             audioEngine.play('confirm', settings);
-            useMultiplayerStore.getState().connect('wrestling', { fighterId: selected });
+            void useMultiplayerStore.getState().connect('wrestling', { fighterId: selected }).catch(() => undefined);
           }}>QUICK MATCH</button>
         </div>
       </div>}
@@ -245,7 +279,7 @@ export function App() {
 
       {multiplayerStatus === 'error' && <div className="multiplayer-lobby__error" style={{ textAlign: 'center', padding: '3rem' }}>
         <h3 style={{ color: '#ff3b30' }}>CONNECTION ERROR</h3>
-        <p>Could not connect to the real-time game server. Ensure server is running at {import.meta.env.VITE_GAME_SERVER_URL ?? 'ws://localhost:2567'}</p>
+        <p>{gameServerEndpoint ? 'The match connection failed. Check your connection and try again.' : 'Online play is not connected to a game server yet. Local matches are available while multiplayer is being rebuilt.'}</p>
         <button className="button" style={{ marginTop: '1.5rem' }} onClick={() => useMultiplayerStore.getState().disconnect()}>RETRY</button>
       </div>}
 
@@ -322,8 +356,9 @@ export function App() {
         }}>RETURN TO MENU</button>
       </div>
     </section>}
-    {screen === 'match' && <section className="match-screen"><Suspense fallback={<div className="canvas-fallback"><b>THE VOLT DOME IS POWERING UP</b><span>Preparing local physics and shader modules…</span></div>}><GameScene onPause={togglePause} onDevice={setDevice} onFinished={finish} onlineRole={useMatchStore.getState().model.networkAuthority ? multiplayerMyRole : null} /></Suspense>{!toyTest && <><HUD device={device} paused={paused} />{settings.controlDeckMode !== 'hidden' && <Tutorial device={device} />}<MobileControls onPause={togglePause} paused={paused || replayActive} /><SpectatorControls /></>}{physicsLab && <Suspense fallback={null}><PhysicsLab /></Suspense>}{replayActive && <div className="replay-overlay"><span>VOLT DOME INSTANT REPLAY</span><b>PHYSICAL IMPACT REVIEW</b><button onClick={() => useMatchStore.getState().stopReplay()}>SKIP REPLAY</button></div>}{paused && <div className="pause-overlay"><Logo compact /><span>MATCH PAUSED</span><button className="button button--hero" onClick={togglePause}>RESUME</button><button className="button button--quiet" onClick={() => { useMatchStore.getState().pause(false); setPaused(false); setScreen('settings'); }}>SETTINGS</button><button className="button button--quiet" onClick={() => { useMatchStore.getState().pause(false); useMatchStore.getState().setNetworkAuthority(false); void useMultiplayerStore.getState().disconnect(); setPaused(false); setScreen('main'); }}>QUIT TO MENU</button></div>}</section>}
-    {screen === 'results' && result && <Results result={result} winnerName={fighterById(useMatchStore.getState().model[result.winner].definitionId).name} onRematch={doRematch} onChange={() => confirm('select')} onMenu={() => confirm('main')} />}
+    {screen === 'world' && <Suspense fallback={<ArenaLoading />}><WorldScene onEncounter={enterWorldBout} onExit={() => confirm('main')} /></Suspense>}
+    {screen === 'match' && <section className="match-screen"><Suspense fallback={<ArenaLoading />}><GameScene onPause={togglePause} onDevice={setDevice} onFinished={finish} onlineRole={useMatchStore.getState().model.networkAuthority ? multiplayerMyRole : null} /></Suspense>{!toyTest && <><HUD device={device} paused={paused} />{settings.controlDeckMode !== 'hidden' && <Tutorial device={device} />}<MobileControls onPause={togglePause} paused={paused || replayActive} /><SpectatorControls /></>}{physicsLab && <Suspense fallback={null}><PhysicsLab /></Suspense>}{replayActive && <div className="replay-overlay"><span>FRWF INSTANT REPLAY</span><b>PHYSICAL IMPACT REVIEW</b><button type="button" aria-label="Skip instant replay" onClick={() => useMatchStore.getState().stopReplay()}>SKIP REPLAY</button></div>}{paused && matchSettings && <div className="pause-overlay pause-overlay--settings"><Suspense fallback={null}><SettingsPanel onBack={() => setMatchSettings(false)} /></Suspense></div>}{paused && !matchSettings && <div className="pause-overlay"><Logo compact /><span>MATCH PAUSED</span><button className="button button--hero" onClick={togglePause}>RESUME</button><button className="button button--quiet" onClick={() => { setMatchSettings(true); }}>SETTINGS</button><button className="button button--quiet" onClick={() => { useMatchStore.getState().pause(false); useMatchStore.getState().setNetworkAuthority(false); void useMultiplayerStore.getState().disconnect(); setPaused(false); if (worldEncounter) returnToWorld(); else setScreen('main'); }}>{worldEncounter ? 'RETURN TO SHOWGROUND' : 'QUIT TO MENU'}</button></div>}</section>}
+    {screen === 'results' && result && <Results result={result} winnerName={fighterById(useMatchStore.getState().model[result.winner].definitionId).name} onWorld={worldEncounter ? returnToWorld : undefined} onRematch={doRematch} onChange={() => { setWorldEncounter(null); setSelectionTarget('match'); confirm('select'); }} onMenu={() => { setWorldEncounter(null); confirm('main'); }} />}
   </main>;
 }
 
@@ -335,9 +370,12 @@ export function BeerLocker({ fighterId, beers, onChange }: { fighterId: FighterI
   </div>;
 }
 
-function Results({ result, winnerName, onRematch, onChange, onMenu }: { result: NonNullable<ReturnType<typeof useMatchStore.getState>['model']['result']>; winnerName: string; onRematch: () => void; onChange: () => void; onMenu: () => void }) {
+function Results({ result, winnerName, onRematch, onChange, onMenu, onWorld }: { result: NonNullable<ReturnType<typeof useMatchStore.getState>['model']['result']>; winnerName: string; onRematch: () => void; onChange: () => void; onMenu: () => void; onWorld?: () => void }) {
   const duration = `${Math.floor(result.duration / 60)}:${String(Math.floor(result.duration % 60)).padStart(2, '0')}`;
   const rows = useMemo(() => [['MATCH TIME', duration], ['DAMAGE DEALT', result.playerStats.damageDealt.toFixed(1)], ['COUNTERS', result.playerStats.counters], ['GRAPPLES', result.playerStats.grapples], ['FINISHERS', result.playerStats.finishers], ['NEAR FALLS', result.playerStats.nearFalls], ['PROP IMPACTS', result.playerStats.propImpacts]] as const, [duration, result]);
+  const save = useWorldSession(s => s.save);
+  const circuit = circuitProgress(save.results, save.medals);
+  const medals = earnedMedals(result);
   const highlights = [['BEST SPOT', result.highlights.bestSpot], ['BEST SLAM', result.highlights.bestSlam], ['BRUTAL IMPACT', result.highlights.mostBrutalImpact], ['WILD REVERSAL', result.highlights.mostUnexpectedReversal]] as const;
-  return <section className="results-screen"><div className="results-flare" /><span className="results-kicker">OFFICIAL VOLT DOME DECISION</span><h2>{winnerName}<small>WINS BY {result.method}</small></h2><div className={`grade grade--${result.grade}`}><span>HYPE RATING</span><b>{result.grade}</b><small>{Math.round(result.hype)} / 100</small></div><div className="results-stats">{rows.map(([label, value]) => <div key={label}><span>{label}</span><b>{value}</b></div>)}</div>{highlights.some(([, moment]) => moment !== null) && <div className="highlight-reel"><strong>VOLT DOME HIGHLIGHT REEL</strong>{highlights.filter((entry) => entry[1] !== null).map(([label, moment]) => <div key={label}><span>{label}</span><b>{moment?.label}</b><small>{moment?.time.toFixed(1)}s · IMPACT {Math.round(moment?.score ?? 0)}</small></div>)}</div>}<div className="button-row"><button className="button button--hero" onClick={onRematch}>INSTANT REMATCH</button><button className="button button--quiet" onClick={onChange}>CHANGE FIGHTER</button><button className="button button--quiet" onClick={onMenu}>MAIN MENU</button></div></section>;
+  return <section className="results-screen"><div className="results-flare" /><span className="results-kicker">{venueFor(useMatchStore.getState().model).name.toUpperCase()} DECISION</span><h2>{winnerName}<small>WINS BY {result.method}</small></h2><div className={`grade grade--${result.grade}`}><span>HYPE RATING</span><b>{result.grade}</b><small>{Math.round(result.hype)} / 100</small></div><div aria-live="polite" style={{ position: 'absolute', width: '1px', height: '1px', padding: 0, margin: '-1px', overflow: 'hidden', clip: 'rect(0, 0, 0, 0)', border: 0 }}>Match decision: {winnerName} wins by {result.method}. Hype rating: {result.grade}.</div><div className="results-stats">{rows.map(([label, value]) => <div key={label}><span>{label}</span><b>{value}</b></div>)}</div>{highlights.some(([, moment]) => moment !== null) && <div className="highlight-reel"><strong>MATCH HIGHLIGHT REEL</strong>{highlights.filter((entry) => entry[1] !== null).map(([label, moment]) => <div key={label}><span>{label}</span><b>{moment?.label}</b><small>{moment?.time.toFixed(1)}s · IMPACT {Math.round(moment?.score ?? 0)}</small></div>)}</div>}<div className="circuit-result">{onWorld && <><span>LOCAL CIRCUIT · {circuit.rank.toUpperCase()}</span><b>{circuit.reputation} REPUTATION</b><p>{medals.length ? CIRCUIT_OBJECTIVES.filter(o => medals.includes(o.id)).map(o => `★ ${o.label}`).join(" · ") : "Keep working the circuit. Completed bout recorded."}</p></>}</div><div className="button-row">{onWorld && <button className="button button--hero" onClick={onWorld}>RETURN TO SHOWGROUND</button>}<button className="button button--hero" onClick={onRematch}>INSTANT REMATCH</button><button className="button button--quiet" onClick={onChange}>CHANGE FIGHTER</button><button className="button button--quiet" onClick={onMenu}>MAIN MENU</button></div></section>;
 }

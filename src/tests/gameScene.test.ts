@@ -1,3 +1,6 @@
+vi.mock('../game/world/FightVenue', () => ({ FightVenue: () => null }));
+vi.mock('../game/components/RendererHealth', () => ({ RendererHealth: () => null }));
+vi.mock('../game/components/HumanoidFighter', () => ({ HumanoidFighter: () => null }));
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import React from 'react';
 import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
@@ -110,6 +113,7 @@ vi.mock('@react-three/drei', () => ({
 }));
 vi.mock('@react-three/rapier', () => ({
   Physics: ({ children }: { children: React.ReactNode }) => React.createElement('div', { 'data-testid': 'mock-physics' }, children),
+  useRapier: () => ({ step: vi.fn() }),
   useAfterPhysicsStep: vi.fn(),
   useBeforePhysicsStep: vi.fn(),
 }));
@@ -132,7 +136,7 @@ vi.mock('../game/presentation/presentationManifest', () => ({
   selectFighterDetail: vi.fn(() => ({ tier: 'performance' })),
 }));
 vi.mock('../game/runtime/quality', () => ({
-  browserRuntimeQuality: vi.fn(() => ({ tier: 'performance', bakeShadows: false })),
+  browserRuntimeQuality: vi.fn(() => ({ tier: 'performance' })),
 }));
 vi.mock('../game/systems/falls', () => ({
   fallCount: vi.fn(() => 0),

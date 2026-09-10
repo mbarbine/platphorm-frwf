@@ -10,7 +10,8 @@ export type ColliderRole = 'body' | 'strike' | 'grip' | 'support';
 
 /** Every articulated wrestler must register this many rigid bodies before play begins. */
 export const BODY_SEGMENT_COUNT = 16;
-export const HEAD_COLLIDER_RADIUS = .235;
+export const HEAD_COLLIDER_RADIUS = .17;
+export const HEAD_COLLIDER_OFFSET: [number, number, number] = [0, -.065, 0];
 
 export const CORE_SEGMENTS: readonly BodySegmentId[] = ['chest', 'abdomen', 'pelvis', 'head'] as const;
 
@@ -79,12 +80,12 @@ export const buildBodySchema = (definition: FighterDefinition): readonly BodySeg
     // Match the rendered brow, jaw, and facial profile closely enough that a
     // visible head-to-head collision is also a solved Rapier collision.
     segment(definition, 'head', 'center', 2.08 * heightScale, 0, .15, HEAD_COLLIDER_RADIUS),
-    segment(definition, 'leftUpperArm', 'left', 1.48 * heightScale, -shoulder, .19 * arm, .105),
-    segment(definition, 'rightUpperArm', 'right', 1.48 * heightScale, shoulder, .19 * arm, .105),
-    segment(definition, 'leftForearm', 'left', 1.08 * heightScale, -shoulder, .18 * arm, .11),
-    segment(definition, 'rightForearm', 'right', 1.08 * heightScale, shoulder, .18 * arm, .11),
-    segment(definition, 'leftHand', 'left', .78 * heightScale, -shoulder, .09, .1),
-    segment(definition, 'rightHand', 'right', .78 * heightScale, shoulder, .09, .1),
+    segment(definition, 'leftUpperArm', 'left', 1.48 * heightScale, -shoulder, .16 * arm, .09),
+    segment(definition, 'rightUpperArm', 'right', 1.48 * heightScale, shoulder, .16 * arm, .09),
+    segment(definition, 'leftForearm', 'left', 1.08 * heightScale, -shoulder, .13 * arm, .075),
+    segment(definition, 'rightForearm', 'right', 1.08 * heightScale, shoulder, .13 * arm, .075),
+    segment(definition, 'leftHand', 'left', .78 * heightScale, -shoulder, .09, .085),
+    segment(definition, 'rightHand', 'right', .78 * heightScale, shoulder, .09, .085),
     segment(definition, 'leftThigh', 'left', .83 * heightScale, -hip, .23 * leg, .13),
     segment(definition, 'rightThigh', 'right', .83 * heightScale, hip, .23 * leg, .13),
     segment(definition, 'leftShin', 'left', .4 * heightScale, -hip, .21 * leg, .105),
@@ -108,3 +109,19 @@ export const segmentSchema = (definition: FighterDefinition, id: BodySegmentId):
   SEGMENT_SCHEMA_CACHE.set(cacheKey, found);
   return found;
 };
+
+
+/** A torso is broad across the shoulders but shallow front-to-back. Circular
+ * capsules used shoulder width as chest depth, leaving visible bodies apart. */
+export function torsoColliderArgs(segment: BodySegmentSchema): [number, number, number, number] | null {
+  if (segment.id === 'chest') return [segment.radius - .035, segment.halfLength, .105, .035];
+  if (segment.id === 'abdomen' || segment.id === 'pelvis') return [segment.radius - .035, segment.halfLength, .105, .035];
+  return null;
+}
+
+/** Fit the closed palm and the boot toe around their wrist/ankle landmarks. */
+export function extremityColliderShape(segment: BodySegmentSchema): { args: [number, number, number]; position: [number, number, number] } | null {
+  if (segment.id.includes('Hand')) return { args: [.055, .105, .08], position: [segment.side === 'left' ? .015 : -.015, .015, 0] };
+  if (segment.id.includes('Foot')) return { args: [segment.radius, segment.radius * .5, segment.halfLength * 1.35], position: [0, 0, .09] };
+  return null;
+}

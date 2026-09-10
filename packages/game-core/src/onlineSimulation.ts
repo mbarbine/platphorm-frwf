@@ -1,3 +1,4 @@
+import { NETWORK_MOVE_TIMING } from '@frwf/game-protocol';
 import type { ActionEvent, AttackPhase, FighterId, FighterState, MatchEndMethod, Ruleset } from '@frwf/game-protocol';
 
 export interface OnlineFighterState {
@@ -71,11 +72,11 @@ interface OnlineMove {
 }
 
 const MOVES: Readonly<Record<string, OnlineMove>> = {
-  jab: { id: 'jab', anticipation: .12, active: .14, recovery: .22, stamina: 5, damage: 5.5, momentum: 7, startReach: .32, endReach: .94, colliderRadius: .11, targetRadius: .34, region: 'chest', kind: 'light' },
-  headbutt: { id: 'headbutt', anticipation: .2, active: .2, recovery: .3, stamina: 9, damage: 9, momentum: 11, startReach: .22, endReach: .64, colliderRadius: .235, targetRadius: .235, region: 'head', kind: 'light' },
-  low_kick: { id: 'low_kick', anticipation: .2, active: .2, recovery: .34, stamina: 8, damage: 8, momentum: 9, startReach: .3, endReach: 1.08, colliderRadius: .14, targetRadius: .18, region: 'legs', kind: 'heavy' },
-  grapple_miss: { id: 'grapple_miss', anticipation: .16, active: .24, recovery: .25, stamina: 6, damage: 0, momentum: 0, startReach: .3, endReach: .82, colliderRadius: .18, targetRadius: .36, region: 'chest', kind: 'grapple' },
-  slam: { id: 'slam', anticipation: .42, active: .14, recovery: .5, stamina: 15, damage: 18, momentum: 20, startReach: .2, endReach: .52, colliderRadius: .32, targetRadius: .36, region: 'chest', kind: 'grapple' },
+  jab: { id: 'jab', ...NETWORK_MOVE_TIMING.jab, stamina: 5, damage: 5.5, momentum: 7, startReach: .32, endReach: .94, colliderRadius: .11, targetRadius: .34, region: 'chest', kind: 'light' },
+  headbutt: { id: 'headbutt', ...NETWORK_MOVE_TIMING.headbutt, stamina: 9, damage: 9, momentum: 11, startReach: .22, endReach: .64, colliderRadius: .235, targetRadius: .235, region: 'head', kind: 'light' },
+  low_kick: { id: 'low_kick', ...NETWORK_MOVE_TIMING.low_kick, stamina: 8, damage: 8, momentum: 9, startReach: .3, endReach: 1.08, colliderRadius: .14, targetRadius: .18, region: 'legs', kind: 'heavy' },
+  grapple_miss: { id: 'grapple_miss', ...NETWORK_MOVE_TIMING.grapple_miss, stamina: 6, damage: 0, momentum: 0, startReach: .3, endReach: .82, colliderRadius: .18, targetRadius: .36, region: 'chest', kind: 'grapple' },
+  slam: { id: 'slam', ...NETWORK_MOVE_TIMING.slam, stamina: 15, damage: 18, momentum: 20, startReach: .2, endReach: .52, colliderRadius: .32, targetRadius: .36, region: 'chest', kind: 'grapple' },
 };
 
 const fighter = (sessionId: string, fighterId: FighterId, x: number, facing: number): OnlineFighterState => ({
@@ -133,7 +134,7 @@ export const applyOnlineAction = (match: OnlineMatchState, sessionId: string, ev
   if (event.action === 'quickStrike') return beginMove(actor, z > .45 ? 'headbutt' : 'jab');
   if (event.action === 'heavyStrike') return beginMove(actor, actor.grappleTarget ? 'slam' : 'low_kick');
   if (event.action === 'grapple') return beginMove(actor, actor.grappleTarget ? 'slam' : 'grapple_miss');
-  return true;
+  return false;
 };
 
 const phaseDuration = (move: OnlineMove, phase: AttackPhase): number => phase === 'anticipation' ? move.anticipation : phase === 'active' ? move.active : move.recovery;
@@ -182,7 +183,11 @@ const resolveActiveContact = (match: OnlineMatchState, actor: OnlineFighterState
   match.hype = clamp(match.hype + (guarded ? 2 : move.kind === 'grapple' ? 14 : 5), 0, 100);
   if (move.id === 'slam') {
     actor.grappleTarget = null; target.grappleTarget = null; target.combatState = 'downed'; target.downTimer = 1.8;
-  } else if (!guarded) target.combatState = move.kind === 'heavy' && target.health < 55 ? 'downed' : 'staggered';
+  } else if (!guarded) {
+    target.combatState = move.kind === 'heavy' && target.health < 55 ? 'downed' : 'staggered';
+    target.downTimer = target.combatState === 'downed' ? 1.8 : .32;
+    target.moveId = ''; target.attackPhase = null; target.phaseElapsed = 0;
+  }
   match.impactSequence += 1;
   const impact: OnlineImpact = {
     impactId: match.impactSequence, sourceSessionId: actor.sessionId, targetSessionId: target.sessionId,
@@ -217,7 +222,7 @@ export const stepOnlineMatch = (match: OnlineMatchState, dt: number): readonly O
       if (dx * dx + dz * dz < 20.25) actor.facing = Math.atan2(dx, dz);
     }
     if (!actor.moveId && !actor.grappleTarget) {
-      const speed = actor.running ? 5.8 : 3.5; actor.velocityX = actor.moveX * speed; actor.velocityZ = actor.moveZ * speed;
+      const speed = actor.guarding ? 1.1 : actor.running ? 4.9 : 2.3; actor.velocityX = actor.moveX * speed; actor.velocityZ = actor.moveZ * speed;
       actor.posX = clamp(actor.posX + actor.velocityX * step, -5.55, 5.55); actor.posZ = clamp(actor.posZ + actor.velocityZ * step, -4.05, 4.05);
       // OPTIMIZATION: Use squared magnitude check instead of length to avoid calling Math.sqrt for locomotion detection.
       actor.combatState = actor.guarding ? 'blocking' : (actor.moveX * actor.moveX + actor.moveZ * actor.moveZ) > 0.0025 ? 'locomotion' : 'idle';

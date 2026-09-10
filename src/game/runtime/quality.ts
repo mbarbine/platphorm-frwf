@@ -17,7 +17,6 @@ export interface RuntimeQualityProfile {
   crowdCount: number;
   antialias: boolean;
   shadows: boolean;
-  bakeShadows: boolean;
 }
 
 export interface RuntimeFrameHealth {
@@ -33,11 +32,10 @@ export const shouldUsePerformanceFallback = (health: RuntimeFrameHealth): boolea
 
 export const resolveRuntimeQuality = (input: RuntimeQualityInput): RuntimeQualityProfile => {
   const mobile = input.width < 900;
-  const constrained = input.physicsLab
-    || input.hardwareConcurrency <= 4
+  const constrained = input.hardwareConcurrency <= 4
     || (input.deviceMemoryGb !== undefined && input.deviceMemoryGb <= 4)
     || input.devicePixelRatio >= 2.75 && mobile;
-  const tier: ResolvedGraphicsTier = input.physicsLab || input.preference === 'performance'
+  const tier: ResolvedGraphicsTier = input.preference === 'performance'
     ? 'performance'
     : input.preference === 'quality'
       ? 'quality'
@@ -45,27 +43,24 @@ export const resolveRuntimeQuality = (input: RuntimeQualityInput): RuntimeQualit
 
   if (tier === 'performance') return {
     tier,
-    dpr: input.physicsLab ? .5 : [.6, 1],
+    dpr: [.8, 1],
     crowdCount: input.physicsLab ? 0 : mobile ? 60 : 96,
     antialias: false,
     shadows: false,
-    bakeShadows: false,
   };
   if (tier === 'quality') return {
     tier,
     dpr: mobile ? [.8, 1.3] : [.9, 1.65],
-    crowdCount: mobile ? 120 : 216,
+    crowdCount: input.physicsLab ? 0 : mobile ? 120 : 216,
     antialias: true,
     shadows: true,
-    bakeShadows: true,
   };
   return {
     tier,
     dpr: mobile ? [.7, 1.15] : [.75, 1.4],
-    crowdCount: mobile ? 90 : 156,
+    crowdCount: input.physicsLab ? 0 : mobile ? 90 : 156,
     antialias: true,
     shadows: true,
-    bakeShadows: !input.reducedMotion,
   };
 };
 

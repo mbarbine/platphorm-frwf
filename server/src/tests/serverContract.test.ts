@@ -176,7 +176,9 @@ describe('authoritative server contract', () => {
     const event = (action: ActionEvent['action'], sequence: number, direction: ActionEvent['direction'], phase: ActionEvent['phase'] = 'started'): ActionEvent => ({ action, sequence, direction, phase, timestamp: sequence * 16, source: 'network' });
     const tick = intervals.get(1000 / SERVER_CONFIG.SERVER_TICK_RATE); expect(tick).toBeDefined();
     let movementSequence = 0;
-    for (let frame = 0; frame < 16; frame += 1) {
+    for (let frame = 0; frame < 90; frame += 1) {
+      const first = room.state.fighters.get('p1'); const second = room.state.fighters.get('p2');
+      if (first && second && Math.hypot(second.posX - first.posX, second.posZ - first.posZ) < 1.1) break;
       if (frame % 6 === 0) {
         movementSequence += 1;
         handlers.get('command')?.(p1, { seq: movementSequence, event: event('move', movementSequence, { x: 1, y: 0 }, frame === 0 ? 'started' : 'held') });
@@ -416,7 +418,7 @@ describe('authoritative server contract', () => {
   it('vercel.json header configuration contains valid JSON and no duplicate header keys', async () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
-    const vercelJsonPath = path.resolve(process.cwd(), 'vercel.json');
+    const vercelJsonPath = path.resolve(import.meta.dirname, '../../../vercel.json');
     const rawContent = fs.readFileSync(vercelJsonPath, 'utf-8');
     const parsed = JSON.parse(rawContent);
 
@@ -462,7 +464,7 @@ describe('authoritative server contract', () => {
     expect(next).toHaveBeenCalledTimes(100);
     expect(res.status).not.toHaveBeenCalled();
 
-    // 2. The 101st request should be rejected with status 429
+    // 2. The 101st request should be rejected with status 429 and Retry-After header
     rateLimiter(req, res, next);
 
     expect(next).toHaveBeenCalledTimes(100); // Should not have been called a 101st time
@@ -476,6 +478,39 @@ describe('authoritative server contract', () => {
     });
 
     // Cleanup
+    rateLimitMap.clear();
+    /* eslint-enable @typescript-eslint/no-explicit-any */
+  });
+
+  it('rateLimiter enforces MAX_MAP_SIZE capacity bound to prevent memory exhaustion DoS', async () => {
+    /* eslint-disable @typescript-eslint/no-explicit-any */
+    const { rateLimiter, rateLimitMap, MAX_MAP_SIZE } = await import('../index');
+
+    rateLimitMap.clear();
+
+    const res = {
+      status: vi.fn().mockReturnThis(),
+      setHeader: vi.fn(),
+      json: vi.fn(),
+    } as any;
+    const next = vi.fn();
+
+    // Fill up rateLimitMap to MAX_MAP_SIZE
+    for (let i = 0; i < MAX_MAP_SIZE; i++) {
+      const req = { ip: `10.0.${Math.floor(i / 256)}.${i % 256}`, socket: {} } as any;
+      rateLimiter(req, res, next);
+    }
+
+    expect(rateLimitMap.size).toBe(MAX_MAP_SIZE);
+
+    // Simulate request from new IP when map is at max capacity
+    const overflowReq = { ip: '192.168.1.1', socket: {} } as any;
+    rateLimiter(overflowReq, res, next);
+
+    // Verify map size does not exceed MAX_MAP_SIZE
+    expect(rateLimitMap.size).toBe(MAX_MAP_SIZE);
+    expect(rateLimitMap.has('192.168.1.1')).toBe(true);
+
     rateLimitMap.clear();
     /* eslint-enable @typescript-eslint/no-explicit-any */
   });

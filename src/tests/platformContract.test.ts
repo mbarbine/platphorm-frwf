@@ -1,3 +1,5 @@
+import { WORLD_ENCOUNTERS } from '../game/world/showground';
+import { VENUES } from '../game/data/venues';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -23,9 +25,9 @@ describe('PlatPhorm static game contract', () => {
 
   it('reports real game capabilities and honest static limitations', () => {
     const index = JSON.parse(read('public/llms-index.json')) as { data: { capabilities: string[] } };
-    expect(index.data.capabilities).toEqual(expect.arrayContaining(['default_five_wrestler_battle_royale', 'battle_royale_target_cycle', 'battle_royale_spectator_controls', 'physical_grapple_and_slam', 'rope_rebound_and_ring_traversal', 'turnbuckle_aerials', 'webxr_arena_mode', 'spatial_audio']));
+    expect(index.data.capabilities).toEqual(expect.arrayContaining(['default_singles_match', 'five_wrestler_battle_royale', 'battle_royale_target_cycle', 'battle_royale_spectator_controls', 'physical_grapple_and_slam', 'rope_rebound_and_ring_traversal', 'turnbuckle_aerials', 'webxr_arena_mode', 'spatial_audio']));
     const health = JSON.parse(read('public/api/health')) as { data: Record<string, unknown> };
-    expect(health.data).toMatchObject({ status: 'operational', routeComplianceScore: 100, traceEnabled: false, vercelMetadataCaptured: false });
+    expect(health.data).toMatchObject({ status: 'unknown', routeComplianceScore: null, traceEnabled: false, vercelMetadataCaptured: false });
     expect(health.data.releaseIdentity).toMatchObject({ fighterCount: 5, moveCount: 39, criticalAssetCount: 1 });
     expect(health.data.observabilityComplianceScore).toBeNull();
   });
@@ -36,5 +38,16 @@ describe('PlatPhorm static game contract', () => {
     expect(read('public/openapi.yaml')).toContain('https://frwf.platphormnews.com');
     expect(read('public/.well-known/trust.json')).toContain('PLATPHORM_API_KEY');
     expect(read('vercel.json')).toContain('xr-spatial-tracking=(self)');
+    const hosting = JSON.parse(read('vercel.json')) as { headers: { source: string; headers: { key: string; value: string }[] }[] };
+    expect(hosting.headers.find(rule => rule.source === '/api/(health|v1/health|docs|release)')?.headers).toContainEqual({ key: 'Content-Type', value: 'application/json; charset=utf-8' });
   });
+});
+
+
+it('keeps public circuit discovery aligned with shipped encounters and venues', () => {
+  const index = JSON.parse(read('public/llms-index.json'));
+  expect(index.data.world.encounters).toBe(WORLD_ENCOUNTERS.length);
+  expect([...index.data.world.venues].sort()).toEqual(Object.keys(VENUES).sort());
+  expect(index.data.world.combat).toContain('separate scenes');
+  expect(index.data.world.persistence).toContain('No cloud save or trusted leaderboard');
 });
