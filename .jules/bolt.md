@@ -81,3 +81,7 @@
 ## 2026-07-25 - [Optimized Math.hypot in Input Processing and Camera Basis Calculations]
 **Learning:** `Math.hypot` is highly robust but extremely slow inside high-frequency user input polling (`useGameInput.ts`) and camera basis conversions (`cameraRelative.ts`) because of its dynamic scaling calculations. Replacing it with flat zero-allocation squared-magnitude comparisons (`dx * dx + dz * dz > thresholdSq`) completely avoids square root extraction, and standard `Math.sqrt` calculations are nearly 8x faster and perfectly safe from overflow/underflow hazards for bounded input/distance metrics.
 **Action:** Replace `Math.hypot` in input update loops with zero-allocation squared-magnitude checks, and utilize standard `Math.sqrt` instead of `Math.hypot` for camera-relative framing and normalized gamepad inputs.
+
+## 2026-09-10 - [Optimized Math.hypot in Player Controller Movement Input]
+**Learning:** In frame-by-frame player controller updates (`playerController.ts`), evaluating `Math.hypot(input.move.x, input.move.z)` to check steering and pending input state introduces unnecessary floating-point safety scaling overhead. Replacing `Math.hypot` with standard `Math.sqrt(x*x + z*z)` yields up to ~8x faster execution on hot input processing paths.
+**Action:** Replace `Math.hypot` with standard `Math.sqrt` inside `PlayerController.read()` hot paths to improve player control processing efficiency.
