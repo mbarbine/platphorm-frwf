@@ -117,6 +117,7 @@ export function secureErrorHandler(err: unknown, _req: express.Request, res: exp
 export const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
 export const LIMIT_WINDOW_MS = 60000; // 1 minute
 export const MAX_REQUESTS = 100; // max requests per minute
+export const MAX_MAP_SIZE = 5000; // Cap tracked IPs to prevent memory exhaustion DoS (CWE-400)
 
 export function rateLimiter(req: express.Request, res: express.Response, next: express.NextFunction): void {
   const ip = req.ip || req.socket.remoteAddress || 'unknown';
@@ -124,6 +125,16 @@ export function rateLimiter(req: express.Request, res: express.Response, next: e
   const rateData = rateLimitMap.get(ip);
 
   if (!rateData || now > rateData.resetTime) {
+    if (!rateData && rateLimitMap.size >= MAX_MAP_SIZE) {
+      // Purge expired entries or oldest entry if max capacity reached to prevent memory exhaustion DoS
+      for (const [key, value] of rateLimitMap.entries()) {
+        if (now > value.resetTime) rateLimitMap.delete(key);
+      }
+      if (rateLimitMap.size >= MAX_MAP_SIZE) {
+        const oldestKey = rateLimitMap.keys().next().value;
+        if (oldestKey) rateLimitMap.delete(oldestKey);
+      }
+    }
     rateLimitMap.set(ip, { count: 1, resetTime: now + LIMIT_WINDOW_MS });
     next();
   } else {
