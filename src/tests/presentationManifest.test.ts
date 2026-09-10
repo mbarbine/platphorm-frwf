@@ -4,11 +4,11 @@ import { MOVES } from '../game/data/moves';
 import { PRESENTATION_MANIFEST, selectFighterDetail } from '../game/presentation/presentationManifest';
 
 describe('wrestler presentation manifest', () => {
-  it('keeps one compatible shared hierarchy and five unique visual identities', () => {
+  it('keeps one compatible shared hierarchy and a unique visual identity for every wrestler', () => {
     expect(PRESENTATION_MANIFEST.joints).toContain('root');
     expect(PRESENTATION_MANIFEST.joints).toContain('leftForearm');
     expect(PRESENTATION_MANIFEST.fighters.map(({ id }) => id)).toEqual(FIGHTERS.map(({ id }) => id));
-    expect(new Set(PRESENTATION_MANIFEST.fighters.map(({ visual }) => JSON.stringify(visual))).size).toBe(5);
+    expect(new Set(PRESENTATION_MANIFEST.fighters.map(({ visual }) => JSON.stringify(visual))).size).toBe(FIGHTERS.length);
     expect(PRESENTATION_MANIFEST.debugFallback).toBe(false);
   });
 

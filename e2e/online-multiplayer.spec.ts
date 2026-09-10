@@ -18,7 +18,7 @@ const tapAndAwaitAuthority = async (page: Page, canvas: Locator, key: string, de
 
 test('two browsers share authoritative movement, contact, and impact state', async ({ browser, baseURL }) => {
   test.setTimeout(150_000);
-  const hostContext = await browser.newContext(); const guestContext = await browser.newContext();
+  const hostContext = await browser.newContext({ recordVideo: { dir: 'test-results/online-host' } }); const guestContext = await browser.newContext({ recordVideo: { dir: 'test-results/online-guest' } });
   const host = await hostContext.newPage(); const guest = await guestContext.newPage();
   try {
     for (const page of [host, guest]) {
@@ -45,8 +45,12 @@ test('two browsers share authoritative movement, contact, and impact state', asy
     await expect(hostCanvas).toHaveAttribute('data-network-authority', 'true');
     await expect(guestCanvas).toHaveAttribute('data-network-authority', 'true');
     await expect.poll(async () => Number(await hostCanvas.getAttribute('data-network-snapshot'))).toBeGreaterThan(0);
-    await expect(host.locator('html')).toHaveAttribute('data-game-input-ready', 'true', { timeout: 20_000 });
-    await expect(guest.locator('html')).toHaveAttribute('data-game-input-ready', 'true', { timeout: 20_000 });
+    await host.bringToFront();
+    await expect(hostCanvas).toHaveAttribute('data-simulation-ready', 'true', { timeout: 45000 });
+    await expect(host.locator('html')).toHaveAttribute('data-game-input-ready', 'true');
+    await guest.bringToFront();
+    await expect(guestCanvas).toHaveAttribute('data-simulation-ready', 'true', { timeout: 45000 });
+    await expect(guest.locator('html')).toHaveAttribute('data-game-input-ready', 'true');
     await expect.poll(async () => Number(await hostCanvas.getAttribute('data-physics-steps')), { timeout: 20_000 }).toBeGreaterThan(30);
 
     await host.bringToFront();
@@ -82,8 +86,17 @@ test('two browsers share authoritative movement, contact, and impact state', asy
 
     await expect.poll(async () => Number(await hostCanvas.getAttribute('data-opponent-health')), { timeout: 5_000 }).toBeLessThan(100);
     await expect.poll(async () => Number(await guestCanvas.getAttribute('data-player-x'))).toBeGreaterThan(-6);
+    await expect.poll(async () => Number(await guest.getByRole('progressbar', { name: 'HEALTH', exact: true }).first().getAttribute('aria-valuenow'))).toBeLessThan(100);
+    await host.screenshot({ path: 'test-results/online-host-contact.png' });
+    await guest.screenshot({ path: 'test-results/online-guest-contact.png' });
     await expect(hostCanvas).toHaveAttribute('data-physics-emergency-resets', '0');
     await expect(guestCanvas).toHaveAttribute('data-physics-emergency-resets', '0');
+    await guest.bringToFront();
+    await guest.keyboard.press('Escape');
+    await guest.getByRole('button', { name: 'QUIT TO MENU' }).click();
+    await host.bringToFront();
+    await expect(host.getByText('WINS BY FORFEIT', { exact: true })).toBeVisible({ timeout: 20000 });
+    await host.screenshot({ path: 'test-results/online-forfeit.png' });
   } finally {
     await hostContext.close(); await guestContext.close();
   }

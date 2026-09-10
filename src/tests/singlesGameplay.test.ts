@@ -149,14 +149,14 @@ describe('Singles Gameplay Enhancements', () => {
     const separationBefore = Math.hypot(model.player.position.x - model.opponent.position.x, model.player.position.z - model.opponent.position.z);
     const separationAfter = Math.hypot(model.player.position.x - (model.opponent.position.x + decision.move.x), model.player.position.z - (model.opponent.position.z + decision.move.z));
     expect(decision.command).toBeNull();
-    expect(decision.run).toBe(true);
+    expect(decision.run).toBe(false);
     expect(separationAfter).toBeLessThan(separationBefore);
   });
 
   it('commits offense at the real articulated-body standoff distance', () => {
     const model = createMatch('atlas', 'vex', 'standard', 'normal', 1337, 0, 0, 'singles');
     model.elapsed = 20; model.player.position = { x: 0, z: 0 }; model.opponent.position = { x: 1.55, z: 0 };
-    model.player.state = 'idle'; model.opponent.state = 'idle'; model.opponent.stamina = 90; model.opponent.body.balance = 100;
+    model.player.state = 'idle'; model.opponent.state = 'idle'; model.opponent.stamina = 90; model.opponent.body.balance = 100; model.opponent.stateElapsed = 1;
     const decision = chooseAiDecision(model, fighterById('vex'), 'opponent');
     expect(decision.command).not.toBeNull();
   });

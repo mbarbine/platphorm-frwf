@@ -1,6 +1,13 @@
 packages:
   - '.'
   - 'server'
+  - 'cloudflare'
   - 'packages/*'
 allowBuilds:
+  esbuild: true
   msgpackr-extract: true
+  workerd: true
+minimumReleaseAgeExclude:
+  - '@cloudflare/workers-types@5.20260908.1'
+  - miniflare@5.20260907.0-alpha
+  - wrangler@4.129.1

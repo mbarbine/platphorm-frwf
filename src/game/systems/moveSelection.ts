@@ -53,7 +53,7 @@ export const selectDirectionalStrike = (direction: Vec2, button: StrikeButton, c
     // J / quick is the close-strike family: fists in neutral/side/forward,
     // and a short-range headbutt while holding back/down.
     if (directionId === 'neutral') {
-      return comboStep % 2 === 0 ? 'jab' : 'combo';
+      return (['jab', 'combo', 'uppercut'] as const)[comboStep % 3] ?? 'jab';
     }
     // Keep this whitelist synchronized with the physical source colliders.
     const raw = STRIKE_GRID[directionId].quick;

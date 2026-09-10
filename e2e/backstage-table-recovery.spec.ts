@@ -1,0 +1,44 @@
+import { expect, test } from '@playwright/test';
+
+test.use({ video: 'on', trace: 'off', actionTimeout: 15000 });
+
+test('Chad gets up on backstage furniture through the visible recovery control', async ({ page }) => {
+  const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
+  page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
+  await page.goto('/?physicsLab=1');
+  await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
+  await page.getByRole('button', { name: 'PLAY', exact: true }).click();
+  await page.getByRole('button', { name: /LOCK IN ATLAS/ }).click();
+  await page.getByRole('button', { name: 'START MATCH' }).click();
+  const canvas = page.getByTestId('game-canvas'); const hud = page.locator('.hud');
+  await expect(canvas).toHaveAttribute('data-simulation-ready', 'true', { timeout: 45000 });
+  const lab = page.getByTestId('physics-lab');
+  await lab.getByText('PAIR / SEED / STAMINA / MASS', { exact: true }).click();
+  await lab.getByRole('combobox', { name: 'VENUE', exact: true }).selectOption('backstage');
+  await lab.getByRole('combobox', { name: 'PLAYER', exact: true }).selectOption('chad');
+  await lab.getByRole('button', { name: 'LOAD PAIR' }).click();
+  await expect(canvas).toHaveAttribute('data-combat-venue', 'backstage');
+  await expect(canvas).toHaveAttribute('data-simulation-ready', 'true', { timeout: 45000 });
+  await lab.getByRole('button', { name: 'TABLE — MANUAL GET-UP' }).click();
+  await expect(hud).toHaveAttribute('data-player-state', 'downed');
+  await page.keyboard.press('Space');
+  await expect(hud).toHaveAttribute('data-player-state', 'idle', { timeout: 15000 });
+  expect(Number(await hud.getAttribute('data-player-upright'))).toBeGreaterThan(.9);
+  expect(Number(await hud.getAttribute('data-player-support-feet'))).toBeGreaterThan(0);
+  await expect(hud).toHaveAttribute('data-physics-emergency-resets', '0');
+  await lab.getByRole('button', { name: 'PAUSE', exact: true }).click();
+  await page.screenshot({ path: 'test-results/chad-table-recovered.png' });
+  const head = hud.locator('[data-player-head]');
+  const tableHeadY = Number((await head.getAttribute('data-player-head'))?.split(',')[1]);
+  await lab.getByRole('button', { name: 'PLAY', exact: true }).click();
+  await page.keyboard.down('s');
+  await expect.poll(async () => Number(await hud.getAttribute('data-player-z')), { timeout: 10000 }).toBeGreaterThan(-2.3);
+  await page.keyboard.up('s');
+  await expect.poll(async () => Number((await head.getAttribute('data-player-head'))?.split(',')[1]), { timeout: 10000 }).toBeLessThan(tableHeadY - .65);
+  await expect(hud).toHaveAttribute('data-player-state', 'idle', { timeout: 10000 });
+  expect(Number(await hud.getAttribute('data-player-support-feet'))).toBeGreaterThan(0);
+  await expect(hud).toHaveAttribute('data-physics-emergency-resets', '0');
+  await lab.getByRole('button', { name: 'PAUSE', exact: true }).click();
+  await page.screenshot({ path: 'test-results/chad-table-walk-off.png' });
+  expect(errors).toEqual([]);
+});

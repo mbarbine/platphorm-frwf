@@ -1,4 +1,5 @@
-export type FighterId = 'atlas' | 'vex' | 'nova' | 'brick' | 'chad';
+import type { CombatVenue } from '../data/venues';
+export type FighterId = 'atlas' | 'vex' | 'nova' | 'brick' | 'chad' | 'dale';
 export type FighterSlot = 'player' | 'opponent' | 'rival1' | 'rival2' | 'rival3';
 export type AiFighterSlot = Exclude<FighterSlot, 'player'>;
 export const FIGHTER_SLOTS: readonly FighterSlot[] = ['player', 'opponent', 'rival1', 'rival2', 'rival3'];
@@ -14,7 +15,7 @@ export type AnimationKey =
   | 'counter' | 'block' | 'climb' | 'aerial' | 'taunt' | 'pin' | 'kickout' | 'victory' | 'defeat' | 'finisher';
 export type Ruleset = 'standard' | 'chaos';
 export type MatchMode = 'battle_royale' | 'singles';
-export type Difficulty = 'normal' | 'hard';
+export type Difficulty = 'easy' | 'normal' | 'hard';
 export type Tendencies = 'aggressive' | 'technical' | 'opportunistic';
 export type ControlDevice = 'keyboard' | 'gamepad' | 'touch';
 export type GameCommand = 'quick' | 'heavy' | 'grapple' | 'block' | 'dodge' | 'jump' | 'interact' | 'context' | 'taunt';
@@ -193,6 +194,7 @@ export interface MatchResult {
 
 export interface ImpactEvent {
   id: number;
+  contactPoint?: readonly [number, number, number];
   position: Vec2;
   kind: 'light' | 'heavy' | 'blocked' | 'counter' | 'grapple' | 'weapon' | 'finisher' | 'table' | 'nearfall' | 'ko' | 'rope';
   intensity: number;
@@ -206,6 +208,8 @@ export interface ImpactEvent {
 }
 
 export interface GrappleRuntime {
+  liftElapsed?: number;
+  manualRelease?: boolean;
   attacker: FighterSlot;
   defender: FighterSlot;
   position: GrapplePosition;
@@ -300,6 +304,8 @@ export interface FallEvent {
 }
 
 export interface MatchModel {
+  pinCover?: { attacker: FighterSlot; defender: FighterSlot; age: number; established: boolean; contactAge?: number; separation: number; shoulderHeight: number; lostSeconds: number; facing: number };
+  venue?: CombatVenue;
   toyTestMode: boolean;
   labMode: boolean;
   matchMode: MatchMode;

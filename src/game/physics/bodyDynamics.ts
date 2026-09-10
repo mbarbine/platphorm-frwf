@@ -21,8 +21,8 @@ export const locomotionProfile = (definition: FighterDefinition): LocomotionProf
   const acceleration = 12.5 + agility * 6.5 - massPenalty * 2.2;
   const turnRate = 4.1 + agility * 2.55 - massPenalty * .72;
   return {
-    walkSpeed: 2.65 + agility * .82,
-    runSpeed: 4.95 + agility * 1.08,
+    walkSpeed: 1.9 + agility * .55,
+    runSpeed: 4.2 + agility * .95,
     acceleration,
     runAcceleration: acceleration * .84,
     braking: 22.5 + agility * 4.8 - massPenalty * 1.1,
@@ -107,7 +107,9 @@ export const integrateLocomotion = (fighter: FighterRuntime, definition: Fighter
   body.leanVelocity += (desiredLean - body.leanForward) * dt * 16;
   body.stride = clamp(speed / Math.max(.1, topSpeed), 0, 1) * (running ? 1 : .72);
   if (speed > .08) {
-    body.gaitPhase += speed * dt * (1.55 + definition.stats.speed / 180);
+    // Travel, not wall time, drives each complete left/right stride.
+    const strideLength = (running ? 2.05 : 1.45) * definition.physics.standingHeightM / 1.88;
+    body.gaitPhase += speed * dt * Math.PI * 2 / strideLength;
     updateFoot(fighter, body.leftFoot, body.gaitPhase, body.stride, -.16 * definition.proportions.width);
     updateFoot(fighter, body.rightFoot, body.gaitPhase + Math.PI, body.stride, .16 * definition.proportions.width);
   } else {

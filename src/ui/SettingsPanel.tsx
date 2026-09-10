@@ -1,3 +1,4 @@
+import { PLAYER_CAMERA_MODES } from '../game/camera/playerCamera';
 import { useEffect, useState } from 'react';
 import { useSettings } from '../game/state/settings';
 
@@ -23,7 +24,7 @@ export function SettingsPanel({ onBack }: { onBack: () => void }) {
   const range = (
     label: string,
     value: number,
-    key: 'masterVolume' | 'effectsVolume' | 'crowdVolume' | 'shake' | 'uiScale',
+    key: 'masterVolume' | 'musicVolume' | 'effectsVolume' | 'crowdVolume' | 'shake' | 'uiScale',
     min = 0,
     max = 1,
     step = 0.05
@@ -47,7 +48,17 @@ export function SettingsPanel({ onBack }: { onBack: () => void }) {
 
   return <section className="panel panel--settings"><div className="section-heading"><span>ACCESSIBILITY + AUDIO</span><h2>SETTINGS</h2></div>
     <div className="settings-grid">
+      <label className="setting-row setting-row--select" htmlFor="setting-player-camera"><span>Playing camera</span><select id="setting-player-camera" value={settings.playerCamera} onChange={event => settings.update({ playerCamera: event.target.value as typeof settings.playerCamera })}>{PLAYER_CAMERA_MODES.map(mode => <option key={mode.id} value={mode.id}>{mode.label}</option>)}</select></label>
+      <label className="setting-row setting-row--select" htmlFor="setting-control-style">
+        <span>Combat controls<b>{settings.controlStyle.toUpperCase()}</b></span>
+        <select id="setting-control-style" value={settings.controlStyle} onChange={(event) => settings.update({ controlStyle: event.target.value as 'arcade' | 'technical' })}>
+          <option value="arcade">Arcade · consistent strikes and one-button slam</option>
+          <option value="technical">Technical · movement selects directional moves</option>
+        </select>
+      </label>
+      <label className="toggle-row" htmlFor="setting-automatic-replays"><span><b>Automatic replays</b><small>Pause play to review major impacts</small></span><input id="setting-automatic-replays" type="checkbox" checked={settings.automaticReplays} onChange={(event) => settings.update({ automaticReplays: event.target.checked })} /></label>
       {range('Master volume', settings.masterVolume, 'masterVolume')}
+      {range('Music · Hollow Point Ritual', settings.musicVolume, 'musicVolume')}
       {range('Effects volume', settings.effectsVolume, 'effectsVolume')}
       {range('Crowd volume', settings.crowdVolume, 'crowdVolume')}
       {range('Screen shake', settings.shake, 'shake')}
@@ -57,7 +68,7 @@ export function SettingsPanel({ onBack }: { onBack: () => void }) {
         <select id="setting-select-graphicsQuality" aria-label="Graphics quality" value={settings.graphicsQuality} onChange={(event) => settings.update({ graphicsQuality: event.target.value as typeof settings.graphicsQuality })}>
           <option value="auto">Auto · device tuned</option>
           <option value="performance">Performance · steadier frames</option>
-          <option value="quality">Quality · richer arena</option>
+          <option value="quality">Ultra · full detail and shadows</option>
         </select>
       </label>
       <label className="setting-row setting-row--select" htmlFor="setting-select-controlDeckMode">

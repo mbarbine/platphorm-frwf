@@ -54,7 +54,7 @@ test('mobile player can enter a match, move, guard, and attack', async ({ page }
   const rangeSetup = page.getByTestId('physics-lab').getByRole('button', { name: 'CLOSE-RANGE INPUT' });
   await rangeSetup.click(); await expect(rangeSetup).toBeEnabled({ timeout: 30_000 });
   await expect.poll(async () => hud.getAttribute('data-player-state'), { timeout: 20_000, intervals: [100, 200] }).toMatch(/idle|locomotion/);
-  await expect(grapple).toHaveAttribute('data-move-label', 'COLLAR LOCK'); await expect(grapple).toBeEnabled();
+  await expect(grapple).toHaveAttribute('data-move-label', 'VOLTAGE SLAM'); await expect(grapple).toBeEnabled();
   await quick.dispatchEvent('pointerdown', { pointerId: 7, pointerType: 'touch', isPrimary: true, button: 0 });
   await expect(hud.locator('[data-last-action]')).toHaveAttribute('data-last-action', 'quickStrike', { timeout: 15_000 });
   await expect(hud.locator('[data-last-action]')).toHaveAttribute('data-last-action-source', 'touch', { timeout: 15_000 });

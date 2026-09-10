@@ -1,11 +1,11 @@
-import { BallCollider, CapsuleCollider, CuboidCollider, RigidBody, useRevoluteJoint, useSphericalJoint } from '@react-three/rapier';
-import type { CollisionEnterPayload, ContactForcePayload, RapierRigidBody } from '@react-three/rapier';
+import { BallCollider, CapsuleCollider, CuboidCollider, RoundCuboidCollider, RigidBody, useRevoluteJoint, useSphericalJoint } from '@react-three/rapier';
+import type { ContactForcePayload, RapierRigidBody } from '@react-three/rapier';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { ReactNode, RefObject } from 'react';
 import { fighterById } from '../data/fighters';
 import { useMatchStore } from '../state/matchStore';
 import type { FighterRuntime } from '../types/game';
-import { buildBodySchema } from '../physics/bodySchema';
+import { buildBodySchema, extremityColliderShape, HEAD_COLLIDER_OFFSET, torsoColliderArgs } from '../physics/bodySchema';
 import type { BodySegmentId, BodySegmentSchema } from '../physics/bodySchema';
 import { fighterCollisionGroups } from '../physics/collisionGroups';
 import { bodyWorksRuntime } from '../physics/physicsRuntime';
@@ -80,13 +80,14 @@ interface SegmentBodyProps {
   base: readonly [number, number, number];
   bodyRef: RefObject<RapierRigidBody | null>;
   onContactForce: (segment: BodySegmentSchema, bodyRef: RefObject<RapierRigidBody | null>, payload: ContactForcePayload) => void;
-  onFootContact: (foot: BodySegmentId, touching: boolean, payload: CollisionEnterPayload) => void;
   showVisuals: boolean;
 }
 
-function SegmentBody({ schema, fighterId, side, base, bodyRef, onContactForce, onFootContact, showVisuals }: SegmentBodyProps) {
+function SegmentBody({ schema, fighterId, side, base, bodyRef, onContactForce, showVisuals }: SegmentBodyProps) {
   const position: [number, number, number] = [base[0] + schema.localPosition[0], base[1] + schema.localPosition[1], base[2] + schema.localPosition[2]];
-  const userData: RigUserData = {
+  // Rapier reapplies mutable body options when userData changes identity.
+  // Keep this stable so UI updates cannot relock the motor-controlled joints.
+  const userData = useMemo<RigUserData>(() => ({
     bodyWorks: true,
     fighter: side,
     segment: schema.id,
@@ -95,16 +96,16 @@ function SegmentBody({ schema, fighterId, side, base, bodyRef, onContactForce, o
     colliderRole: schema.colliderRole,
     damageMultiplier: schema.damageMultiplier,
     gripAnchorEligible: schema.gripAnchorEligible,
-  };
-  const isFoot = schema.id === 'leftFoot' || schema.id === 'rightFoot'; const isHand = schema.id === 'leftHand' || schema.id === 'rightHand'; const isHead = schema.id === 'head';
-  const collider: ReactNode = isHead ? <BallCollider args={[schema.radius]} mass={schema.massKg} />
-    : isFoot || isHand ? <CuboidCollider args={[schema.radius, isFoot ? schema.radius * .5 : schema.halfLength, isFoot ? schema.halfLength * 1.35 : schema.radius]} mass={schema.massKg} friction={isFoot ? 1.45 : .72} restitution={.02} />
+  }), [schema, side]);
+  const isFoot = schema.id === 'leftFoot' || schema.id === 'rightFoot'; const isHead = schema.id === 'head';
+  const torsoArgs = torsoColliderArgs(schema);
+  const extremity = extremityColliderShape(schema);
+  const collider: ReactNode = torsoArgs ? <RoundCuboidCollider args={torsoArgs} mass={schema.massKg} friction={.76} restitution={.015} /> : isHead ? <BallCollider position={HEAD_COLLIDER_OFFSET} args={[schema.radius]} mass={schema.massKg} />
+    : extremity ? <CuboidCollider position={extremity.position} args={extremity.args} mass={schema.massKg} friction={isFoot ? 1.45 : .72} restitution={.02} />
     : <CapsuleCollider args={[schema.halfLength, schema.radius]} mass={schema.massKg} friction={.76} restitution={.015} />;
   const isCore = schema.id === 'pelvis' || schema.id === 'abdomen' || schema.id === 'chest';
   return <RigidBody ref={bodyRef} name={`${side}-${schema.id}`} type="dynamic" position={position} colliders={false} collisionGroups={fighterCollisionGroups(side)} solverGroups={fighterCollisionGroups(side)} canSleep linearDamping={.55} angularDamping={2.2} additionalSolverIterations={4} enabledRotations={[false, false, false]} ccd={schema.attackEligible || isHead || isCore} userData={userData}
-    onContactForce={(payload) => onContactForce(schema, bodyRef, payload)}
-    onCollisionEnter={isFoot ? (payload) => onFootContact(schema.id, true, payload) : undefined}
-    onCollisionExit={isFoot ? (payload) => onFootContact(schema.id, false, payload as CollisionEnterPayload) : undefined}>
+    onContactForce={(payload) => onContactForce(schema, bodyRef, payload)}>
     {collider}{showVisuals && <SegmentVisual schema={schema} fighterId={fighterId} />}
   </RigidBody>;
 }
@@ -185,12 +186,11 @@ export function PhysicalFighterRig({ runtime, side, showVisuals = true }: Props)
       isLanding: false,
     });
   }, [side]);
-  const onFootContact = useCallback((foot: BodySegmentId, touching: boolean, payload: CollisionEnterPayload): void => {
-    const otherData = payload.other.rigidBodyObject?.userData;
-    if (!isRigUserData(otherData) || otherData.fighter !== side) bodyWorksRuntime.setFootContact(side, foot, touching);
-  }, [side]);
   // Ring deck top is 1.845 m; this base places the compact foot collider sole
   // on the mat instead of suspending both feet above the support surface.
-  const base = useMemo(() => [runtime.position.x, 1.8, runtime.position.z] as const, [runtime.position.x, runtime.position.z]);
-  return <group>{schema.map((entry) => <SegmentBody key={entry.id} schema={entry} fighterId={runtime.definitionId} side={side} base={base} bodyRef={refs[entry.id]} onContactForce={onContactForce} onFootContact={onFootContact} showVisuals={showVisuals} />)}</group>;
+  // Spawn transforms are immutable for this rig. Publishing the solved root
+  // position to React must not teleport every limb back into a standing stack.
+  // The enclosing runtime key remounts the rig for a new match.
+  const base = useRef([runtime.position.x, 1.8, runtime.position.z] as const).current;
+  return <group>{schema.map((entry) => <SegmentBody key={entry.id} schema={entry} fighterId={runtime.definitionId} side={side} base={base} bodyRef={refs[entry.id]} onContactForce={onContactForce} showVisuals={showVisuals} />)}</group>;
 }
