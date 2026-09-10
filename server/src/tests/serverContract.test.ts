@@ -515,4 +515,16 @@ describe('authoritative server contract', () => {
     /* eslint-enable @typescript-eslint/no-explicit-any */
   });
 
+  it('Express middleware sets Referrer-Policy and Permissions-Policy security headers', async () => {
+    /* eslint-disable @typescript-eslint/no-explicit-any */
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const indexFilePath = path.resolve(import.meta.dirname, '../index.ts');
+    const indexContent = fs.readFileSync(indexFilePath, 'utf-8');
+
+    expect(indexContent).toContain("res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');");
+    expect(indexContent).toContain("res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');");
+    /* eslint-enable @typescript-eslint/no-explicit-any */
+  });
+
 });

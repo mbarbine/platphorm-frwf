@@ -35,6 +35,10 @@ async function bootstrap(): Promise<void> {
     res.setHeader('X-XSS-Protection', '1; mode=block');
     // Restrict Content Security Policy
     res.setHeader('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'");
+    // Prevent leaking sensitive referrer information to cross-origin requests (CWE-693)
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    // Restrict sensitive browser feature access
+    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
     next();
   });
 
