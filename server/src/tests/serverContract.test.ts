@@ -394,6 +394,7 @@ describe('authoritative server contract', () => {
     const req = {} as any;
     const res = {
       status: vi.fn().mockReturnThis(),
+      setHeader: vi.fn(),
       json: vi.fn(),
     } as any;
     const next = vi.fn();
