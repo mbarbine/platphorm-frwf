@@ -33,7 +33,6 @@ export function SpectatorControls() {
 
   if (!spectating) return null;
   const fighter = fighterById(model[target].definitionId);
-  const modeName = cameraMode.replace('_', ' ');
   return <aside className="spectator-controls" data-testid="spectator-controls" data-camera-mode={cameraMode} data-spectator-target={target}>
     <header><span>ELIMINATED · MATCH CONTINUES</span><b>SPECTATING {fighter.name}</b></header>
     <div>{MODES.map((mode) => <button key={mode.id} type="button" className={cameraMode === mode.id ? 'active' : ''} aria-pressed={cameraMode === mode.id} aria-label={`${mode.label} mode (Key ${mode.key})`} onClick={() => setCameraMode(mode.id)}><kbd>{mode.key}</kbd>{mode.label}</button>)}</div>

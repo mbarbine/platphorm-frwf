@@ -46,7 +46,12 @@ export const useWorldSession = create<WorldState>((set, get) => ({
   }),
   checkpoint: () => { try { localStorage.setItem(SAVE_KEY, JSON.stringify(get().save)); set({ saveStatus: 'saved' }); } catch { set({ saveStatus: 'unavailable' }); } },
   begin: id => {
-    if (get().activeEncounter || !WORLD_ENCOUNTERS.some(e => e.id === id && circuitProgress(get().save.results, get().save.medals).victories >= (e.requiredVictories ?? 0) && Math.hypot(e.position.x - get().save.position.x, e.position.z - get().save.position.z) <= 2.8)) return false;
+    // OPTIMIZATION: Zero-allocation squared distance check (2.8^2 = 7.84) replaces slow Math.hypot.
+    if (get().activeEncounter || !WORLD_ENCOUNTERS.some(e => {
+      if (e.id !== id || circuitProgress(get().save.results, get().save.medals).victories < (e.requiredVictories ?? 0)) return false;
+      const dx = e.position.x - get().save.position.x; const dz = e.position.z - get().save.position.z;
+      return dx * dx + dz * dz <= 7.84;
+    })) return false;
     get().checkpoint(); set({ activeEncounter: id }); return true;
   },
   finish: (won, result) => {
