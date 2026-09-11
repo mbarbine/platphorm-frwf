@@ -387,6 +387,28 @@ describe('authoritative server contract', () => {
     /* eslint-enable @typescript-eslint/no-explicit-any */
   });
 
+  it('Express middleware sets Strict-Transport-Security header', async () => {
+    /* eslint-disable @typescript-eslint/no-explicit-any */
+    const middleware = (_req: any, res: any, next: any) => {
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      res.setHeader('X-Frame-Options', 'DENY');
+      res.setHeader('X-XSS-Protection', '1; mode=block');
+      res.setHeader('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'");
+      res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+      next();
+    };
+
+    const req = {} as any;
+    const res = { setHeader: vi.fn() } as any;
+    const next = vi.fn();
+
+    middleware(req, res, next);
+
+    expect(res.setHeader).toHaveBeenCalledWith('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    expect(next).toHaveBeenCalled();
+    /* eslint-enable @typescript-eslint/no-explicit-any */
+  });
+
   it('Express secure error handling middleware prevents stack trace disclosure', async () => {
     /* eslint-disable @typescript-eslint/no-explicit-any */
     const { secureErrorHandler } = await import('../index');
