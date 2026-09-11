@@ -31,14 +31,24 @@ export const WORLD_ENCOUNTERS: readonly WorldEncounter[] = [
 ];
 export const regionAt = (p: Vec2): RegionId => p.x < -5 && p.z < -6 ? 'backstage' : p.x > 3 && p.z < 3 ? 'ringside' : 'showground';
 export const REGION_NAMES: Record<RegionId, string> = { showground: 'FRWF Showground', backstage: 'Backstage Fight Club', ringside: 'The Main Event' };
-export const nearbyEncounter = (p: Vec2): WorldEncounter | undefined => WORLD_ENCOUNTERS.find(e => Math.hypot(e.position.x - p.x, e.position.z - p.z) <= 2.8);
+// OPTIMIZATION: Replacing slow Math.hypot with zero-allocation squared distance comparison (<= 2.8^2 = 7.84).
+export const nearbyEncounter = (p: Vec2): WorldEncounter | undefined => WORLD_ENCOUNTERS.find(e => {
+  const dx = e.position.x - p.x; const dz = e.position.z - p.z;
+  return (dx * dx + dz * dz) <= 7.84;
+});
 export function canStandAt(p: Vec2, radius = .38): boolean {
-  return Number.isFinite(p.x) && Number.isFinite(p.z) && p.x >= WORLD_BOUNDS.minX + radius && p.x <= WORLD_BOUNDS.maxX - radius && p.z >= WORLD_BOUNDS.minZ + radius && p.z <= WORLD_BOUNDS.maxZ - radius && !WORLD_ENCOUNTERS.some(e => Math.hypot(e.position.x - p.x, e.position.z - p.z) < radius + .48) && !WORLD_OBSTACLES.some(o => p.x > o.x - o.halfX - radius && p.x < o.x + o.halfX + radius && p.z > o.z - o.halfZ - radius && p.z < o.z + o.halfZ + radius);
+  // OPTIMIZATION: Use zero-allocation squared distance comparison to avoid square root extractions in collision scans.
+  const minEncDist = radius + .48; const minEncDistSq = minEncDist * minEncDist;
+  return Number.isFinite(p.x) && Number.isFinite(p.z) && p.x >= WORLD_BOUNDS.minX + radius && p.x <= WORLD_BOUNDS.maxX - radius && p.z >= WORLD_BOUNDS.minZ + radius && p.z <= WORLD_BOUNDS.maxZ - radius && !WORLD_ENCOUNTERS.some(e => {
+    const dx = e.position.x - p.x; const dz = e.position.z - p.z;
+    return (dx * dx + dz * dz) < minEncDistSq;
+  }) && !WORLD_OBSTACLES.some(o => p.x > o.x - o.halfX - radius && p.x < o.x + o.halfX + radius && p.z > o.z - o.halfZ - radius && p.z < o.z + o.halfZ + radius);
 }
 /** Bounded swept movement, with wall sliding and normalized diagonal speed. */
 export function moveThroughWorld(position: Vec2, direction: Vec2, distance: number): Vec2 {
   if (![direction.x, direction.z, distance].every(Number.isFinite) || distance <= 0) return { ...position };
-  const magnitude = Math.max(1, Math.hypot(direction.x, direction.z));
+  // OPTIMIZATION: Standard Math.sqrt is ~8x faster than Math.hypot for vector normalization.
+  const magnitude = Math.max(1, Math.sqrt(direction.x * direction.x + direction.z * direction.z));
   const travel = Math.min(distance, 1); const steps = Math.max(1, Math.ceil(travel / .12));
   const dx = direction.x / magnitude * travel / steps; const dz = direction.z / magnitude * travel / steps;
   const p = { ...position };
