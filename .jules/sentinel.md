@@ -80,3 +80,8 @@ The default `CORS_ORIGIN` now restricts to the standard frontend port (`http://l
 **Vulnerability:** The `api/v1/route-compliance.js` endpoint extracted the `x-forwarded-host` header and split it directly by colon (`:`). When an attacker supplied a comma-separated list of hosts (e.g., `evil.com, sub.platphormnews.com`), `String(header).split(":")[0]` resulted in `evil.com, sub.platphormnews.com`, which passed `endsWith(".platphormnews.com")`, bypassing host domain validation (CWE-290 / CWE-346).
 **Learning:** `X-Forwarded-Host` headers added by forward proxies/gateways can be comma-separated strings representing client-to-proxy chains. Splitting by colon before isolating the first comma-separated entry can lead to validation bypasses if string matching logic checks domain suffixes across the concatenated string.
 **Prevention:** Always extract the first IP/domain entry using `.split(',')[0].trim()` from `X-Forwarded-Host` before stripping port numbers or verifying origin domain whitelists.
+
+## 2026-07-25 - [Missing Strict-Transport-Security (HSTS) Header on Game Server Responses]
+**Vulnerability:** The Express application security middleware in `server/src/index.ts` was not returning a `Strict-Transport-Security` (HSTS) header. This left clients vulnerable to protocol downgrade attacks, cookie hijacking, and man-in-the-middle (MITM) attacks (CWE-523).
+**Learning:** Defense-in-depth security hardening requires forcing HTTPS transport layer security at the application middleware layer, supplementing CDN/reverse-proxy configurations.
+**Prevention:** Set `Strict-Transport-Security: max-age=31536000; includeSubDomains` in Express security middleware for all outgoing HTTP responses.

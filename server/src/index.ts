@@ -35,6 +35,8 @@ async function bootstrap(): Promise<void> {
     res.setHeader('X-XSS-Protection', '1; mode=block');
     // Restrict Content Security Policy
     res.setHeader('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'");
+    // Enforce HTTP Strict Transport Security (HSTS) to prevent protocol downgrade and MITM attacks (CWE-523)
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
     next();
   });
 
