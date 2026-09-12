@@ -5,21 +5,22 @@
   "packageManager": "pnpm@12.3.4",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "typecheck": "tsc -b --pretty false",
-    "test": "vitest run",
+    "dev": "pnpm build:shared && vite",
+    "build": "pnpm build:shared && tsc -b && vite build",
+    "typecheck": "pnpm build:shared && tsc -b --pretty false",
+    "test": "pnpm build:shared && vitest run",
     "test:e2e": "playwright test",
     "test:regression": "playwright test",
     "test:playability": "playwright test e2e/playability-regressions.spec.ts",
     "test:soak": "playwright test e2e/rematch-soak.spec.ts",
     "test:soak:5m": "RUN_LONG_SOAK=true playwright test e2e/five-minute-soak.spec.ts",
     "test:ai-soak": "vitest run src/tests/aiSoak.test.ts --reporter=verbose",
-    "test:watch": "vitest",
+    "test:watch": "pnpm build:shared && vitest",
     "lint": "eslint . --max-warnings 0",
     "preview": "vite preview",
     "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
-    "verify:regression": "pnpm verify && pnpm test:regression"
+    "verify:regression": "pnpm verify && pnpm test:regression",
+    "build:shared": "pnpm --filter @frwf/game-protocol build && pnpm --filter @frwf/game-core build"
   },
   "dependencies": {
     "@dimforge/rapier3d-compat": "0.19.2",

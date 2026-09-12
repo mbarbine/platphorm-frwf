@@ -25,7 +25,7 @@ import { BREAKFALL_POSE, COVER_POSE, COVERED_POSE, hasPhysicalCover, kneeFlexion
 import type { QuaternionValue, Vector3Value } from './motorController';
 import { apronTransitionTarget, isRingside, RING_HARD_LIMIT, ROPE_REBOUND_ENTRY_SPEED, shouldReleaseRopeRebound, solveRopeReleaseDirection, solveRopeResponse } from './ringDynamics';
 import { computeStrikeForce, guardInterceptDriveProfile, guardInterceptSurfaceTarget, strikeDriveProfile, strikePelvisAcceleration } from './strikeDynamics';
-import { locomotionProfile } from './bodyDynamics';
+import { locomotionIntent, locomotionProfile } from './bodyDynamics';
 import { VOLT_DOME } from '../data/arena';
 import { BODYWORKS_FLAGS } from './bodyWorksFlags';
 import { MOTOR_PROFILES, motorStrengthFor, selectMotorProfile } from './motorProfiles';
@@ -48,6 +48,7 @@ export interface BufferedPhysicsCommand {
   command: GameCommand;
   direction: Vec2;
   running: boolean;
+  deferredReason?: string;
 }
 
 export type ActionFeedbackStatus = 'buffered' | 'executed' | 'expired' | 'rejected' | 'duplicate';
@@ -61,6 +62,7 @@ export interface ActionFeedback {
 
 export interface ActionExecutionResult {
   executed: boolean;
+  deferredReason?: string;
   displayName?: string;
   rejectionReason?: string;
 }
@@ -150,7 +152,6 @@ interface FighterRigRegistration {
   rotationSignature: string;
   rotationallyDynamic: Set<BodySegmentId>;
   supportContacts: Set<BodySegmentId>;
-  jumpQueued: boolean;
   jumpCooldown: number;
   ropeContact: { axis: 'x' | 'z'; side: -1 | 1; peakCompression: number; entrySpeed: number } | null;
   ringsideEstablished: boolean;
@@ -322,7 +323,7 @@ export class BodyWorksRuntime {
       const position = body.translation();
       restOffsets[segment] = { x: position.x - pelvisPosition.x, y: position.y - pelvisPosition.y, z: position.z - pelvisPosition.z };
     }
-    this.rigs.set(fighter, { bodies, restOffsets, restPelvisY: pelvisPosition.y, rootStabilized: false, skeletonStabilized: false, rotationSignature: '', rotationallyDynamic: new Set<BodySegmentId>(), supportContacts: new Set<BodySegmentId>(), jumpQueued: false, jumpCooldown: 0, ropeContact: null, ringsideEstablished: false, reboundTracking: false, cornerAnchor: null, apronAnchor: null, jointFaultFrames: 0, jointFaultReported: false, settlingFrames: 0, landingSupportFrames: 0, airborneSeconds: 0, recoveryOrientationCaptured: false, lastSafeCenter: { x: pelvisPosition.x, z: pelvisPosition.z }, neutralAnchor: { x: pelvisPosition.x, z: pelvisPosition.z } });
+    this.rigs.set(fighter, { bodies, restOffsets, restPelvisY: pelvisPosition.y, rootStabilized: false, skeletonStabilized: false, rotationSignature: '', rotationallyDynamic: new Set<BodySegmentId>(), supportContacts: new Set<BodySegmentId>(), jumpCooldown: 0, ropeContact: null, ringsideEstablished: false, reboundTracking: false, cornerAnchor: null, apronAnchor: null, jointFaultFrames: 0, jointFaultReported: false, settlingFrames: 0, landingSupportFrames: 0, airborneSeconds: 0, recoveryOrientationCaptured: false, lastSafeCenter: { x: pelvisPosition.x, z: pelvisPosition.z }, neutralAnchor: { x: pelvisPosition.x, z: pelvisPosition.z } });
     this.applyLabAdditionalMass(fighter);
     this.recount(jointCount);
     const registeredGeneration = this.generation;
@@ -454,10 +455,14 @@ export class BodyWorksRuntime {
         if (fighter === 'player') this.playerActionFeedback = { event: command.event, status: 'rejected', updatedAt: now, reason: result.rejectionReason, displayName };
         return 'rejected';
       }
+      if (!executed && typeof result !== 'boolean' && result.deferredReason) {
+        command.deferredReason = result.deferredReason;
+        if (fighter === 'player') this.playerActionFeedback = { event: command.event, status: 'buffered', updatedAt: now, reason: result.deferredReason, displayName };
+      }
       return executed ? 'executed' : 'defer';
     }, (command) => {
       if (command.fighter === fighter) {
-        if (fighter === 'player') this.playerActionFeedback = { event: command.event, status: 'expired', updatedAt: now, reason: 'Input window expired', displayName: null };
+        if (fighter === 'player') this.playerActionFeedback = { event: command.event, status: 'expired', updatedAt: now, reason: command.deferredReason ?? 'Input window expired', displayName: null };
         expired?.(command);
       }
     });
@@ -494,7 +499,24 @@ export class BodyWorksRuntime {
     return { move: { ...intent.move }, run: intent.run, block: intent.block };
   }
 
-  requestJump(fighter: FighterKey): void { const rig = this.rigs.get(fighter); if (rig) rig.jumpQueued = true; }
+  canJump(fighter: FighterKey): boolean {
+    const rig = this.rigs.get(fighter);
+    return Boolean(rig?.bodies.pelvis?.isValid() && rig.supportContacts.size > 0 && rig.jumpCooldown <= 0);
+  }
+
+  /** Launch at command acceptance, so a later controller cannot silently drop it. */
+  requestJump(fighter: FighterKey): boolean {
+    const rig = this.rigs.get(fighter);
+    if (!rig || !this.canJump(fighter)) return false;
+    rig.supportContacts.clear();
+    for (const body of Object.values(rig.bodies)) {
+      if (!body?.isValid()) continue;
+      const deltaY = Math.max(0, 8.2 - body.linvel().y);
+      body.applyImpulse({ x: 0, y: body.mass() * deltaY, z: 0 }, true);
+    }
+    rig.jumpCooldown = .65;
+    return true;
+  }
 
   requestCornerClimb(fighter: FighterKey, from: Vec2, stage: 1 | 2 | 3 = 1): void {
     const rig = this.rigs.get(fighter); if (!rig) return;
@@ -585,7 +607,7 @@ export class BodyWorksRuntime {
       body.setTranslation({ x: target.x + offset.x, y: placementPelvisY + offset.y, z: target.z + offset.z }, true);
       body.setLinvel({ x: 0, y: 0, z: 0 }, true); body.setAngvel({ x: 0, y: 0, z: 0 }, true); body.setRotation({ x: 0, y: 0, z: 0, w: 1 }, true);
     }
-    rig.rootStabilized = false; rig.skeletonStabilized = false; rig.rotationSignature = ''; rig.rotationallyDynamic.clear(); rig.supportContacts.clear(); rig.supportContacts.add('leftFoot'); rig.supportContacts.add('rightFoot'); rig.jumpQueued = false; rig.ropeContact = null; rig.ringsideEstablished = this.isRingside(target); rig.reboundTracking = false; rig.cornerAnchor = null; rig.apronAnchor = null; rig.jointFaultFrames = 0; rig.jointFaultReported = false; rig.settlingFrames = 0; rig.landingSupportFrames = 0; rig.airborneSeconds = 0; rig.recoveryOrientationCaptured = false; rig.lastSafeCenter = { ...target }; rig.neutralAnchor = { ...target };
+    rig.rootStabilized = false; rig.skeletonStabilized = false; rig.rotationSignature = ''; rig.rotationallyDynamic.clear(); rig.supportContacts.clear(); rig.supportContacts.add('leftFoot'); rig.supportContacts.add('rightFoot'); rig.ropeContact = null; rig.ringsideEstablished = this.isRingside(target); rig.reboundTracking = false; rig.cornerAnchor = null; rig.apronAnchor = null; rig.jointFaultFrames = 0; rig.jointFaultReported = false; rig.settlingFrames = 0; rig.landingSupportFrames = 0; rig.airborneSeconds = 0; rig.recoveryOrientationCaptured = false; rig.lastSafeCenter = { ...target }; rig.neutralAnchor = { ...target };
   }
 
   setFootContact(fighter: FighterKey, foot: BodySegmentId, touching: boolean): void {
@@ -973,7 +995,8 @@ export class BodyWorksRuntime {
     const isCarrying = fighter.state === 'grappling' && (model.grapple?.phase === 'lift' || model.grapple?.phase === 'load') && model.grapple?.attacker === key;
     const movementControl = ['idle', 'locomotion'].includes(fighter.state) ? 1 : fighter.state === 'recovering' ? .08 : isCarrying ? .22 : 0;
     const battlePlayerControl = model.matchMode === 'battle_royale' && key === 'player';
-    let desiredSpeed = (intent.run ? locomotion.runSpeed : locomotion.walkSpeed) * (fighter.body.muscle < .3 ? .86 : 1) * movementControl * (battlePlayerControl ? 1.12 : 1);
+    const travel = locomotionIntent(fighter, definition, intent.move, intent.run);
+    let desiredSpeed = travel.speed * movementControl * (battlePlayerControl ? 1.12 : 1);
     // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt for ~8x speedups.
     const inputLength = Math.min(1, Math.sqrt(intent.move.x * intent.move.x + intent.move.z * intent.move.z)) * movementControl;
     const opponent = model[model.targets[key]]; const targetX = opponent.position.x - fighter.position.x; const targetZ = opponent.position.z - fighter.position.z;
@@ -995,7 +1018,7 @@ export class BodyWorksRuntime {
     const inputVelocity = planarInputVelocity(intent.move, desiredSpeed);
     let desiredX = followingRebound ? reboundDirectionX * Math.max(reboundSpeed, locomotion.runSpeed) : inputVelocity.x;
     let desiredZ = followingRebound ? reboundDirectionZ * Math.max(reboundSpeed, locomotion.runSpeed) : inputVelocity.z;
-    const acceleration = (inputLength <= .08 ? locomotion.braking : intent.run ? locomotion.runAcceleration : locomotion.acceleration) * (movementControl === 1 ? 1 : .24);
+    const acceleration = (inputLength <= .08 ? locomotion.braking : travel.running ? locomotion.runAcceleration : locomotion.acceleration) * (movementControl === 1 ? 1 : .24);
     if (movementControl > 0 && BODYWORKS_FLAGS.locomotion) {
       // Translate every segment by one shared center-of-mass velocity delta.
       // This produces no internal joint error, unlike per-limb velocity servos,
@@ -1043,21 +1066,6 @@ export class BodyWorksRuntime {
       const error = Math.atan2(Math.sin(desiredFacing - currentFacing), Math.cos(desiredFacing - currentFacing));
       const torqueFactor = fighter.ropeRebound > 0 ? 2.0 : 1.0;
       pelvis.applyTorqueImpulse({ x: 0, y: clamp((error * fighter.body.inertia * .022 - pelvis.angvel().y * .055) * torqueFactor, -1.1 * torqueFactor, 1.1 * torqueFactor), z: 0 }, true);
-    }
-    if (rig.jumpQueued) {
-      const grounded = rig.supportContacts.size > 0 || pelvis.translation().y <= targetPelvisY + .16;
-      if (grounded && rig.jumpCooldown <= 0 && ['idle', 'locomotion', 'jumping'].includes(fighter.state)) {
-        const launchSpeed = 8.2;
-        rig.supportContacts.clear();
-        for (const body of Object.values(rig.bodies)) {
-          if (!body?.isValid()) continue;
-          const velocity = body.linvel();
-          const deltaY = Math.max(0, launchSpeed - velocity.y);
-          body.applyImpulse({ x: 0, y: body.mass() * deltaY, z: 0 }, true);
-        }
-        rig.jumpCooldown = .65;
-      }
-      rig.jumpQueued = false;
     }
     if (rig.skeletonStabilized && ['idle', 'locomotion'].includes(fighter.state)) this.applyCorePostureDrive(rig);
     this.applyFootPlantDrive(rig, fighter, { x: desiredX, z: desiredZ }, inputLength);

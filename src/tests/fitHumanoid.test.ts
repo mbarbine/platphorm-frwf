@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
-import type { SkinnedMesh } from 'three';
+import { Bone, Group, Vector3, type SkinnedMesh } from 'three';
 import { fitHumanoid } from '../game/presentation/fitHumanoid';
 import { buildBodySchema } from '../game/physics/bodySchema';
 import { fighterById } from '../game/data/fighters';
@@ -37,4 +37,19 @@ describe('canonical humanoid scale', () => {
     expect(matrices[0]).toBeCloseTo(1, 4);
     fit.dispose();
   });
+});
+
+
+it('fits nested canonical landmarks using their world height rather than local offsets', () => {
+  const scene = new Group(); const pelvis = new Bone(); const chest = new Bone();
+  const head = new Bone(); head.name = 'head'; const left = new Bone(); left.name = 'leftFoot';
+  const right = new Bone(); right.name = 'rightFoot';
+  scene.add(pelvis); pelvis.add(chest, left, right); chest.add(head);
+  pelvis.position.y = 1; chest.position.y = .7; head.position.y = .4;
+  left.position.set(-.2, -1, 0); right.position.set(.2, -1, 0);
+  const fit = fitHumanoid(scene, 'dale');
+  const schema = buildBodySchema(fighterById('dale'));
+  const targetSpan = (schema.find(s => s.id === 'head')?.localPosition[1] ?? 0) - (schema.find(s => s.id === 'leftFoot')?.localPosition[1] ?? 0);
+  expect(head.getWorldPosition(new Vector3()).y - left.getWorldPosition(new Vector3()).y).toBeCloseTo(targetSpan, 5);
+  fit.dispose();
 });

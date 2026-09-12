@@ -5,10 +5,12 @@ import { Quaternion } from 'three';
 import { bodyWorksRuntime } from '../physics/physicsRuntime';
 import type { FighterRuntime, FighterSlot } from '../types/game';
 import { FighterAccessories } from './FighterAccessories';
+import { applyPhysicalBonePose } from '../presentation/physicalSkinBinding';
 
 /** A standard skinned glTF asset, driven by the same solved bones as contact. */
 export function HumanoidFighter({ runtime, side }: { runtime: FighterRuntime; side: FighterSlot }) {
   const { scene, bones, fingers, modelScale } = useHumanoidAsset(runtime.definitionId);
+  const parentRotation = useMemo(() => new Quaternion(), []);
   const curl = useMemo(() => new Quaternion(), []);
   const fingerTarget = useMemo(() => new Quaternion(), []);
 
@@ -16,8 +18,7 @@ export function HumanoidFighter({ runtime, side }: { runtime: FighterRuntime; si
     for (const [id, bone] of bones) {
       const transform = bodyWorksRuntime.segmentSnapshot(side, id);
       if (!transform) continue;
-      bone.position.copy(transform.position);
-      bone.quaternion.set(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
+      applyPhysicalBonePose(bone, transform, parentRotation);
     }
     const gripping = ['grappling', 'grabbed', 'climbing'].includes(runtime.state);
     for (const finger of fingers) {

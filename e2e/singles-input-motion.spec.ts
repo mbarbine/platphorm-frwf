@@ -6,6 +6,7 @@ const enterOrdinarySingles = async (page: Page, difficulty: 'easy' | 'normal' = 
   await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
   await page.getByRole('button', { name: 'PLAY', exact: true }).click();
   await page.getByRole('button', { name: /LOCK IN ATLAS/ }).click();
+  await page.getByRole('button', { name: /^SINGLES/ }).click();
   await page.getByRole('button', { name: /^STANDARD/ }).click();
   if (difficulty === 'easy') await page.getByRole('button', { name: /^EASY/ }).click();
   await page.getByRole('button', { name: 'START MATCH' }).click();
@@ -44,24 +45,24 @@ test('Easy Singles executes strike keys visibly and a jump returns control', asy
   await expect(root).toHaveAttribute('data-saw-ordinary-attack-motion', stateBeforeStrike === 'downed' ? 'get_up' : /jab|combo|get_up/, { timeout: 8_000 });
   await expect.poll(async () => await hud.getAttribute('data-player-state'), { timeout: 15_000, intervals: [100, 200, 400] }).toMatch(/idle|locomotion/);
 
-  // Create space with normal controls before testing a jump. The live rival
-  // can legitimately acquire a grip between a standing-state read and C.
+  // Jump while retreating into open space. Stopping and waiting for idle
+  // gives the live rival a new attack window before the jump press.
+  let restingY: number;
   await page.keyboard.down('Shift'); await page.keyboard.down('s');
   try {
     await expect.poll(async () => hud.evaluate(el => Math.hypot(Number(el.getAttribute('data-player-x')) - Number(el.getAttribute('data-opponent-x')), Number(el.getAttribute('data-player-z')) - Number(el.getAttribute('data-opponent-z')))), { timeout: 15000, intervals: [100] }).toBeGreaterThan(3.3);
+    restingY = Number(await hud.getAttribute('data-player-pelvis-y'));
+    await page.keyboard.press('c');
   } finally { await page.keyboard.up('s'); await page.keyboard.up('Shift'); }
-  await expect.poll(async () => await hud.getAttribute('data-player-state'), { timeout: 15000, intervals: [100] }).toMatch(/^(idle|locomotion)$/);
-  const restingY = Number(await hud.getAttribute('data-player-pelvis-y'));
-  await page.keyboard.press('c');
+  await expect(hud.locator('[data-last-action]')).toHaveAttribute('data-last-action', 'jump');
+  await expect(hud.locator('[data-last-action]')).toHaveAttribute('data-last-action-status', 'executed');
   await expect(root).toHaveAttribute('data-saw-ordinary-jump', 'true', { timeout: 8_000 });
   await expect.poll(async () => Number(await root.getAttribute('data-ordinary-jump-peak-y')), { timeout: 8_000 }).toBeGreaterThan(restingY + .2);
   await expect.poll(async () => await hud.getAttribute('data-player-state'), { timeout: 12_000, intervals: [100, 200, 400] }).toMatch(/idle|locomotion|downed|recovering/);
   await expect.poll(async () => Number(await hud.getAttribute('data-player-vertical')), { timeout: 5_000 }).toBeLessThan(.2);
 
-  await page.keyboard.down('Shift'); await page.keyboard.down('s');
-  try {
-    await expect.poll(async () => hud.evaluate(el => Math.hypot(Number(el.getAttribute('data-player-x')) - Number(el.getAttribute('data-opponent-x')), Number(el.getAttribute('data-player-z')) - Number(el.getAttribute('data-opponent-z')))), { timeout: 15000, intervals: [100] }).toBeGreaterThan(3.3);
-  } finally { await page.keyboard.up('s'); await page.keyboard.up('Shift'); }
+  // Test the heavy action where the jump lands. A second identical retreat
+  // would run into the same ropes; space is not a prerequisite for a strike.
   await page.evaluate(() => { delete document.documentElement.dataset.sawOrdinaryAttackMotion; });
   await expect.poll(async () => await hud.getAttribute('data-player-state'), { timeout: 20000, intervals: [100] }).toMatch(/^(idle|locomotion|downed)$/);
   const stateBeforeHeavy = await hud.getAttribute('data-player-state');

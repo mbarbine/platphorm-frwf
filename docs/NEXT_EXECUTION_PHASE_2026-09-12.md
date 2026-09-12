@@ -1,6 +1,6 @@
 # Next execution phase: a wrestling exchange worth repeating
 
-Status: planned, not implemented or accepted. Prepared September 12, 2026.
+Status: execution in progress; the phase is not accepted. Prepared September 12, 2026. See [the execution report](EXECUTION_PROGRESS_2026-09-12.md) for implemented changes, measured checks and remaining failures.
 
 ## Purpose and recap
 
@@ -8,7 +8,7 @@ FRWF is an open-world style wrestling game: explore, choose a confrontation, wre
 
 The existing collective master plan remains the overall roadmap. This phase turns its core-wrestling priority into ordered delivery gates. More moves, stronger impulses and more effects alone do not satisfy it.
 
-Current evidence:
+Planning baseline (historical snapshot; see the execution report for newer checks):
 
 - Located the clean `main` checkout at `/Users/bwm.barbinewarnermichael/Documents/Documents - Michael’s MacBook Pro - 1/github/platphorm-frwf`; HEAD is `0aa4861`. The earlier Documents/github path is absent.
 - Live `/release.json` reports 1.4.1, source `7549cc7ae254e52938362ef19128ca3c9afd79fa`, six wrestlers and 39 moves. Release metadata proves identity, not playability or equality with local HEAD.

@@ -26,6 +26,7 @@ test('touch Get Up returns an exhausted, downed wrestler to supported player con
   expect(Number(await hud.getAttribute('data-player-upright'))).toBeGreaterThan(.9);
   expect(Number(await hud.getAttribute('data-player-support-feet'))).toBeGreaterThan(0);
   await expect(page.getByTestId('mobile-controls').getByRole('button', { name: 'Dodge or counter' })).toBeVisible();
+  await page.getByRole('button', { name: 'MINIMIZE PHYSICS LAB' }).click();
   await page.screenshot({ path: 'test-results/touch-get-up-standing.png' });
   await expect(hud).toHaveAttribute('data-physics-emergency-resets', '0');
   expect(errors).toEqual([]);

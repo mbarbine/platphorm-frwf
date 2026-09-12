@@ -262,6 +262,18 @@ describe('deterministic combat rules', () => {
     expect(runtime.actionFeedback()).toMatchObject({ status: 'executed', displayName: 'CIRCUIT JAB' });
   });
 
+  it('explains why an interrupted action expires without executing it later', () => {
+    const runtime = new BodyWorksRuntime();
+    runtime.captureInput('player', { ...none, commands: ['jump'] }, 0);
+    runtime.resolveCommands('player', .01, () => ({ executed: false, deferredReason: 'Hit interrupted your action' }));
+    expect(runtime.actionFeedback()).toMatchObject({ status: 'buffered', reason: 'Hit interrupted your action' });
+    let attempted = false;
+    runtime.resolveCommands('player', .3, () => { attempted = true; return true; });
+    expect(attempted).toBe(false);
+    expect(runtime.actionFeedback()).toMatchObject({ status: 'expired', reason: 'Hit interrupted your action' });
+    expect(runtime.metrics.actionExecuted).toBe(0);
+  });
+
   it('expires stale buffered commands instead of executing them later', () => {
     const runtime = new BodyWorksRuntime(); const expired: string[] = []; let executed = false;
     runtime.captureInput('player', { ...none, commands: ['heavy'] }, 1);

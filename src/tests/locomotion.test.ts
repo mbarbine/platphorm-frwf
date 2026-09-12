@@ -77,3 +77,17 @@ describe('combat-facing ownership', () => {
     expect(fighter.body.sideVelocity).toBeCloseTo(0);
   });
 });
+
+
+it('holding sprint while exhausted produces the same travel as exhausted walking', () => {
+  const definition = fighterById('chad');
+  const walking = createMatch('chad', 'dale', 'standard', 'easy').player;
+  const sprinting = createMatch('chad', 'dale', 'standard', 'easy').player;
+  walking.stamina = sprinting.stamina = 0;
+  for (let frame = 0; frame < 30; frame++) {
+    integrateLocomotion(walking, definition, { x: 0, z: 1 }, false, STEP);
+    integrateLocomotion(sprinting, definition, { x: 0, z: 1 }, true, STEP);
+  }
+  expect(sprinting.velocity).toEqual(walking.velocity);
+  expect(sprinting.velocity.z).toBeCloseTo(locomotionProfile(definition).walkSpeed * .86);
+});

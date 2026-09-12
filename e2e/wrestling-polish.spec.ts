@@ -8,6 +8,7 @@ test('chooses and releases a physical throw through ordinary wrestling controls'
   await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
   await page.getByRole('button', { name: 'PLAY', exact: true }).click();
   await page.getByRole('button', { name: /LOCK IN ATLAS/ }).click();
+  await page.getByRole('button', { name: /^SINGLES/ }).click();
   await page.getByRole('button', { name: /^EASY/ }).click();
   await page.getByRole('button', { name: 'START MATCH' }).click();
   const hud = page.locator('.hud');

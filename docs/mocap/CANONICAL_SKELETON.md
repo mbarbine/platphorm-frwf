@@ -1,6 +1,6 @@
 # RINGFALL Canonical Skeleton — Wrestling Humanoid
 
-**Status: DRAFT** — Finalize before any mocap capture or character rigging.
+**Status: AUTHORING PROPOSAL, NOT THE SHIPPING RUNTIME CONTRACT.** The hierarchy and -Z convention below require retargeting. The current game uses +Z forward and 16 physical segment bones. See [MPFB integration](MPFB_INTEGRATION.md) before exporting assets.
 
 ## Overview
 
