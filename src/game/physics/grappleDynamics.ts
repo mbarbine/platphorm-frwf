@@ -50,7 +50,7 @@ const LIFT_HEIGHTS: Readonly<Record<string, number>> = {
 
 const wrapAngle = (angle: number): number => Math.atan2(Math.sin(angle), Math.cos(angle));
 
-export const grapplePositionForMove = (moveId: string): GrapplePosition => MOVE_POSITIONS[moveId] ?? 'collarTie';
+export const grapplePositionForMove = (moveId: string): GrapplePosition => MOVE_POSITIONS[getMove(moveId).signatureBase ?? moveId] ?? 'collarTie';
 
 export const createGrappleRuntime = (attacker: FighterKey, defender: FighterKey, moveId: string): GrappleRuntime => ({
   attacker,
@@ -146,7 +146,7 @@ export const stepGrappleDynamics = (model: MatchModel, dt: number, playerIntent:
   attacker.body.balance = clamp(attacker.body.balance - grapple.tension * dt * 1.2, 0, 100);
 
   const progress = clamp(attacker.phaseElapsed / Math.max(.01, move.anticipationDuration), 0, 1);
-  const configuredHeight = LIFT_HEIGHTS[move.id] ?? .35;
+  const configuredHeight = LIFT_HEIGHTS[move.signatureBase ?? move.id] ?? .35;
   const liftWindow = clamp((progress - .18) / .64, 0, 1);
   const massAdvantage = clamp((attacker.body.mass * (.72 + power * .55)) / Math.max(55, defender.body.mass), .55, 1.55);
   const desiredLift = configuredHeight * Math.sin(liftWindow * Math.PI * .5) * massAdvantage * attacker.body.muscle;

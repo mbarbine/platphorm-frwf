@@ -1,3 +1,4 @@
+import { signatureMoveId } from '../data/wrestlingStyles';
 import { RECOVERY_DURATION } from '../animation/recoveryMotion';
 import { configureCombatVenue, venueFor } from '../data/venues';
 import { FIGHTERS, fighterById } from '../data/fighters';
@@ -584,11 +585,11 @@ export const requestCommand = (model: MatchModel, actorKey: FighterSlot, command
       return true;
     }
     if (resolution.actionId === 'finisher') {
-      const started = startMove(actor, target, getMove('finisher'));
+      const started = startMove(actor, target, getMove(signatureMoveId(actor.definitionId)));
       if (started) {
         target.state = model.physicsAuthority ? 'staggered' : 'grabbed'; target.stateElapsed = 0; target.velocity = scale(target.velocity, .25);
         target.moveId = null; target.attackPhase = null;
-        model.grapple = createGrappleRuntime(actorKey, targetKey, 'finisher');
+        model.grapple = createGrappleRuntime(actorKey, targetKey, signatureMoveId(actor.definitionId));
       }
       return started;
     }

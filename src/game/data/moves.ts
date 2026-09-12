@@ -1,3 +1,5 @@
+import { FIGHTERS } from './fighters';
+import { WRESTLING_STYLES, signatureMoveId } from './wrestlingStyles';
 import { NETWORK_MOVE_TIMING } from '@frwf/game-protocol';
 import type { MoveDefinition } from '../types/game';
 
@@ -7,7 +9,7 @@ const active = ['idle', 'locomotion'] as const;
 // counter-strike inputs even though the opponent was visibly in front of you.
 const allStanding = ['idle', 'locomotion', 'attacking', 'blocking', 'grappling', 'grabbed', 'staggered'] as const;
 
-export const MOVES: Readonly<Record<string, MoveDefinition>> = {
+const BASE_MOVES: Readonly<Record<string, MoveDefinition>> = {
   jab: { id: 'jab', displayName: 'Circuit Jab', category: 'quick', requiredActorStates: active, minimumRange: 0, maximumRange: 1.35, staminaCost: 5, momentumGain: 7, damage: 5, anticipationDuration: NETWORK_MOVE_TIMING.jab.anticipation, activeDuration: NETWORK_MOVE_TIMING.jab.active, recoveryDuration: NETWORK_MOVE_TIMING.jab.recovery, knockback: .55, knockdownStrength: 0, counterWindow: null, hypeValue: 3, animationKey: 'jab' },
   combo: { id: 'combo', displayName: 'Neon One-Two', category: 'quick', requiredActorStates: active, minimumRange: 0, maximumRange: 1.42, staminaCost: 8, momentumGain: 9, damage: 7, anticipationDuration: .11, activeDuration: .25, recoveryDuration: .26, knockback: .7, knockdownStrength: .08, counterWindow: null, hypeValue: 4, animationKey: 'jab' },
   high_punch: { id: 'high_punch', displayName: 'Skyline Cross', category: 'quick', requiredActorStates: active, requiredTargetStates: allStanding, minimumRange: .1, maximumRange: 1.75, staminaCost: 7, momentumGain: 9, damage: 7, anticipationDuration: .14, activeDuration: .24, recoveryDuration: .22, knockback: .75, knockdownStrength: .1, counterWindow: null, hypeValue: 5, animationKey: 'jab' },
@@ -49,6 +51,13 @@ export const MOVES: Readonly<Record<string, MoveDefinition>> = {
   prop_drop: { id: 'prop_drop', displayName: 'Hardware Drop', category: 'utility', requiredActorStates: active, minimumRange: 0, maximumRange: 99, staminaCost: 0, momentumGain: 0, damage: 0, anticipationDuration: .12, activeDuration: .22, recoveryDuration: .2, knockback: 0, knockdownStrength: 0, counterWindow: null, hypeValue: 0, animationKey: 'heavyStrike' },
   taunt: { id: 'taunt', displayName: 'Signature Taunt', category: 'utility', requiredActorStates: [...active, 'climbing'], minimumRange: 0, maximumRange: 99, staminaCost: 0, momentumGain: 13, damage: 0, anticipationDuration: .2, activeDuration: .45, recoveryDuration: .35, knockback: 0, knockdownStrength: 0, counterWindow: null, hypeValue: 7, animationKey: 'taunt' },
 };
+
+export const MOVES: Readonly<Record<string, MoveDefinition>> = { ...BASE_MOVES, ...Object.fromEntries(FIGHTERS.map(fighter => {
+  const style = WRESTLING_STYLES[fighter.id];
+  const base = BASE_MOVES.finisher!;
+  const id = signatureMoveId(fighter.id);
+  return [id, { ...base, id, displayName: fighter.signature, signatureBase: style.signatureBase, anticipationDuration: base.anticipationDuration * style.commitment, recoveryDuration: base.recoveryDuration * style.commitment, counterWindow: [.2 * style.commitment, .5 * style.commitment] as const }];
+})) };
 
 const UNKNOWN_MOVE_ID = 'jab';
 const unknownMoveIds = new Set<string>();

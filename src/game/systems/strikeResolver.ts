@@ -1,3 +1,4 @@
+import { WRESTLING_STYLES } from '../data/wrestlingStyles';
 import { getMove } from '../data/moves';
 import { venueFor } from '../data/venues';
 import { isRingside } from '../physics/ringDynamics';
@@ -18,6 +19,10 @@ export function situationalStrike(actor: FighterRuntime, target: FighterRuntime,
       if (gap < 1.05 || actor.stamina < getMove('front_kick').staminaCost) return 'low_kick';
       if (target.state === 'staggered' && gap > 1.35 && actor.stamina >= getMove('high_kick').staminaCost) return 'high_kick';
     }
+  }
+  if (button === 'quick' && combatDirection(direction) === 'neutral') {
+    const chain = WRESTLING_STYLES[actor.definitionId].chain;
+    return chain[actor.comboStep % chain.length] ?? 'jab';
   }
   return selectDirectionalStrike(direction, button, actor.comboStep);
 }

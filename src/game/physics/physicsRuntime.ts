@@ -2751,7 +2751,7 @@ export class BodyWorksRuntime {
 
 const fighterPower = (fighter: FighterRuntime): number => fighter.definitionId === 'atlas' ? .96 : fighter.definitionId === 'chad' ? .88 : fighter.definitionId === 'brick' ? .82 : fighter.definitionId === 'nova' ? .7 : .64;
 const gripCapacity = (fighter: FighterRuntime): number => fighter.body.muscle * (fighter.definitionId === 'nova' ? .98 : fighter.definitionId === 'chad' ? .97 : fighter.definitionId === 'atlas' ? .91 : fighter.definitionId === 'brick' ? .84 : .7);
-const liftDriveForMove = (moveId: string): number => ['powerbomb', 'mountain_drop', 'skyhook', 'finisher', 'piledriver'].includes(moveId) ? 1.2 : ['slam', 'suplex', 'spinebuster'].includes(moveId) ? 1 : .7;
+const liftDriveForMove = (rawMoveId: string): number => { const moveId = getMove(rawMoveId).signatureBase ?? rawMoveId; return ['powerbomb', 'mountain_drop', 'skyhook', 'finisher', 'piledriver'].includes(moveId) ? 1.2 : ['slam', 'suplex', 'spinebuster'].includes(moveId) ? 1 : .7; };
 const gripPreferences = (moveId: string): readonly [BodySegmentId, BodySegmentId, number][] => {
   if (moveId === 'slam') return [['leftHand', 'chest', -.18], ['rightHand', 'chest', .18]];
   if (moveId === 'suplex' || moveId === 'skyhook') return [['leftHand', 'pelvis', -.14], ['rightHand', 'pelvis', .14]];
@@ -2794,7 +2794,7 @@ const uprightFromRotation = (rotation: QuaternionValue): number => {
 
 const withYaw = (yaw: QuaternionValue, euler: readonly [number, number, number]): QuaternionValue => quaternionMultiply(yaw, quaternionFromEuler(euler));
 
-const locomotionPoseFor = (fighter: FighterRuntime): Pose => locomotionPose(fighter.velocity, fighter.facing, fighter.body.gaitPhase);
+const locomotionPoseFor = (fighter: FighterRuntime): Pose => locomotionPose(fighter.velocity, fighter.facing, fighter.body.gaitPhase, true, fighter.definitionId);
 
 const climbPoseFor = (fighter: FighterRuntime): Pose => {
   const stage = fighter.climbStage || 1;

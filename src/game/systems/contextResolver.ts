@@ -1,3 +1,4 @@
+import { signatureMoveId } from '../data/wrestlingStyles';
 import { cornerClimbAvailable, nearbyClimbableObject } from './climbing';
 import { venueFor } from '../data/venues';
 import { getMove } from '../data/moves';
@@ -57,7 +58,7 @@ export const resolveContextAction = (model: MatchModel, actorKey: FighterSlot, d
 
   // F2 — finisher outranks pin and every location-driven action.
   if (actor.momentum >= 100 && !model.grapple && ['staggered', 'downed'].includes(target.state) && separation <= getMove('finisher').maximumRange) {
-    return resolved('finisher', getMove('finisher').displayName.toUpperCase(), targetKey, 'Momentum full and target vulnerable', 2);
+    return resolved('finisher', getMove(signatureMoveId(actor.definitionId)).displayName.toUpperCase(), targetKey, 'Momentum full and target vulnerable', 2);
   }
 
   // F3 — pin outranks climbing and exiting the ring.

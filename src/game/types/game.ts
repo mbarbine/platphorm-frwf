@@ -124,6 +124,7 @@ export interface MoveDefinition {
   knockdownStrength: number;
   counterWindow: readonly [number, number] | null;
   hypeValue: number;
+  signatureBase?: string;
   animationKey: AnimationKey;
   multiHit?: boolean;
 }

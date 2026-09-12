@@ -1,3 +1,4 @@
+import { WRESTLING_STYLES } from '../data/wrestlingStyles';
 import { POSES } from './poses';
 import { authoredStrikePose } from './combatMotion';
 import type { Pose } from './poses';
@@ -256,10 +257,13 @@ const finisherStyle = (fighterId: FighterId): readonly [readonly PoseKeyframe[],
 };
 
 export const getPairedPose = (move: MoveDefinition, role: Role, phase: AttackPhase, elapsed: number, actorId: FighterId): Pose | null => {
-  const pair = move.category === 'finisher' ? finisherStyle(actorId) : GRAPPLE_STYLES[move.id];
+  const pair = move.signatureBase ? GRAPPLE_STYLES[move.signatureBase] : move.category === 'finisher' ? finisherStyle(actorId) : GRAPPLE_STYLES[move.id];
   if (!pair) return null;
   const progress = cinematicProgress(move, phase, elapsed);
-  return stagedGrappleVariant(sample(role === 'actor' ? pair[0] : pair[1], progress), move.id, role, progress, actorId);
+  const result = stagedGrappleVariant(sample(role === 'actor' ? pair[0] : pair[1], progress), move.signatureBase ?? move.id, role, progress, actorId);
+  if (!move.signatureBase) return result;
+  const turn = WRESTLING_STYLES[actorId].turn * Math.sin(progress * Math.PI);
+  return { ...result, torso: [result.torso[0], result.torso[1] + turn, result.torso[2]], rootYaw: result.rootYaw + turn * (role === 'actor' ? 1 : -.6) };
 };
 
 const TAUNT_POSES: Readonly<Record<FighterId, Pose>> = {
