@@ -1,0 +1,28 @@
+import { expect, test } from '@playwright/test';
+test.setTimeout(90000);
+test('opens the source archive and launches the embedded mower from the grounds', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
+  await page.getByRole('button', { name: 'EXPLORE SHOWGROUND' }).click();
+  await page.getByRole('button', { name: 'BEER BANDIT BILL', exact: true }).click();
+  await expect(page.getByText('PROVISIONAL MODEL · LIKENESS IN PROGRESS')).toBeVisible();
+  await page.getByRole('button', { name: 'LOCK IN BEER BANDIT BILL' }).click();
+  const world = page.getByTestId('showground'); await expect(world).toBeVisible();
+  await expect(page.locator('html')).toHaveAttribute('data-game-input-ready', 'true', { timeout: 30000 });
+  await page.getByRole('button', { name: 'FRWF ARCHIVE' }).click();
+  await expect(page.getByRole('dialog', { name: 'FRWF archive' }).locator('figure')).toHaveCount(15);
+  await page.getByRole('button', { name: 'RETURN TO SHOWGROUND' }).click();
+  await page.keyboard.down('d');
+  await expect.poll(async () => Number(await world.getAttribute('data-world-x')), { timeout: 20000 }).toBeGreaterThan(3.6);
+  await page.keyboard.up('d'); await page.keyboard.down('w');
+  await expect.poll(async () => Number(await world.getAttribute('data-world-z')), { timeout: 20000 }).toBeLessThan(16.5);
+  await page.keyboard.up('w');
+  await page.getByRole('button', { name: /PLAY LAWNMOWER/ }).click();
+  const frame = page.locator('iframe[title="Lawnmower game"]');
+  await expect(frame).toHaveAttribute('src', 'https://lawnmower.platphormnews.com/embed');
+  await expect(page.frameLocator('iframe[title="Lawnmower game"]').locator('body')).not.toBeEmpty({ timeout: 30000 });
+  await expect(page.getByText(/MULCH MADNESS ·/)).toBeVisible({ timeout: 35000 });
+  await page.screenshot({ path: 'test-results/mower-embedded.png' });
+  await page.getByRole('button', { name: 'RETURN TO FRWF' }).click();
+  await expect(frame).toHaveCount(0); await expect(world).toBeVisible();
+});

@@ -37,3 +37,7 @@ Run actual package scripts: `pnpm verify`, targeted `pnpm test:playability`, `pn
 Capture full-speed footage and record observer feedback on responsiveness, clarity and desire to rematch. Human playtests establish feel; they do not replace reproducible technical tests. Deployment reachability also does not establish feel. Review prior failures explicitly, then publish a concise accepted/failed/unverified matrix, source version and rollback target.
 
 Suggested review roles (not assigned staff): gameplay owner validates rules/contact; character artist validates anatomy/deformation; QA validates reproduction/device coverage; product owner judges the ordinary bout. One person may cover multiple roles, but each evidence decision stays distinct.
+
+## September 12 implementation checkpoint
+
+Baseline v1 now exports bounded physical samples and adds character-special, mixed-chain, ring-exit, table-climb and prop scenarios. Chaos rules can be selected in the lab. See [the increment report](UNDERGROUND_UPGRADE_REPORT.md). This is partial implementation: visual motion quality, actual controller hardware, synchronized skin/solver comparison and complete input-to-contact replay remain open.

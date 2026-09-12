@@ -28,7 +28,7 @@ interface MatchStore {
   pause: (paused: boolean) => void;
   setLabMode: (active: boolean) => void;
   setToyTestMode: (active: boolean) => void;
-  configureLab: (player: FighterId, opponent: FighterId, seed: number, playerStaminaPercent: number, opponentStaminaPercent: number, playerAdditionalMass?: number, opponentAdditionalMass?: number, venue?: CombatVenue) => void;
+  configureLab: (player: FighterId, opponent: FighterId, seed: number, playerStaminaPercent: number, opponentStaminaPercent: number, playerAdditionalMass?: number, opponentAdditionalMass?: number, venue?: CombatVenue, ruleset?: Ruleset) => void;
   requestLabCommand: (fighter: 'player' | 'opponent', command: GameCommand, direction?: Vec2, running?: boolean) => void;
   resolveLabKnockout: () => void;
   prepareLabScenario: (playerPosition: Vec2, opponentPosition: Vec2, playerState?: Extract<FighterState, 'idle' | 'blocking' | 'downed'>, opponentHealth?: number, recoveryOrientation?: RecoveryOrientation, downTimer?: number, playerStaminaPercent?: number, surfaceOffset?: number) => void;
@@ -185,9 +185,9 @@ export const useMatchStore = create<MatchStore>((set) => ({
   }),
   setLabMode: (active) => set((state) => ({ model: { ...state.model, labMode: active, aiIntent: null, aiMovement: { x: 0, z: 0 }, aiRunning: false, aiBlockTimer: 0 }, revision: state.revision + 1 })),
   setToyTestMode: (active) => set((state) => ({ model: { ...state.model, toyTestMode: active }, revision: state.revision + 1 })),
-  configureLab: (playerId, opponentId, seed, playerStaminaPercent, opponentStaminaPercent, playerAdditionalMass = 0, opponentAdditionalMass = 0, venue) => set((state) => {
+  configureLab: (playerId, opponentId, seed, playerStaminaPercent, opponentStaminaPercent, playerAdditionalMass = 0, opponentAdditionalMass = 0, venue, ruleset = 'standard') => set((state) => {
     bodyWorksRuntime.reset(); publishAccumulator = 0;
-    const model = createMatch(playerId, opponentId, 'standard', 'normal', Math.max(1, Math.floor(seed)));
+    const model = createMatch(playerId, opponentId, ruleset, 'normal', Math.max(1, Math.floor(seed)));
     configureCombatVenue(model, venue ?? state.model.venue ?? 'dome');
     model.runtimeId = state.model.runtimeId + 1;
     model.labMode = true; model.physicsAuthority = true; model.announcement = 'LAB PAIR LOADED — INPUT LIVE'; model.announcementTimer = .8;
