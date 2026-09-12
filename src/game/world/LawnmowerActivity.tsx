@@ -19,6 +19,9 @@ export function LawnmowerGame({ onClose }: { onClose: () => void }) {
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [attempt, setAttempt] = useState(0);
   const [coverage, setCoverage] = useState(0);
+  const [documentLoaded, setDocumentLoaded] = useState(false);
+  const close = useRef(onClose);
+  useEffect(() => { close.current = onClose; }, [onClose]);
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
     closeButton.current?.focus();
@@ -30,23 +33,24 @@ export function LawnmowerGame({ onClose }: { onClose: () => void }) {
     const message = (event: MessageEvent) => {
       if (event.origin !== origin || event.source !== frame.current?.contentWindow || event.data?.source !== 'platphorm-lawnmower') return;
       if (event.data.type === 'ready') { setStatus('ready'); window.clearTimeout(timeout); window.clearInterval(hello); }
-      if (event.data.type === 'exit') onClose();
+      if (event.data.type === 'exit') close.current();
       if (event.data.type === 'state' && typeof event.data.coverage === 'number' && Number.isFinite(event.data.coverage)) setCoverage(Math.max(0, Math.min(100, event.data.coverage)));
     };
     const visibility = () => send(document.hidden ? 'lawnmower:pause' : 'lawnmower:resume');
-    const keyboard = (event: KeyboardEvent) => { if (event.code === 'Escape') { event.preventDefault(); event.stopPropagation(); onClose(); } };
+    const keyboard = (event: KeyboardEvent) => { if (event.code === 'Escape') { event.preventDefault(); event.stopPropagation(); close.current(); } };
     const timeout = window.setTimeout(() => setStatus('error'), 25000);
     const hello = window.setInterval(() => send('lawnmower:hello'), 1000);
     window.addEventListener('message', message);
     window.addEventListener('keydown', keyboard);
     document.addEventListener('visibilitychange', visibility);
     return () => { window.clearTimeout(timeout); window.clearInterval(hello); window.removeEventListener('message', message); window.removeEventListener('keydown', keyboard); document.removeEventListener('visibilitychange', visibility); };
-  }, [onClose, attempt]);
+  }, [attempt]);
   return <div className="world-modal" role="dialog" aria-modal="true" aria-label="Lawnmower subgame"><article style={{ width: 'min(1300px, 98vw)', maxWidth: '98vw', height: '94dvh', padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
     <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}><button ref={closeButton} className="button button--quiet" onClick={onClose}>RETURN TO FRWF</button><span aria-live="polite">{status === 'ready' ? `MULCH MADNESS · ${coverage}% mowed` : 'WAKING THE MOWER…'}</span></header>
     <div style={{ position: 'relative', flex: 1, minHeight: 0 }}>
-      <iframe key={attempt} ref={frame} title="Lawnmower game" src={`${LAWNMOWER_ACTIVITY.url}/embed`} style={{ width: '100%', height: '100%', border: 0, borderRadius: 12 }} allow="fullscreen; gamepad" allowFullScreen referrerPolicy="strict-origin-when-cross-origin" onLoad={() => frame.current?.contentWindow?.postMessage({ type: 'lawnmower:hello' }, LAWNMOWER_ACTIVITY.url)} onError={() => setStatus('error')} />
-      {status !== 'ready' && <div role="status" style={{ position: 'absolute', inset: 0, display: 'grid', placeContent: 'center', textAlign: 'center', background: '#18352f', borderRadius: 12 }}><p>{status === 'error' ? 'The mower is taking a suspiciously long coffee break.' : 'Loading your backyard. The grass is nervous.'}</p>{status === 'error' && <button className="button" onClick={() => { setStatus('loading'); setAttempt(n => n + 1); }}>RETRY HERE</button>}</div>}
+      <iframe key={attempt} ref={frame} title="Lawnmower game" src={`${LAWNMOWER_ACTIVITY.url}/embed`} style={{ width: '100%', height: '100%', border: 0, borderRadius: 12 }} allow="fullscreen; gamepad" allowFullScreen referrerPolicy="strict-origin-when-cross-origin" onLoad={() => { setDocumentLoaded(true); frame.current?.contentWindow?.postMessage({ type: 'lawnmower:hello' }, LAWNMOWER_ACTIVITY.url); }} onError={() => setStatus('error')} />
+      {!documentLoaded && status === 'loading' && <div role="status" style={{ position: 'absolute', inset: 0, display: 'grid', placeContent: 'center', textAlign: 'center', background: '#18352f', borderRadius: 12, pointerEvents: 'none' }}>Loading your backyard. The grass is nervous.</div>}
+      {status === 'error' && <div role="alert" style={{ position: 'absolute', bottom: 8, left: 8, right: 8, padding: 12, background: '#18352f', borderRadius: 12 }}><p>The game has not confirmed it is ready. Retry the connection here.</p><button className="button" onClick={() => { setStatus('loading'); setDocumentLoaded(false); setAttempt(n => n + 1); }}>RETRY HERE</button></div>}
     </div>
   </article></div>;
 }
