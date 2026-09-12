@@ -1,5 +1,6 @@
 import type { CombatVenue } from '../data/venues';
-export type FighterId = 'atlas' | 'vex' | 'nova' | 'brick' | 'chad' | 'dale';
+import type { FighterId } from '@frwf/game-protocol';
+export type { FighterId } from '@frwf/game-protocol';
 export type FighterSlot = 'player' | 'opponent' | 'rival1' | 'rival2' | 'rival3';
 export type AiFighterSlot = Exclude<FighterSlot, 'player'>;
 export const FIGHTER_SLOTS: readonly FighterSlot[] = ['player', 'opponent', 'rival1', 'rival2', 'rival3'];
@@ -64,6 +65,7 @@ export interface FighterPhysicsProfile {
   armLength: number;
   legLength: number;
   torsoLength: number;
+  torsoDepthM?: number;
   centerOfMassBias: number;
   reachM: number;
   muscleStrength: number;

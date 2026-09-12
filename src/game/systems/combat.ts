@@ -933,8 +933,8 @@ const updateFighter = (model: MatchModel, actorKey: FighterSlot, dt: number, mov
   if (canMove) {
     const running = run && actor.stamina > 3 && inputLength > .08;
     const targetDistance = distance(actor.position, target.position);
-    const physicalSpeed = Math.hypot(actor.velocity.x, actor.velocity.z);
-    const facingTarget = actor.ropeRebound > 0 && physicalSpeed > 1.2
+    // OPTIMIZATION: Zero-allocation squared magnitude check (> 1.44 equivalent to > 1.2) avoids slow Math.hypot/Math.sqrt on hot locomotion tick.
+    const facingTarget = actor.ropeRebound > 0 && (actor.velocity.x * actor.velocity.x + actor.velocity.z * actor.velocity.z) > 1.44
       ? Math.atan2(actor.velocity.x, actor.velocity.z)
       : !running && targetDistance < 4.8
         ? Math.atan2(target.position.x - actor.position.x, target.position.z - actor.position.z)

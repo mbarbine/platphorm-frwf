@@ -1,0 +1,566 @@
+{
+  "version": "2.0.17",
+  "blender": "4.5.9 LTS",
+  "revision": "80919fa4682335c41847f761a4d79dcad4124732",
+  "source": "https://github.com/makehumancommunity/mpfb2",
+  "license": "CC0-1.0",
+  "characters": [
+    {
+      "id": "atlas",
+      "phenotype": {
+        "gender": 1,
+        "age": 0.48,
+        "muscle": 1,
+        "weight": 0.68,
+        "proportions": 0.58,
+        "height": 0.78,
+        "cupsize": 0.5,
+        "firmness": 0.5,
+        "race": {
+          "asian": 0.33,
+          "caucasian": 0.33,
+          "african": 0.33
+        }
+      },
+      "detailTargets": {},
+      "seed": null,
+      "sha256": "f4686c3b6f152a4203d03a45aa2b5de1708c0677eb1ddaea4b42086c1cd1b65d"
+    },
+    {
+      "id": "vex",
+      "phenotype": {
+        "gender": 1,
+        "age": 0.3,
+        "muscle": 0.78,
+        "weight": 0.28,
+        "proportions": 0.65,
+        "height": 0.35,
+        "cupsize": 0.5,
+        "firmness": 0.5,
+        "race": {
+          "asian": 0.33,
+          "caucasian": 0.33,
+          "african": 0.33
+        }
+      },
+      "detailTargets": {},
+      "seed": null,
+      "sha256": "cb55a771a671b9fb5694315e49c4853524c83eb41d4804bc663c9d91e6b1f1e4"
+    },
+    {
+      "id": "nova",
+      "phenotype": {
+        "gender": 1,
+        "age": 0.36,
+        "muscle": 0.83,
+        "weight": 0.42,
+        "proportions": 0.55,
+        "height": 0.52,
+        "cupsize": 0.5,
+        "firmness": 0.5,
+        "race": {
+          "asian": 0.33,
+          "caucasian": 0.33,
+          "african": 0.33
+        }
+      },
+      "detailTargets": {},
+      "seed": null,
+      "sha256": "9bf6914af89be6bfe68633372f158295fce0b12d35b866ee122a00e5152859e0"
+    },
+    {
+      "id": "brick",
+      "phenotype": {
+        "gender": 1,
+        "age": 0.62,
+        "muscle": 0.62,
+        "weight": 0.94,
+        "proportions": 0.35,
+        "height": 0.38,
+        "cupsize": 0.5,
+        "firmness": 0.5,
+        "race": {
+          "asian": 0.33,
+          "caucasian": 0.33,
+          "african": 0.33
+        }
+      },
+      "detailTargets": {},
+      "seed": null,
+      "sha256": "642b732ce9f769632c9bbd9b460459e7d4e4593ce6c28292e9d18c3ae0a7d60b"
+    },
+    {
+      "id": "chad",
+      "phenotype": {
+        "gender": 1,
+        "age": 0.56,
+        "muscle": 0.9,
+        "weight": 0.55,
+        "proportions": 0.5,
+        "height": 0.59,
+        "cupsize": 0.5,
+        "firmness": 0.5,
+        "race": {
+          "asian": 0.33,
+          "caucasian": 0.33,
+          "african": 0.33
+        }
+      },
+      "detailTargets": {},
+      "seed": null,
+      "sha256": "3baa1177bdc90c37438e806b223a0ea1cb3f8ab99c8d8098fb69b7c116484500"
+    },
+    {
+      "id": "dale",
+      "phenotype": {
+        "gender": 1,
+        "age": 0.52,
+        "muscle": 0.98,
+        "weight": 0.49,
+        "proportions": 0.56,
+        "height": 0.65,
+        "cupsize": 0.5,
+        "firmness": 0.5,
+        "race": {
+          "asian": 0.33,
+          "caucasian": 0.33,
+          "african": 0.33
+        }
+      },
+      "detailTargets": {},
+      "seed": null,
+      "sha256": "a7ef58f66f1f41d66b0183df7c243a370a3fb7417ed1b215b307e9b87ea61fb1"
+    },
+    {
+      "id": "thomas",
+      "phenotype": {
+        "gender": 1,
+        "age": 0.5,
+        "muscle": 1,
+        "weight": 0.75,
+        "proportions": 0.6,
+        "height": 0.8,
+        "cupsize": 0.5,
+        "firmness": 0.5,
+        "race": {
+          "asian": 0.33,
+          "caucasian": 0.33,
+          "african": 0.33
+        }
+      },
+      "detailTargets": {},
+      "seed": null,
+      "sha256": "602cd71e1bc4f9ea8ab245a133a8471e12c76de02f2f4ba541ec3520b8e4e013"
+    },
+    {
+      "id": "sonny",
+      "phenotype": {
+        "gender": 1,
+        "age": 0.32,
+        "muscle": 0.75,
+        "weight": 0.32,
+        "proportions": 0.55,
+        "height": 0.4,
+        "cupsize": 0.5,
+        "firmness": 0.5,
+        "race": {
+          "asian": 0.33,
+          "caucasian": 0.33,
+          "african": 0.33
+        }
+      },
+      "detailTargets": {},
+      "seed": null,
+      "sha256": "6ddf0497f6debc811d39512fae556688d2ffd65813919533822501fa27d5dddf"
+    },
+    {
+      "id": "wrecking_ball",
+      "phenotype": {
+        "gender": 1,
+        "age": 0.55,
+        "muscle": 0.48,
+        "weight": 1,
+        "proportions": 0.2,
+        "height": 0.8,
+        "cupsize": 0.5,
+        "firmness": 0.5,
+        "race": {
+          "asian": 0.33,
+          "caucasian": 0.33,
+          "african": 0.33
+        }
+      },
+      "detailTargets": {
+        "torso/torso-scale-horiz-incr": 1,
+        "torso/torso-scale-depth-incr": 1,
+        "head/head-fat-incr": 0.85,
+        "arms/l-upperarm-fat-incr": 1,
+        "arms/r-upperarm-fat-incr": 1,
+        "legs/l-upperleg-fat-incr": 0.9,
+        "legs/r-upperleg-fat-incr": 0.9
+      },
+      "seed": null,
+      "sha256": "7e99a96ed0e1337988910de98e51446bd4a7e5726bd77b1d81756e8f6c43b3be"
+    },
+    {
+      "id": "steve",
+      "phenotype": {
+        "gender": 1,
+        "age": 0.42,
+        "muscle": 0.78,
+        "weight": 0.48,
+        "proportions": 0.52,
+        "height": 0.52,
+        "cupsize": 0.5,
+        "firmness": 0.5,
+        "race": {
+          "asian": 0.33,
+          "caucasian": 0.33,
+          "african": 0.33
+        }
+      },
+      "detailTargets": {},
+      "seed": null,
+      "sha256": "797f6c563b493326b8f7ad48099568d769846041b9f334b9e4d87b4da3fecce3"
+    },
+    {
+      "id": "john",
+      "phenotype": {
+        "gender": 1,
+        "age": 0.5,
+        "muscle": 0.87,
+        "weight": 0.6,
+        "proportions": 0.5,
+        "height": 0.6,
+        "cupsize": 0.5,
+        "firmness": 0.5,
+        "race": {
+          "asian": 0.33,
+          "caucasian": 0.33,
+          "african": 0.33
+        }
+      },
+      "detailTargets": {},
+      "seed": null,
+      "sha256": "5abfa911cc668df8bc67dd9a9a9b46d79c8670e547292082c132f345e737ecc0"
+    },
+    {
+      "id": "justin",
+      "phenotype": {
+        "gender": 1,
+        "age": 0.4,
+        "muscle": 0.85,
+        "weight": 0.44,
+        "proportions": 0.55,
+        "height": 0.54,
+        "cupsize": 0.5,
+        "firmness": 0.5,
+        "race": {
+          "asian": 0.33,
+          "caucasian": 0.33,
+          "african": 0.33
+        }
+      },
+      "detailTargets": {},
+      "seed": null,
+      "sha256": "df9dd8f58522f971ec83f6a29267cc62ebaaab23ae650d561e65967c5294b797"
+    },
+    {
+      "id": "mondo",
+      "phenotype": {
+        "gender": 1,
+        "age": 0.48,
+        "muscle": 0.7,
+        "weight": 0.77,
+        "proportions": 0.4,
+        "height": 0.55,
+        "cupsize": 0.5,
+        "firmness": 0.5,
+        "race": {
+          "asian": 0.33,
+          "caucasian": 0.33,
+          "african": 0.33
+        }
+      },
+      "detailTargets": {
+        "torso/torso-scale-horiz-incr": 0.4,
+        "torso/torso-scale-depth-incr": 0.35
+      },
+      "seed": null,
+      "sha256": "65dd20403e3d887fcac3a0644e04a1ead4ffe536832f5ce3e71ddcad484eacc2"
+    },
+    {
+      "id": "gil",
+      "phenotype": {
+        "gender": 0,
+        "age": 0.35,
+        "muscle": 0.6,
+        "weight": 0.45,
+        "proportions": 0.55,
+        "height": 0.42,
+        "cupsize": 0.5,
+        "firmness": 0.5,
+        "race": {
+          "asian": 0.33,
+          "caucasian": 0.33,
+          "african": 0.33
+        }
+      },
+      "detailTargets": {},
+      "seed": null,
+      "sha256": "fc1863eae4386d0962e7bcbfd15aabeb058545be06207cc0205a007135f49f0d"
+    },
+    {
+      "id": "crowd-0",
+      "phenotype": {
+        "gender": 0.0,
+        "age": 0.4890052074281564,
+        "muscle": 0.5652976206385324,
+        "weight": 0.386742807168833,
+        "proportions": 0.5516156637344842,
+        "height": 0.6067493073149889,
+        "cupsize": 0.3083734533372483,
+        "firmness": 0.47018401853990055,
+        "race": {
+          "asian": 0.48321040331741,
+          "caucasian": 0.1088180001497729,
+          "african": 0.4079715965328171
+        }
+      },
+      "detailTargets": {},
+      "seed": 9122026,
+      "sha256": "bffaedc37b58daf0ebdfecd855be8baa314b1ac7871fe05080d93bbb7c86753e"
+    },
+    {
+      "id": "crowd-1",
+      "phenotype": {
+        "gender": 1.0,
+        "age": 0.5324011146113609,
+        "muscle": 0.41817172644115036,
+        "weight": 0.39972861908663593,
+        "proportions": 0.47507964844279216,
+        "height": 0.13897210956490635,
+        "cupsize": 0.5,
+        "firmness": 0.5,
+        "race": {
+          "asian": 0.7633806877592829,
+          "caucasian": 0.0566932076545574,
+          "african": 0.17992610458615965
+        }
+      },
+      "detailTargets": {},
+      "seed": 9129945,
+      "sha256": "b4c9469b43414ea5188175cc73d8f09bb44cd70ee204611bc9d3250a658e48c3"
+    },
+    {
+      "id": "crowd-2",
+      "phenotype": {
+        "gender": 1.0,
+        "age": 0.44648446739116276,
+        "muscle": 0.2361216270808042,
+        "weight": 0.431994257213851,
+        "proportions": 0.6150230015390199,
+        "height": 0.09716140765037817,
+        "cupsize": 0.5,
+        "firmness": 0.5,
+        "race": {
+          "asian": 0.39335689790686235,
+          "caucasian": 0.2233641792972021,
+          "african": 0.3832789227959355
+        }
+      },
+      "detailTargets": {},
+      "seed": 9137864,
+      "sha256": "45f51b347af3cb9c35ed976450c1c1e3ac7e52e8c7352dc87ad6643edd1e0b17"
+    },
+    {
+      "id": "crowd-3",
+      "phenotype": {
+        "gender": 0.0,
+        "age": 0.6118136854995158,
+        "muscle": 0.5546217004711365,
+        "weight": 0.5866303033782405,
+        "proportions": 0.6590807257500634,
+        "height": 0.7448103937007291,
+        "cupsize": 0.4520527015658149,
+        "firmness": 0.5200424222172896,
+        "race": {
+          "asian": 0.2693892984226277,
+          "caucasian": 0.4792927899221011,
+          "african": 0.2513179116552712
+        }
+      },
+      "detailTargets": {},
+      "seed": 9145783,
+      "sha256": "6ddf8adf8f3952b836d1fa2555ded2d9c6f2da1aae1d4c13b0c62edff1fc3a50"
+    },
+    {
+      "id": "crowd-4",
+      "phenotype": {
+        "gender": 1.0,
+        "age": 0.38701557420580474,
+        "muscle": 0.4778412679425357,
+        "weight": 0.5089147126966115,
+        "proportions": 0.4335072425380284,
+        "height": 0.5972375336127695,
+        "cupsize": 0.5,
+        "firmness": 0.5,
+        "race": {
+          "asian": 0.511747506343169,
+          "caucasian": 0.4049437069993238,
+          "african": 0.08330878665750721
+        }
+      },
+      "detailTargets": {},
+      "seed": 9153702,
+      "sha256": "a36e17d7486bec65ce94a96ab9e867a74b7ddf1bfabfa1be2ca0b239db88e87b"
+    },
+    {
+      "id": "crowd-5",
+      "phenotype": {
+        "gender": 0.0,
+        "age": 0.5283633038471613,
+        "muscle": 0.421824165148603,
+        "weight": 0.644362632634974,
+        "proportions": 0.6613605704876337,
+        "height": 0.32142972485276744,
+        "cupsize": 0.8251882859961189,
+        "firmness": 0.6637926945803708,
+        "race": {
+          "asian": 0.3545674737634566,
+          "caucasian": 0.2022093268098697,
+          "african": 0.4432231994266737
+        }
+      },
+      "detailTargets": {},
+      "seed": 9161621,
+      "sha256": "078da25abbf35258dd282dc850670e89e9f3d303a0e33399ec6434f6e542d985"
+    },
+    {
+      "id": "crowd-6",
+      "phenotype": {
+        "gender": 1.0,
+        "age": 0.5051733483454405,
+        "muscle": 0.1906676605888381,
+        "weight": 0.5560525522249105,
+        "proportions": 0.3119581737185002,
+        "height": 0.8034698301596167,
+        "cupsize": 0.5,
+        "firmness": 0.5,
+        "race": {
+          "asian": 0.07068407977087815,
+          "caucasian": 0.8388315239698136,
+          "african": 0.09048439625930818
+        }
+      },
+      "detailTargets": {},
+      "seed": 9169540,
+      "sha256": "2fa401ef8db26fccea81e2272a4237b2392f13f3c5543114dce9fd13eae7b786"
+    },
+    {
+      "id": "crowd-7",
+      "phenotype": {
+        "gender": 0.0,
+        "age": 0.5366773062880393,
+        "muscle": 0.5619617426052607,
+        "weight": 0.5733166439239543,
+        "proportions": 0.6845738046703018,
+        "height": 0.6446865745349215,
+        "cupsize": 0.7349930460962768,
+        "firmness": 0.43326937074130023,
+        "race": {
+          "asian": 0.2898924495816184,
+          "caucasian": 0.10655368594238844,
+          "african": 0.6035538644759931
+        }
+      },
+      "detailTargets": {},
+      "seed": 9177459,
+      "sha256": "78c9434b8957bf24641741d203cd36a1855aef6dde7b611310bf9ddb1b92f6d2"
+    },
+    {
+      "id": "crowd-8",
+      "phenotype": {
+        "gender": 0.0,
+        "age": 0.48114927900151977,
+        "muscle": 0.5593315709931425,
+        "weight": 0.5347703373296118,
+        "proportions": 0.2446131332656168,
+        "height": 0.6519086416218587,
+        "cupsize": 0.7869243443458387,
+        "firmness": 0.42243913022529345,
+        "race": {
+          "asian": 0.34203519528388643,
+          "caucasian": 0.220450963028519,
+          "african": 0.43751384168759455
+        }
+      },
+      "detailTargets": {},
+      "seed": 9185378,
+      "sha256": "70fdfe40c99910e0994511d1b5b7f3443127418beec683dc5896f3539d3ef882"
+    },
+    {
+      "id": "crowd-9",
+      "phenotype": {
+        "gender": 0.0,
+        "age": 0.6156272661306476,
+        "muscle": 0.6125388468092012,
+        "weight": 0.5954266304487141,
+        "proportions": 0.7358874168038239,
+        "height": 0.49998167282949163,
+        "cupsize": 0.5047646367210608,
+        "firmness": 0.6437159843386382,
+        "race": {
+          "asian": 0.27381180568904956,
+          "caucasian": 0.526427861701696,
+          "african": 0.19976033260925455
+        }
+      },
+      "detailTargets": {},
+      "seed": 9193297,
+      "sha256": "e61d159eda8c8a9152b5bd464d3a212773670101aa94aba21c5eeaf63605f8a6"
+    },
+    {
+      "id": "crowd-10",
+      "phenotype": {
+        "gender": 1.0,
+        "age": 0.5768560502008068,
+        "muscle": 0.6327523517934542,
+        "weight": 0.400073470599801,
+        "proportions": 0.5634385172541324,
+        "height": 0.1123787291916098,
+        "cupsize": 0.5,
+        "firmness": 0.5,
+        "race": {
+          "asian": 0.052924757075223025,
+          "caucasian": 0.5325690247777778,
+          "african": 0.41450621814699923
+        }
+      },
+      "detailTargets": {},
+      "seed": 9201216,
+      "sha256": "f1dddd7051e9d6445fa299c447b964ac240711f32f352b886e331cf0185b3edc"
+    },
+    {
+      "id": "crowd-11",
+      "phenotype": {
+        "gender": 0.0,
+        "age": 0.461828489069055,
+        "muscle": 0.3255945243083741,
+        "weight": 0.5223974849686118,
+        "proportions": 0.816202178252469,
+        "height": 0.3209537437740738,
+        "cupsize": 0.5839651256375095,
+        "firmness": 0.4127778517091093,
+        "race": {
+          "asian": 0.4384004750512872,
+          "caucasian": 0.24304077714653524,
+          "african": 0.3185587478021776
+        }
+      },
+      "detailTargets": {},
+      "seed": 9209135,
+      "sha256": "de7178fa0f7dc0870d5655224135206ad01c5489ac84332aba0d76349be84b71"
+    }
+  ]
+}

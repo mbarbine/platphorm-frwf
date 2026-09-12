@@ -1,22 +1,86 @@
 {
-  "version": 1,
+  "version": 2,
   "license": "CC0-1.0",
-  "source": "https://github.com/makehumancommunity/makehuman",
-  "revision": "a8bc2d54ff0ac92e78ff71431b1023eda42bf482",
+  "source": "https://github.com/makehumancommunity/mpfb2",
+  "revision": "80919fa4682335c41847f761a4d79dcad4124732",
+  "authoring": {
+    "mpfb": "2.0.17",
+    "blender": "4.5.9 LTS"
+  },
   "generator": "tools/characters/build-human-assets.mjs",
   "motionCaptureIncluded": false,
   "fighters": [
     {
       "faceOffset": [
-        0,
-        -0.03806250000000011,
-        0.0836875
+        -5.421010862427522e-20,
+        -0.04183992500000033,
+        0.09908005
       ],
       "id": "atlas",
-      "url": "/characters/atlas.65353eb5f794.glb",
-      "sha256": "65353eb5f794af73e577e80d03edd42c96666fe8af191e8d37a524b28da85dfb",
-      "bytes": 1093004,
-      "triangles": 29276,
+      "url": "/characters/atlas.56e0739befc1.glb",
+      "sha256": "56e0739befc14709b370d15a4bbad141f06aba6ed6b1ef91876a4a316692c329",
+      "bytes": 1318708,
+      "triangles": 29924,
+      "bones": [
+        "pelvis",
+        "abdomen",
+        "chest",
+        "head",
+        "leftUpperArm",
+        "rightUpperArm",
+        "leftForearm",
+        "rightForearm",
+        "leftHand",
+        "rightHand",
+        "leftThigh",
+        "rightThigh",
+        "leftShin",
+        "rightShin",
+        "leftFoot",
+        "rightFoot",
+        "leftThumb1",
+        "leftThumb2",
+        "leftThumb3",
+        "leftIndex1",
+        "leftIndex2",
+        "leftIndex3",
+        "leftMiddle1",
+        "leftMiddle2",
+        "leftMiddle3",
+        "leftRing1",
+        "leftRing2",
+        "leftRing3",
+        "leftLittle1",
+        "leftLittle2",
+        "leftLittle3",
+        "rightThumb1",
+        "rightThumb2",
+        "rightThumb3",
+        "rightIndex1",
+        "rightIndex2",
+        "rightIndex3",
+        "rightMiddle1",
+        "rightMiddle2",
+        "rightMiddle3",
+        "rightRing1",
+        "rightRing2",
+        "rightRing3",
+        "rightLittle1",
+        "rightLittle2",
+        "rightLittle3"
+      ]
+    },
+    {
+      "faceOffset": [
+        2.710505431213761e-20,
+        -0.029262299999999852,
+        0.07053811249999999
+      ],
+      "id": "vex",
+      "url": "/characters/vex.97608cdb2dc9.glb",
+      "sha256": "97608cdb2dc981c210cea6c9ed105017b473d3c76fabd5ef378ca6f1c3d519ef",
+      "bytes": 1318592,
+      "triangles": 29924,
       "bones": [
         "pelvis",
         "abdomen",
@@ -69,14 +133,134 @@
     {
       "faceOffset": [
         -2.710505431213761e-20,
-        -0.03806250000000011,
-        0.0836875
+        -0.0323627999999998,
+        0.07678967500000002
       ],
-      "id": "vex",
-      "url": "/characters/vex.330cddf6043f.glb",
-      "sha256": "330cddf6043ff617ad951c0cd1ea0db8f011ec00bd11807438ad89d9782313d6",
-      "bytes": 1092880,
-      "triangles": 29276,
+      "id": "nova",
+      "url": "/characters/nova.3ed47d7114d2.glb",
+      "sha256": "3ed47d7114d23228012a4bd6047b5099b7c0d241e118189aa0d9fccc5b727109",
+      "bytes": 1941856,
+      "triangles": 29924,
+      "bones": [
+        "pelvis",
+        "abdomen",
+        "chest",
+        "head",
+        "leftUpperArm",
+        "rightUpperArm",
+        "leftForearm",
+        "rightForearm",
+        "leftHand",
+        "rightHand",
+        "leftThigh",
+        "rightThigh",
+        "leftShin",
+        "rightShin",
+        "leftFoot",
+        "rightFoot",
+        "leftThumb1",
+        "leftThumb2",
+        "leftThumb3",
+        "leftIndex1",
+        "leftIndex2",
+        "leftIndex3",
+        "leftMiddle1",
+        "leftMiddle2",
+        "leftMiddle3",
+        "leftRing1",
+        "leftRing2",
+        "leftRing3",
+        "leftLittle1",
+        "leftLittle2",
+        "leftLittle3",
+        "rightThumb1",
+        "rightThumb2",
+        "rightThumb3",
+        "rightIndex1",
+        "rightIndex2",
+        "rightIndex3",
+        "rightMiddle1",
+        "rightMiddle2",
+        "rightMiddle3",
+        "rightRing1",
+        "rightRing2",
+        "rightRing3",
+        "rightLittle1",
+        "rightLittle2",
+        "rightLittle3"
+      ]
+    },
+    {
+      "faceOffset": [
+        0,
+        -0.0368598124999997,
+        0.0800115375
+      ],
+      "id": "brick",
+      "url": "/characters/brick.3d2b6be024f6.glb",
+      "sha256": "3d2b6be024f615a484fe13abc8d2edb683bad991b8d465fdaf00a074646cd73c",
+      "bytes": 1885700,
+      "triangles": 29924,
+      "bones": [
+        "pelvis",
+        "abdomen",
+        "chest",
+        "head",
+        "leftUpperArm",
+        "rightUpperArm",
+        "leftForearm",
+        "rightForearm",
+        "leftHand",
+        "rightHand",
+        "leftThigh",
+        "rightThigh",
+        "leftShin",
+        "rightShin",
+        "leftFoot",
+        "rightFoot",
+        "leftThumb1",
+        "leftThumb2",
+        "leftThumb3",
+        "leftIndex1",
+        "leftIndex2",
+        "leftIndex3",
+        "leftMiddle1",
+        "leftMiddle2",
+        "leftMiddle3",
+        "leftRing1",
+        "leftRing2",
+        "leftRing3",
+        "leftLittle1",
+        "leftLittle2",
+        "leftLittle3",
+        "rightThumb1",
+        "rightThumb2",
+        "rightThumb3",
+        "rightIndex1",
+        "rightIndex2",
+        "rightIndex3",
+        "rightMiddle1",
+        "rightMiddle2",
+        "rightMiddle3",
+        "rightRing1",
+        "rightRing2",
+        "rightRing3",
+        "rightLittle1",
+        "rightLittle2",
+        "rightLittle3"
+      ]
+    },
+    {
+      "faceOffset": [
+        0,
+        -0.038885637499999515,
+        0.08764865000000002
+      ],
+      "id": "chad",
+      "url": "/characters/chad.24389d09e8b4.glb",
+      "sha256": "24389d09e8b44e3fbdbc44a41fe8bc6554637d04b167576104a70ad554b8eb36",
+      "bytes": 1885592,
+      "triangles": 29924,
       "bones": [
         "pelvis",
         "abdomen",
@@ -129,14 +313,14 @@
     {
       "faceOffset": [
         -5.421010862427522e-20,
-        -0.03806250000000011,
-        0.0836875
+        -0.03988796249999993,
+        0.091688625
       ],
-      "id": "nova",
-      "url": "/characters/nova.ddabb0abcc68.glb",
-      "sha256": "ddabb0abcc68b59b03a97e348ac480e24b20b6bc40c7aab26e44df6e9610f4c6",
-      "bytes": 1092920,
-      "triangles": 29276,
+      "id": "dale",
+      "url": "/characters/dale.8a86f24c3578.glb",
+      "sha256": "8a86f24c3578023a143acf60c1dd39447858595d623e983b17a10646636791cb",
+      "bytes": 2013840,
+      "triangles": 29924,
       "bones": [
         "pelvis",
         "abdomen",
@@ -188,15 +372,75 @@
     },
     {
       "faceOffset": [
-        5.421010862427522e-20,
-        -0.03806250000000011,
-        0.0836875
+        -5.421010862427522e-20,
+        -0.04296524999999951,
+        0.101433225
       ],
-      "id": "brick",
-      "url": "/characters/brick.fa560d428a2b.glb",
-      "sha256": "fa560d428a2b772ad7bfcdac9c71ed3f3917253ae192c7494301274608fb2a43",
-      "bytes": 1093048,
-      "triangles": 29276,
+      "id": "thomas",
+      "url": "/characters/thomas.eee03b22d898.glb",
+      "sha256": "eee03b22d898a85dd28d35891a67c3d8e67168fb7ca44f66d91f67664cf9b2aa",
+      "bytes": 2013696,
+      "triangles": 29924,
+      "bones": [
+        "pelvis",
+        "abdomen",
+        "chest",
+        "head",
+        "leftUpperArm",
+        "rightUpperArm",
+        "leftForearm",
+        "rightForearm",
+        "leftHand",
+        "rightHand",
+        "leftThigh",
+        "rightThigh",
+        "leftShin",
+        "rightShin",
+        "leftFoot",
+        "rightFoot",
+        "leftThumb1",
+        "leftThumb2",
+        "leftThumb3",
+        "leftIndex1",
+        "leftIndex2",
+        "leftIndex3",
+        "leftMiddle1",
+        "leftMiddle2",
+        "leftMiddle3",
+        "leftRing1",
+        "leftRing2",
+        "leftRing3",
+        "leftLittle1",
+        "leftLittle2",
+        "leftLittle3",
+        "rightThumb1",
+        "rightThumb2",
+        "rightThumb3",
+        "rightIndex1",
+        "rightIndex2",
+        "rightIndex3",
+        "rightMiddle1",
+        "rightMiddle2",
+        "rightMiddle3",
+        "rightRing1",
+        "rightRing2",
+        "rightRing3",
+        "rightLittle1",
+        "rightLittle2",
+        "rightLittle3"
+      ]
+    },
+    {
+      "faceOffset": [
+        0,
+        -0.03032543749999994,
+        0.0727112
+      ],
+      "id": "sonny",
+      "url": "/characters/sonny.c63ba5f0ba29.glb",
+      "sha256": "c63ba5f0ba2942db1510e45a7de86c260c8e996970fb988f73297728efffe2ff",
+      "bytes": 1941844,
+      "triangles": 29924,
       "bones": [
         "pelvis",
         "abdomen",
@@ -249,14 +493,14 @@
     {
       "faceOffset": [
         1.0842021724855044e-19,
-        -0.03806250000000011,
-        0.0836875
+        -0.043375037499999713,
+        0.1013701125
       ],
-      "id": "dale",
-      "url": "/characters/dale.5cc47542ebb6.glb",
-      "sha256": "5cc47542ebb6f01d73b63581160c2f2773943da1cbcd4d55a340f319c01e924d",
-      "bytes": 1093028,
-      "triangles": 29276,
+      "id": "wrecking_ball",
+      "url": "/characters/wrecking_ball.800d27e74e61.glb",
+      "sha256": "800d27e74e61aa2078083351930a99683d0fed8b87ac9a36ddb49dc690f0ba00",
+      "bytes": 1885692,
+      "triangles": 29924,
       "bones": [
         "pelvis",
         "abdomen",
@@ -309,14 +553,254 @@
     {
       "faceOffset": [
         -5.421010862427522e-20,
-        -0.03806250000000011,
-        0.0836875
+        -0.034219,
+        0.0792914375
       ],
-      "id": "chad",
-      "url": "/characters/chad.4aabc2815fdf.glb",
-      "sha256": "4aabc2815fdf119d49f207faa8c444349b25fa46b8e285c54adb737168ede891",
-      "bytes": 1093132,
-      "triangles": 29276,
+      "id": "steve",
+      "url": "/characters/steve.2af682a19648.glb",
+      "sha256": "2af682a19648b8c5e74725584c49362360fa646d9100120efd2969189192e511",
+      "bytes": 1885744,
+      "triangles": 29924,
+      "bones": [
+        "pelvis",
+        "abdomen",
+        "chest",
+        "head",
+        "leftUpperArm",
+        "rightUpperArm",
+        "leftForearm",
+        "rightForearm",
+        "leftHand",
+        "rightHand",
+        "leftThigh",
+        "rightThigh",
+        "leftShin",
+        "rightShin",
+        "leftFoot",
+        "rightFoot",
+        "leftThumb1",
+        "leftThumb2",
+        "leftThumb3",
+        "leftIndex1",
+        "leftIndex2",
+        "leftIndex3",
+        "leftMiddle1",
+        "leftMiddle2",
+        "leftMiddle3",
+        "leftRing1",
+        "leftRing2",
+        "leftRing3",
+        "leftLittle1",
+        "leftLittle2",
+        "leftLittle3",
+        "rightThumb1",
+        "rightThumb2",
+        "rightThumb3",
+        "rightIndex1",
+        "rightIndex2",
+        "rightIndex3",
+        "rightMiddle1",
+        "rightMiddle2",
+        "rightMiddle3",
+        "rightRing1",
+        "rightRing2",
+        "rightRing3",
+        "rightLittle1",
+        "rightLittle2",
+        "rightLittle3"
+      ]
+    },
+    {
+      "faceOffset": [
+        5.421010862427522e-20,
+        -0.038572462499999904,
+        0.08825968750000002
+      ],
+      "id": "john",
+      "url": "/characters/john.63cdeed30a6a.glb",
+      "sha256": "63cdeed30a6ada0022eff79dd18f0d699d4479989f76fd8c7724698e54e42dee",
+      "bytes": 2013940,
+      "triangles": 29924,
+      "bones": [
+        "pelvis",
+        "abdomen",
+        "chest",
+        "head",
+        "leftUpperArm",
+        "rightUpperArm",
+        "leftForearm",
+        "rightForearm",
+        "leftHand",
+        "rightHand",
+        "leftThigh",
+        "rightThigh",
+        "leftShin",
+        "rightShin",
+        "leftFoot",
+        "rightFoot",
+        "leftThumb1",
+        "leftThumb2",
+        "leftThumb3",
+        "leftIndex1",
+        "leftIndex2",
+        "leftIndex3",
+        "leftMiddle1",
+        "leftMiddle2",
+        "leftMiddle3",
+        "leftRing1",
+        "leftRing2",
+        "leftRing3",
+        "leftLittle1",
+        "leftLittle2",
+        "leftLittle3",
+        "rightThumb1",
+        "rightThumb2",
+        "rightThumb3",
+        "rightIndex1",
+        "rightIndex2",
+        "rightIndex3",
+        "rightMiddle1",
+        "rightMiddle2",
+        "rightMiddle3",
+        "rightRing1",
+        "rightRing2",
+        "rightRing3",
+        "rightLittle1",
+        "rightLittle2",
+        "rightLittle3"
+      ]
+    },
+    {
+      "faceOffset": [
+        0,
+        -0.03409977499999983,
+        0.07995586249999999
+      ],
+      "id": "justin",
+      "url": "/characters/justin.65cfc37c9ed0.glb",
+      "sha256": "65cfc37c9ed07e5cbafffbc134d70a3ecc3341051efac88320a1dbbb066e3f51",
+      "bytes": 1885692,
+      "triangles": 29924,
+      "bones": [
+        "pelvis",
+        "abdomen",
+        "chest",
+        "head",
+        "leftUpperArm",
+        "rightUpperArm",
+        "leftForearm",
+        "rightForearm",
+        "leftHand",
+        "rightHand",
+        "leftThigh",
+        "rightThigh",
+        "leftShin",
+        "rightShin",
+        "leftFoot",
+        "rightFoot",
+        "leftThumb1",
+        "leftThumb2",
+        "leftThumb3",
+        "leftIndex1",
+        "leftIndex2",
+        "leftIndex3",
+        "leftMiddle1",
+        "leftMiddle2",
+        "leftMiddle3",
+        "leftRing1",
+        "leftRing2",
+        "leftRing3",
+        "leftLittle1",
+        "leftLittle2",
+        "leftLittle3",
+        "rightThumb1",
+        "rightThumb2",
+        "rightThumb3",
+        "rightIndex1",
+        "rightIndex2",
+        "rightIndex3",
+        "rightMiddle1",
+        "rightMiddle2",
+        "rightMiddle3",
+        "rightRing1",
+        "rightRing2",
+        "rightRing3",
+        "rightLittle1",
+        "rightLittle2",
+        "rightLittle3"
+      ]
+    },
+    {
+      "faceOffset": [
+        -5.421010862427522e-20,
+        -0.03690214999999997,
+        0.08427116250000001
+      ],
+      "id": "mondo",
+      "url": "/characters/mondo.e7be14e5d21e.glb",
+      "sha256": "e7be14e5d21e7ce9872137cf38b562af178804bec466b839d668d65ef5a0f28b",
+      "bytes": 2014000,
+      "triangles": 29924,
+      "bones": [
+        "pelvis",
+        "abdomen",
+        "chest",
+        "head",
+        "leftUpperArm",
+        "rightUpperArm",
+        "leftForearm",
+        "rightForearm",
+        "leftHand",
+        "rightHand",
+        "leftThigh",
+        "rightThigh",
+        "leftShin",
+        "rightShin",
+        "leftFoot",
+        "rightFoot",
+        "leftThumb1",
+        "leftThumb2",
+        "leftThumb3",
+        "leftIndex1",
+        "leftIndex2",
+        "leftIndex3",
+        "leftMiddle1",
+        "leftMiddle2",
+        "leftMiddle3",
+        "leftRing1",
+        "leftRing2",
+        "leftRing3",
+        "leftLittle1",
+        "leftLittle2",
+        "leftLittle3",
+        "rightThumb1",
+        "rightThumb2",
+        "rightThumb3",
+        "rightIndex1",
+        "rightIndex2",
+        "rightIndex3",
+        "rightMiddle1",
+        "rightMiddle2",
+        "rightMiddle3",
+        "rightRing1",
+        "rightRing2",
+        "rightRing3",
+        "rightLittle1",
+        "rightLittle2",
+        "rightLittle3"
+      ]
+    },
+    {
+      "faceOffset": [
+        0,
+        -0.028599674999999936,
+        0.06709433750000002
+      ],
+      "id": "gil",
+      "url": "/characters/gil.9bf62ea9dce9.glb",
+      "sha256": "9bf62ea9dce9bf8cd2e0328f94c1980eb43ec8fe2a27dfaab39024f096e2ee2b",
+      "bytes": 2013932,
+      "triangles": 29924,
       "bones": [
         "pelvis",
         "abdomen",
@@ -366,5 +850,192 @@
         "rightLittle3"
       ]
     }
-  ]
+  ],
+  "crowd": {
+    "url": "/characters/crowd.bda655ee0518.glb",
+    "sha256": "bda655ee051875adc3370d75174e0b5000289446d4922c9c375b965e8b43c2b5",
+    "bytes": 1055196,
+    "variants": [
+      {
+        "name": "crowd-0",
+        "leftShoulder": [
+          -0.160902175,
+          1.356993575,
+          0.0212624
+        ],
+        "rightShoulder": [
+          0.160902175,
+          1.356993575,
+          0.0212624
+        ],
+        "headY": 1.62536895,
+        "triangles": 2200
+      },
+      {
+        "name": "crowd-1",
+        "leftShoulder": [
+          -0.16570990000000002,
+          1.0994554,
+          0.0102460875
+        ],
+        "rightShoulder": [
+          0.16570990000000002,
+          1.0994554,
+          0.0102460875
+        ],
+        "headY": 1.3504898250000001,
+        "triangles": 2200
+      },
+      {
+        "name": "crowd-2",
+        "leftShoulder": [
+          -0.16951995,
+          1.0727499375,
+          0.0146005
+        ],
+        "rightShoulder": [
+          0.16951995,
+          1.0727499375,
+          0.0146005
+        ],
+        "headY": 1.319095725,
+        "triangles": 2200
+      },
+      {
+        "name": "crowd-3",
+        "leftShoulder": [
+          -0.177591025,
+          1.5427906875000001,
+          0.0319799625
+        ],
+        "rightShoulder": [
+          0.177591025,
+          1.5427906875000001,
+          0.0319799625
+        ],
+        "headY": 1.8358602125,
+        "triangles": 2199
+      },
+      {
+        "name": "crowd-4",
+        "leftShoulder": [
+          -0.17210216250000002,
+          1.3293426875,
+          0.015526575000000003
+        ],
+        "rightShoulder": [
+          0.17210216250000002,
+          1.3293426875,
+          0.015526575000000003
+        ],
+        "headY": 1.6003451499999999,
+        "triangles": 2200
+      },
+      {
+        "name": "crowd-5",
+        "leftShoulder": [
+          -0.148905575,
+          1.1590640125,
+          0.022200525
+        ],
+        "rightShoulder": [
+          0.148905575,
+          1.1590640125,
+          0.022200525
+        ],
+        "headY": 1.409132575,
+        "triangles": 2200
+      },
+      {
+        "name": "crowd-6",
+        "leftShoulder": [
+          -0.20780986250000003,
+          1.756458275,
+          0.0235410625
+        ],
+        "rightShoulder": [
+          0.20780986250000003,
+          1.756458275,
+          0.0235410625
+        ],
+        "headY": 2.0766526625,
+        "triangles": 2200
+      },
+      {
+        "name": "crowd-7",
+        "leftShoulder": [
+          -0.17028126250000003,
+          1.4410124875,
+          0.0248686375
+        ],
+        "rightShoulder": [
+          0.17028126250000003,
+          1.4410124875,
+          0.0248686375
+        ],
+        "headY": 1.7227546875000002,
+        "triangles": 2200
+      },
+      {
+        "name": "crowd-8",
+        "leftShoulder": [
+          -0.1634348,
+          1.4201369625000002,
+          0.021679937500000003
+        ],
+        "rightShoulder": [
+          0.1634348,
+          1.4201369625000002,
+          0.021679937500000003
+        ],
+        "headY": 1.6935566625,
+        "triangles": 2199
+      },
+      {
+        "name": "crowd-9",
+        "leftShoulder": [
+          -0.1554007625,
+          1.2582610250000001,
+          0.029951800000000008
+        ],
+        "rightShoulder": [
+          0.1554007625,
+          1.2582610250000001,
+          0.029951800000000008
+        ],
+        "headY": 1.5197871625000001,
+        "triangles": 2200
+      },
+      {
+        "name": "crowd-10",
+        "leftShoulder": [
+          -0.17818257499999998,
+          1.1716943375,
+          0.017361175
+        ],
+        "rightShoulder": [
+          0.17818257499999998,
+          1.1716943375,
+          0.017361175
+        ],
+        "headY": 1.4274157625,
+        "triangles": 2200
+      },
+      {
+        "name": "crowd-11",
+        "leftShoulder": [
+          -0.14349662500000002,
+          1.1146253,
+          0.01871365
+        ],
+        "rightShoulder": [
+          0.14349662500000002,
+          1.1146253,
+          0.01871365
+        ],
+        "headY": 1.3604134124999998,
+        "triangles": 2199
+      }
+    ]
+  }
 }

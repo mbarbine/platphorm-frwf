@@ -27,7 +27,7 @@ export interface FighterVisualProfile {
   soleColor: string;
 }
 
-export const FIGHTER_VISUALS: Readonly<Record<FighterId, FighterVisualProfile>> = {
+const ORIGINAL_VISUALS: Readonly<Record<'atlas' | 'vex' | 'nova' | 'brick' | 'dale' | 'chad', FighterVisualProfile>> = {
   atlas: {
     attire: 'conqueror', hair: 'crownFade', chestScale: 1.22, waistScale: 1.08, shoulderScale: 1.22, armScale: 1.18, thighScale: 1.2, calfScale: 1.14, bootScale: 1.18,
     headScale: [1.06, 1.02, 1], stanceWidth: 1.16, motionTempo: .82, stepWeight: 1.2, guardHeight: .94, fatigueDroop: .5, skinRoughness: .58, gearMetalness: .46,
@@ -58,6 +58,15 @@ export const FIGHTER_VISUALS: Readonly<Record<FighterId, FighterVisualProfile>> 
     headScale: [1.05, 1.01, 1.03], stanceWidth: 1.09, motionTempo: .9, stepWeight: 1.1, guardHeight: .9, fatigueDroop: .78, skinRoughness: .66, gearMetalness: .22,
     hairColor: '#352018', browColor: '#3c241a', eyeColor: '#f6c26b', soleColor: '#d38b37',
   },
+};
+
+export const FIGHTER_VISUALS: Readonly<Record<FighterId, FighterVisualProfile>> = { ...ORIGINAL_VISUALS,
+  thomas: { ...ORIGINAL_VISUALS.dale, hairColor: '#c5ab68', browColor: '#8e7549' },
+  sonny: { ...ORIGINAL_VISUALS.vex, hairColor: '#685039' },
+  wrecking_ball: { ...ORIGINAL_VISUALS.brick, waistScale: 1.5, chestScale: 1.3, stepWeight: 1.5 },
+  steve: { ...ORIGINAL_VISUALS.nova, hairColor: '#262320' },
+  john: { ...ORIGINAL_VISUALS.chad, hairColor: '#181713', guardHeight: .87, stepWeight: 1.12 }, justin: { ...ORIGINAL_VISUALS.nova, hairColor: '#634b31', chestScale: 1.04, guardHeight: 1.02 },
+  mondo: { ...ORIGINAL_VISUALS.brick, waistScale: 1.24, hairColor: '#574028', motionTempo: .91 }, gil: { ...ORIGINAL_VISUALS.vex, hairColor: '#593f2e' },
 };
 
 export const fighterVisual = (id: FighterId): FighterVisualProfile => FIGHTER_VISUALS[id];

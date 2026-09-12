@@ -10,7 +10,8 @@ import { buildBodySchema, extremityColliderShape, HEAD_COLLIDER_OFFSET, torsoCol
 import type { BodySegmentId, BodySegmentSchema } from '../game/physics/bodySchema';
 import { shortestQuaternionError } from '../game/physics/motorController';
 import { arenaCollisionGroups, fighterCollisionGroups } from '../game/physics/collisionGroups';
-import { BodyWorksRuntime } from '../game/physics/physicsRuntime';
+import { BodyWorksRuntime, bodyWorksRuntime } from '../game/physics/physicsRuntime';
+import { useMatchStore } from '../game/state/matchStore';
 import { RINGSIDE_THRESHOLD } from '../game/physics/ringDynamics';
 import { advanceMatch, applyPhysicalContact, createMatch, requestCommand } from '../game/systems/combat';
 import { FALL_REASONS } from '../game/types/game';
@@ -221,6 +222,50 @@ describe('Rapier-backed Bodyworks integration', () => {
     expect(runtime.metrics.emergencyResetCount, JSON.stringify(runtime.metrics)).toBe(0); expect(runtime.metrics.invalidRegisteredBodyCount).toBe(0); expect(world.bodies.len()).toBe(17); expect(world.impulseJoints.len()).toBe(15);
     runtime.reset(); expect(runtime.metrics.bodyCount).toBe(0); expect(runtime.metrics.jointCount).toBe(0); expect(runtime.replay.size).toBe(0); world.free();
   }, 30_000);
+
+  it('keeps an unsupported jump buffered without spending stamina, then launches when support returns', () => {
+    const { world, model, rig } = makeHarness();
+    bodyWorksRuntime.reset();
+    bodyWorksRuntime.registerFighter('player', rig.bodies, rig.joints);
+    useMatchStore.setState({ model });
+    try {
+      const stamina = model.player.stamina;
+      useMatchStore.getState().advance(STEP, { ...STILL, commands: ['jump'] });
+      expect(model.player.state).toBe('idle');
+      expect(model.player.stamina).toBe(stamina);
+      expect(bodyWorksRuntime.actionFeedback()).toMatchObject({ status: 'buffered' });
+      expect(rig.bodies.pelvis.linvel().y).toBe(0);
+      bodyWorksRuntime.setFootContact('player', 'leftFoot', true);
+      useMatchStore.getState().advance(STEP, STILL);
+      expect(model.player.state).toBe('jumping');
+      expect(model.player.stamina).toBeLessThan(stamina - 7);
+      expect(bodyWorksRuntime.actionFeedback()).toMatchObject({ status: 'executed' });
+      expect(rig.bodies.pelvis.linvel().y).toBeCloseTo(8.2, 4);
+      expect(bodyWorksRuntime.pendingCommandCount()).toBe(0);
+    } finally { bodyWorksRuntime.reset(); world.free(); }
+  });
+
+  it('launches supported jumps immediately and refuses unsupported or repeated launch impulses', () => {
+    const { world, runtime, model, rig } = makeHarness();
+    try {
+      runtime.setFootContact('player', 'leftFoot', false);
+      runtime.setFootContact('player', 'rightFoot', false);
+      const before = rig.bodies.pelvis.linvel().y;
+      expect(runtime.requestJump('player')).toBe(false);
+      expect(rig.bodies.pelvis.linvel().y).toBe(before);
+      runtime.setFootContact('player', 'leftFoot', true);
+      model.player.state = 'jumping';
+      expect(runtime.requestJump('player')).toBe(true);
+      expect(rig.bodies.pelvis.linvel().y).toBeCloseTo(8.2, 4);
+      runtime.setFootContact('player', 'leftFoot', true);
+      expect(runtime.requestJump('player')).toBe(false);
+      expect(rig.bodies.pelvis.linvel().y).toBeCloseTo(8.2, 4);
+      const start = rig.bodies.pelvis.translation().y;
+      for (let frame = 0; frame < 12; frame++) stepHarness(world, runtime, model);
+      expect(rig.bodies.pelvis.translation().y).toBeGreaterThan(start + .2);
+      expect(runtime.metrics.emergencyResetCount).toBe(0);
+    } finally { world.free(); }
+  });
 
   it('walks, stops, jumps, lands, and resets without leaking runtime state', () => {
     const { world, runtime, model } = makeHarness(); const startX = runtime.fighterSnapshot('player').pelvisY;
@@ -801,5 +846,53 @@ it.each(['slam', 'piledriver', 'powerbomb'] as const)('%s keeps the carrier supp
     expect(liftFrames).toBeGreaterThan(30);
     expect(longest, JSON.stringify({ moveId, liftFrames, longest })).toBeLessThan(12);
     expect(runtime.metrics.emergencyResetCount).toBe(0);
+  } finally { runtime.reset(); world.free(); }
+});
+
+
+it('the actual rig rejects exhausted sprint at the same speed as exhausted walking', () => {
+  const walk = makeHarness('chad'); const run = makeHarness('chad');
+  try {
+    walk.model.labMode = run.model.labMode = true;
+    for (let frame = 0; frame < 60; frame++) {
+      stepHarness(walk.world, walk.runtime, walk.model);
+      stepHarness(run.world, run.runtime, run.model);
+    }
+    const start = { ...run.model.player.position };
+    for (let frame = 0; frame < 45; frame++) {
+      walk.model.player.stamina = run.model.player.stamina = 0;
+      stepHarness(walk.world, walk.runtime, walk.model, { x: 0, z: 1 }, false);
+      stepHarness(run.world, run.runtime, run.model, { x: 0, z: 1 }, true);
+      expect(run.model.player.position.x).toBeCloseTo(walk.model.player.position.x, 4);
+      expect(run.model.player.position.z).toBeCloseTo(walk.model.player.position.z, 4);
+    }
+    expect(Math.hypot(run.model.player.position.x - start.x, run.model.player.position.z - start.z)).toBeGreaterThan(.5);
+    expect(run.runtime.metrics.emergencyResetCount).toBe(0);
+  } finally {
+    walk.runtime.reset(); walk.world.free(); run.runtime.reset(); run.world.free();
+  }
+});
+
+it.each([false, true])('walking and running keep the loaded sole level (run=%s)', run => {
+  const { world, runtime, model, rig } = makeHarness('chad');
+  try {
+    model.labMode = true;
+    for (let frame = 0; frame < 90; frame++) stepHarness(world, runtime, model);
+    let tilted = 0; let supported = 0; let worst = 0; let folded = 0; let firstFold = {};
+    // One full stride in clear space, before the forward sprint reaches the ropes.
+    for (let frame = 0; frame < 60; frame++) {
+      stepHarness(world, runtime, model, {x: 0, z: .7}, run);
+      const feet = [rig.bodies.leftFoot, rig.bodies.rightFoot] as const;
+      const foot = feet[0].translation().y < feet[1].translation().y ? feet[0] : feet[1];
+      const q = foot.rotation(); const tilt = Math.acos(Math.max(-1, Math.min(1, 1 - 2 * (q.x*q.x+q.z*q.z))));
+      if (foot.translation().y < 2.02) { supported++; if (tilt > .4) tilted++; worst = Math.max(worst, tilt); }
+      for (const side of ['left', 'right'] as const) {
+        const error = shortestQuaternionError(rig.bodies[`${side}Thigh`].rotation(), rig.bodies[`${side}Shin`].rotation());
+        if (rig.bodies[`${side}Foot`] === foot && foot.translation().y < 2.02 && Math.hypot(error.x,error.y,error.z) > .75) { if (!folded) firstFold = { frame, side, knee:error, phase:model.player.body.gaitPhase, facing:model.player.facing, velocity:model.player.velocity, foot:foot.translation(), thigh:rig.bodies[`${side}Thigh`].translation(), state:model.player.state }; folded++; }
+      }
+    }
+    expect(supported, JSON.stringify({tilted,supported,worst,folded,position:model.player.position})).toBeGreaterThan(40);
+    expect(tilted, JSON.stringify({tilted,supported,worst,folded})).toBeLessThan(12);
+    expect(folded, JSON.stringify(firstFold)).toBe(0);
   } finally { runtime.reset(); world.free(); }
 });

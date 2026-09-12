@@ -1,10 +1,10 @@
+import { OriginalFaceDetails } from './OriginalFaceDetails';
 import { useFrame } from '@react-three/fiber';
 import { useEffect, useMemo, useRef } from 'react';
 import { CanvasTexture, SRGBColorSpace } from 'three';
 import type { Group, Vector3, Quaternion } from 'three';
 import { bodyWorksRuntime } from '../physics/physicsRuntime';
 import { useMatchStore } from '../state/matchStore';
-import { fighterById } from '../data/fighters';
 import type { BodySegmentId } from '../physics/bodySchema';
 import type { FighterId, FighterSlot } from '../types/game';
 
@@ -30,45 +30,27 @@ function ChampionshipPlate() {
 
 /** Identity details remain attached to solved anatomy throughout a throw. */
 export function FighterAccessories({ fighterId, side, previewPose, modelScale = 1 }: { modelScale?: number; fighterId: FighterId; side?: FighterSlot; previewPose?: (segment: 'head' | 'pelvis' | 'chest') => { position: Vector3; rotation: Quaternion } | undefined }) {
-  const head = useRef<Group>(null); const waist = useRef<Group>(null); const chest = useRef<Group>(null);
-  const fighter = fighterById(fighterId);
+  const head = useRef<Group>(null); const waist = useRef<Group>(null);
   useFrame(() => {
-    for (const [ref, segment] of [[head, 'head'], [waist, 'pelvis'], [chest, 'chest']] as const) {
+    for (const [ref, segment] of [[head, 'head'], [waist, 'pelvis']] as const) {
       const pose = previewPose ? previewPose(segment) : side ? bodyWorksRuntime.segmentSnapshot(side, segment) : undefined; if (!pose || !ref.current) continue;
       ref.current.position.copy(pose.position); ref.current.quaternion.set(pose.rotation.x, pose.rotation.y, pose.rotation.z, pose.rotation.w);
     }
-    if (head.current && fighterId === 'atlas') { const model = useMatchStore.getState().model; head.current.visible = Boolean(previewPose) || Boolean(side && model[side].state === 'victorious'); }
-    if (waist.current) { const model = useMatchStore.getState().model; waist.current.visible = Boolean(previewPose) || model.elapsed < 2 || Boolean(side && model[side].state === 'victorious'); }
+    if (head.current && fighterId === 'atlas') { const model = useMatchStore.getState().model; head.current.visible = Boolean(side && model[side].state === 'victorious'); }
+    if (waist.current) { const model = useMatchStore.getState().model; waist.current.visible = Boolean(side && model[side].state === 'victorious'); }
   });
   return <>
     {side && <RingGear side={side} />}
     <group ref={head} scale={modelScale}>
-      {fighterId === 'chad' ? <>
-        <mesh position={[0, .02, -.005]}><sphereGeometry args={[.097, 24, 12, 0, Math.PI * 2, 0, Math.PI * .53]} /><meshStandardMaterial color="#141820" roughness={.92} /></mesh>
-        <mesh position={[0, .041, .093]} scale={[1, .12, 1]}><sphereGeometry args={[.094, 24, 8]} /><meshStandardMaterial color="#191c24" roughness={.85} /></mesh>
-        {[-1, 1].map((s) => <group key={s} position={[s * .036, -.038, .105]} rotation={[0, s * -.13, s * -.08]}>
-          <mesh scale={[1, 1.1, .22]}><sphereGeometry args={[.029, 20, 12]} /><meshStandardMaterial color="#137381" metalness={.88} roughness={.13} emissive="#124c5a" emissiveIntensity={.25} /></mesh>
-          <mesh scale={[1, 1.1, 1]}><torusGeometry args={[.029, .002, 6, 24]} /><meshStandardMaterial color="#202128" metalness={.75} roughness={.22} /></mesh>
-        </group>)}
-        <mesh position={[0, -.032, .11]}><boxGeometry args={[.018, .004, .006]} /><meshStandardMaterial color="#22242a" metalness={.7} roughness={.2} /></mesh>
-        <mesh position={[0, -.055, .022]} scale={[1, .84, 1.1]}><sphereGeometry args={[.085, 24, 12, 0, Math.PI, Math.PI * .49, Math.PI * .45]} /><meshStandardMaterial color="#38251e" roughness={.97} /></mesh>
-      </> : fighterId === 'dale' ? <>
-        <mesh position={[0, -.074, .033]} scale={[1, 1.22, 1.05]}><sphereGeometry args={[.089, 24, 16, 0, Math.PI, Math.PI * .4, Math.PI * .58]} /><meshStandardMaterial color="#30221b" roughness={.97} /></mesh>
-        {[-1, 1].map(s => <mesh key={s} position={[s * .035, -.055, .112]} rotation={[0, 0, s * .16]} scale={[1, .3, .38]}><sphereGeometry args={[.039, 16, 10]} /><meshStandardMaterial color="#30221b" roughness={.97} /></mesh>)}
-        <mesh position={[0, .055, -.015]}><sphereGeometry args={[.098, 24, 12, 0, Math.PI * 2, 0, Math.PI * .43]} /><meshStandardMaterial color="#30221b" roughness={.96} /></mesh>
-      </> : fighterId === 'atlas' ? <group position={[0, .13, 0]}>
+      <OriginalFaceDetails fighterId={fighterId} />
+      {fighterId === 'atlas' ? <group position={[0, .13, 0]}>
         <mesh rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[.102, .009, 8, 28]} /><meshStandardMaterial color="#c99b40" metalness={.8} roughness={.3} /></mesh>
         {[-.072, 0, .072].map((x) => <mesh key={x} position={[x, .026, .067]}><coneGeometry args={[.018, .064, 5]} /><meshStandardMaterial color="#e7bc57" metalness={.75} roughness={.28} /></mesh>)}
       </group> : fighterId === 'vex' ? <mesh position={[0, .13, -.005]} scale={[.2, 1, 1]}><capsuleGeometry args={[.06, .11, 8, 16]} /><meshStandardMaterial color="#17323b" roughness={.86} /></mesh>
-        : <mesh position={[0, fighterId === 'nova' ? .025 : .11, fighterId === 'nova' ? .105 : 0]} scale={fighterId === 'nova' ? [1, .35, .15] : [1, .28, 1]}><sphereGeometry args={[.112, 24, 12]} /><meshStandardMaterial color={fighter.palette.primary} roughness={.78} /></mesh>}
+        : null}
     </group>
     {fighterId === 'chad' && <>
       <group ref={waist}><mesh scale={[1.35, 1, .8]}><cylinderGeometry args={[.21, .21, .3, 32, 1, true]} /><meshStandardMaterial color="#14151a" roughness={.76} /></mesh><ChampionshipPlate /></group>
-      <group ref={chest} scale={modelScale}><group position={[-.11, .025, .16]} rotation={[0, -.2, 0]}>
-        <mesh scale={[1.5, .65, 1]}><torusGeometry args={[.032, .004, 5, 24]} /><meshStandardMaterial color="#28312e" roughness={1} /></mesh>
-        <mesh><sphereGeometry args={[.011, 10, 8]} /><meshStandardMaterial color="#28312e" roughness={1} /></mesh>
-        <mesh position={[0, -.045, 0]} rotation={[0, 0, Math.PI]}><coneGeometry args={[.01, .045, 3]} /><meshStandardMaterial color="#28312e" roughness={1} /></mesh>
-      </group></group>
     </>}
   </>;
 }

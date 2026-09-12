@@ -1,3 +1,4 @@
+import { gaitCycle } from '../animation/gaitCycle';
 import { clamp, length, normalize } from '../utils/math';
 import type { BodyDynamicsRuntime, BodyRegion, CollisionOutcome, FighterDefinition, FighterRuntime, MoveDefinition, Vec2 } from '../types/game';
 
@@ -31,6 +32,14 @@ export const locomotionProfile = (definition: FighterDefinition): LocomotionProf
   };
 };
 
+/** Resolve the same stamina-limited movement intent for rules and physical drive. */
+export function locomotionIntent(fighter: Pick<FighterRuntime, 'stamina' | 'staminaCap'>, definition: FighterDefinition, move: Vec2, requestRun: boolean) {
+  const running = requestRun && fighter.stamina > 3 && length(move) > .08;
+  const profile = locomotionProfile(definition);
+  const fatigue = fighter.stamina < fighter.staminaCap * .2 ? .86 : 1;
+  return { running, speed: (running ? profile.runSpeed : profile.walkSpeed) * fatigue };
+}
+
 export const createBodyDynamics = (definition: FighterDefinition): BodyDynamicsRuntime => {
   const mass = definition.physics.massKg;
   return {
@@ -60,10 +69,10 @@ export const createBodyDynamics = (definition: FighterDefinition): BodyDynamicsR
 };
 
 const updateFoot = (fighter: FighterRuntime, foot: BodyDynamicsRuntime['leftFoot'], phase: number, stride: number, side: number): void => {
-  const cycle = Math.sin(phase);
+  const cycle = gaitCycle(phase);
   foot.phase = phase;
-  foot.planted = cycle <= .12;
-  foot.lift = Math.max(0, cycle) * (.08 + stride * .11);
+  foot.planted = cycle.planted;
+  foot.lift = cycle.lift * (.08 + stride * .11);
   const forward = Math.cos(phase) * stride * .34;
   const forwardVector = { x: Math.sin(fighter.facing), z: Math.cos(fighter.facing) };
   const rightVector = { x: Math.cos(fighter.facing), z: -Math.sin(fighter.facing) };
@@ -75,9 +84,10 @@ export const integrateLocomotion = (fighter: FighterRuntime, definition: Fighter
   const desiredMagnitude = Math.min(1, length(desiredMove));
   const desiredDirection = desiredMagnitude > .001 ? normalize(desiredMove) : { x: 0, z: 0 };
   const speed = length(fighter.velocity);
-  const exhausted = fighter.stamina < fighter.staminaCap * .2;
   const profile = locomotionProfile(definition);
-  const topSpeed = (running ? profile.runSpeed : profile.walkSpeed) * (exhausted ? .86 : 1);
+  const resolved = locomotionIntent(fighter, definition, desiredMove, running);
+  running = resolved.running;
+  const topSpeed = resolved.speed;
   const targetVelocity = { x: desiredDirection.x * topSpeed * desiredMagnitude, z: desiredDirection.z * topSpeed * desiredMagnitude };
   const accelerating = desiredMagnitude > .08;
   const acceleration = running ? profile.runAcceleration : profile.acceleration;

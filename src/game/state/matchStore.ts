@@ -135,9 +135,12 @@ export const useMatchStore = create<MatchStore>((set) => ({
       if (wasDowned === false && model.player.state === 'pinned' && ['context', 'dodge', 'quick', 'heavy'].includes(buffered.command)) {
         pinRecoveryActions.push(buffered.event); commandAccepted = true; return { executed: true, displayName: 'KICK OUT' };
       }
+      // A short loss of foot support should wait in the input buffer. Do not
+      // spend stamina or announce a jump that the physical rig cannot launch.
+      if (model.physicsAuthority && buffered.command === 'jump' && ['idle', 'locomotion'].includes(model.player.state) && model.player.stamina >= 8 && !bodyWorksRuntime.canJump('player')) return { executed: false, deferredReason: 'Waiting for landing or jump recovery' };
       const accepted = requestCommand(model, 'player', buffered.command, buffered.direction, buffered.running);
       commandAccepted ||= accepted;
-      if (accepted && buffered.command === 'jump') bodyWorksRuntime.requestJump('player');
+      if (accepted && buffered.command === 'jump' && model.player.state === 'jumping') bodyWorksRuntime.requestJump('player');
       if (accepted && buffered.command === 'dodge' && wasClimbing && model.player.state === 'climbing') bodyWorksRuntime.requestCornerClimb('player', model.player.position, model.player.climbStage || 1);
       if (accepted && buffered.command === 'context' && !wasClimbing && model.player.state === 'climbing') bodyWorksRuntime.requestCornerClimb('player', model.player.position);
       if (accepted && buffered.command === 'context' && wasClimbing && model.player.state === 'climbing') bodyWorksRuntime.requestCornerClimb('player', model.player.position, model.player.climbStage || 1);
@@ -152,9 +155,15 @@ export const useMatchStore = create<MatchStore>((set) => ({
         : buffered.command === 'context' ? resolveContextAction(model, 'player', buffered.direction).rejectionReason ?? undefined
           : buffered.command === 'interact' ? resolvePropAction(model, 'player', buffered.direction).rejectionReason ?? undefined
             : model.player.stamina < 12 ? 'Rest or move without sprinting to recover stamina' : 'Wait until your wrestler is standing';
-      return { executed: accepted, displayName, rejectionReason };
+      const deferredReason = model.player.state === 'staggered' ? 'Hit interrupted your action — try again when steady'
+        : model.player.state === 'grabbed' ? 'Escape the hold before this action'
+          : transient ? 'Finish the current motion before this action' : undefined;
+      const attack = accepted && model.player.moveId && model.player.attackPhase
+        ? { moveId: model.player.moveId, instanceId: model.player.attackInstanceId } : undefined;
+      return { executed: accepted, displayName, rejectionReason, deferredReason, attack };
     });
     advanceMatch(model, dt, { ...input, actions: pinRecoveryActions, commands: [] });
+    bodyWorksRuntime.observePlayerAttack(model.player, model.elapsed);
     if (!wasPlayerInactive && ['defeated', 'victorious'].includes(model.player.state)) bodyWorksRuntime.rejectPendingActions('player', model.elapsed, 'Fighter is no longer active');
     for (const slot of AI_FIGHTER_SLOTS) {
       const fighter = model[slot];
@@ -252,7 +261,17 @@ export const useMatchStore = create<MatchStore>((set) => ({
   resolvePhysicsContacts: (contacts) => set((state) => {
     if (state.model.networkAuthority) return state;
     let changed = false;
-    for (const contact of contacts) changed = applyPhysicalContact(state.model, contact) || changed;
+    for (const contact of contacts) {
+      if (!applyPhysicalContact(state.model, contact)) continue;
+      changed = true;
+      const impact = state.model.lastImpact;
+      if (contact.sourceFighter === 'player' && contact.attackInstanceId !== null && contact.moveId) {
+        const result = impact?.kind === 'counter' ? 'countered' : impact?.kind === 'blocked' ? 'blocked' : 'hit';
+        bodyWorksRuntime.recordPlayerAttackContact({ moveId: contact.moveId, instanceId: contact.attackInstanceId }, result, state.model.elapsed);
+      }
+      const incomingMove = impact?.targetFighter === 'player' && impact.moveId ? getSafeMove(impact.moveId)?.displayName : undefined;
+      bodyWorksRuntime.observePlayerAttack(state.model.player, state.model.elapsed, impact?.kind === 'counter' ? 'Your move was countered' : incomingMove ? `Stopped by ${incomingMove}` : undefined);
+    }
     return changed ? { model: { ...state.model }, revision: state.revision + 1 } : state;
   }),
   cyclePlayerTarget: (direction = 1) => set((state) => cyclePlayerTarget(state.model, direction)

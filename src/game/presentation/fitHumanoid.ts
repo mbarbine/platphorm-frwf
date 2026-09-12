@@ -1,4 +1,4 @@
-import { Bone, SkinnedMesh } from 'three';
+import { Bone, SkinnedMesh, Vector3 } from 'three';
 import type { Object3D } from 'three';
 import { buildBodySchema } from '../physics/bodySchema';
 import { fighterById } from '../data/fighters';
@@ -10,7 +10,8 @@ export function fitHumanoid(scene: Object3D, fighterId: FighterId): { scale: num
   const left = scene.getObjectByName('leftFoot');
   const right = scene.getObjectByName('rightFoot');
   if (!head || !left || !right) throw new Error('Character is missing its head or foot landmarks');
-  const nativeSpan = head.position.y - (left.position.y + right.position.y) / 2;
+  scene.updateMatrixWorld(true);
+  const nativeSpan = head.getWorldPosition(new Vector3()).y - (left.getWorldPosition(new Vector3()).y + right.getWorldPosition(new Vector3()).y) / 2;
   const schema = buildBodySchema(fighterById(fighterId));
   const targetHead = schema.find(segment => segment.id === 'head');
   const targetFoot = schema.find(segment => segment.id === 'leftFoot');
