@@ -33,8 +33,8 @@ export function SpectatorControls() {
 
   if (!spectating) return null;
   const fighter = fighterById(model[target].definitionId);
+  const modeName = (MODES.find((m) => m.id === cameraMode)?.label ?? cameraMode).toLowerCase();
   return <aside className="spectator-controls" data-testid="spectator-controls" data-camera-mode={cameraMode} data-spectator-target={target}>
-    <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">Spectating wrestler: {fighter.name}, {modeName} camera.</p>
     <header><span>ELIMINATED · MATCH CONTINUES</span><b>SPECTATING {fighter.name}</b></header>
     <div aria-live="polite" style={{ position: 'absolute', width: '1px', height: '1px', padding: 0, margin: '-1px', overflow: 'hidden', clip: 'rect(0, 0, 0, 0)', border: 0 }}>Spectating wrestler: {fighter.name}, {modeName} camera</div>
     <div>{MODES.map((mode) => <button key={mode.id} type="button" className={cameraMode === mode.id ? 'active' : ''} aria-pressed={cameraMode === mode.id} aria-label={`${mode.label} mode (Key ${mode.key})`} onClick={() => setCameraMode(mode.id)}><kbd>{mode.key}</kbd>{mode.label}</button>)}</div>

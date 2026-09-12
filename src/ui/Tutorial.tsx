@@ -14,6 +14,15 @@ export function Tutorial({ device }: { device: ControlDevice }) {
   };
 
   useEffect(() => {
+    if (!visible) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') close();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [visible]);
+
+  useEffect(() => {
     if (!visible || isPaused || timeRemaining <= 0) return;
 
     const startTime = Date.now();
@@ -37,6 +46,9 @@ export function Tutorial({ device }: { device: ControlDevice }) {
       onFocus={() => setIsPaused(true)}
       onBlur={() => setIsPaused(false)}
     >
+      <div aria-live="polite" style={{ position: 'absolute', width: '1px', height: '1px', padding: 0, margin: '-1px', overflow: 'hidden', clip: 'rect(0, 0, 0, 0)', border: 0 }}>
+        Core controls overlay displayed. Press Escape or click close to dismiss.
+      </div>
       <div>
         <span>CORE CONTROLS</span>
         <button aria-label="Close tutorial" onClick={close}>×</button>
