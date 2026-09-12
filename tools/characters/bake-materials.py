@@ -129,7 +129,7 @@ for name,recipe in recipes.items():
         path=root/'public/characters'/f'{style}.webp';hair.save(path,lossless=True,method=6)
         h=hashlib.sha256(path.read_bytes()).hexdigest();filename=f'{style}.{h[:12]}.webp';path.rename(path.with_name(filename));result[name]['hairUrl']='/characters/'+filename
     print('MATERIAL',name,flush=True)
-(root/'public/characters/materials.json').write_text(json.dumps(result,indent=2)+'\n')provisional=json.loads((root/'tools/characters/provisional-models.json').read_text())
+provisional=json.loads((root/'tools/characters/provisional-models.json').read_text())
 for name,source_name in provisional.items():
     if source_name in result: result[name]=dict(result[source_name])
-
+material_file.write_text(json.dumps(result,indent=2)+'\n')
