@@ -1201,7 +1201,7 @@ export class BodyWorksRuntime {
     if (fighter.state === 'grappling' || physicalReach || profile.id === 'clinch' || profile.id === 'lift' || profile.id === 'throw') for (const segment of ['leftUpperArm', 'rightUpperArm', 'leftForearm', 'rightForearm', 'leftHand', 'rightHand', 'chest', 'abdomen'] as const) dynamic.add(segment);
     const strike = fighter.moveId ? strikeDriveProfile(fighter.moveId) : null;
     if (strike) {
-      for (const segment of strikePoseChain(strike.source)) dynamic.add(segment);
+      for (const segment of [...strikePoseChain(strike.source), 'chest', 'abdomen'] as BodySegmentId[]) dynamic.add(segment);
       if (fighter.moveId === 'stiff_arm' || fighter.moveId === 'rebound') for (const segment of ['leftUpperArm', 'leftForearm', 'leftHand', 'rightUpperArm', 'rightForearm', 'rightHand'] as const) dynamic.add(segment);
     }
     // A world-space rotation lock is only safe at the intended pose. Turns,
@@ -2127,7 +2127,7 @@ export class BodyWorksRuntime {
       if (!body?.isValid() || supportedFall && segment === 'pelvis') continue;
       if (segment !== 'pelvis' && !rig.rotationallyDynamic.has(segment)) continue;
       if (segment === 'pelvis' && rig.rootStabilized) continue;
-      const striking = strikeSegments.includes(segment) && ['anticipation', 'active'].includes(fighter.attackPhase ?? '');
+      const striking = (strikeSegments.includes(segment) || Boolean(strike) && (segment === 'chest' || segment === 'abdomen')) && ['anticipation', 'active'].includes(fighter.attackPhase ?? '');
       const onMat = supportedFall || ['pinning', 'pinned'].includes(fighter.state);
       const recovering = fighter.state === 'recovering';
       const authority = .65 + Math.min(1, motorStrengthFor(fighter, motorProfile, segment)) * .35;

@@ -47,6 +47,19 @@ export function authoredStrikePose(base: Pose, move: MoveDefinition, phase: Atta
   const envelope = phase === 'anticipation' ? clamp(progress * 4) : phase === 'recovery' ? clamp((1 - progress) * 3) : 1;
   if (envelope < 1e-8) return base;
   const result = blend(base, captured, .65 * envelope);
+  // Preserve the authored contact reach. Retargeted clips add timing and body
+  // movement, but their bent elbow/hip offsets must not erase the strike itself.
+  const contactCommitment = phase === 'active' ? 1 : phase === 'recovery' ? clamp(1 - progress * 2) : clamp((progress - .6) / .4);
+  const strikeSide = move.id === 'combo' ? 'left' : 'right';
+  const kicking = move.id.includes('kick') || move.id === 'roundhouse';
+  const controlled = blend(result, base, contactCommitment * .85);
+  if (kicking) {
+    result[`${strikeSide}Leg`] = controlled[`${strikeSide}Leg`];
+    result[`${strikeSide}Shin`] = controlled[`${strikeSide}Shin`];
+  } else {
+    result[`${strikeSide}Arm`] = controlled[`${strikeSide}Arm`];
+    result[`${strikeSide}Forearm`] = controlled[`${strikeSide}Forearm`];
+  }
   result.rootX = base.rootX; result.rootY = base.rootY; result.rootZ = base.rootZ;
   result.rootTilt = clamp(result.rootTilt, -.22, .22); result.rootRoll = clamp(result.rootRoll, -.18, .18);
   result.rootYaw = base.rootYaw + clamp(captured.rootYaw - base.rootYaw, -.45, .45) * .35 * envelope;

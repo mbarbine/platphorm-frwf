@@ -13,6 +13,7 @@ const enterOrdinarySingles = async (page: Page, difficulty: 'easy' | 'normal' = 
   await page.getByRole('button', { name: /^STANDARD/ }).click();
   if (difficulty === 'easy') await page.getByRole('button', { name: /^EASY/ }).click();
   await page.getByRole('button', { name: 'START MATCH' }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-fighters-ready', 'true', { timeout: 45000 });
 };
 
 const exerciseOrdinaryInputs = async (page: Page): Promise<void> => {

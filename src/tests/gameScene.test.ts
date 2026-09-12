@@ -193,7 +193,7 @@ describe('GameScene XR', () => {
     });
 
     await waitFor(() => {
-      const errorMsg = screen.getByRole('status');
+      const errorMsg = screen.getByText(/^XR UNAVAILABLE/);
       expect(errorMsg.textContent).toContain('Device not connected');
     });
   });
