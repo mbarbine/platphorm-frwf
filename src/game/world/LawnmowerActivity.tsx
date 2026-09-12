@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { WorldSign } from './ShowgroundEnvironment';
 export const LAWNMOWER_ACTIVITY = { position: { x: 4, z: 15 }, url: 'https://lawnmower.platphormnews.com', radius: 2.6 } as const;
 export const nearLawnmower = (p: { x: number; z: number }) => (p.x - 4) ** 2 + (p.z - 15) ** 2 <= LAWNMOWER_ACTIVITY.radius ** 2;
@@ -14,10 +14,39 @@ export function PushMower() {
   </group>;
 }
 export function LawnmowerGame({ onClose }: { onClose: () => void }) {
-  const [started, setStarted] = useState(false);
-  return <div className="world-modal" role="dialog" aria-modal="true" aria-label="Lawnmower subgame"><article style={{ width: 'min(1300px, 96vw)', maxWidth: '96vw' }}>
-    <button className="button button--quiet" onClick={onClose}>RETURN TO FRWF</button><h2>Mow the grounds</h2>
-    <p>Your FRWF position is saved. Lawnmower runs its own game and progress.</p>
-    {!started ? <button className="button button--hero" onClick={() => setStarted(true)}>PLAY LAWNMOWER HERE</button> : <iframe title="Lawnmower game" src={LAWNMOWER_ACTIVITY.url} style={{ width: '100%', height: '65vh', border: 0 }} allow="fullscreen; gamepad" allowFullScreen referrerPolicy="strict-origin-when-cross-origin" />}
+  const frame = useRef<HTMLIFrameElement>(null);
+  const closeButton = useRef<HTMLButtonElement>(null);
+  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [attempt, setAttempt] = useState(0);
+  const [coverage, setCoverage] = useState(0);
+  useEffect(() => {
+    const previous = document.activeElement as HTMLElement | null;
+    closeButton.current?.focus();
+    return () => previous?.focus();
+  }, []);
+  useEffect(() => {
+    const origin = LAWNMOWER_ACTIVITY.url;
+    const send = (type: string) => frame.current?.contentWindow?.postMessage({ type }, origin);
+    const message = (event: MessageEvent) => {
+      if (event.origin !== origin || event.source !== frame.current?.contentWindow || event.data?.source !== 'platphorm-lawnmower') return;
+      if (event.data.type === 'ready') { setStatus('ready'); window.clearTimeout(timeout); window.clearInterval(hello); }
+      if (event.data.type === 'exit') onClose();
+      if (event.data.type === 'state' && typeof event.data.coverage === 'number' && Number.isFinite(event.data.coverage)) setCoverage(Math.max(0, Math.min(100, event.data.coverage)));
+    };
+    const visibility = () => send(document.hidden ? 'lawnmower:pause' : 'lawnmower:resume');
+    const keyboard = (event: KeyboardEvent) => { if (event.code === 'Escape') { event.preventDefault(); event.stopPropagation(); onClose(); } };
+    const timeout = window.setTimeout(() => setStatus('error'), 25000);
+    const hello = window.setInterval(() => send('lawnmower:hello'), 1000);
+    window.addEventListener('message', message);
+    window.addEventListener('keydown', keyboard);
+    document.addEventListener('visibilitychange', visibility);
+    return () => { window.clearTimeout(timeout); window.clearInterval(hello); window.removeEventListener('message', message); window.removeEventListener('keydown', keyboard); document.removeEventListener('visibilitychange', visibility); };
+  }, [onClose, attempt]);
+  return <div className="world-modal" role="dialog" aria-modal="true" aria-label="Lawnmower subgame"><article style={{ width: 'min(1300px, 98vw)', maxWidth: '98vw', height: '94dvh', padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+    <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}><button ref={closeButton} className="button button--quiet" onClick={onClose}>RETURN TO FRWF</button><span aria-live="polite">{status === 'ready' ? `MULCH MADNESS · ${coverage}% mowed` : 'WAKING THE MOWER…'}</span></header>
+    <div style={{ position: 'relative', flex: 1, minHeight: 0 }}>
+      <iframe key={attempt} ref={frame} title="Lawnmower game" src={`${LAWNMOWER_ACTIVITY.url}/embed`} style={{ width: '100%', height: '100%', border: 0, borderRadius: 12 }} allow="fullscreen; gamepad" allowFullScreen referrerPolicy="strict-origin-when-cross-origin" onLoad={() => frame.current?.contentWindow?.postMessage({ type: 'lawnmower:hello' }, LAWNMOWER_ACTIVITY.url)} onError={() => setStatus('error')} />
+      {status !== 'ready' && <div role="status" style={{ position: 'absolute', inset: 0, display: 'grid', placeContent: 'center', textAlign: 'center', background: '#18352f', borderRadius: 12 }}><p>{status === 'error' ? 'The mower is taking a suspiciously long coffee break.' : 'Loading your backyard. The grass is nervous.'}</p>{status === 'error' && <button className="button" onClick={() => { setStatus('loading'); setAttempt(n => n + 1); }}>RETRY HERE</button>}</div>}
+    </div>
   </article></div>;
 }
