@@ -1103,6 +1103,16 @@ export const advanceMatch = (model: MatchModel, dt: number, playerInput: FrameIn
   for (const event of playerInput.actions ?? []) if (event.phase === 'started') requestAction(model, 'player', event, playerInput.run);
   for (const command of playerInput.commands ?? []) requestCommand(model, 'player', command, playerInput.move, playerInput.run);
   const active = activeFighterSlots(model);
+  // A knockdown releases the carried weapon instead of tethering it to a
+  // ragdoll hand and letting its mass wrench the shoulder during recovery.
+  for (const slot of active) {
+    const fighter = model[slot];
+    if (fighter.heldPropId && ['downed', 'airborne', 'defeated', 'pinned', 'grabbed'].includes(fighter.state)) {
+      const prop = model.propsById[fighter.heldPropId];
+      if (prop) { prop.heldBy = null; prop.position = { ...fighter.position }; }
+      fighter.heldPropId = null;
+    }
+  }
   const openingDuration = model.matchMode === 'battle_royale' ? BATTLE_ROYALE_OPENING_BELL_SECONDS : model.difficulty === 'easy' ? 5 : 2;
   const openingBell = model.elapsed < openingDuration;
   for (const slot of AI_FIGHTER_SLOTS) {
