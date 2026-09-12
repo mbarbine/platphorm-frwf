@@ -11,6 +11,7 @@ import type { FighterKey } from '../physics/physicsRuntime';
 import type { BodySegmentId } from '../physics/bodySchema';
 import type { PropRuntime } from '../types/game';
 import { Spectators as Crowd } from './Spectators';
+import { EntranceFog } from './EntranceFog';
 import { WrestlingMat } from './WrestlingMat';
 import { useSettings } from '../state/settings';
 import { VOLT_DOME } from '../data/arena';
@@ -68,8 +69,8 @@ function RopeSide({ axis, side, color, emissive }: { axis: 'x' | 'z'; side: -1 |
         point(index, start); point(index + 1, end);
         direction.subVectors(end, start);
         dummy.position.copy(start).add(end).multiplyScalar(.5);
-        dummy.quaternion.setFromUnitVectors(cylinderAxis, direction.clone().normalize());
-        dummy.scale.set(1, direction.length() + .012, 1);
+        dummy.quaternion.setFromUnitVectors(cylinderAxis, direction.normalize());
+        dummy.scale.set(1, start.distanceTo(end) + .012, 1);
         dummy.updateMatrix(); rope.current.setMatrixAt(ropeIndex * segmentCount + index, dummy.matrix);
       }
     }
@@ -683,7 +684,7 @@ export function Arena({ crowdCount = 156, performanceMode = false }: { crowdCoun
     <Ropes /><Post x={-5.75} z={-4.25} /><Post x={5.75} z={-4.25} /><Post x={-5.75} z={4.25} /><Post x={5.75} z={4.25} />
     <SteelSteps />
     <RigidBody ref={floorSurface} type="fixed" colliders="hull" position={[0, .2, 0]} collisionGroups={arenaCollisionGroups} solverGroups={arenaCollisionGroups} userData={{ surface: true, kind: 'floor' }}><mesh receiveShadow><cylinderGeometry args={[VOLT_DOME.floor.radius, VOLT_DOME.floor.radius, .4, 64]} /><meshStandardMaterial color="#100d1c" roughness={.8} /></mesh></RigidBody>
-    <EntranceLane /><Barricades />{!performanceMode && spectacle && <ArenaRibbon />}{!toyTest && crowdCount > 0 && <Crowd count={crowdCount} />}<Props />
+    <EntranceLane />{!toyTest && <EntranceFog />}<Barricades />{!performanceMode && spectacle && <ArenaRibbon />}{!toyTest && crowdCount > 0 && <Crowd count={crowdCount} />}<Props />
     {!performanceMode && <><VoltDomeArchitecture />{spectacle && <StunningAssets />}<Jumbotron />{spectacle && <><DynamicSpotlights /><ApronLEDBanners /><RingLasers /></>}
       <group position={[0, 8.7, 0]}>{[-7.2, 7.2].flatMap((x) => [-5.8, 5.8].map((z) => <group key={`${x}-${z}`} position={[x, 0, z]}><mesh><cylinderGeometry args={[.13, .2, .44, 8]} /><meshStandardMaterial color="#adb8c7" metalness={.8} roughness={.2} /></mesh><pointLight position={[0, -.3, 0]} intensity={1.25} distance={10} color={x * z > 0 ? '#ff3f8f' : '#48e7ff'} /></group>))}</group>
       <BroadcastSet />
