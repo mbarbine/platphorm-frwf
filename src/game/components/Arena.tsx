@@ -2,7 +2,7 @@ import { CuboidCollider, RigidBody } from '@react-three/rapier';
 import type { ContactForcePayload, RapierRigidBody } from '@react-three/rapier';
 import { useFrame } from '@react-three/fiber';
 import { useEffect, useMemo, useRef } from 'react';
-import { Color, Object3D, AdditiveBlending, DoubleSide } from 'three';
+import { Color, Object3D, Vector3, AdditiveBlending, DoubleSide } from 'three';
 import type { Group, InstancedMesh, MeshStandardMaterial } from 'three';
 import { useMatchStore } from '../state/matchStore';
 import { arenaCollisionGroups, propCollisionGroups } from '../physics/collisionGroups';
@@ -35,14 +35,10 @@ function ArenaRibbon() {
 function RopeSide({ axis, side, color, emissive }: { axis: 'x' | 'z'; side: -1 | 1; color: string; emissive: string }) {
   const rope = useRef<InstancedMesh>(null); const material = useRef<MeshStandardMaterial>(null); const dummy = useMemo(() => new Object3D(), []); const elapsed = useRef(0);
   const segmentCount = 7; const length = axis === 'x' ? 8.5 : 11.5; const segmentLength = length / segmentCount; const ropeCount = 3;
-  // Precalculate the static along offsets for the rope segments to avoid redundant calculations inside useFrame
-  const alongOffsets = useMemo(() => {
-    const offsets = [];
-    for (let index = 0; index < segmentCount; index += 1) {
-      offsets.push(-length / 2 + segmentLength * (index + .5));
-    }
-    return offsets;
-  }, [length, segmentLength, segmentCount]);
+  const start = useMemo(() => new Vector3(), []);
+  const end = useMemo(() => new Vector3(), []);
+  const direction = useMemo(() => new Vector3(), []);
+  const cylinderAxis = useMemo(() => new Vector3(0, 1, 0), []);
 
   useFrame((_, dt) => {
     elapsed.current += dt;
@@ -60,21 +56,27 @@ function RopeSide({ axis, side, color, emissive }: { axis: 'x' | 'z'; side: -1 |
     for (let ropeIndex = 0; ropeIndex < ropeCount; ropeIndex += 1) {
       const y = 2.5 + ropeIndex * .55;
       for (let index = 0; index < segmentCount; index += 1) {
-        const along = alongOffsets[index];
-        if (along === undefined) continue;
-        const distanceFromContact = Math.abs(along - contactAlong);
-        const envelope = Math.exp(-distanceFromContact * distanceFromContact * .42);
-        const travellingWave = Math.sin(elapsed.current * 25 - distanceFromContact * 2.2) * rebound * .075 * envelope;
-        const deflection = side * (compression * (.34 + pulse * .1) * envelope + travellingWave);
-        dummy.position.set(axis === 'x' ? deflection : along, y + pulse * .008 * (ropeIndex + 1), axis === 'x' ? along : deflection);
-        dummy.rotation.set(axis === 'x' ? Math.PI / 2 : 0, axis === 'x' ? Math.sin((along - contactAlong) * .72) * compression * .055 * side : 0, axis === 'z' ? Math.PI / 2 - Math.sin((along - contactAlong) * .72) * compression * .055 * side : 0);
-        dummy.scale.set(1, 1 + pulse * .025, 1); dummy.updateMatrix(); rope.current.setMatrixAt(ropeIndex * segmentCount + index, dummy.matrix);
+        // Adjacent cylinders share their exact endpoints, including under load.
+        const point = (vertex: number, target: Vector3) => {
+          const along = -length / 2 + segmentLength * vertex;
+          const distance = Math.abs(along - contactAlong);
+          const envelope = Math.exp(-distance * distance * .42) * Math.sin(Math.PI * vertex / segmentCount);
+          const wave = Math.sin(elapsed.current * 25 - distance * 2.2) * rebound * .075;
+          const deflection = side * (compression * (.34 + pulse * .1) + wave) * envelope;
+          target.set(axis === 'x' ? deflection : along, y + pulse * .008 * (ropeIndex + 1) * envelope, axis === 'x' ? along : deflection);
+        };
+        point(index, start); point(index + 1, end);
+        direction.subVectors(end, start);
+        dummy.position.copy(start).add(end).multiplyScalar(.5);
+        dummy.quaternion.setFromUnitVectors(cylinderAxis, direction.clone().normalize());
+        dummy.scale.set(1, direction.length() + .012, 1);
+        dummy.updateMatrix(); rope.current.setMatrixAt(ropeIndex * segmentCount + index, dummy.matrix);
       }
     }
     rope.current.instanceMatrix.needsUpdate = true;
     if (material.current) material.current.emissiveIntensity = overdrive ? 1.2 : .08 + compression * .25;
   });
-  return <instancedMesh ref={rope} args={[undefined, undefined, segmentCount * ropeCount]} position={axis === 'x' ? [side * 5.75, 0, 0] : [0, 0, side * 4.25]} castShadow><cylinderGeometry args={[.038, .038, segmentLength + .035, 8]} /><meshStandardMaterial ref={material} color={color} emissive={emissive} emissiveIntensity={.02} roughness={.76} metalness={.05} /></instancedMesh>;
+  return <instancedMesh ref={rope} args={[undefined, undefined, segmentCount * ropeCount]} position={axis === 'x' ? [side * 5.75, 0, 0] : [0, 0, side * 4.25]} castShadow><cylinderGeometry args={[.038, .038, 1, 8]} /><meshStandardMaterial ref={material} color={color} emissive={emissive} emissiveIntensity={.02} roughness={.76} metalness={.05} /></instancedMesh>;
 }
 
 function Ropes() {
@@ -399,7 +401,7 @@ function Jumbotron() {
     if (leftScreen.current) leftScreen.current.emissiveIntensity = energy * 1.1;
   });
 
-  return <group ref={rig} position={[0, 10.9, 0]}>
+  return <group ref={rig} position={[0, 17.5, 0]}>
     {/* Ceiling Support Chains / Trusses */}
     {[-1.8, 1.8].flatMap((x) => [-1.8, 1.8].map((z) => (
       <mesh key={`${x}-${z}`} position={[x, 2.5, z]}>
@@ -681,8 +683,8 @@ export function Arena({ crowdCount = 156, performanceMode = false }: { crowdCoun
     <Ropes /><Post x={-5.75} z={-4.25} /><Post x={5.75} z={-4.25} /><Post x={-5.75} z={4.25} /><Post x={5.75} z={4.25} />
     <SteelSteps />
     <RigidBody ref={floorSurface} type="fixed" colliders="hull" position={[0, .2, 0]} collisionGroups={arenaCollisionGroups} solverGroups={arenaCollisionGroups} userData={{ surface: true, kind: 'floor' }}><mesh receiveShadow><cylinderGeometry args={[VOLT_DOME.floor.radius, VOLT_DOME.floor.radius, .4, 64]} /><meshStandardMaterial color="#100d1c" roughness={.8} /></mesh></RigidBody>
-    <EntranceLane /><Barricades />{!performanceMode && spectacle && <ArenaRibbon />}{!performanceMode && !toyTest && crowdCount > 0 && <Crowd count={crowdCount} />}<Props />
-    {!performanceMode && <><VoltDomeArchitecture /><StunningAssets /><Jumbotron />{spectacle && <><DynamicSpotlights /><ApronLEDBanners /><RingLasers /></>}
+    <EntranceLane /><Barricades />{!performanceMode && spectacle && <ArenaRibbon />}{!toyTest && crowdCount > 0 && <Crowd count={crowdCount} />}<Props />
+    {!performanceMode && <><VoltDomeArchitecture />{spectacle && <StunningAssets />}<Jumbotron />{spectacle && <><DynamicSpotlights /><ApronLEDBanners /><RingLasers /></>}
       <group position={[0, 8.7, 0]}>{[-7.2, 7.2].flatMap((x) => [-5.8, 5.8].map((z) => <group key={`${x}-${z}`} position={[x, 0, z]}><mesh><cylinderGeometry args={[.13, .2, .44, 8]} /><meshStandardMaterial color="#adb8c7" metalness={.8} roughness={.2} /></mesh><pointLight position={[0, -.3, 0]} intensity={1.25} distance={10} color={x * z > 0 ? '#ff3f8f' : '#48e7ff'} /></group>))}</group>
       <BroadcastSet />
       <group position={[-10.7, .7, -6.4]}><mesh><boxGeometry args={[4.6, 1.25, .18]} /><meshStandardMaterial color="#272334" emissive="#27105b" emissiveIntensity={.18} /></mesh></group>
