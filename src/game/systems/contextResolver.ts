@@ -54,6 +54,8 @@ export const resolveContextAction = (model: MatchModel, actorKey: FighterSlot, d
   if (model.paused) return rejected('ordinary_contextual_action', 'NO ACTION', 'Match is paused', 11);
   if (model.resolved || ['defeated', 'victorious'].includes(actor.state)) return rejected('ordinary_contextual_action', 'NO ACTION', 'Fighter is no longer active', 11);
 
+  const actorInGrapple = model.grapple?.attacker === actorKey || model.grapple?.defender === actorKey;
+
   // F1 — kickout always outranks every environmental or traversal option.
   if (actor.state === 'pinned') return resolved('kickout', 'KICK OUT', targetKey, 'Shoulders are down', 1);
 
@@ -98,9 +100,9 @@ export const resolveContextAction = (model: MatchModel, actorKey: FighterSlot, d
   }
 
   const climbObject = ['idle', 'locomotion'].includes(actor.state) ? nearbyClimbableObject(model, actor) : null;
-  if (climbObject && !model.grapple) return resolved('object_climb', 'CLIMB TABLE', climbObject, 'Supported table edge within reach', 7);
+  if (climbObject && !actorInGrapple) return resolved('object_climb', 'CLIMB TABLE', climbObject, 'Supported table edge within reach', 7);
 
-  if (venueFor(model).hasRing && canTraverseRopes(actor.position) && ['idle', 'locomotion'].includes(actor.state) && !model.grapple) {
+  if (venueFor(model).hasRing && canTraverseRopes(actor.position) && ['idle', 'locomotion'].includes(actor.state) && !actorInGrapple) {
     const ringside = Math.abs(actor.position.x) > 5.82 || Math.abs(actor.position.z) > 4.32;
     return resolved('ring_traversal', ringside ? 'ENTER RING' : 'EXIT RING', 'center_rope', ringside ? 'Ringside at a supported center-rope lane' : 'Inside at a supported center-rope lane', 8);
   }

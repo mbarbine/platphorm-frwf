@@ -29,6 +29,16 @@ describe('F context resolver priority', () => {
     expect(resolveContextAction(model, 'player')).toMatchObject({ actionId: 'turnbuckle_climb', priority: 7, legalState: true });
   });
 
+  it('lets an uninvolved battle royale wrestler exit while rivals grapple', () => {
+    const model = createMatch('atlas', 'vex', 'chaos', 'normal', 1337, 0, 0, 'battle_royale');
+    model.player.position = { x: 4.95, z: 0 };
+    model.grapple = { attacker: 'rival1', defender: 'rival2', position: 'underhook', leverage: 0, tension: 0, rotation: 0, lift: 0, struggle: 0, age: 0, gripCount: 0, phase: 'clinch' };
+    expect(resolveContextAction(model, 'player')).toMatchObject({ actionId: 'ring_traversal', displayName: 'EXIT RING', legalState: true });
+    expect(requestCommand(model, 'player', 'context')).toBe(true);
+    expect(model.player.position.x).toBeGreaterThan(5.82);
+    expect(model.grapple?.attacker).toBe('rival1');
+  });
+
   it('blocks ordinary ring traversal while a grapple exists', () => {
     const model = createMatch('atlas', 'vex', 'standard', 'normal');
     model.player.position = { x: 4.9, z: 0 }; model.opponent.position = { x: 4.2, z: 0 }; model.player.state = 'grappling'; model.player.attackPhase = 'anticipation'; model.player.moveId = 'slam';
