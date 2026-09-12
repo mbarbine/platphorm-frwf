@@ -2,7 +2,7 @@ import { locomotionPose } from '../game/animation/locomotion';
 import { describe, expect, it } from 'vitest';
 import { fighterById } from '../game/data/fighters';
 import { integrateLocomotion, locomotionProfile } from '../game/physics/bodyDynamics';
-import { createMatch } from '../game/systems/combat';
+import { advanceMatch, createMatch } from '../game/systems/combat';
 
 const STEP = 1 / 60;
 
@@ -45,4 +45,35 @@ it('backsteps keep a short low shuffle and a guard instead of reversing a sprint
     expect(excursion(poses, 'leftShin')).toBeLessThan(.31);
     for (const pose of poses) { expect(pose.rootTilt).toBeGreaterThanOrEqual(0); expect(pose.leftForearm[0]).toBeLessThan(-.8); }
   }
+});
+
+
+describe('combat-facing ownership', () => {
+  it.each([-1, 1])('turns monotonically toward the rival while backpedaling (side %s)', (side) => {
+    const model = createMatch('chad', 'dale', 'standard', 'easy');
+    model.labMode = true;
+    model.player.position = { x: 0, z: 0 };
+    model.opponent.position = { x: 0, z: 2.5 };
+    model.player.facing = side * .7;
+    let previousError = Math.abs(model.player.facing);
+    for (let frame = 0; frame < 30; frame++) {
+      advanceMatch(model, STEP, { move: { x: 0, z: -1 }, run: false, block: false, commands: [] });
+      const target = Math.atan2(model.opponent.position.x - model.player.position.x, model.opponent.position.z - model.player.position.z);
+      const error = Math.abs(Math.atan2(Math.sin(model.player.facing - target), Math.cos(model.player.facing - target)));
+      expect(error).toBeLessThanOrEqual(previousError + 1e-6);
+      previousError = error;
+    }
+    expect(previousError).toBeLessThan(.01);
+    expect(model.player.position.z).toBeLessThan(-.5);
+  });
+
+  it('does not create lateral turn recoil while steadily retreating', () => {
+    const fighter = createMatch('chad', 'dale', 'standard', 'easy').player;
+    const definition = fighterById('chad');
+    fighter.facing = 0;
+    fighter.velocity = { x: 0, z: -locomotionProfile(definition).walkSpeed };
+    for (let frame = 0; frame < 60; frame++) integrateLocomotion(fighter, definition, { x: 0, z: -1 }, false, STEP, 0);
+    expect(fighter.facing).toBe(0);
+    expect(fighter.body.sideVelocity).toBeCloseTo(0);
+  });
 });

@@ -19,11 +19,14 @@ export function locomotionPose(velocity: Vec2, facing: number, phase: number, co
   const leftSwing = Math.max(0, swing);
   const rightSwing = Math.max(0, -swing);
   const guard = combat ? 1 - run * .35 : 0;
+  // A retreat needs a wider base: the trailing boot must clear the planted
+  // boot instead of converging on the centreline during knee flexion.
+  const retreatStance = retreat * amount * .075;
   return {
     ...POSES.combatIdle,
     torso: [.035 + run * .09, step * forward * .035 * amount, step * .012 * amount],
-    leftLeg: [step * stride * forward, 0, Math.min(0, step * stride * lateral * .32)],
-    rightLeg: [-step * stride * forward, 0, Math.max(0, -step * stride * lateral * .32)],
+    leftLeg: [step * stride * forward, 0, -retreatStance + Math.min(0, step * stride * lateral * .32)],
+    rightLeg: [-step * stride * forward, 0, retreatStance + Math.max(0, -step * stride * lateral * .32)],
     leftShin: [-leftSwing * knee, 0, 0], rightShin: [-rightSwing * knee, 0, 0],
     leftArm: [-.42 * guard - step * forward * (.2 + run * .26) * amount, 0, -.16],
     rightArm: [-.42 * guard + step * forward * (.2 + run * .26) * amount, 0, .16],
