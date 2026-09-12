@@ -14,7 +14,7 @@ describe('F context resolver priority', () => {
     model.player.position = { x: 4.75, z: 3.2 }; model.opponent.position = { x: 4.7, z: 3.15 }; model.opponent.state = 'downed'; model.player.momentum = 100;
     expect(resolveContextAction(model, 'player')).toMatchObject({ actionId: 'finisher', priority: 2, legalState: true });
     expect(requestCommand(model, 'player', 'context')).toBe(true);
-    expect(model.player.moveId).toBe('finisher');
+    expect(model.player.moveId).toBe('signature_atlas');
   });
 
   it('resolves pin before turnbuckle climb or rope traversal', () => {

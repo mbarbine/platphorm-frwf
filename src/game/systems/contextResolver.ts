@@ -2,6 +2,7 @@ import { signatureMoveId } from '../data/wrestlingStyles';
 import { cornerClimbAvailable, nearbyClimbableObject } from './climbing';
 import { venueFor } from '../data/venues';
 import { getMove } from '../data/moves';
+import { isRingside } from '../physics/ringDynamics';
 import { BALANCE } from '../data/balance';
 import type { FighterSlot, MatchModel, Vec2 } from '../types/game';
 import { distance } from '../utils/math';
@@ -127,7 +128,7 @@ export const resolvePropAction = (model: MatchModel, actorKey: FighterSlot, dire
     return resolved('drop_held_prop', 'DROP PROP', actor.heldPropId, 'Held prop has no legal swing target or throw modifier', 3);
   }
   const prop = model.props
-    .filter((candidate) => !candidate.broken && !candidate.heldBy && candidate.kind !== 'table')
+    .filter((candidate) => !candidate.broken && !candidate.heldBy && candidate.kind !== 'table' && (!venueFor(model).hasRing || isRingside(actor.position) === isRingside(candidate.position)))
     .sort((left, right) => distance(actor.position, left.position) - distance(actor.position, right.position))[0];
   if (prop && distance(actor.position, prop.position) <= 2.2) return resolved('pick_up_prop', `PICK UP ${prop.kind.toUpperCase()}`, prop.id, 'Nearest eligible prop is in pickup range', 4);
   const supported = model.props.find((candidate) => candidate.kind === 'table' && !candidate.broken && distance(actor.position, candidate.position) <= 1.8);

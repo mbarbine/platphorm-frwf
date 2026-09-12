@@ -2121,7 +2121,7 @@ export class BodyWorksRuntime {
       if (shin?.isValid()) {
         const strikeSource = fighter.moveId ? strikeDriveProfile(fighter.moveId)?.source : null;
         const standingStrike = fighter.state === 'attacking' && fighter.moveId && getMove(fighter.moveId).category !== 'aerial';
-        const plant = ['idle', 'locomotion', 'blocking', 'recovering'].includes(fighter.state) || standingStrike && strikeSource !== `${side}Foot`;
+        const plant = fighter.state === 'climbing' && fighter.climbStage === 3 || ['idle', 'locomotion', 'blocking', 'recovering'].includes(fighter.state) || standingStrike && strikeSource !== `${side}Foot`;
         // A loaded ankle targets the mat frame, not the authored shin angle.
         // Cancelling the planned angle against a lagging physical shin left
         // the sole pitched forward under load, producing the tiptoe gait.

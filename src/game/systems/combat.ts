@@ -66,6 +66,7 @@ export const createFighterRuntime = (definitionId: FighterId, position: Vec2, be
 };
 
 const initialProps = (enabled: boolean): PropRuntime[] => enabled ? [
+  { id: 'chair-2', kind: 'chair', position: { x: -3.6, z: 1.8 }, durability: 3, stress: 0, failureStage: 'intact', heldBy: null, broken: false },
   { id: 'chair-1', kind: 'chair', position: { x: -7.1, z: 2.8 }, durability: 3, stress: 0, failureStage: 'intact', heldBy: null, broken: false },
   { id: 'sign-1', kind: 'sign', position: { x: 7, z: -2.4 }, durability: 2, stress: 0, failureStage: 'intact', heldBy: null, broken: false },
   { id: 'trash-1', kind: 'trash', position: { x: 8.35, z: 5.5 }, durability: 4, stress: 0, failureStage: 'intact', heldBy: null, broken: false },
