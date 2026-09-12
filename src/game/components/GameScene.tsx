@@ -1,3 +1,4 @@
+import { physicsFrameBudget, FIXED_STEP } from '../runtime/physicsClock';
 import { rosterIsPresented, useRosterPresentation } from '../presentation/rosterReadiness';
 import { viewInputBasis } from '../camera/playerCamera';
 import { venueFor } from '../data/venues';
@@ -198,22 +199,21 @@ function Simulation({ onPause, onDevice, onFinished, inputEnabled = true, online
 }
 
 /** Playback changes wall-clock pacing, never the solved simulation timestep. */
-function LabPhysicsClock() {
+function ArenaPhysicsClock({ labEnabled }: { labEnabled: boolean }) {
   const { step } = useRapier();
   const accumulator = useRef(0);
   useFrame((_, delta) => {
     const store = useMatchStore.getState(); const lab = usePhysicsLabStore.getState();
     if (store.replayActive) return;
-    if (lab.pendingSteps > 0) {
+    if (labEnabled && lab.pendingSteps > 0) {
       accumulator.current = 0;
       store.pause(false); step(1 / 60); useMatchStore.getState().pause(true);
       lab.consumeStep(); return;
     }
     if (store.model.paused) return;
-    accumulator.current += Math.min(delta, .1) * lab.rate;
-    while (accumulator.current >= 1 / 60) {
-      step(1 / 60); accumulator.current -= 1 / 60;
-    }
+    const budget = physicsFrameBudget(accumulator.current, delta, labEnabled ? lab.rate : 1);
+    accumulator.current = budget.remainder;
+    for (let frame=0; frame<budget.steps; frame++) step(FIXED_STEP);
   });
   return null;
 }
@@ -363,7 +363,7 @@ export function GameScene(props: Props) {
           <Physics
             gravity={[0, -18, 0]}
             timeStep={1 / 60}
-            paused={lab || paused || replayActive}
+            paused={true}
             debug={lab && labDebug}
             interpolate
             numSolverIterations={8}
@@ -371,7 +371,7 @@ export function GameScene(props: Props) {
             maxCcdSubsteps={2}
           >
             {diagnosticModel.venue && diagnosticModel.venue !== 'dome' ? <FightVenue venue={diagnosticModel.venue} /> : <Arena crowdCount={quality.crowdCount} performanceMode={quality.tier === 'performance'} />}
-            {lab && <LabPhysicsClock />}
+            <ArenaPhysicsClock labEnabled={lab} />
             <Fighters detail={fighterDetail} />
             <ReplayDirector />
             <PlayerControlBeacon />

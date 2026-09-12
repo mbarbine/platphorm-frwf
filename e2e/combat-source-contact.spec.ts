@@ -8,7 +8,9 @@ test('records a connected source punch and kick through ordinary attack keys', a
   await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
   await page.getByRole('button', { name: 'PLAY', exact: true }).click();
   await page.getByRole('button', { name: /LOCK IN ATLAS/ }).click();
+  await page.getByRole('button', { name: /^SINGLES/ }).click();
   await page.getByRole('button', { name: 'START MATCH' }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-fighters-ready', 'true', { timeout: 45000 });
   await expect(page.getByTestId('game-canvas')).toHaveAttribute('data-simulation-ready', 'true', { timeout: 45000 });
   const lab = page.getByTestId('physics-lab'); const hud = page.locator('.hud');
   for (const [key, name] of [['j', 'jab'], ['k', 'front-kick']] as const) {
