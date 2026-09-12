@@ -57,3 +57,7 @@ Changed implementation files in this continuation: `src/game/physics/physicsRunt
 `PLAYWRIGHT_PORT=4323 PLAYWRIGHT_SUITE=jump-repeat pnpm exec playwright test e2e/singles-input-motion.spec.ts --grep 'Easy Singles' --repeat-each=2` produced one pass and one failure. Both repetitions completed accepted jump, measurable ascent and landing. The failing repetition reached a pelvis peak of 4.476 m, then failed the heavy-strike visibility assertion: the HUD reported the heavy input executed while the trace showed an uppercut impact, player staggered, and no remaining move ID. The assertion remains intact. This is a separate accepted-attack/interruption visibility issue; the full browser suite is not certified stable.
 
 Next remediation: correlate accepted attack instances with physical interruptions so the UI distinguishes started, visibly performed and interrupted attacks. Inspect whether a move can be canceled before a render frame and evaluate the pacing of neutral exchanges. Do not grant arbitrary invulnerability or weaken the visible-action assertion merely to pass the test. Jump readiness/launch acceptance is fixed and covered; the wider wrestling-quality phase remains in progress.
+
+## Shared attack outcome follow-up
+
+See [the attack outcome review](ATTACK_OUTCOME_REVIEW_2026-09-12.md) for the implementation following the accepted-but-interrupted heavy attack trace, updated evidence boundaries and browser results.

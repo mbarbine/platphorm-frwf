@@ -19,8 +19,13 @@ test('records a connected source punch and kick through ordinary attack keys', a
     await expect(hud).toHaveAttribute('data-opponent-health', '100.0');
     await lab.getByRole('button', { name: 'MINIMIZE PHYSICS LAB' }).click();
     await page.keyboard.press(key);
+    const attack = hud.locator('[data-attack-sequence]');
+    await expect(attack).toHaveAttribute('data-attack-move', key === 'j' ? 'jab' : 'front_kick');
     await expect.poll(async () => Number(await hud.getAttribute('data-opponent-health')), { timeout: 10000 }).toBeLessThan(100);
+    await expect(attack).toHaveAttribute('data-attack-contact', 'hit');
+    await expect.poll(async () => Number(await attack.getAttribute('data-attack-pose-frames'))).toBeGreaterThan(1);
     await expect(hud).toHaveAttribute('data-player-state', 'idle', { timeout: 10000 });
+    await expect(attack).toHaveAttribute('data-attack-outcome', 'ended');
     expect(Number(await hud.getAttribute('data-player-upright'))).toBeGreaterThan(.9);
     await expect(hud).toHaveAttribute('data-physics-emergency-resets', '0');
     await page.screenshot({ path: `test-results/source-${name}-connected.png` });
