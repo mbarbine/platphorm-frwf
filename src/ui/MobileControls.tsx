@@ -6,7 +6,8 @@ import { mobileInput } from '../game/input/mobileInput';
 import { useMatchStore } from '../game/state/matchStore';
 import type { GameAction } from '../game/input/actionLayer';
 import { getMove } from '../game/data/moves';
-import { GRAPPLE_ACQUISITION_RANGE, selectDirectionalGrapple, selectDirectionalStrike } from '../game/systems/moveSelection';
+import { GRAPPLE_ACQUISITION_RANGE, selectDirectionalGrapple } from '../game/systems/moveSelection';
+import { quickPickup, reversalAvailable, situationalStrike } from '../game/systems/strikeResolver';
 import { resolveContextAction, resolvePropAction } from '../game/systems/contextResolver';
 
 interface MobileControlsProps { onPause: () => void; paused: boolean }
@@ -57,17 +58,17 @@ export function MobileControls({ onPause, paused }: MobileControlsProps) {
   const contextLabel = contextResolution.displayName;
   const quickMove = player.state === 'grappling' ? selectDirectionalGrapple(direction, 'quick')
     : player.state === 'climbing' && player.climbStage === 3 ? 'aerial_elbow'
-      : opponent.state === 'downed' ? 'ground' : selectDirectionalStrike(direction, 'quick', player.comboStep);
+      : situationalStrike(player, opponent, 'quick', direction);
   const heavyMove = player.state === 'grappling' ? selectDirectionalGrapple(direction, 'heavy')
     : player.state === 'climbing' && player.climbStage === 3 ? 'aerial_kick'
-      : player.ropeRebound > 0 ? 'stiff_arm' : player.heldPropId ? 'prop' : selectDirectionalStrike(direction, 'heavy', player.comboStep);
+      : situationalStrike(player, opponent, 'heavy', direction);
   const grappleMove = player.state === 'grappling' ? selectDirectionalGrapple(style === 'arcade' ? { x: 1, z: 0 } : direction, 'grapple') : null;
-  const quickLabel = model.grapple?.attacker === 'player' && model.grapple.phase === 'lift' ? 'RELEASE THROW' : player.state === 'downed' ? 'NO STRIKE' : getMove(quickMove).displayName.toUpperCase();
-  const powerLabel = player.state === 'downed' ? 'NO STRIKE' : getMove(heavyMove).displayName.toUpperCase();
+  const quickLabel = model.grapple?.attacker === 'player' && model.grapple.phase === 'lift' ? 'RELEASE THROW' : player.state === 'downed' ? 'GET UP' : reversalAvailable(player, opponent, true) ? 'REVERSE CHARGE' : quickPickup(model, 'player') ?? getMove(quickMove).displayName.toUpperCase();
+  const powerLabel = player.state === 'downed' ? 'GET UP' : getMove(heavyMove).displayName.toUpperCase();
   const grappleLabel = player.state === 'climbing' || player.state === 'downed' || player.state === 'pinned' ? 'NO LOCK'
     : grappleMove ? getMove(grappleMove).displayName.toUpperCase()
       : style === 'arcade' && targetDistanceSq > GRAPPLE_ACQUISITION_RANGE ** 2 && targetDistanceSq <= 3.8 ** 2 ? 'CLOSE & GRAPPLE' : targetDistanceSq <= GRAPPLE_ACQUISITION_RANGE * GRAPPLE_ACQUISITION_RANGE ? 'VOLTAGE SLAM' : 'COLLAR REACH (MISS)';
-  const strikeLocked = player.state === 'downed' || player.state === 'pinned' || (player.state === 'climbing' && player.climbStage < 3);
+  const strikeLocked = player.state === 'pinned' || (player.state === 'climbing' && player.climbStage < 3);
   const grappleLocked = player.state === 'downed' || player.state === 'pinned' || player.state === 'climbing';
 
   useEffect(() => {

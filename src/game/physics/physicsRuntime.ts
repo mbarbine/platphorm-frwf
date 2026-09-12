@@ -936,7 +936,8 @@ export class BodyWorksRuntime {
     if (aiController && !rig.apronAnchor && aiController.intent === 'context' && ['idle', 'locomotion'].includes(fighter.state) && atSideApron) {
       const transition = apronTransitionTarget(physicalPosition); rig.apronAnchor = { ...transition, age: 0 }; rig.ropeContact = null;
     }
-    const battleReturn = model.matchMode === 'battle_royale' && onRingsideFloor && !['defeated', 'victorious', 'climbing'].includes(fighter.state);
+    // Recover accidental knockdowns, but never cancel a player's deliberate exit.
+    const battleReturn = model.matchMode === 'battle_royale' && onRingsideFloor && fighter.state === 'downed';
     const pursuingChaosProp = model.ruleset === 'chaos' && !fighter.heldPropId && model.props.some((prop) => !prop.broken && !prop.heldBy && prop.kind !== 'table' && this.isRingside(prop.position));
     const aiReturn = key !== 'player' && onRingsideFloor && !pursuingChaosProp && !this.isRingside(model[model.targets[key]].position) && ['idle', 'locomotion'].includes(fighter.state);
     if (!rig.apronAnchor && (battleReturn || aiReturn)) {
@@ -973,7 +974,8 @@ export class BodyWorksRuntime {
     if (fighter.state === 'climbing' && rig.cornerAnchor) {
       const position = pelvis.translation(); const target = rig.cornerAnchor;
       target.stage = fighter.climbStage || 1;
-      const targetY = target.stage === 1 ? 2.72 : target.stage === 2 ? 3.46 : 4.28;
+      const legReach = 1.12 * definition.physics.standingHeightM / 1.88;
+      const targetY = (target.stage === 1 ? 2.35 : target.stage === 2 ? 2.9 : 3.6) + legReach - (target.stage < 3 ? .24 : .1);
       // Pull the articulated tree with one critically damped centre-of-mass
       // velocity. The old high-gain acceleration fought the fixed post every
       // frame, producing the visible rope-merge jitter. This remains physical:
@@ -2111,7 +2113,9 @@ export class BodyWorksRuntime {
       }
       if (thigh?.isValid()) targets[`${side}Shin`] = quaternionMultiply(thigh.rotation(), quaternionFromEuler([kneeFlexion(pose[`${side}Shin`][0]), 0, 0]));
       if (shin?.isValid()) {
-        const plant = ['idle', 'locomotion', 'blocking', 'recovering'].includes(fighter.state);
+        const strikeSource = fighter.moveId ? strikeDriveProfile(fighter.moveId)?.source : null;
+        const standingStrike = fighter.state === 'attacking' && fighter.moveId && getMove(fighter.moveId).category !== 'aerial';
+        const plant = ['idle', 'locomotion', 'blocking', 'recovering'].includes(fighter.state) || standingStrike && strikeSource !== `${side}Foot`;
         // A loaded ankle targets the mat frame, not the authored shin angle.
         // Cancelling the planned angle against a lagging physical shin left
         // the sole pitched forward under load, producing the tiptoe gait.
@@ -2136,7 +2140,10 @@ export class BodyWorksRuntime {
       const speed = stepping ? 9 : striking ? 9 * authority : onMat ? 3.8 : recovering ? 4 : 5.5;
       // One bounded velocity servo per body. The solver still owns every
       // constraint/contact; no second torque impulse can kick it off target.
-      const parent = segment === 'head' ? rig.bodies.chest : stepping && segment.endsWith('Shin') ? rig.bodies[segment === 'leftShin' ? 'leftThigh' : 'rightThigh'] : undefined;
+      const parent = segment === 'head' ? rig.bodies.chest
+        : striking && segment.endsWith('Forearm') ? rig.bodies[segment === 'leftForearm' ? 'leftUpperArm' : 'rightUpperArm']
+          : striking && segment.endsWith('Hand') ? rig.bodies[segment === 'leftHand' ? 'leftForearm' : 'rightForearm']
+            : stepping && segment.endsWith('Shin') ? rig.bodies[segment === 'leftShin' ? 'leftThigh' : 'rightThigh'] : undefined;
       const follow = parent?.angvel() ?? { x: 0, y: 0, z: 0 };
       const angular = body.angvel();
       // A knee motor controls flexion relative to a moving thigh. Without

@@ -413,9 +413,19 @@ const strikeFrames = (moveId: string): readonly PoseKeyframe[] => {
     { at: .82, pose: pose({ ...POSES.recovery, rootYaw: -.24 }) },
     { at: 1, pose: POSES.combatIdle },
   ];
+  if (moveId === 'ground_punch') return [
+    { at: 0, pose: POSES.combatIdle },
+    { at: .46, pose: pose({ torso: [.5, .18, 0], rightArm: [.2, 0, .3], rightForearm: [-1.8, 0, 0], leftArm: [-.65, 0, -.35], leftForearm: [-.8, 0, 0], rootTilt: .2 }) },
+    { at: .72, pose: pose({ torso: [.85, -.15, 0], rightArm: [.45, 0, .08], rightForearm: [-.12, 0, 0], leftArm: [-.4, 0, -.4], leftForearm: [-.9, 0, 0], rootTilt: .25 }) },
+    { at: .82, pose: pose({ torso: [.7, -.12, 0], rightArm: [.35, 0, .08], rightForearm: [-.25, 0, 0], rootTilt: .2 }) },
+    { at: 1, pose: POSES.combatIdle },
+  ];
   if (moveId === 'ground') return [
-    { at: 0, pose: POSES.combatIdle }, { at: .5, pose: pose({ torso: [.42, 0, 0], rightLeg: [.72, 0, 0], rightShin: [-1.22, 0, 0], rootTilt: .32 }) },
-    { at: .72, pose: pose({ torso: [.68, 0, 0], rightLeg: [-1.18, 0, 0], rightShin: [.18, 0, 0], rootY: -.15, rootTilt: .48 }) }, { at: 1, pose: POSES.combatIdle },
+    { at: 0, pose: POSES.combatIdle },
+    { at: .46, pose: pose({ torso: [.1, 0, -.08], rightLeg: [-.9, 0, .08], rightShin: [-1.4, 0, 0], leftLeg: [.06, 0, 0], leftShin: [-.12, 0, 0], leftArm: [-.8, 0, -.45], rightArm: [-.65, 0, .5] }) },
+    { at: .7, pose: pose({ torso: [.18, 0, -.06], rightLeg: [-.4, 0, .08], rightShin: [-.08, 0, 0], leftLeg: [.06, 0, 0], leftShin: [-.12, 0, 0], rootTilt: .08 }) },
+    { at: .8, pose: pose({ torso: [.16, 0, 0], rightLeg: [-.34, 0, .08], rightShin: [-.08, 0, 0], rootTilt: .06 }) },
+    { at: 1, pose: POSES.combatIdle },
   ];
   if (moveId === 'aerial_kick' || moveId === 'aerial') return [
     { at: 0, pose: POSES.climb },

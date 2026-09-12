@@ -1,6 +1,7 @@
 import type { ActionEvent } from './actionLayer';
 import type { FrameInput } from '../systems/combat';
 import type { MatchModel, Vec2 } from '../types/game';
+import { quickPickup, reversalAvailable } from '../systems/strikeResolver';
 import { GRAPPLE_ACQUISITION_RANGE } from '../systems/moveSelection';
 
 export type ControlStyle = 'arcade' | 'technical';
@@ -39,7 +40,8 @@ export class PlayerController {
         ? { ...event, direction: { x: event.action === 'grapple' && actor.state === 'grappling' ? 1 : 0, y: 0 } } : event;
       const pin = event.action === 'contextAction' && target.state === 'downed';
       const grapple = event.action === 'grapple' && !['downed', 'defeated', 'victorious'].includes(target.state);
-      const strike = (event.action === 'quickStrike' || event.action === 'heavyStrike') && !['downed', 'defeated', 'victorious'].includes(target.state);
+      const instantQuick = event.action === 'quickStrike' && (actor.heldPropId || quickPickup(model, 'player') || reversalAvailable(actor, target, true));
+      const strike = !instantQuick && (event.action === 'quickStrike' || event.action === 'heavyStrike') && !['downed', 'defeated', 'victorious'].includes(target.state);
       const range = pin ? 1.5 : strike ? event.action === 'quickStrike' ? 1.18 : 1.4 : GRAPPLE_ACQUISITION_RANGE;
       if (event.phase === 'started' && (pin || grapple || strike) && standing && !model.grapple
         && distance > range && distance <= (strike ? 2.8 : 3.8)) {

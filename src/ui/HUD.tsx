@@ -16,6 +16,7 @@ import { FIGHTER_SLOTS } from '../game/types/game';
 import { useSettings } from '../game/state/settings';
 import { combatDirection } from '../game/systems/moveSelection';
 import type { GameAction } from '../game/input/actionLayer';
+import { quickPickup, reversalAvailable } from '../game/systems/strikeResolver';
 import { resolveContextAction, resolvePropAction } from '../game/systems/contextResolver';
 import { fallCount } from '../game/systems/falls';
 import { FALL_REASONS } from '../game/types/game';
@@ -99,6 +100,8 @@ export function HUD({ device, paused }: { device: ControlDevice; paused: boolean
   const controlStyle = model.labMode || model.networkAuthority ? 'technical' : preferredStyle;
   const combatDirectionInput = combatInputDirection(playerIntent.move, controlStyle);
   const controlReadout = buildControlReadout(model.player, target, playerPhysics.speed, distance, paused, activeDevice, combatDirectionInput, playerIntent.run, controlStyle, venueFor(model).hasRing, model.grapple?.attacker === 'player' ? model.grapple.phase : null);
+  const quickContext = reversalAvailable(model.player, target, true) ? 'REVERSE CHARGE' : quickPickup(model, 'player');
+  if (quickContext) controlReadout.labels = { ...controlReadout.labels, quick: quickContext };
   const hint = controlReadout.callout;
   const announcementClass = model.announcement ? announcementTier(model.announcement, [player.signature, opponent.signature]) : null;
   const grappleDirection = combatDirection(combatDirectionInput); const currentGrappleMove = model.player.moveId ? getMove(model.player.moveId) : null;

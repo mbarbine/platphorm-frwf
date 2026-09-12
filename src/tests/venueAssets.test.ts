@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { createHash } from 'node:crypto';
 import manifest from '../../public/venue/completion/manifest.json';
 
 describe('venue completion assets', () => {
   for (const [kind, asset] of Object.entries(manifest.assets)) {
     it(`${kind} has intact geometry, local bounded textures and a stable collision envelope`, () => {
-      const bytes = readFileSync(new URL(`../../public${asset.url}`, import.meta.url));
+      const bytes = readFileSync(resolve('public', asset.url.slice(1)));
       expect(createHash('sha256').update(bytes).digest('hex')).toBe(asset.sha256);
       expect(bytes.readUInt32LE(0)).toBe(0x46546c67);
       expect(bytes.readUInt32LE(8)).toBe(bytes.length);
@@ -20,7 +21,7 @@ describe('venue completion assets', () => {
       for (const image of json.images) {
         expect(image.uri).toMatch(/^textures\/[a-f0-9]{20}\.png$/);
         expect(image.bufferView).toBeUndefined();
-        const png = readFileSync(new URL(`../../public/venue/completion/${image.uri}`, import.meta.url));
+        const png = readFileSync(resolve('public/venue/completion', image.uri));
         expect(png.readUInt32BE(16)).toBeLessThanOrEqual(512);
         expect(png.readUInt32BE(20)).toBeLessThanOrEqual(512);
       }

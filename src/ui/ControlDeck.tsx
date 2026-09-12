@@ -1,7 +1,8 @@
 import type { ControlStyle } from '../game/input/playerController';
+import { situationalStrike } from '../game/systems/strikeResolver';
 import { getMove } from '../game/data/moves';
 import { canTransitionThroughRopes } from '../game/systems/combat';
-import { combatDirection, GRAPPLE_ACQUISITION_RANGE, selectDirectionalGrapple, selectDirectionalStrike, selectGrappleEntryMove } from '../game/systems/moveSelection';
+import { combatDirection, GRAPPLE_ACQUISITION_RANGE, selectDirectionalGrapple, selectGrappleEntryMove } from '../game/systems/moveSelection';
 import type { ControlDevice, FighterRuntime, GrappleRuntime, Vec2 } from '../game/types/game';
 import type { ControlDeckMode } from '../game/state/settings';
 
@@ -50,13 +51,8 @@ export function buildControlLabels(player: FighterRuntime, opponent: FighterRunt
     ? direction
     : speed > .08 ? player.velocity : direction;
   const directionId = combatDirection(effectiveDirection);
-  labels.quick = opponent.state === 'downed' ? moveLabel('ground')
-    : moveLabel(selectDirectionalStrike(effectiveDirection, 'quick', player.comboStep));
-  labels.heavy = player.heldPropId ? moveLabel('prop')
-    : player.ropeRebound > 0
-      ? directionId === 'left' ? 'LEFT ARM STIFF-ARM' : directionId === 'right' ? 'RIGHT ARM STIFF-ARM' : moveLabel('stiff_arm')
-      : running || speed > 3.6 ? moveLabel('stiff_arm')
-        : moveLabel(selectDirectionalStrike(effectiveDirection, 'heavy', player.comboStep));
+  labels.quick = moveLabel(situationalStrike(player, opponent, 'quick', effectiveDirection, running));
+  labels.heavy = moveLabel(situationalStrike(player, opponent, 'heavy', effectiveDirection, running));
 
   if (player.state === 'grappling') {
     labels.quick = moveLabel(selectDirectionalGrapple(effectiveDirection, 'quick'));

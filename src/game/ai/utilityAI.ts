@@ -4,7 +4,8 @@ import { BALANCE } from '../data/balance';
 import { distance, seededRandom } from '../utils/math';
 import { FIGHTER_SLOTS } from '../types/game';
 import type { FighterDefinition, FighterSlot, GameCommand, MatchModel } from '../types/game';
-import { GRAPPLE_ACQUISITION_RANGE, selectDirectionalStrike } from '../systems/moveSelection';
+import { GRAPPLE_ACQUISITION_RANGE } from '../systems/moveSelection';
+import { situationalStrike } from '../systems/strikeResolver';
 import { isRingside } from '../physics/ringDynamics';
 
 export interface AiDecision { command: GameCommand | null; move: { x: number; z: number }; run: boolean; nextSeed: number }
@@ -70,9 +71,9 @@ export const isActionLegal = (model: MatchModel, command: GameCommand, actorKey:
   if (command === 'grapple' && model.grapple) return false;
   let selectedMove;
   if (command === 'quick') {
-    selectedMove = target.state === 'downed' ? MOVES.ground : (MOVES[selectDirectionalStrike(delta, 'quick', actor.comboStep)] || MOVES.jab);
+    selectedMove = getMove(situationalStrike(actor, target, 'quick', delta));
   } else if (command === 'heavy') {
-    selectedMove = actor.ropeRebound > 0 ? MOVES.stiff_arm : (MOVES[selectDirectionalStrike(delta, 'heavy', actor.comboStep)] || MOVES.heavy);
+    selectedMove = getMove(situationalStrike(actor, target, 'heavy', delta));
   } else {
     selectedMove = MOVES.slam;
   }

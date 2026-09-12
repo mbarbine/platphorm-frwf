@@ -15,8 +15,9 @@ import { actionDirectionToVec2, actionToGameCommand, createActionEvent, gameComm
 import { auditFallState, beginFall } from './falls';
 import { FALL_REASONS } from '../types/game';
 import type { ActionEvent } from '../input/actionLayer';
+import { quickPickup, reversalAvailable, situationalStrike } from './strikeResolver';
 import { canTraverseRopes, resolveContextAction, resolvePropAction } from './contextResolver';
-import { GRAPPLE_ACQUISITION_RANGE, selectDirectionalGrapple, selectDirectionalStrike, selectGrappleEntryMove } from './moveSelection';
+import { GRAPPLE_ACQUISITION_RANGE, selectDirectionalGrapple, selectGrappleEntryMove } from './moveSelection';
 
 export { combatDirection, selectDirectionalGrapple, selectDirectionalStrike } from './moveSelection';
 export type { CombatDirection, GrappleButton, StrikeButton } from './moveSelection';
@@ -453,12 +454,13 @@ export const applyMoveHit = (model: MatchModel, actorKey: FighterSlot, targetKey
 export const performCounter = (model: MatchModel, defenderKey: FighterSlot, attackerKey: FighterSlot): boolean => {
   const defender = model[defenderKey];
   const attacker = model[attackerKey];
-  if (!attacker.moveId || attacker.attackPhase !== 'anticipation' || defender.stamina < 10) return false;
+  if (!reversalAvailable(defender, attacker) || !attacker.moveId) return false;
   const incoming = getMove(attacker.moveId);
   if (!incoming.counterWindow || attacker.phaseElapsed < incoming.counterWindow[0] || attacker.phaseElapsed > incoming.counterWindow[1]) return false;
   if (model.grapple) releaseGrapple(model, 'idle');
   attacker.state = 'staggered'; attacker.moveId = null; attacker.attackPhase = null; attacker.climbStage = 0; attacker.stateElapsed = 0;
   defender.state = 'attacking'; defender.moveId = 'counter'; defender.attackPhase = 'active'; defender.phaseElapsed = getMove('counter').anticipationDuration;
+  defender.attackInstanceId += 1; defender.hitTargets = []; defender.stateElapsed = 0;
   defender.stamina = clamp(defender.stamina - 10, 0, defender.staminaCap); defender.momentum = clamp(defender.momentum + 18, 0, 100);
   const stats = model.fighterStats[defenderKey];
   stats.counters += 1;
@@ -645,17 +647,15 @@ export const requestCommand = (model: MatchModel, actorKey: FighterSlot, command
   }
   if (command === 'taunt') return startMove(actor, target, getMove('taunt'));
   if (command === 'quick') {
-    const moveId = target.state === 'downed' ? 'ground' : selectDirectionalStrike(direction, 'quick', actor.comboStep);
+    if (reversalAvailable(actor, target, true)) return performCounter(model, actorKey, targetKey);
+    if (quickPickup(model, actorKey)) return useProp(model, actorKey, direction);
+    const moveId = situationalStrike(actor, target, 'quick', direction, running);
     const started = startMove(actor, target, getMove(moveId));
     if (started) actor.comboStep += 1;
     return started;
   }
   if (command === 'heavy') {
-    // OPTIMIZATION: Replaced Math.hypot with a zero-allocation squared-magnitude check (> 12.96 equivalent to > 3.6)
-    const moveId = actor.heldPropId ? 'prop'
-      : actor.ropeRebound > 0 ? direction.x < 0 ? 'rebound' : 'stiff_arm'
-        : running && (actor.velocity.x * actor.velocity.x + actor.velocity.z * actor.velocity.z) > 12.96 ? 'stiff_arm'
-          : selectDirectionalStrike(direction, 'heavy', actor.comboStep);
+    const moveId = situationalStrike(actor, target, 'heavy', direction, running);
     return startMove(actor, target, getMove(moveId));
   }
   // OPTIMIZATION: Replaced Math.hypot with a zero-allocation squared-magnitude check (> 14.0625 equivalent to > 3.75)

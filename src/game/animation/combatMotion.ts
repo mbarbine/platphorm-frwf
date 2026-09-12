@@ -52,7 +52,7 @@ export function authoredStrikePose(base: Pose, move: MoveDefinition, phase: Atta
   const contactCommitment = phase === 'active' ? 1 : phase === 'recovery' ? clamp(1 - progress * 2) : clamp((progress - .6) / .4);
   const strikeSide = move.id === 'combo' ? 'left' : 'right';
   const kicking = move.id.includes('kick') || move.id === 'roundhouse';
-  const controlled = blend(result, base, contactCommitment * .85);
+  const controlled = blend(result, base, .9 + contactCommitment * .1);
   if (kicking) {
     result[`${strikeSide}Leg`] = controlled[`${strikeSide}Leg`];
     result[`${strikeSide}Shin`] = controlled[`${strikeSide}Shin`];
