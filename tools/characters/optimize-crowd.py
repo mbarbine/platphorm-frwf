@@ -5,6 +5,7 @@ bpy.ops.object.select_all(action='SELECT')
 bpy.ops.object.delete(use_global=False)
 bpy.ops.import_scene.gltf(filepath=str(root/'public/characters/crowd-source.glb'))
 variants=[]
+anatomy=json.loads((root/'assets/characters/mpfb/crowd-anatomy.json').read_text())
 for obj in list(bpy.context.scene.objects):
     if obj.type != 'MESH': continue
     triangles=sum(len(p.vertices)-2 for p in obj.data.polygons)
@@ -12,7 +13,7 @@ for obj in list(bpy.context.scene.objects):
     modifier.ratio=min(1,2200/max(1,triangles))
     bpy.context.view_layer.objects.active=obj
     bpy.ops.object.modifier_apply(modifier=modifier.name)
-    variants.append({'name':obj.name,'triangles':sum(len(p.vertices)-2 for p in obj.data.polygons)})
+    variants.append({'name':obj.name,**anatomy[obj.name],'triangles':sum(len(p.vertices)-2 for p in obj.data.polygons)})
 path=root/'public/characters/crowd-source.glb'
 bpy.ops.export_scene.gltf(filepath=str(path),export_format='GLB',export_yup=True,export_animations=False,export_extras=False)
 data=path.read_bytes(); digest=hashlib.sha256(data).hexdigest()

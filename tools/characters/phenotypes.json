@@ -85,7 +85,16 @@
     "height": 0.8,
     "proportions": 0.2,
     "tattoo": "none",
-    "hair": "short02"
+    "hair": "short02",
+    "detailTargets": {
+      "torso/torso-scale-horiz-incr": 1,
+      "torso/torso-scale-depth-incr": 1,
+      "head/head-fat-incr": 0.85,
+      "arms/l-upperarm-fat-incr": 1,
+      "arms/r-upperarm-fat-incr": 1,
+      "legs/l-upperleg-fat-incr": 0.9,
+      "legs/r-upperleg-fat-incr": 0.9
+    }
   },
   "steve": {
     "gender": 1,
@@ -125,7 +134,11 @@
     "height": 0.55,
     "proportions": 0.4,
     "tattoo": "forearms",
-    "hair": "long01"
+    "hair": "long01",
+    "detailTargets": {
+      "torso/torso-scale-horiz-incr": 0.4,
+      "torso/torso-scale-depth-incr": 0.35
+    }
   },
   "gil": {
     "gender": 0,

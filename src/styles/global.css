@@ -399,3 +399,5 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px s
 .selection-tile > img { transform:scale(1.8); }
 .selection-actions > span { max-width:35%; }
 .selection-model .fighter-preview { position:relative; }.fighter-preview-loading { position:absolute; inset:0; display:grid; place-items:center; font:800 .65rem var(--font-tech); color:#b3bdb5; z-index:1; pointer-events:none; }
+.selection-stage > * { min-width:0; }
+@media(max-width:1100px) { .selection-stage { grid-template-columns:repeat(2,minmax(0,1fr)); } }

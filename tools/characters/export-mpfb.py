@@ -42,6 +42,8 @@ for name, recipe in profiles.items():
         if name == 'wrecking_ball': detail_targets = ['stomach/stomach-tone-decr']
         for target in detail_targets:
             TargetService.load_target(body, str(source/'mpfb/data/targets'/ (target+'.target.gz')), weight=strength)
+    for target, weight in recipe.get('detailTargets', {}).items():
+        TargetService.load_target(body, str(source/'mpfb/data/targets'/(target+'.target.gz')), weight=weight)
     bpy.context.view_layer.update()
     mesh = body.evaluated_get(bpy.context.evaluated_depsgraph_get()).to_mesh()
     # Undo Blender's OBJ import rotation, preserving MakeHuman vertex indices and joint helpers.
@@ -49,7 +51,7 @@ for name, recipe in profiles.items():
     assert len(points) == 19158, (name, len(points))
     encoded = json.dumps(points, separators=(',', ':')).encode()
     (output / (name + '.json.gz')).write_bytes(gzip.compress(encoded, mtime=0))
-    manifest['characters'].append({'id': name, 'phenotype': macro, 'seed': recipe.get('seed'), 'sha256': hashlib.sha256(encoded).hexdigest()})
+    manifest['characters'].append({'id': name, 'phenotype': macro, 'detailTargets': recipe.get('detailTargets', {}), 'seed': recipe.get('seed'), 'sha256': hashlib.sha256(encoded).hexdigest()})
     body.evaluated_get(bpy.context.evaluated_depsgraph_get()).to_mesh_clear()
     if recipe.get('hair'):
         hairstyle = recipe['hair']

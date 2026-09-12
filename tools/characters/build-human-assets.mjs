@@ -58,6 +58,7 @@ const profiles = FIGHTERS.map(fighter => ({ id: fighter.id, height: fighter.phys
 const shirts = ['#923b3a','#36516c','#d0b475','#35594b','#70466c','#c2b5a5'];
 const skins = ['#b98163','#84573f','#5a3d30','#d4a480','#b98d72','#724e3e'];
 for (let i=0;i<12;i++) profiles.push({id:`crowd-${i}`, crowd:true, width:1,skin:skins[i%skins.length],gear:shirts[i%shirts.length],accent:'#303744',tattoo:'none'});
+const crowdAnatomy = {};
 const crowdScene = new Group(); crowdScene.name = 'MPFB-Crowd';
 const output = new URL('../../public/characters/', import.meta.url); mkdirSync(output, {recursive:true});
 const manifest = {version:2,license:'CC0-1.0',source:provenance.source,revision:provenance.revision,authoring:{mpfb:provenance.version,blender:provenance.blender},generator:'tools/characters/build-human-assets.mjs',motionCaptureIncluded:false,fighters:[]};
@@ -144,7 +145,7 @@ for (const profile of profiles) {
     const nativeSpan = bones[3].position.y - foot.y;
     const fitScale = profile.crowd ? 1 : (2.08 * profile.height / 1.88 - .1) / nativeSpan;
     const boot=new SphereGeometry(1,24,16);const attr=boot.getAttribute('position');const start=positions.length/3;const col=new Color('#151b23');
-    for(let i=0;i<attr.count;i++){positions.push(foot.x+Math.sign(attr.getX(i))*Math.pow(Math.abs(attr.getX(i)),.48)*(.084 + .006*attr.getZ(i))/fitScale,foot.y+Math.max(-.056,attr.getY(i)*.075)/fitScale,foot.z+(.055+Math.sign(attr.getZ(i))*Math.pow(Math.abs(attr.getZ(i)),.48)*.178)/fitScale);colors.push(...col.toArray());uv.push(0,0);skinIndices.push(names.indexOf(side+'Foot'),0,0,0);skinWeights.push(1,0,0,0);}
+    for(let i=0;i<attr.count;i++){positions.push(foot.x+Math.sign(attr.getX(i))*Math.pow(Math.abs(attr.getX(i)),.48)*(.098 + .006*attr.getZ(i))/fitScale,foot.y+Math.max(-.061,attr.getY(i)*.09)/fitScale,foot.z+(.09+Math.sign(attr.getZ(i))*Math.pow(Math.abs(attr.getZ(i)),.48)*.214)/fitScale);colors.push(...col.toArray());uv.push(0,0);skinIndices.push(names.indexOf(side+'Foot'),0,0,0);skinWeights.push(1,0,0,0);}
     indices.push(...(boot.index ? Array.from(boot.index.array,n=>n+start) : Array.from({length:attr.count},(_,i)=>i+start)));boot.dispose();
   }
   const geometry=new BufferGeometry();geometry.setAttribute('position',new Float32BufferAttribute(positions,3));geometry.setAttribute('uv',new Float32BufferAttribute(uv,2));geometry.setAttribute('color',new Float32BufferAttribute(colors,3));geometry.setAttribute('skinIndex',new Uint16BufferAttribute(skinIndices,4));geometry.setAttribute('skinWeight',new Float32BufferAttribute(skinWeights,4));geometry.setIndex(indices);geometry.computeVertexNormals();
@@ -181,7 +182,20 @@ for (const profile of profiles) {
     scene.updateMatrixWorld(true); skeleton.update();
     const baked = geometry.clone(); const attribute = baked.getAttribute('position'); const point = new Vector3();
     for(let i=0;i<attribute.count;i++) { point.fromBufferAttribute(attribute,i); mesh.applyBoneTransform(i,point); attribute.setXYZ(i,point.x,point.y,point.z); }
-    baked.deleteAttribute('uv'); baked.deleteAttribute('skinIndex'); baked.deleteAttribute('skinWeight'); baked.computeVertexNormals();
+    const armWeights = [];
+    for (let i = 0; i < attribute.count; i++) {
+      let left = 0; let right = 0;
+      for (let j = 0; j < 4; j++) {
+        const bone = names[skinIndices[i * 4 + j]];
+        if (/UpperArm|Forearm|Hand|Thumb|Index|Middle|Ring|Little/.test(bone)) {
+          if (bone.startsWith('left')) left += skinWeights[i * 4 + j]; else right += skinWeights[i * 4 + j];
+        }
+      }
+      armWeights.push(left, right);
+    }
+    baked.setAttribute('uv', new Float32BufferAttribute(armWeights, 2));
+    baked.deleteAttribute('skinIndex'); baked.deleteAttribute('skinWeight'); baked.computeVertexNormals();
+    crowdAnatomy[profile.id] = { leftShoulder: bonePoint('upperarm01.L','head').toArray(), rightShoulder: bonePoint('upperarm01.R','head').toArray(), headY: bones[3].position.y };
     const pieces = [baked];
     const headCenter = bones[3].position;
     const variant = Number(profile.id.split('-')[1]);
@@ -190,7 +204,7 @@ for (const profile of profiles) {
       const a = patch.getAttribute('position'); const shade = new Color(variant % 4 === 0 ? '#77716a' : variant % 3 === 0 ? '#8a5634' : '#29211e');
       const tint = [];
       for (let i=0;i<a.count;i++) { a.setXYZ(i, headCenter.x+a.getX(i)*.085,headCenter.y+(beard?-.06:.055)+a.getY(i)*(beard?.13:.09),headCenter.z+(beard?.027:0)+a.getZ(i)*.096); tint.push(...shade.toArray()); }
-      patch.deleteAttribute('uv'); patch.setAttribute('color',new Float32BufferAttribute(tint,3)); patch.computeVertexNormals(); pieces.push(patch);
+      patch.setAttribute('uv',new Float32BufferAttribute(new Float32Array(a.count*2),2)); patch.setAttribute('color',new Float32BufferAttribute(tint,3)); patch.computeVertexNormals(); pieces.push(patch);
     };
     if (variant % 5 !== 0) addHair(false);
     const macro = provenance.characters.find(c=>c.id===profile.id).phenotype;
@@ -213,3 +227,4 @@ writeFileSync(existingManifest,JSON.stringify(manifest,null,2)+'\n');
 
 const crowdData=Buffer.from(await new GLTFExporter().parseAsync(crowdScene,{binary:true}));
 writeFileSync(new URL('crowd-source.glb',output),crowdData);
+writeFileSync(new URL('crowd-anatomy.json',mpfbSource),JSON.stringify(crowdAnatomy,null,2)+'\n');

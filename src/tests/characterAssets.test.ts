@@ -58,7 +58,7 @@ describe('real character assets', () => {
 
 describe('crowd groups', () => {
   it('is deterministic, bounded and supports fractional or invalid requests', () => {
-    expect(crowdPopulation(500,12)).toHaveLength(320);
+    expect(crowdPopulation(2000,12)).toHaveLength(960);
     expect(crowdPopulation(3.9,12)).toHaveLength(3);
     expect(crowdPopulation(100,NaN)).toEqual([]);
     expect(crowdPopulation(80,12,7)).toEqual(crowdPopulation(80,12,7));

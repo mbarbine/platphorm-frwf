@@ -1,7 +1,7 @@
-import { Canvas, useFrame } from '@react-three/fiber';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Suspense, useRef, useEffect, useState } from 'react';
 import { relaxPreviewStance } from '../game/presentation/previewStance';
-import type { Group } from 'three';
+import { PerspectiveCamera, type Group } from 'three';
 import type { FighterId } from '../game/types/game';
 import { useHumanoidAsset } from '../game/components/useHumanoidAsset';
 import { FighterAccessories } from '../game/components/FighterAccessories';
@@ -10,6 +10,13 @@ import { useSettings } from '../game/state/settings';
 function Portrait({ fighterId, onReady }: { fighterId: FighterId; onReady: (id: FighterId) => void }) {
   const { scene, bones, modelScale } = useHumanoidAsset(fighterId);
   const root = useRef<Group>(null);
+  const { camera, size } = useThree();
+  useEffect(() => {
+    if (!(camera instanceof PerspectiveCamera)) return;
+    const halfFov = Math.tan(camera.fov * Math.PI / 360);
+    camera.position.z = Math.max(2.7 / (2 * halfFov), 1.3 / (2 * halfFov * Math.max(.2, size.width / size.height)));
+    camera.updateProjectionMatrix();
+  }, [camera, size.width, size.height]);
   useEffect(() => { relaxPreviewStance(bones); scene.updateMatrixWorld(true); onReady(fighterId); }, [bones, scene, fighterId, onReady]);
   const reduced = useSettings((s) => s.reducedMotion);
   useFrame(({ clock }) => {
