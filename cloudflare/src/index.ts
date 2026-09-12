@@ -27,7 +27,7 @@ async function health(env: Env) {
     probe(!!env.DB, async () => env.DB?.prepare('SELECT match_id FROM match_results LIMIT 1').all()),
     probe(!!env.ASSETS, async () => env.ASSETS?.list({ limit: 1 })),
   ]);
-  return { service: 'ringfall-game-backend', version: env.RELEASE, environment: env.ENVIRONMENT, timestamp: new Date().toISOString(),
+  return { service: 'ringfall-game-backend', version: env.RELEASE, gitSha: env.SOURCE_SHA ?? 'unknown', environment: env.ENVIRONMENT, timestamp: new Date().toISOString(),
     status: database === 'operational' && assets === 'operational' && !!env.PLATPHORM_API_KEY ? 'operational' : 'degraded',
     databaseStatus: database, assetStatus: assets, matchRuntimeStatus: 'on_demand_not_probed', mcpStatus: 'implemented',
     traceContextAccepted: true, traceContextPropagated: false, traceExportEnabled: false, traceStatus: 'local_context_only',
@@ -129,7 +129,7 @@ async function route(request: Request, env: Env): Promise<Response> {
   if (path === '/api/maps') return ok({ maps: [bundledMap] });
   if (path === '/api/maps/volt-dome') return ok(bundledMap);
   if (path === '/api/modes') return ok({ local: gameInfo.local.modes, online: gameInfo.online.modes });
-  if (path === '/api/release') return ok({ release: env.RELEASE, environment: env.ENVIRONMENT });
+  if (path === '/api/release') return ok({ release: env.RELEASE, gitSha: env.SOURCE_SHA ?? 'unknown', environment: env.ENVIRONMENT });
   if (path === '/api/leaderboards') {
     if (!env.DB) throw new HttpError(503, 'database_not_configured');
     const rows = await env.DB.prepare('SELECT winner_fighter AS fighter, COUNT(*) AS wins FROM match_results WHERE winner_fighter IS NOT NULL GROUP BY winner_fighter ORDER BY wins DESC LIMIT 5').all();

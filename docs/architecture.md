@@ -4,7 +4,7 @@ Reviewed 2026-09-08. Product direction: an open-world style wrestling game. The 
 
 ## Delivered browser experience
 
-Vercel serves a Vite/React application, not Next.js. `App.tsx` owns menus, local match setup, the optional online lobby, pause/settings and results. Fresh local setup selects Singles; five-wrestler Battle Royale remains available. Settings persist through optional localStorage. Match state is in memory. Bundled glTF characters, MP3 music/crowd and original FRWF archive videos load over HTTP; the old claim of no runtime network requests was incorrect.
+Vercel serves a Vite/React application, not Next.js. `App.tsx` owns menus, local match setup, the optional online lobby, pause/settings and results. Fresh local setup selects five-wrestler Battle Royale; Singles remains available. Settings persist through optional localStorage. Match state is in memory. Bundled glTF characters, MP3 music/crowd and original FRWF archive videos load over HTTP; the old claim of no runtime network requests was incorrect.
 
 The game scene loads lazily. Three and its loaders share one runtime chunk; Rapier WASM is separate. The current delivery remains substantial: the Rapier chunk alone is approximately 842 KB gzip. No service-worker world streaming is implemented; localStorage preserves showground position and records when available.
 

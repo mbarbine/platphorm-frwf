@@ -9,7 +9,7 @@ const post = (path: string, body: unknown, authorized = false) => worker.dispatc
 beforeAll(async () => {
   worker = new Miniflare(convertV4MiniflareOptions({ modules: true, scriptPath: 'dist/index.js', compatibilityDate: '2026-09-07',
     durableObjects: { MATCHES: { className: 'MatchRoom', useSQLite: true } }, d1Databases: ['DB'], r2Buckets: ['ASSETS'],
-    bindings: { ENVIRONMENT: 'development', PUBLIC_ORIGIN: origin, RELEASE: 'integration-test', PLATPHORM_API_KEY: testKey },
+    bindings: { ENVIRONMENT: 'development', PUBLIC_ORIGIN: origin, RELEASE: 'integration-test', SOURCE_SHA: '1234567890abcdef', PLATPHORM_API_KEY: testKey },
   }));
   const db = await worker.getD1Database('DB');
   const migration = await readFile('migrations/0001_game.sql', 'utf8');
@@ -20,6 +20,8 @@ describe('real Worker / Durable Object / D1 / R2 integration', () => {
   it('probes storage and returns genuinely empty results with no credential disclosure', async () => {
     const health = await worker.dispatchFetch(origin + '/api/health');
     expect(await health.json()).toMatchObject({ ok: true, data: { databaseStatus: 'operational', assetStatus: 'operational', routeComplianceScore: null } });
+    const release = await worker.dispatchFetch(origin + '/api/release');
+    expect(await release.json()).toMatchObject({ data: { release: 'integration-test', gitSha: '1234567890abcdef' } });
     const scores = await worker.dispatchFetch(origin + '/api/leaderboards');
     expect(await scores.json()).toMatchObject({ data: { status: 'empty', entries: [], playerRankings: 'unsupported_no_player_identity' } });
     const trust = await worker.dispatchFetch(origin + '/.well-known/trust.json'); expect(await trust.text()).not.toContain(testKey);
