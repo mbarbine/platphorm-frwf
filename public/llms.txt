@@ -5,3 +5,5 @@ Health: /api/health
 API docs: /api/docs
 OpenAPI: /openapi.yaml
 Characters, music, crowd audio and original FRWF background footage load as bundled assets. Local matches need no login. The optional online client uses a separately configured Colyseus service; production availability and gameplay parity require independent verification. The separate Cloudflare backend is not wired into this browser client. Static frontend discovery does not certify gameplay quality or backend deployment.
+
+Fighter selection includes 14 playable wrestlers, original user-provided FRWF photographs and live 3D previews. Character bodies and hair are authored offline with MPFB 2.0.17 and converted to the game physics skeleton. Twelve seeded crowd body variants are instanced. These are authored likenesses, not scans; motion capture is not included.

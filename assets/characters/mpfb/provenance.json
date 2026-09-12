@@ -1,0 +1,29 @@
+{
+  "version": "2.0.17",
+  "blender": "4.5.9 LTS",
+  "revision": "80919fa4682335c41847f761a4d79dcad4124732",
+  "source": "https://github.com/makehumancommunity/mpfb2",
+  "license": "CC0-1.0",
+  "characters": [
+    {
+      "id": "wrecking_ball",
+      "phenotype": {
+        "gender": 1,
+        "age": 0.55,
+        "muscle": 0.48,
+        "weight": 1,
+        "proportions": 0.2,
+        "height": 0.8,
+        "cupsize": 0.5,
+        "firmness": 0.5,
+        "race": {
+          "asian": 0.33,
+          "caucasian": 0.33,
+          "african": 0.33
+        }
+      },
+      "seed": null,
+      "sha256": "79037a9e567fdfe4f6391d0c4c91f8dad742ec4f26f350b8d1ef8a585dc173f3"
+    }
+  ]
+}

@@ -19,6 +19,7 @@ import { applyBodyLanguage } from '../animation/bodyLanguage';
 import { POSES } from '../animation/poses';
 import type { Pose } from '../animation/poses';
 import { RECOVERY_DURATION, recoveryPose } from '../animation/recoveryMotion';
+import { gaitCycle } from '../animation/gaitCycle';
 import { locomotionPose } from '../animation/locomotion';
 import { authoredIdlePose } from '../animation/combatMotion';
 import { throwDirection, throwMotionFor } from './throwMotion';
@@ -1185,6 +1186,7 @@ export class BodyWorksRuntime {
       // a world-space lock and a corrective motor as its parent moves.
       for (const segment of ['leftUpperArm', 'rightUpperArm', 'leftForearm', 'rightForearm', 'leftHand', 'rightHand'] as const) dynamic.add(segment);
     }
+    if (fighter.state === 'locomotion') for (const segment of ['leftThigh', 'rightThigh', 'leftShin', 'rightShin', 'leftFoot', 'rightFoot'] as const) dynamic.add(segment);
     const recoveredSupportScore = fighter.state === 'idle' && fighter.lastFallReason !== null ? this.supportScore(rig) : 1;
     const settlingRecoveredStance = fighter.state === 'idle' && fighter.lastFallReason !== null
       && (fighter.stateElapsed < 1.5 || rig.supportContacts.size === 0 || recoveredSupportScore < .55);
@@ -1267,10 +1269,20 @@ export class BodyWorksRuntime {
 
   private applyFootPlantDrive(rig: FighterRigRegistration, fighter: FighterRuntime, desiredVelocity: Vec2, inputLength: number): void {
     if (!['idle', 'locomotion', 'blocking', 'recovering'].includes(fighter.state)) return;
-    // The pelvis owns planar locomotion. Feet only remove visible residual
-    // skate after the fighter has stopped; they never counter-drive a stride.
-    // OPTIMIZATION: Replacing slow Math.hypot with a zero-allocation squared-magnitude check to avoid square root extraction entirely.
-    if (fighter.state === 'locomotion' || inputLength > .08 || (desiredVelocity.x * desiredVelocity.x + desiredVelocity.z * desiredVelocity.z) > 0.08 * 0.08) return;
+    const moving = fighter.state === 'locomotion' && inputLength > .08;
+    if (moving) {
+      for (const [id, phase] of [['leftFoot', fighter.body.gaitPhase], ['rightFoot', fighter.body.gaitPhase + Math.PI]] as const) {
+        const foot = rig.bodies[id]; const cycle = gaitCycle(phase);
+        if (!foot || !rig.supportContacts.has(id) || !cycle.planted) continue;
+        // Contact traction acts only on the stance foot. The swing boot is free
+        // to clear the deck, and Rapier still owns support and all joint limits.
+        const velocity = foot.linvel(); const mass = foot.mass();
+        const gain = 8 * cycle.supportWeight;
+        foot.addForce({ x: clamp(-velocity.x * gain, -40, 40) * mass, y: 0, z: clamp(-velocity.z * gain, -40, 40) * mass }, true);
+      }
+      return;
+    }
+    if (inputLength > .08 || desiredVelocity.x * desiredVelocity.x + desiredVelocity.z * desiredVelocity.z > .08 * .08) return;
     const entries: readonly [BodySegmentId, boolean][] = [['leftFoot', fighter.body.leftFoot.planted], ['rightFoot', fighter.body.rightFoot.planted]];
     for (const [id, planted] of entries) {
       if (!planted) continue;
@@ -2094,8 +2106,12 @@ export class BodyWorksRuntime {
       if (thigh?.isValid()) targets[`${side}Shin`] = quaternionMultiply(thigh.rotation(), quaternionFromEuler([kneeFlexion(pose[`${side}Shin`][0]), 0, 0]));
       if (shin?.isValid()) {
         const plant = ['idle', 'locomotion', 'blocking', 'recovering'].includes(fighter.state);
-        const ankle = plant ? clamp(-pose.rootTilt - pose[`${side}Leg`][0] - kneeFlexion(pose[`${side}Shin`][0]), -.58, .68) : 0;
-        targets[`${side}Foot`] = quaternionMultiply(shin.rotation(), quaternionFromEuler([ankle, 0, 0]));
+        // A loaded ankle targets the mat frame, not the authored shin angle.
+        // Cancelling the planned angle against a lagging physical shin left
+        // the sole pitched forward under load, producing the tiptoe gait.
+        targets[`${side}Foot`] = plant
+          ? quaternionFromEuler([0, fighter.facing + pose.rootYaw, 0])
+          : shin.rotation();
       }
     }
     const strike = fighter.moveId ? strikeDriveProfile(fighter.moveId) : null;
@@ -2109,11 +2125,18 @@ export class BodyWorksRuntime {
       const onMat = supportedFall || ['pinning', 'pinned'].includes(fighter.state);
       const recovering = fighter.state === 'recovering';
       const authority = .65 + Math.min(1, motorStrengthFor(fighter, motorProfile, segment)) * .35;
-      const gain = striking ? 15 : onMat ? 9 : recovering ? 10 : 12;
-      const speed = striking ? 9 * authority : onMat ? 3.8 : recovering ? 4 : 5.5;
+      const stepping = fighter.state === 'locomotion' && /Thigh|Shin|Foot/.test(segment);
+      const gain = stepping ? 18 : striking ? 15 : onMat ? 9 : recovering ? 10 : 12;
+      const speed = stepping ? 9 : striking ? 9 * authority : onMat ? 3.8 : recovering ? 4 : 5.5;
       // One bounded velocity servo per body. The solver still owns every
       // constraint/contact; no second torque impulse can kick it off target.
-      body.setAngvel(chasePoseAngularVelocity(body.rotation(), targets[segment], body.angvel(), gain, speed, .65), true);
+      const parent = stepping && segment.endsWith('Shin') ? rig.bodies[segment === 'leftShin' ? 'leftThigh' : 'rightThigh'] : undefined;
+      const follow = parent?.angvel() ?? { x: 0, y: 0, z: 0 };
+      const angular = body.angvel();
+      // A knee motor controls flexion relative to a moving thigh. Without
+      // parent angular feed-forward, sprinting hips outrun the shin servo.
+      const drive = chasePoseAngularVelocity(body.rotation(), targets[segment], { x: angular.x - follow.x, y: angular.y - follow.y, z: angular.z - follow.z }, gain, speed, .65);
+      body.setAngvel({ x: drive.x + follow.x, y: drive.y + follow.y, z: drive.z + follow.z }, true);
     }
   }
 

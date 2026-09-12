@@ -249,9 +249,9 @@ const stagedGrappleVariant = (source: Pose, moveId: string, role: Role, progress
 
 const finisherStyle = (fighterId: FighterId): readonly [readonly PoseKeyframe[], readonly PoseKeyframe[]] => {
   if (fighterId === 'chad') return [CHOKE_ACTOR, CLAW_FINISHER_VICTIM];
-  if (fighterId === 'atlas') return [POWERBOMB_ACTOR, POWERBOMB_VICTIM];
-  if (fighterId === 'nova') return [SUPLEX_ACTOR, SUPLEX_VICTIM];
-  if (fighterId === 'vex') return [TOSS_ACTOR, TOSS_VICTIM];
+  if ((fighterId === 'atlas' || fighterId === 'john')) return [POWERBOMB_ACTOR, POWERBOMB_VICTIM];
+  if (fighterId === 'nova' || fighterId === 'steve' || fighterId === 'gil') return [SUPLEX_ACTOR, SUPLEX_VICTIM];
+  if (fighterId === 'vex' || fighterId === 'sonny' || fighterId === 'mondo') return [TOSS_ACTOR, TOSS_VICTIM];
   return [SPINE_ACTOR, SPINE_VICTIM];
 };
 
@@ -269,6 +269,14 @@ const TAUNT_POSES: Readonly<Record<FighterId, Pose>> = {
   brick: pose({ torso: [.32, 0, .05], leftArm: [-1.05, .18, -.48], rightArm: [-1.05, -.18, .48], leftForearm: [-1.46, 0, .35], rightForearm: [-1.46, 0, -.35], leftLeg: [.34, 0, 0], rightLeg: [.26, 0, 0], rootY: -.14, rootTilt: .28 }),
   dale: pose({ torso: [-.06, 0, 0], leftArm: [-1.1, 0, -.9], rightArm: [-1.1, 0, .9], leftForearm: [-.8, 0, 0], rightForearm: [-.8, 0, 0] }),
   chad: pose({ torso: [-.08, .18, -.08], leftArm: [-2.62, -.18, -.28], rightArm: [-1.58, .15, .62], leftForearm: [-.3, 0, 0], rightForearm: [-.22, 0, 0], leftLeg: [-.2, 0, 0], rightLeg: [.2, 0, 0], rootY: .12, rootYaw: .22, rootRoll: -.1 }),
+  thomas: pose({ torso: [-.08, 0, 0], leftArm: [-1.25, 0, -1.15], rightArm: [-1.25, 0, 1.15], leftForearm: [-.2, 0, 0], rightForearm: [-.2, 0, 0] }),
+  sonny: pose({ torso: [.05, .25, 0], leftArm: [-1.45, .25, -.35], rightArm: [-1.4, -.2, .32], leftForearm: [-.45, 0, 0], rightForearm: [-.5, 0, 0] }),
+  wrecking_ball: pose({ torso: [-.07, 0, 0], leftArm: [-.55, 0, -.62], rightArm: [-.55, 0, .62], leftForearm: [-1.9, 0, 0], rightForearm: [-1.9, 0, 0] }),
+  steve: pose({ torso: [0, -.25, 0], leftArm: [-.75, 0, -.8], rightArm: [-.75, 0, .8], leftForearm: [-.4, 0, 0], rightForearm: [-.4, 0, 0] }),
+  john: pose({ torso: [-.1, 0, 0], leftArm: [-2.3, 0, -.7], rightArm: [-2.3, 0, .7], leftForearm: [-.6, 0, 0], rightForearm: [-.6, 0, 0] }),
+  justin: pose({ torso: [0, .15, 0], leftArm: [-.7, 0, -.8], rightArm: [-1.15, 0, .15], leftForearm: [-2.2, 0, 0], rightForearm: [-.45, 0, 0] }),
+  mondo: pose({ torso: [.08, -.25, -.04], leftArm: [-.25, 0, -.85], rightArm: [-.65, 0, .95], leftForearm: [-.3, 0, 0], rightForearm: [-.6, 0, 0] }),
+  gil: pose({ torso: [0, .15, 0], leftArm: [-.2, 0, -.25], rightArm: [-1.3, 0, .3], leftForearm: [-.55, 0, 0], rightForearm: [-2.1, 0, 0] }),
 };
 
 export const getTauntPose = (fighterId: FighterId, move: MoveDefinition, phase: AttackPhase, elapsed: number): Pose => {

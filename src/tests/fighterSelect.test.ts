@@ -82,14 +82,14 @@ describe('Fighter Select Keyboard and ARIA Accessibility', () => {
     expect(atlasCard.getAttribute('aria-pressed')).toBe('true');
     expect(screen.getByText(/Selected fighter: ATLAS REX, Heavyweight Powerhouse/i)).toBeTruthy();
 
-    // 5. Trigger ArrowLeft (Should wrap to the last fighter "DALE DAMAGE")
+    // 5. Trigger ArrowLeft (Should wrap to the last fighter "G.I. JIL")
     act(() => {
       window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft' }));
     });
-    const daleCard = document.querySelector('[data-fighter-select-id="dale"]') as HTMLButtonElement;
-    expect(daleCard).toBeTruthy();
-    expect(daleCard.getAttribute('aria-pressed')).toBe('true');
-    expect(screen.getByText(/Selected fighter: DALE DAMAGE, Towering Powerhouse/i)).toBeTruthy();
+    const lastCard = document.querySelector('[data-fighter-select-id="gil"]') as HTMLButtonElement;
+    expect(lastCard).toBeTruthy();
+    expect(lastCard.getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByText(/Selected fighter: G.I. JIL, Agile Grappler/i)).toBeTruthy();
 
     // 6. Trigger ArrowRight (Should wrap around to the first fighter "ATLAS REX")
     act(() => {

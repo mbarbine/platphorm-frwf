@@ -23,6 +23,7 @@ export interface BodySegmentSchema {
   massKg: number;
   halfLength: number;
   radius: number;
+  torsoDepth?: number;
   damageMultiplier: number;
   attackEligible: boolean;
   gripAnchorEligible: boolean;
@@ -45,7 +46,7 @@ const segment = (definition: FighterDefinition, id: BodySegmentId, side: Segment
   const support = id.includes('Foot');
   return {
     id, side, bodyRegion, colliderRole: support ? 'support' : strike ? 'strike' : 'body',
-    massKg: definition.physics.massKg * SEGMENT_RATIOS[id], halfLength, radius,
+    massKg: definition.physics.massKg * SEGMENT_RATIOS[id], halfLength, radius, torsoDepth: definition.physics.torsoDepthM,
     damageMultiplier: id === 'head' ? 1.35 : id === 'abdomen' ? 1.08 : leg ? .82 : arm ? .72 : 1,
     attackEligible: strike,
     gripAnchorEligible: arm || ['head', 'chest', 'abdomen', 'pelvis'].includes(id),
@@ -71,12 +72,12 @@ export const buildBodySchema = (definition: FighterDefinition): readonly BodySeg
   const arm = p.armLength;
   const leg = p.legLength;
   const schema = [
-    segment(definition, 'pelvis', 'center', 1.12 * heightScale, 0, .18 * p.torsoLength, .22),
-    segment(definition, 'abdomen', 'center', 1.43 * heightScale, 0, .18 * p.torsoLength, .21),
+    segment(definition, 'pelvis', 'center', 1.12 * heightScale, 0, .18 * p.torsoLength, Math.max(.22, p.hipWidthM * .53)),
+    segment(definition, 'abdomen', 'center', 1.43 * heightScale, 0, .18 * p.torsoLength, Math.max(.21, p.hipWidthM * .53)),
     // The visible wrestling torso is wider than the original prototype
     // collider. A 30 cm radius keeps committed chest-led dives and shoulder
     // contact physical instead of allowing a few-centimetre visual pass-through.
-    segment(definition, 'chest', 'center', 1.72 * heightScale, 0, .21 * p.torsoLength, .3),
+    segment(definition, 'chest', 'center', 1.72 * heightScale, 0, .21 * p.torsoLength, Math.max(.3, p.shoulderWidthM * .5)),
     // Match the rendered brow, jaw, and facial profile closely enough that a
     // visible head-to-head collision is also a solved Rapier collision.
     segment(definition, 'head', 'center', 2.08 * heightScale, 0, .15, HEAD_COLLIDER_RADIUS),
@@ -114,14 +115,14 @@ export const segmentSchema = (definition: FighterDefinition, id: BodySegmentId):
 /** A torso is broad across the shoulders but shallow front-to-back. Circular
  * capsules used shoulder width as chest depth, leaving visible bodies apart. */
 export function torsoColliderArgs(segment: BodySegmentSchema): [number, number, number, number] | null {
-  if (segment.id === 'chest') return [segment.radius - .035, segment.halfLength, .105, .035];
-  if (segment.id === 'abdomen' || segment.id === 'pelvis') return [segment.radius - .035, segment.halfLength, .105, .035];
+  if (segment.id === 'chest') return [segment.radius - .035, segment.halfLength, (segment.torsoDepth ?? .28) / 2 - .035, .035];
+  if (segment.id === 'abdomen' || segment.id === 'pelvis') return [segment.radius - .035, segment.halfLength, (segment.torsoDepth ?? .28) / 2 - .035, .035];
   return null;
 }
 
 /** Fit the closed palm and the boot toe around their wrist/ankle landmarks. */
 export function extremityColliderShape(segment: BodySegmentSchema): { args: [number, number, number]; position: [number, number, number] } | null {
   if (segment.id.includes('Hand')) return { args: [.055, .105, .08], position: [segment.side === 'left' ? .015 : -.015, .015, 0] };
-  if (segment.id.includes('Foot')) return { args: [segment.radius, segment.radius * .5, segment.halfLength * 1.35], position: [0, 0, .09] };
+  if (segment.id.includes('Foot')) return { args: [.085, .05, .165], position: [0, 0, .055] };
   return null;
 }

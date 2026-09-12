@@ -1,3 +1,4 @@
+import { gaitCycle } from '../animation/gaitCycle';
 import { clamp, length, normalize } from '../utils/math';
 import type { BodyDynamicsRuntime, BodyRegion, CollisionOutcome, FighterDefinition, FighterRuntime, MoveDefinition, Vec2 } from '../types/game';
 
@@ -68,10 +69,10 @@ export const createBodyDynamics = (definition: FighterDefinition): BodyDynamicsR
 };
 
 const updateFoot = (fighter: FighterRuntime, foot: BodyDynamicsRuntime['leftFoot'], phase: number, stride: number, side: number): void => {
-  const cycle = Math.sin(phase);
+  const cycle = gaitCycle(phase);
   foot.phase = phase;
-  foot.planted = cycle <= .12;
-  foot.lift = Math.max(0, cycle) * (.08 + stride * .11);
+  foot.planted = cycle.planted;
+  foot.lift = cycle.lift * (.08 + stride * .11);
   const forward = Math.cos(phase) * stride * .34;
   const forwardVector = { x: Math.sin(fighter.facing), z: Math.cos(fighter.facing) };
   const rightVector = { x: Math.cos(fighter.facing), z: -Math.sin(fighter.facing) };

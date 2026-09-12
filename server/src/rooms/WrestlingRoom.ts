@@ -1,3 +1,4 @@
+import { FIGHTER_IDS } from '@frwf/game-protocol';
 import { Room } from 'colyseus';
 import type { Client, Delayed } from 'colyseus';
 import { randomInt } from 'node:crypto';
@@ -427,7 +428,7 @@ export class WrestlingRoom extends Room<MatchRoomStateSchema> {
   }
 
   private validatedFighterId(id: unknown): FighterId {
-    const valid: FighterId[] = ['atlas', 'vex', 'nova', 'brick', 'chad', 'dale'];
+    const valid: readonly FighterId[] = FIGHTER_IDS;
     return valid.includes(id as FighterId) ? (id as FighterId) : 'atlas';
   }
 

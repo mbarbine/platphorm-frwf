@@ -15,7 +15,7 @@ test('records a connected source punch and kick through ordinary attack keys', a
     // The lab places the pair but sends no attack. Damage must follow the
     // ordinary key press, while the video retains the actual physical motion.
     await lab.getByRole('button', { name: 'CLOSE-RANGE INPUT', exact: true }).click();
-    await expect(lab).toHaveAttribute('data-lab-scenario', 'idle');
+    await expect(lab).toHaveAttribute('data-lab-scenario', 'inputRange');
     await expect(hud).toHaveAttribute('data-opponent-health', '100.0');
     await lab.getByRole('button', { name: 'MINIMIZE PHYSICS LAB' }).click();
     await page.keyboard.press(key);

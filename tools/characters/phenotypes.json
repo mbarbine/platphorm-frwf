@@ -1,0 +1,140 @@
+{
+  "atlas": {
+    "gender": 1,
+    "age": 0.48,
+    "muscle": 1,
+    "weight": 0.68,
+    "height": 0.78,
+    "proportions": 0.58,
+    "tattoo": "shoulder"
+  },
+  "vex": {
+    "gender": 1,
+    "age": 0.3,
+    "muscle": 0.78,
+    "weight": 0.28,
+    "height": 0.35,
+    "proportions": 0.65,
+    "tattoo": "forearms"
+  },
+  "nova": {
+    "gender": 1,
+    "age": 0.36,
+    "muscle": 0.83,
+    "weight": 0.42,
+    "height": 0.52,
+    "proportions": 0.55,
+    "tattoo": "none",
+    "hair": "short01"
+  },
+  "brick": {
+    "gender": 1,
+    "age": 0.62,
+    "muscle": 0.62,
+    "weight": 0.94,
+    "height": 0.38,
+    "proportions": 0.35,
+    "tattoo": "shoulder",
+    "hair": "short02"
+  },
+  "chad": {
+    "gender": 1,
+    "age": 0.56,
+    "muscle": 0.9,
+    "weight": 0.55,
+    "height": 0.59,
+    "proportions": 0.5,
+    "tattoo": "none",
+    "hair": "short02"
+  },
+  "dale": {
+    "gender": 1,
+    "age": 0.52,
+    "muscle": 0.98,
+    "weight": 0.49,
+    "height": 0.65,
+    "proportions": 0.56,
+    "tattoo": "forearms",
+    "hair": "long01"
+  },
+  "thomas": {
+    "gender": 1,
+    "age": 0.5,
+    "muscle": 1,
+    "weight": 0.75,
+    "height": 0.8,
+    "proportions": 0.6,
+    "tattoo": "none",
+    "hair": "long01"
+  },
+  "sonny": {
+    "gender": 1,
+    "age": 0.32,
+    "muscle": 0.75,
+    "weight": 0.32,
+    "height": 0.4,
+    "proportions": 0.55,
+    "tattoo": "none",
+    "hair": "short01"
+  },
+  "wrecking_ball": {
+    "gender": 1,
+    "age": 0.55,
+    "muscle": 0.48,
+    "weight": 1,
+    "height": 0.8,
+    "proportions": 0.2,
+    "tattoo": "none",
+    "hair": "short02"
+  },
+  "steve": {
+    "gender": 1,
+    "age": 0.42,
+    "muscle": 0.78,
+    "weight": 0.48,
+    "height": 0.52,
+    "proportions": 0.52,
+    "tattoo": "none",
+    "hair": "short02"
+  },
+  "john": {
+    "gender": 1,
+    "age": 0.5,
+    "muscle": 0.87,
+    "weight": 0.6,
+    "height": 0.6,
+    "proportions": 0.5,
+    "tattoo": "none",
+    "hair": "long01"
+  },
+  "justin": {
+    "gender": 1,
+    "age": 0.4,
+    "muscle": 0.85,
+    "weight": 0.44,
+    "height": 0.54,
+    "proportions": 0.55,
+    "tattoo": "none",
+    "hair": "short02"
+  },
+  "mondo": {
+    "gender": 1,
+    "age": 0.48,
+    "muscle": 0.7,
+    "weight": 0.77,
+    "height": 0.55,
+    "proportions": 0.4,
+    "tattoo": "forearms",
+    "hair": "long01"
+  },
+  "gil": {
+    "gender": 0,
+    "age": 0.35,
+    "muscle": 0.6,
+    "weight": 0.45,
+    "height": 0.42,
+    "proportions": 0.55,
+    "tattoo": "none",
+    "hair": "long01"
+  }
+}

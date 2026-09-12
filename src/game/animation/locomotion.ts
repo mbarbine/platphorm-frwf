@@ -1,3 +1,4 @@
+import { gaitCycle } from './gaitCycle';
 import type { Vec2 } from '../types/game';
 import { POSES, type Pose } from './poses';
 
@@ -12,21 +13,20 @@ export function locomotionPose(velocity: Vec2, facing: number, phase: number, co
   const step = Math.sin(phase);
   const retreat = Math.max(0, -forward);
   // Backsteps use a shorter, flatter shuffle, not a reversed sprint cycle.
-  const stride = (.42 + run * .18) * amount * (1 - retreat * .38);
-  const knee = (.4 + run * .35) * amount * (1 - retreat * .6);
+  const stride = (.32 + run * .12) * amount * (1 - retreat * .38);
+  const knee = (.25 + run * .18) * amount * (1 - retreat * .6);
   // Bend the knee while the boot travels forward, then extend before planting.
-  const swing = -Math.cos(phase) * (forward < -.2 ? -1 : 1);
-  const leftSwing = Math.max(0, swing);
-  const rightSwing = Math.max(0, -swing);
+  const leftSwing = gaitCycle(phase).lift;
+  const rightSwing = gaitCycle(phase + Math.PI).lift;
   const guard = combat ? 1 - run * .35 : 0;
   // A retreat needs a wider base: the trailing boot must clear the planted
   // boot instead of converging on the centreline during knee flexion.
-  const retreatStance = retreat * amount * .075;
+  const retreatStance = retreat * amount * .075 + Math.abs(lateral) * amount * .12;
   return {
     ...POSES.combatIdle,
     torso: [.035 + run * .09, step * forward * .035 * amount, step * .012 * amount],
-    leftLeg: [step * stride * forward, 0, -retreatStance + Math.min(0, step * stride * lateral * .32)],
-    rightLeg: [-step * stride * forward, 0, retreatStance + Math.max(0, -step * stride * lateral * .32)],
+    leftLeg: [step * stride * forward, 0, -retreatStance + Math.min(0, step * stride * lateral * .22)],
+    rightLeg: [-step * stride * forward, 0, retreatStance + Math.max(0, -step * stride * lateral * .22)],
     leftShin: [-leftSwing * knee, 0, 0], rightShin: [-rightSwing * knee, 0, 0],
     leftArm: [-.42 * guard - step * forward * (.2 + run * .26) * amount, 0, -.16],
     rightArm: [-.42 * guard + step * forward * (.2 + run * .26) * amount, 0, .16],
