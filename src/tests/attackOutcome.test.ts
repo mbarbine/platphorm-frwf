@@ -74,7 +74,7 @@ describe('shared attack outcomes', () => {
     useMatchStore.getState().resolvePhysicsContacts([contact('opponent', model.opponent.attackInstanceId)]);
     expect(model.player.health).toBeLessThan(100);
     expect(bodyWorksRuntime.actionFeedback()).toMatchObject({ status: 'interrupted', reason: 'Stopped by Circuit Jab', event: { action: 'heavyStrike' } });
-    expect(bodyWorksRuntime.attackOutcome()).toMatchObject({ moveId: 'front_kick', outcome: 'interrupted', poseFrames: 0, contact: 'none' });
+    expect(bodyWorksRuntime.attackOutcome()).toMatchObject({ moveId: 'low_kick', outcome: 'interrupted', poseFrames: 0, contact: 'none' });
     render(React.createElement(HUD, { device: 'keyboard', paused: false }));
     expect(screen.getByTestId('action-strip').textContent).toContain('MOVE STOPPED');
     expect(screen.getByTestId('action-strip').textContent).toContain('STOPPED BY CIRCUIT JAB');

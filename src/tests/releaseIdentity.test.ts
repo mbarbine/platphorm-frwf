@@ -1,3 +1,4 @@
+import { MOVES } from '../game/data/moves';
 import { FIGHTERS } from '../game/data/fighters';
 import { describe, expect, it } from 'vitest';
 import { RELEASE_IDENTITY } from '../game/release/releaseIdentity';
@@ -15,14 +16,14 @@ describe('public-safe release identity', () => {
       assetManifestVersion: RELEASE_MANIFEST.assetVersion,
       presentationRigVersion: RELEASE_MANIFEST.presentationRigVersion,
       fighterCount: FIGHTERS.length,
-      moveCount: 39,
+      moveCount: Object.keys(MOVES).length,
       criticalAssetCount: 1,
     });
   });
 
   it('keeps registry counts and ids deterministic', () => {
-    expect(releaseManifestCounts).toEqual({ fighters: FIGHTERS.length, moves: 39, criticalAssets: 1 });
+    expect(releaseManifestCounts).toEqual({ fighters: FIGHTERS.length, moves: Object.keys(MOVES).length, criticalAssets: 1 });
     expect(new Set(RELEASE_MANIFEST.fighterIds).size).toBe(FIGHTERS.length);
-    expect(new Set(RELEASE_MANIFEST.moveIds).size).toBe(39);
+    expect(new Set(RELEASE_MANIFEST.moveIds).size).toBe(Object.keys(MOVES).length);
   });
 });
