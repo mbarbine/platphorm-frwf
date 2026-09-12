@@ -35,7 +35,7 @@ for name,recipe in recipes.items():
     if args.fighter and name!=args.fighter:continue
     points=np.array(json.loads(gzip.decompress((source/f'mpfb/{name}.json.gz').read_bytes())))
     def joint(bone,end):return points[rig['joints'][rig['bones'][bone][end]]].mean(axis=0)
-    waist=(joint('spine03','head')[1]+joint('spine02','head')[1])/2+.3
+    waist=joint('spine04','head')[1]+.25
     knee=joint('lowerleg01.L','head')[1]
     hem=knee+(.9 if name=='chad' else 1.9)
     skin='middleage_african_male/middleage_darkskinned_male_diffuse.png' if name in ('atlas','vex','brick') else 'young_caucasian_male/young_lightskinned_male_diffuse.png'
@@ -73,7 +73,8 @@ for name,recipe in recipes.items():
             shade={'sonny':'#a5a49e','steve':'#dad6cd','wrecking_ball':'#23272a','chad':'#e5e2d7'}.get(name,'#232724')
             pixels[torso]=color(shade)[None,:]*fabric[torso,None]
             if name in ('steve','wrecking_ball','dale'):
-                vest=torso&(abs(px)>.68)&(region==1)
+                vest=torso&(abs(px)>(.95 if name=='wrecking_ball' else .68))&(region==1)
+                vest &= py < shoulder-.25
                 pixels[vest]=color('#c1af86' if name=='wrecking_ball' else '#292c31')
             trousers=((region==1)|(region==3))&(py<waist)
             pixels[trousers]=color('#b6aa8d' if name=='wrecking_ball' else '#252a2c')

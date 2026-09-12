@@ -2082,6 +2082,12 @@ export class BodyWorksRuntime {
       const root = rig.bodies.pelvis.rotation();
       for (const segment of Object.keys(targets) as BodySegmentId[]) targets[segment] = quaternionMultiply(root, targets[segment]);
     }
+    // The neck follows the solved chest, including while falling or getting up.
+    // A pelvis/world target can fold the head through a lagging torso.
+    const solvedChest = rig.bodies.chest;
+    if (solvedChest?.isValid()) {
+      targets.head = quaternionMultiply(solvedChest.rotation(), quaternionFromEuler([clamp(-pose.torso[0] * .25, -.2, .2), 0, 0]));
+    }
     // A headbutt has to drive the actual head rigid body through the torso's
     // forward lean. Keeping the head locked to pelvis yaw made the animation
     // readable in the renderer while the physical head never reached contact.
@@ -2130,7 +2136,7 @@ export class BodyWorksRuntime {
       const speed = stepping ? 9 : striking ? 9 * authority : onMat ? 3.8 : recovering ? 4 : 5.5;
       // One bounded velocity servo per body. The solver still owns every
       // constraint/contact; no second torque impulse can kick it off target.
-      const parent = stepping && segment.endsWith('Shin') ? rig.bodies[segment === 'leftShin' ? 'leftThigh' : 'rightThigh'] : undefined;
+      const parent = segment === 'head' ? rig.bodies.chest : stepping && segment.endsWith('Shin') ? rig.bodies[segment === 'leftShin' ? 'leftThigh' : 'rightThigh'] : undefined;
       const follow = parent?.angvel() ?? { x: 0, y: 0, z: 0 };
       const angular = body.angvel();
       // A knee motor controls flexion relative to a moving thigh. Without

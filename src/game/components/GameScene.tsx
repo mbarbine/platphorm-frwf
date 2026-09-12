@@ -1,3 +1,4 @@
+import { rosterIsPresented, useRosterPresentation } from '../presentation/rosterReadiness';
 import { viewInputBasis } from '../camera/playerCamera';
 import { venueFor } from '../data/venues';
 import { FightVenue } from '../world/FightVenue';
@@ -111,7 +112,7 @@ function Simulation({ onPause, onDevice, onFinished, inputEnabled = true, online
     const activeSlots = model.matchMode === 'battle_royale' ? FIGHTER_SLOTS.filter((slot) => model[slot].state !== 'defeated') : FIGHTER_SLOTS.slice(0, 2);
     const expectedBodies = activeSlots.length * BODY_SEGMENT_COUNT;
     if (rosterReadiness.current.runtimeId !== model.runtimeId) rosterReadiness.current = { runtimeId: model.runtimeId, ready: false };
-    if (!rosterReadiness.current.ready && bodyWorksRuntime.metrics.bodyCount >= expectedBodies) rosterReadiness.current.ready = true;
+    if (!rosterReadiness.current.ready && bodyWorksRuntime.metrics.bodyCount >= expectedBodies && rosterIsPresented(model.runtimeId, activeSlots)) rosterReadiness.current.ready = true;
     if (!rosterReadiness.current.ready) {
       // Registration readiness applies to real matches too. Do not spend the
       // player's opening or start AI attacks before the contact bodies exist.
@@ -384,6 +385,7 @@ export function GameScene(props: Props) {
           <RuntimeDiagnosticsSampler onSustainedSlow={() => { if (graphicsQuality === 'auto') setAutomaticPerformanceFallback(true); }} />
           <AdaptiveDpr />
         </Canvas>
+        <RosterLoading />
         {graphicsLost && <div className="graphics-recovery" role="alert"><b>GRAPHICS INTERRUPTED · MATCH PAUSED</b><span>Waiting for the graphics device to recover.</span><button className="button" onClick={() => location.reload()}>RELOAD GAME</button></div>}
         {xrAvailable && <button type="button" className="xr-entry" data-testid="xr-entry" onClick={() => void (xrPresenting ? exitXR() : enterXR())}>{xrPresenting ? 'EXIT ARENA XR' : 'ENTER ARENA XR'}<small>QUEST · STEAM FRAME · OPENXR</small></button>}
         {xrError && <div className="xr-error" role="status">XR UNAVAILABLE · {xrError}</div>}
@@ -398,4 +400,13 @@ class SceneBoundary extends Component<{ children: ReactNode }, BoundaryState> {
   static getDerivedStateFromError(): BoundaryState { return { failed: true }; }
   componentDidCatch(error: Error, info: ErrorInfo): void { console.error('Arena rendering failed', error.message, info.componentStack); }
   render(): ReactNode { return this.state.failed ? <div className="canvas-fallback"><b>ARENA RENDERER RECOVERING</b><span>Reload the match to reinitialize WebGL.</span><button className="button" onClick={() => location.reload()}>RELOAD ARENA</button></div> : this.props.children; }
+}
+
+function RosterLoading() {
+  const model = useMatchStore(s => s.model);
+  useRosterPresentation();
+  const slots = model.matchMode === 'battle_royale' ? FIGHTER_SLOTS : FIGHTER_SLOTS.slice(0,2);
+  const ready = rosterIsPresented(model.runtimeId,slots);
+  useEffect(() => { document.documentElement.dataset.fightersReady = String(ready); return () => {delete document.documentElement.dataset.fightersReady;}; },[ready]);
+  return ready ? null : <div className="graphics-recovery" role="status"><b>WRESTLERS ENTERING</b><span>Preparing the selected wrestlers.</span></div>;
 }

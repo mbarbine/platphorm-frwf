@@ -1,3 +1,5 @@
+import { useRosterPresentation } from '../presentation/rosterReadiness';
+import { useMatchStore } from '../state/matchStore';
 import { useHumanoidAsset } from './useHumanoidAsset';
 import { useFrame } from '@react-three/fiber';
 import { useMemo } from 'react';
@@ -30,6 +32,7 @@ export function HumanoidFighter({ runtime, side }: { runtime: FighterRuntime; si
       finger.bone.quaternion.slerp(fingerTarget, 1 - Math.exp(-16 * dt));
     }
     scene.updateMatrixWorld(true);
+    if (posedBones === BODY_SEGMENT_COUNT) useRosterPresentation.getState().mark(useMatchStore.getState().model.runtimeId, side);
     if (side === 'player' && posedBones === BODY_SEGMENT_COUNT && runtime.moveId && runtime.attackPhase) {
       bodyWorksRuntime.recordPlayerAttackPose({ moveId: runtime.moveId, instanceId: runtime.attackInstanceId });
     }
