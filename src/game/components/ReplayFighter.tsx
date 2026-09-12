@@ -5,6 +5,7 @@ import { bodyWorksRuntime } from '../physics/physicsRuntime';
 import type { PhysicsReplayFrame } from '../physics/replayBuffer';
 import { useSettings } from '../state/settings';
 import { useMatchStore } from '../state/matchStore';
+import { PropVisual } from './Arena';
 import { SegmentVisual } from './PhysicalFighterRig';
 import { buildBodySchema } from '../physics/bodySchema';
 import type { BodySegmentId } from '../physics/bodySchema';
@@ -41,10 +42,7 @@ function RecordedProps({ frameRef }: { frameRef: React.RefObject<PhysicsReplayFr
     }
   }, -1);
   return <group>{props.map((prop) => <group key={prop.id} ref={(node) => { bodies.current[prop.id] = node; }} visible={false}>
-    {prop.kind === 'chair' ? <group><mesh><boxGeometry args={[.9, .12, .85]} /><meshStandardMaterial color="#9099aa" metalness={.82} roughness={.2} /></mesh><mesh position={[0, .7, .36]}><boxGeometry args={[.9, 1.2, .12]} /><meshStandardMaterial color="#4cdcff" emissive="#157c8c" emissiveIntensity={.5} /></mesh></group>
-      : prop.kind === 'trash' ? <group><mesh><cylinderGeometry args={[.46, .39, 1.18, 14]} /><meshStandardMaterial color="#8793a3" metalness={.9} roughness={.25} /></mesh><mesh position={[0, .64, 0]}><cylinderGeometry args={[.5, .5, .08, 14]} /><meshStandardMaterial color="#b2bfcc" metalness={.94} /></mesh></group>
-        : prop.kind === 'bell' ? <group><mesh><cylinderGeometry args={[.48, .54, .12, 16]} /><meshStandardMaterial color="#442b18" /></mesh><mesh position={[0, .2, 0]}><sphereGeometry args={[.38, 16, 9, 0, Math.PI * 2, 0, Math.PI / 2]} /><meshStandardMaterial color="#e6b83e" metalness={.92} roughness={.16} /></mesh></group>
-          : <group rotation={[0, 0, .1]}><mesh><boxGeometry args={[1.35, .85, .1]} /><meshStandardMaterial color="#ff3c91" emissive="#951654" emissiveIntensity={.5} /></mesh><mesh position={[0, -.82, 0]}><boxGeometry args={[.08, .85, .08]} /><meshStandardMaterial color="#d8e3eb" /></mesh></group>}
+    <PropVisual kind={prop.kind} />
   </group>)}</group>;
 }
 

@@ -9,6 +9,7 @@ import { arenaCollisionGroups, propCollisionGroups } from '../physics/collisionG
 import { bodyWorksRuntime } from '../physics/physicsRuntime';
 import type { PropRuntime } from '../types/game';
 import { PhysicalProp } from '../components/Arena';
+import { VenueAsset } from '../components/VenueAsset';
 import { WorldSign } from './ShowgroundEnvironment';
 
 function Block({ at, size, color, metal = 0 }: { at: [number, number, number]; size: [number, number, number]; color: string; metal?: number }) {
@@ -21,9 +22,11 @@ function WoodenTable({ prop, floor }: { prop: PropRuntime; floor: number }) {
   const bend = prop.failureStage === 'cracked' ? .08 : prop.failureStage === 'stressed' ? .025 : 0;
   return <RigidBody ref={body} type="fixed" colliders={false} position={[prop.position.x, floor + .9, prop.position.z]} collisionGroups={propCollisionGroups} solverGroups={propCollisionGroups} userData={{ surface: true, prop: prop.id, kind: 'table' }}>
     <CuboidCollider args={[1.5, .065, .65]} rotation={[0, 0, bend]} />
-    <group rotation={[0, 0, bend]}>{[-.48, -.16, .16, .48].map(z => <Block key={z} at={[0, 0, z]} size={[3, .13, .305]} color="#ae8055" />)}</group>
-    {[-1.15, 1.15].flatMap(x => [-.43, .43].map(z => <group key={`${x}-${z}`}><CuboidCollider args={[.055, .42, .055]} position={[x, -.45, z]} /><Block at={[x, -.45, z]} size={[.11, .84, .11]} color="#424542" metal={.65} /></group>))}
-    <Block at={[0, -.56, 0]} size={[2.4, .08, .08]} color="#52534b" metal={.5} />
+    <group rotation={[0, 0, bend]}><VenueAsset kind="table" fallback={<>
+      <Block at={[0, 0, 0]} size={[3, .13, 1.3]} color="#ae8055" />
+      {[-1.15, 1.15].flatMap(x => [-.43, .43].map(z => <Block key={`${x}-${z}`} at={[x, -.45, z]} size={[.11, .84, .11]} color="#424542" metal={.65} />))}
+    </>} /></group>
+    {[-1.15, 1.15].flatMap(x => [-.43, .43].map(z => <CuboidCollider key={`${x}-${z}`} args={[.055, .42, .055]} position={[x, -.45, z]} />))}
   </RigidBody>;
 }
 function RingsideFans({ width, depth, floor }: { width: number; depth: number; floor: number }) {

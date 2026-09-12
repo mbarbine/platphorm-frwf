@@ -12,6 +12,7 @@ import type { BodySegmentId } from '../physics/bodySchema';
 import type { PropRuntime } from '../types/game';
 import { Spectators as Crowd } from './Spectators';
 import { EntranceFog } from './EntranceFog';
+import { VenueAsset, venueAssets } from './VenueAsset';
 import { WrestlingMat } from './WrestlingMat';
 import { useSettings } from '../state/settings';
 import { VOLT_DOME } from '../data/arena';
@@ -173,7 +174,12 @@ function CommentaryTable({ prop }: { prop: PropRuntime }) {
 interface FighterColliderData { bodyWorks: true; fighter: FighterKey; segment: BodySegmentId; region: 'head' | 'chest' | 'ribs' | 'pelvis' | 'leftArm' | 'rightArm' | 'leftLeg' | 'rightLeg' }
 const isFighterColliderData = (value: unknown): value is FighterColliderData => typeof value === 'object' && value !== null && 'bodyWorks' in value && 'fighter' in value && 'segment' in value && 'region' in value;
 
-function PropVisual({ kind }: { kind: PropRuntime['kind'] }) {
+export function PropVisual({ kind }: { kind: PropRuntime['kind'] }) {
+  const fallback = <PrimitivePropVisual kind={kind} />;
+  return kind === 'chair' || kind === 'trash' ? <VenueAsset kind={kind} fallback={fallback} /> : fallback;
+}
+
+function PrimitivePropVisual({ kind }: { kind: PropRuntime['kind'] }) {
   if (kind === 'table') return null;
   if (kind === 'chair') return <group>
     <mesh><boxGeometry args={[.9, .11, .82]} /><meshStandardMaterial color="#929dac" metalness={.82} roughness={.2} /></mesh>
@@ -227,7 +233,8 @@ export function PhysicalProp({ prop, initialPosition }: { prop: PropRuntime; ini
     bodyWorksRuntime.recordContact({ time: model.elapsed, sourceFighter: source, sourceSegment: 'rightHand', targetFighter: targetData.fighter, targetSegment: targetData.segment, targetRegion: targetData.region, totalForce: payload.totalForceMagnitude, maximumForce: payload.maxForceMagnitude, forceDirection: [payload.maxForceDirection.x, payload.maxForceDirection.y, payload.maxForceDirection.z], point: [propPosition.x, propPosition.y, propPosition.z], relativeSpeed, attackInstanceId, moveId, attackPhaseAtContact: 'active', sourceObjectId: prop.id, targetSurface: null, isLanding: false });
   };
   const mass = prop.kind === 'chair' ? 3.4 : prop.kind === 'trash' ? 4.8 : prop.kind === 'bell' ? 1.3 : .75;
-  return <RigidBody ref={body} type="dynamic" position={spawnPosition} colliders="cuboid" mass={mass} linearDamping={1.15} angularDamping={1.05} restitution={prop.kind === 'chair' ? .2 : prop.kind === 'trash' ? .16 : .34} collisionGroups={propCollisionGroups} solverGroups={propCollisionGroups} userData={userData} onContactForce={onContactForce}>
+  return <RigidBody ref={body} type="dynamic" position={spawnPosition} colliders={prop.kind === 'chair' || prop.kind === 'trash' ? false : 'cuboid'} mass={mass} linearDamping={1.15} angularDamping={1.05} restitution={prop.kind === 'chair' ? .2 : prop.kind === 'trash' ? .16 : .34} collisionGroups={propCollisionGroups} solverGroups={propCollisionGroups} userData={userData} onContactForce={onContactForce}>
+    {(prop.kind === 'chair' || prop.kind === 'trash') && venueAssets[prop.kind].colliders.map((collider, index) => <CuboidCollider key={index} args={collider.halfExtents as [number, number, number]} position={collider.center as [number, number, number]} />)}
     <group visible={!replayActive}><PropVisual kind={prop.kind} /></group>
   </RigidBody>;
 }
