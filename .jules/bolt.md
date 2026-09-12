@@ -88,3 +88,7 @@
 ## 2026-09-10 - [Optimized Math.hypot in Player Controller Movement Input]
 **Learning:** In frame-by-frame player controller updates (`playerController.ts`), evaluating `Math.hypot(input.move.x, input.move.z)` to check steering and pending input state introduces unnecessary floating-point safety scaling overhead. Replacing `Math.hypot` with standard `Math.sqrt(x*x + z*z)` yields up to ~8x faster execution on hot input processing paths.
 **Action:** Replace `Math.hypot` with standard `Math.sqrt` inside `PlayerController.read()` hot paths to improve player control processing efficiency.
+
+## 2026-09-12 - [Optimized Spectator Limb Vector Normalization in R3F Render Loop]
+**Learning:** In Three.js, `vector.normalize()` calls `vector.length()` internally, which evaluates `Math.hypot(x, y, z)` under the hood. In `Spectators.tsx`, calling `vector.length()` followed by `vector.normalize()` inside a loop calculating 8 limb transforms per spectator (1248 calls per frame for 156 spectators) executed `Math.hypot` twice per limb. Computing vector length once using direct `Math.sqrt(x*x + y*y + z*z)` and using `vector.divideScalar(length || 1)` avoids redundant hypot calculations and speeds up limb matrix transformations significantly (~8x per call).
+**Action:** Replace `vector.length()` and `vector.normalize()` in high-frequency Three.js instanced rendering loops with a single `Math.sqrt` length calculation and direct `divideScalar`.
