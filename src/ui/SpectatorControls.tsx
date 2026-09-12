@@ -33,7 +33,6 @@ export function SpectatorControls() {
 
   if (!spectating) return null;
   const fighter = fighterById(model[target].definitionId);
-  const modeName = cameraMode.replace('_', ' ');
   return <aside className="spectator-controls" data-testid="spectator-controls" data-camera-mode={cameraMode} data-spectator-target={target}>
     <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">Spectating wrestler: {fighter.name}, {modeName} camera.</p>
     <header><span>ELIMINATED · MATCH CONTINUES</span><b>SPECTATING {fighter.name}</b></header>
