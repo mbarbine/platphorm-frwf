@@ -1,3 +1,5 @@
+> Forward planning now lives in the [one-year roadmap, September 2026–September 2027](docs/roadmap/README.md). This document is retained as historical context; its ordering and status claims may be superseded.
+
 > Current priority and open-world scope: see [the collective master plan](docs/COLLECTIVE_MASTER_PLAN.md). This roadmap includes historical proposals; implementation claims must be verified against the current runtime.
 
 The current frontend stack is fundamentally viable. I would not replace React Three Fiber, Three.js, or Rapier now. Rewriting into Babylon.js, PlayCanvas, Godot Web, or Unity WebGL would consume months while preserving the hardest problem: converting player intent into readable wrestling.

@@ -21,7 +21,7 @@ export function FighterSelection({ selected, onSelect, onBack, onConfirm }: Prop
         <span className="selection-photo-label">{portrait ? 'THE ORIGINAL' : 'FRWF ROSTER'}</span>
         <div className="selection-name"><span>{fighter.nickname}</span><h3>{fighter.name}</h3><p>{fighter.archetype}</p></div>
       </div>
-      <div className="selection-model"><span className="selection-model-label">IN THE RING</span><Suspense fallback={<div className="preview-loading">ASSEMBLING FIGHTER…</div>}><FighterPreview fighterId={selected} /></Suspense></div>
+      <div className="selection-model"><span className="selection-model-label">{selected === 'josh' ? 'PROVISIONAL MODEL · LIKENESS IN PROGRESS' : 'IN THE RING'}</span><Suspense fallback={<div className="preview-loading">ASSEMBLING FIGHTER…</div>}><FighterPreview fighterId={selected} /></Suspense></div>
       <article className="selection-profile"><span className="selection-eyebrow">SCOUTING REPORT</span><p>{fighter.bio}</p><div className="selection-stats">{Object.entries(fighter.stats).map(([label, value]) => <div key={label}><span>{label}</span><meter min={0} max={100} value={value} aria-label={label} /><b>{value}</b></div>)}</div><div className="selection-signature"><span>SIGNATURE FINISHER</span><strong>{fighter.signature}</strong></div></article>
     </div>
     <div className="selection-bottom"><div className="selection-roster" role="list" aria-label="Wrestler roster">

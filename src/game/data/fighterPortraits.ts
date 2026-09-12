@@ -2,6 +2,7 @@ import type { FighterId } from '../types/game';
 
 /** Original user-provided photographs; framing leaves the source images intact. */
 export const FIGHTER_PORTRAITS: Partial<Record<FighterId, { url: string; position: string }>> = {
+  josh: { url: '/portraits/josh.png', position: '50% 35%' },
   chad: { url: '/portraits/chad.png', position: '50% 12%' },
   dale: { url: '/portraits/dale.png', position: '48% 12%' },
   john: { url: '/portraits/john.png', position: '50% 25%' },

@@ -1,3 +1,5 @@
+> Forward planning now lives in the [one-year roadmap, September 2026–September 2027](roadmap/README.md). This document is retained as historical context; its ordering and status claims may be superseded.
+
 # FRWF collective master plan
 
 Next execution phase: [A wrestling exchange worth repeating — September 12, 2026](NEXT_EXECUTION_PHASE_2026-09-12.md). This defines the current ordered work and acceptance gates; it does not mark them complete.

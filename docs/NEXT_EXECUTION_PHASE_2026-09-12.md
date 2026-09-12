@@ -1,3 +1,5 @@
+> Forward planning now lives in the [one-year roadmap, September 2026–September 2027](roadmap/README.md). This document is retained as historical context; its ordering and status claims may be superseded.
+
 # Next execution phase: a wrestling exchange worth repeating
 
 Status: execution in progress; the phase is not accepted. Prepared September 12, 2026. See [the execution report](EXECUTION_PROGRESS_2026-09-12.md) for implemented changes, measured checks and remaining failures.

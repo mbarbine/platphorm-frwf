@@ -86,10 +86,10 @@ describe('Fighter Select Keyboard and ARIA Accessibility', () => {
     act(() => {
       window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft' }));
     });
-    const lastCard = document.querySelector('[data-fighter-select-id="gil"]') as HTMLButtonElement;
+    const lastCard = document.querySelector('[data-fighter-select-id="josh"]') as HTMLButtonElement;
     expect(lastCard).toBeTruthy();
     expect(lastCard.getAttribute('aria-pressed')).toBe('true');
-    expect(screen.getByText(/Selected fighter: G.I. JIL, Agile Grappler/i)).toBeTruthy();
+    expect(screen.getByText(/Selected fighter: JOSH “THE ENFORCER”, Counter Brawler/i)).toBeTruthy();
 
     // 6. Trigger ArrowRight (Should wrap around to the first fighter "ATLAS REX")
     act(() => {

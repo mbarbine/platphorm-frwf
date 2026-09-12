@@ -1,3 +1,5 @@
+> Forward planning now lives in the [one-year roadmap, September 2026–September 2027](roadmap/README.md). This document is retained as historical context; its ordering and status claims may be superseded.
+
 # Next execution phase: deliberate wrestling controls and a trustworthy physics lab
 
 FRWF is a wrestling simulator with showground exploration and original wrestlers. This phase improves the actual bout, not just the number of available moves. The September 12 screenshots remain evidence of failed visual quality: bent boots during standing movement, weak strike silhouettes, intersecting bodies, inaccurate proportions and clothing, and crowded HUD composition. Shipping the interim build does not close these issues.

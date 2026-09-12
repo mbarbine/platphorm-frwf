@@ -3,7 +3,7 @@
 // Both the browser bundle and the Node.js game server import from here.
 // ──────────────────────────────────────────────────────────────────────────────
 
-export const FIGHTER_IDS = ['atlas', 'vex', 'nova', 'brick', 'chad', 'dale', 'thomas', 'sonny', 'wrecking_ball', 'steve', 'john', 'justin', 'mondo', 'gil'] as const;
+export const FIGHTER_IDS = ['atlas', 'vex', 'nova', 'brick', 'chad', 'dale', 'thomas', 'sonny', 'wrecking_ball', 'steve', 'john', 'justin', 'mondo', 'gil', 'josh'] as const;
 export type FighterId = typeof FIGHTER_IDS[number];
 export type Ruleset = 'standard' | 'chaos';
 export type Difficulty = 'normal' | 'hard';

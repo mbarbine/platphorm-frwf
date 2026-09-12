@@ -20,7 +20,12 @@ describe('real character assets', () => {
   it('keeps the playable roster, network IDs and exported assets aligned', () => {
     expect(FIGHTERS.map(f => f.id)).toEqual([...FIGHTER_IDS]);
     expect(manifest.fighters.map(f => f.id)).toEqual([...FIGHTER_IDS]);
-    expect(new Set(manifest.fighters.map(f => f.sha256)).size).toBe(FIGHTERS.length);
+    const authored = manifest.fighters.filter(f => !('sharedAssetFrom' in f));
+    expect(new Set(authored.map(f => f.sha256)).size).toBe(authored.length);
+    const josh = manifest.fighters.find(f => f.id === 'josh');
+    expect(josh).toMatchObject({ presentationStatus: 'provisional', sharedAssetFrom: 'sonny' });
+    expect(josh?.sha256).toBe(manifest.fighters.find(f => f.id === 'sonny')?.sha256);
+    expect(FIGHTERS.find(f => f.id === 'josh')?.name).toBe('JOSH “THE ENFORCER”');
     expect(FIGHTERS.filter(f => f.id === 'dale')).toHaveLength(1);
     expect(FIGHTERS.find(f => f.id === 'gil')?.name).toBe('G.I. JIL');
   });

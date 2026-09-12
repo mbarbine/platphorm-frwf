@@ -133,6 +133,17 @@ export const FIGHTERS: readonly FighterDefinition[] = [
     physics: { massKg: 69, standingHeightM: 1.7, shoulderWidthM: 0.44, hipWidthM: 0.37, armLength: 0.904, legLength: 0.904, torsoLength: 0.904, centerOfMassBias: -.04, reachM: 1.78, muscleStrength: 0.66, gripStrength: .9, balanceRecovery: .8, jointStiffness: .9 },
     stats: { power: 66, speed: 94, stamina: 92, technique: 94, charisma: 88 },
   },
+  {
+    id: 'josh', name: 'JOSH “THE ENFORCER”', nickname: 'The Enforcer', archetype: 'Counter Brawler',
+    bio: 'An FRWF original with a cap, goatee and black sleeveless shirt. The Enforcer works behind a sharp jab and answers pressure with a committed counter.',
+    signature: 'ENFORCER SLAM', taunt: 'Raises his fists and settles into a firm guard.', tendency: 'technical',
+    personality: { cowardly: 8, showman: 76, technical: 84, aggressive: 82, reckless: 40, dirty: 30, athletic: 78, powerhouse: 72 },
+    palette: { primary: '#b7a37c', secondary: '#202124', skin: '#c49a79', emissive: '#b7a37c' },
+    proportions: { height: .984, width: .96, headwear: 'bandana' },
+    // Provisional game balance values, not measurements inferred from the reference photo.
+    physics: { massKg: 88, standingHeightM: 1.85, shoulderWidthM: .51, hipWidthM: .37, armLength: 1, legLength: 1, torsoLength: 1, centerOfMassBias: -.04, reachM: 1.93, muscleStrength: .78, gripStrength: .86, balanceRecovery: .84, jointStiffness: .88 },
+    stats: { power: 78, speed: 78, stamina: 84, technique: 84, charisma: 76 },
+  },
 ] as const;
 
 // Precompute fast O(1) lookup map for fighters to avoid repetitive array .find calls
