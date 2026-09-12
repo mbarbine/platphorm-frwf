@@ -12,7 +12,7 @@ export function situationalStrike(actor: FighterRuntime, target: FighterRuntime,
   if (target.state === 'downed' && distance(actor.position, target.position) <= 1.8) return button === 'heavy' ? 'ground' : 'ground_punch';
   if (button === 'heavy') {
     if (actor.heldPropId) return 'prop';
-    if (actor.ropeRebound > 0 || running && Math.hypot(actor.velocity.x, actor.velocity.z) > 3.6) return 'stiff_arm';
+    if (actor.ropeRebound > 0 || running && Math.hypot(actor.velocity.x, actor.velocity.z) > 3.6) return combatDirection(direction) === 'left' ? 'rebound' : 'stiff_arm';
     if (combatDirection(direction) === 'neutral') {
       const gap = distance(actor.position, target.position);
       if (gap < 1.05 || actor.stamina < getMove('front_kick').staminaCost) return 'low_kick';

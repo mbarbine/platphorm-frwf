@@ -292,8 +292,8 @@ describe('deterministic combat rules', () => {
     expect(runtime.actionFeedback()).toMatchObject({ status: 'rejected', reason: 'Match paused', event: { action: 'grapple' } });
   });
 
-  it('successful counter interrupts the incoming move', () => {
-    const model = createMatch('atlas', 'vex', 'standard', 'normal'); model.player.position = { x: 0, z: 0 }; model.opponent.position = { x: 1, z: 0 };
+  it('successful counter interrupts a reachable incoming move the defender is facing', () => {
+    const model = createMatch('atlas', 'vex', 'standard', 'normal'); model.player.position = { x: 0, z: 0 }; model.opponent.position = { x: 1, z: 0 }; model.player.facing = Math.PI / 2;
     startMove(model.opponent, model.player, getMove('heavy')); model.opponent.phaseElapsed = .16; model.opponent.attackPhase = 'anticipation';
     expect(requestCommand(model, 'player', 'dodge')).toBe(true); expect(model.opponent.moveId).toBeNull(); expect(model.opponent.state).toBe('staggered'); expect(model.playerStats.counters).toBe(1);
   });
