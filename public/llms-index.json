@@ -1,1 +1,84 @@
-{"ok":true,"data":{"service":"ringfall-chaos-circuit","version":"1.0.0","purpose":"original browser arcade wrestling game","capabilities":["play_local_match","singles_match","battle_royale_target_cycle","battle_royale_spectator_controls","select_fighter","select_rules","directional_striking_and_throws","physical_grapple_and_slam","corner_environmental_grapple","rope_rebound_and_ring_traversal","turnbuckle_aerials","orientation_specific_recovery","expanded_interactive_arena","dynamic_props_and_barricades","adaptive_graphics_quality","cinematic_camera_director","breakable_commentary_table","touch_and_gamepad_input","webxr_arena_mode","spatial_audio","fight_utility_ai","pinfall","knockout","rematch","five_wrestler_battle_royale","connected_showground_exploration","device_local_world_save","nearby_instanced_bouts","easy_rival_difficulty","backyard_physical_wrestling","backstage_physical_wrestling","wooden_table_spots","local_circuit_mastery_and_unlocks","travel_aware_wrestler_gait","paired_physical_throw_motion","contact_anchored_impact_effects","cancellable_strike_approach","three_beat_quick_strike_sequence","supported_physical_breakfalls","cross_body_cover_evidence","underground_fight_venue","character_signature_variants","supported_table_climbing"],"outputFormats":[{"id":"interactive-webgl","mediaType":"text/html"}],"mcp":{"supported":true,"status":"introspection_only","endpoint":"/api/mcp","gameplayExecution":false},"world":{"status":"playable_first_slice","locations":["showground","backstage","ringside"],"combat":"Instanced backyard, backstage and Volt Dome bouts; exploration and combat still use separate scenes","persistence":"Device-local position, visited areas, completed bout records and objective medals; reputation and unlocks derived from local results. No cloud save or trusted leaderboard.","encounters":7,"venues":["dome","yard","backstage","underground"]}}}
+{
+  "ok": true,
+  "data": {
+    "service": "ringfall-chaos-circuit",
+    "version": "1.0.0",
+    "purpose": "original browser arcade wrestling game",
+    "capabilities": [
+      "play_local_match",
+      "singles_match",
+      "battle_royale_target_cycle",
+      "battle_royale_spectator_controls",
+      "select_fighter",
+      "select_rules",
+      "directional_striking_and_throws",
+      "physical_grapple_and_slam",
+      "corner_environmental_grapple",
+      "rope_rebound_and_ring_traversal",
+      "turnbuckle_aerials",
+      "orientation_specific_recovery",
+      "expanded_interactive_arena",
+      "dynamic_props_and_barricades",
+      "adaptive_graphics_quality",
+      "cinematic_camera_director",
+      "breakable_commentary_table",
+      "touch_and_gamepad_input",
+      "webxr_arena_mode",
+      "spatial_audio",
+      "fight_utility_ai",
+      "pinfall",
+      "knockout",
+      "rematch",
+      "five_wrestler_battle_royale",
+      "connected_showground_exploration",
+      "device_local_world_save",
+      "nearby_instanced_bouts",
+      "easy_rival_difficulty",
+      "backyard_physical_wrestling",
+      "backstage_physical_wrestling",
+      "wooden_table_spots",
+      "local_circuit_mastery_and_unlocks",
+      "travel_aware_wrestler_gait",
+      "paired_physical_throw_motion",
+      "contact_anchored_impact_effects",
+      "cancellable_strike_approach",
+      "three_beat_quick_strike_sequence",
+      "supported_physical_breakfalls",
+      "cross_body_cover_evidence",
+      "underground_fight_venue",
+      "character_signature_variants",
+      "supported_table_climbing",
+      "frwf_historical_archive",
+      "nineteen_selectable_wrestlers"
+    ],
+    "outputFormats": [
+      {
+        "id": "interactive-webgl",
+        "mediaType": "text/html"
+      }
+    ],
+    "mcp": {
+      "supported": true,
+      "status": "introspection_only",
+      "endpoint": "/api/mcp",
+      "gameplayExecution": false
+    },
+    "world": {
+      "status": "playable_first_slice",
+      "locations": [
+        "showground",
+        "backstage",
+        "ringside"
+      ],
+      "combat": "Instanced backyard, backstage and Volt Dome bouts; exploration and combat still use separate scenes",
+      "persistence": "Device-local position, visited areas, completed bout records and objective medals; reputation and unlocks derived from local results. No cloud save or trusted leaderboard.",
+      "encounters": 11,
+      "venues": [
+        "dome",
+        "yard",
+        "backstage",
+        "underground"
+      ]
+    }
+  }
+}

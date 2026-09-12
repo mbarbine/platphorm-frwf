@@ -268,10 +268,10 @@ export const getPairedPose = (move: MoveDefinition, role: Role, phase: AttackPha
 
 const TAUNT_POSES: Readonly<Record<FighterId, Pose>> = {
   josh: pose({ torso: [.04, 0, 0], leftArm: [-.7, 0, -.2], rightArm: [-.7, 0, .2], leftForearm: [-1.5, 0, 0], rightForearm: [-1.5, 0, 0] }),
-  chelsea: pose({ torso: [.04, 0, 0], leftArm: [-.7, 0, -.2], rightArm: [-.7, 0, .2], leftForearm: [-1.5, 0, 0], rightForearm: [-1.5, 0, 0] }),
-  britt: pose({ torso: [.04, 0, 0], leftArm: [-.7, 0, -.2], rightArm: [-.7, 0, .2], leftForearm: [-1.5, 0, 0], rightForearm: [-1.5, 0, 0] }),
-  beer_bandit_bill: pose({ torso: [.04, 0, 0], leftArm: [-.7, 0, -.2], rightArm: [-.7, 0, .2], leftForearm: [-1.5, 0, 0], rightForearm: [-1.5, 0, 0] }),
-  beer_bandit_ted: pose({ torso: [.04, 0, 0], leftArm: [-.7, 0, -.2], rightArm: [-.7, 0, .2], leftForearm: [-1.5, 0, 0], rightForearm: [-1.5, 0, 0] }),
+  chelsea: pose({ torso: [0.02, 0.0, 0], leftArm: [-0.85, 0, -0.2], rightArm: [-0.55, 0, 0.3], leftForearm: [-1.2, 0, 0], rightForearm: [-1.4, 0, 0] }),
+  britt: pose({ torso: [0.045, 0.08, 0], leftArm: [-1.02, 0, -0.26], rightArm: [-0.67, 0, 0.35], leftForearm: [-1.2, 0, 0], rightForearm: [-1.4, 0, 0] }),
+  beer_bandit_bill: pose({ torso: [0.07, 0.16, 0], leftArm: [-1.19, 0, -0.32], rightArm: [-0.79, 0, 0.4], leftForearm: [-1.2, 0, 0], rightForearm: [-1.4, 0, 0] }),
+  beer_bandit_ted: pose({ torso: [0.09500000000000001, 0.24, 0], leftArm: [-1.3599999999999999, 0, -0.38], rightArm: [-0.91, 0, 0.45], leftForearm: [-1.2, 0, 0], rightForearm: [-1.4, 0, 0] }),
   atlas: pose({ torso: [.18, 0, 0], leftArm: [-2.7, 0, -.32], rightArm: [-2.7, 0, .32], leftForearm: [-.42, 0, 0], rightForearm: [-.42, 0, 0], leftLeg: [.28, 0, 0], rightLeg: [.28, 0, 0], leftShin: [-.72, 0, 0], rightShin: [-.72, 0, 0], rootY: -.12, rootTilt: .16 }),
   vex: pose({ torso: [-.12, .48, -.12], leftArm: [-.58, 0, -.5], rightArm: [-2.45, -.35, .32], leftForearm: [-1.12, 0, 0], rightForearm: [-.25, 0, 0], leftLeg: [-.22, 0, 0], rightLeg: [.25, 0, 0], rootY: .14, rootYaw: .42, rootRoll: -.16 }),
   nova: pose({ torso: [.08, -.52, 0], leftArm: [-1.28, -.25, -.7], rightArm: [-1.28, .25, .7], leftForearm: [-1.34, 0, 0], rightForearm: [-.42, 0, 0], leftLeg: [.16, 0, 0], rightLeg: [-.16, 0, 0], rootYaw: -.38, rootRoll: .08 }),
