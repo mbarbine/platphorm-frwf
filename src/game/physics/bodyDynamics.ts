@@ -70,7 +70,7 @@ const updateFoot = (fighter: FighterRuntime, foot: BodyDynamicsRuntime['leftFoot
   foot.offset = { x: forwardVector.x * forward + rightVector.x * side, z: forwardVector.z * forward + rightVector.z * side };
 };
 
-export const integrateLocomotion = (fighter: FighterRuntime, definition: FighterDefinition, desiredMove: Vec2, running: boolean, dt: number): void => {
+export const integrateLocomotion = (fighter: FighterRuntime, definition: FighterDefinition, desiredMove: Vec2, running: boolean, dt: number, facingTarget?: number): void => {
   const body = fighter.body;
   const desiredMagnitude = Math.min(1, length(desiredMove));
   const desiredDirection = desiredMagnitude > .001 ? normalize(desiredMove) : { x: 0, z: 0 };
@@ -86,17 +86,20 @@ export const integrateLocomotion = (fighter: FighterRuntime, definition: Fighter
   fighter.velocity.x = approach(fighter.velocity.x, targetVelocity.x, deceleration * dt);
   fighter.velocity.z = approach(fighter.velocity.z, targetVelocity.z, deceleration * dt);
 
-  if (accelerating) {
-    const desiredFacing = Math.atan2(desiredDirection.x, desiredDirection.z);
+  if (accelerating || facingTarget !== undefined) {
+    // Combat focus and travel must not rotate the same body in opposite directions.
+    const desiredFacing = facingTarget ?? Math.atan2(desiredDirection.x, desiredDirection.z);
     const turnDifference = wrapAngle(desiredFacing - fighter.facing);
     const speedControl = 1 - clamp(speed / 11, 0, .34);
-    const turnRate = (running ? profile.sprintTurnRate : profile.turnRate) * speedControl;
+    const turnRate = facingTarget !== undefined ? 7.5 : (running ? profile.sprintTurnRate : profile.turnRate) * speedControl;
     fighter.facing = wrapAngle(fighter.facing + clamp(turnDifference, -turnRate * dt, turnRate * dt));
     const currentDirection = speed > .1 ? normalize(previousVelocity) : desiredDirection;
     const directionDot = currentDirection.x * desiredDirection.x + currentDirection.z * desiredDirection.z;
     const turnStress = Math.max(0, 1 - directionDot) * speed * body.mass / 185 * dt;
     body.balance = clamp(body.balance - turnStress * (running ? 1.2 : .72), 0, 100);
-    body.sideVelocity += wrapAngle(desiredFacing - Math.atan2(previousVelocity.x, previousVelocity.z)) * speed * dt * .14;
+    // Backpedaling at steady speed is not a turn impulse. Lean follows changes
+    // in actual travel, independently of where the wrestler is looking.
+    if (accelerating && speed > .1) body.sideVelocity += wrapAngle(Math.atan2(desiredDirection.x, desiredDirection.z) - Math.atan2(previousVelocity.x, previousVelocity.z)) * speed * dt * .14;
   }
 
   // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt for ~8x performance gain in high-frequency locomotion integration.

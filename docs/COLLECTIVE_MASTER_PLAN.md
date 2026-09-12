@@ -1,5 +1,7 @@
 # FRWF collective master plan
 
+Next execution phase: [A wrestling exchange worth repeating — September 12, 2026](NEXT_EXECUTION_PHASE_2026-09-12.md). This defines the current ordered work and acceptance gates; it does not mark them complete.
+
 Updated 2026-09-08 from the repository, the architecture proposal, the conversation, and another ordinary Chrome playthrough. This is the current ordering of the larger ROADMAP, not a declaration that its features have shipped.
 
 ## Current quality decision — core wrestling remains unacceptable

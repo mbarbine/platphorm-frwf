@@ -932,16 +932,14 @@ const updateFighter = (model: MatchModel, actorKey: FighterSlot, dt: number, mov
   const inputLength = Math.sqrt(movement.x * movement.x + movement.z * movement.z);
   if (canMove) {
     const running = run && actor.stamina > 3 && inputLength > .08;
-    integrateLocomotion(actor, definition, movement, running, dt);
     const targetDistance = distance(actor.position, target.position);
-    // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt for ~8x performance gain
-    const physicalSpeed = Math.sqrt(actor.velocity.x * actor.velocity.x + actor.velocity.z * actor.velocity.z);
-    if (actor.ropeRebound > 0 && physicalSpeed > 1.2) actor.facing = Math.atan2(actor.velocity.x, actor.velocity.z);
-    else if (!running && targetDistance < 4.8) {
-      const desiredFacing = Math.atan2(target.position.x - actor.position.x, target.position.z - actor.position.z);
-      const facingError = Math.atan2(Math.sin(desiredFacing - actor.facing), Math.cos(desiredFacing - actor.facing));
-      actor.facing += clamp(facingError, -dt * 7.5, dt * 7.5);
-    }
+    const physicalSpeed = Math.hypot(actor.velocity.x, actor.velocity.z);
+    const facingTarget = actor.ropeRebound > 0 && physicalSpeed > 1.2
+      ? Math.atan2(actor.velocity.x, actor.velocity.z)
+      : !running && targetDistance < 4.8
+        ? Math.atan2(target.position.x - actor.position.x, target.position.z - actor.position.z)
+        : undefined;
+    integrateLocomotion(actor, definition, movement, running, dt, facingTarget);
     actor.state = inputLength > .08 ? 'locomotion' : 'idle';
     if (running) actor.stamina = clamp(actor.stamina - dt * 8, 0, actor.staminaCap);
     else actor.stamina = clamp(actor.stamina + dt * (inputLength > .08 ? 8 : 13), 0, actor.staminaCap);
