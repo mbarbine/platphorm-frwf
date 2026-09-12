@@ -1,3 +1,4 @@
+import { propReleaseVelocity } from './propHandling';
 import { climbVerticalDelta, objectClimbTarget } from '../systems/climbing';
 import { AttackOutcomeTracker, type AttackIdentity, type AttackOutcome } from '../input/attackOutcome';
 import { VENUES, venueFor, type CombatVenue } from '../data/venues';
@@ -1725,11 +1726,14 @@ export class BodyWorksRuntime {
       if (this.propGrips.has(propId)) continue;
       const rig = this.rigs.get(prop.heldBy); const hand = rig?.bodies.rightHand; const body = registration.body;
       if (!hand || !body.isValid()) continue;
-      const handPosition = hand.translation(); const propPosition = body.translation();
+      const propAnchor = registration.kind === 'chair' ? { x: 0, y: -.42, z: .2 } : registration.kind === 'trash' ? { x: 0, y: -.48, z: 0 } : { x: 0, y: -.25, z: 0 };
+      const handleOffset = rotateByQuaternion(propAnchor, body.rotation());
+      const center = body.translation();
+      const handPosition = hand.translation(); const propPosition = { x: center.x + handleOffset.x, y: center.y + handleOffset.y, z: center.z + handleOffset.z };
       const dx = handPosition.x - propPosition.x; const dy = handPosition.y - propPosition.y; const dz = handPosition.z - propPosition.z;
       // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt for ~8x speedup.
       const distance = Math.max(.001, Math.sqrt(dx * dx + dy * dy + dz * dz));
-      if (distance > .52) {
+      if (distance > .14) {
         const handVelocity = hand.linvel(); const propVelocity = body.linvel(); const desiredSpeed = clamp(distance * 9, 2.4, 7.2);
         const force = {
           x: clamp((handVelocity.x + dx / distance * desiredSpeed - propVelocity.x) * body.mass() * 15, -260, 260),
@@ -1739,7 +1743,6 @@ export class BodyWorksRuntime {
         body.addForce(force, true); hand.addForce({ x: -force.x * .12, y: -force.y * .12, z: -force.z * .12 }, true);
         continue;
       }
-      const propAnchor = registration.kind === 'chair' ? { x: 0, y: -.42, z: .2 } : registration.kind === 'trash' ? { x: 0, y: -.48, z: 0 } : { x: 0, y: -.25, z: 0 };
       const joint = world.createImpulseJoint(jointData.spherical({ x: 0, y: 0, z: 0 }, propAnchor), hand, body, true);
       joint.setContactsEnabled(false);
       this.propGrips.set(propId, { propId, owner: prop.heldBy, joint });
@@ -1755,14 +1758,13 @@ export class BodyWorksRuntime {
     this.metrics.propGripCount = this.propGrips.size;
     this.metrics.jointCount = this.rigs.size * 15 + this.propGrips.size;
     if (!model || !registration?.body.isValid() || !hand) return;
-    const fighter = model[grip.owner]; const current = registration.body.linvel(); const handVelocity = hand.linvel(); const throwSpeed = registration.kind === 'chair' ? 7.2 : 8.7;
-    if (fighter.moveId === 'prop_throw') this.releasedPropAttacks.set(grip.propId, { owner: grip.owner, attackInstanceId: fighter.attackInstanceId, moveId: 'prop_throw', expiresAt: model.elapsed + 1.05 });
-    registration.body.setLinvel({
-      x: current.x * .28 + handVelocity.x * .72 + Math.sin(fighter.facing) * throwSpeed,
-      y: Math.max(1.8, current.y * .3 + handVelocity.y * .7 + 1.7),
-      z: current.z * .28 + handVelocity.z * .72 + Math.cos(fighter.facing) * throwSpeed,
-    }, true);
-    registration.body.setAngvel(registration.kind === 'chair' ? { x: 5.2, y: 2.7, z: -4.4 } : { x: 2.2, y: 3.8, z: 6.4 }, true);
+    const fighter = model[grip.owner]; const current = registration.body.linvel();
+    const throwing = fighter.moveId === 'prop_throw';
+    const prop = model.propsById[grip.propId];
+    const direction = prop ? { x: prop.position.x - fighter.position.x, z: prop.position.z - fighter.position.z } : undefined;
+    if (throwing) this.releasedPropAttacks.set(grip.propId, { owner: grip.owner, attackInstanceId: fighter.attackInstanceId, moveId: 'prop_throw', expiresAt: model.elapsed + 1.05 });
+    registration.body.setLinvel(propReleaseVelocity(throwing, fighter.facing, current, direction), true);
+    registration.body.setAngvel(throwing ? { x: 2.2, y: 1.2, z: -.8 } : { x: 0, y: 0, z: 0 }, true);
   }
 
   private capRigVelocity(rig: FighterRigRegistration): void {

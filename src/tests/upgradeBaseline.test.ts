@@ -1,3 +1,4 @@
+import { propReleaseVelocity } from '../game/physics/propHandling';
 import { describe, expect, it } from 'vitest';
 import { readFileSync, existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
@@ -10,7 +11,12 @@ describe('FRWF upgrade baseline', () => {
   it('keeps keyboard and controller action coverage aligned', () => {
     const controller = new Set(GAMEPAD_BUTTON_ACTIONS.map(([, action]) => action));
     controller.add('guard'); expect(GAMEPAD_HELD_ACTIONS.guard).toBe(6); expect(GAMEPAD_HELD_ACTIONS.sprint).toBe(7);
-    for (const key of ['KeyJ', 'KeyK', 'KeyL', 'KeyI', 'Space', 'KeyC', 'KeyE', 'KeyF', 'KeyQ']) expect(controller.has(KEYBOARD_ACTIONS[key])).toBe(true);
+    for (const key of ['KeyJ', 'KeyK', 'KeyL', 'KeyI', 'Space', 'KeyC', 'KeyE', 'KeyF', 'KeyQ']) { const action = KEYBOARD_ACTIONS[key]; if (!action) throw new Error('Missing binding'); expect(controller.has(action)).toBe(true); }
+  });
+  it('drops without launching and throws in the requested direction', () => {
+    expect(propReleaseVelocity(false, 0, { x: 0, y: 1, z: 0 })).toEqual({ x: 0, y: 0, z: 0 });
+    const release = propReleaseVelocity(true, 0, { x: 0, y: 0, z: 0 }, { x: -1, z: 0 });
+    expect(release.x).toBeLessThan(-7); expect(release.z).toBe(0); expect(release.y).toBeGreaterThan(0);
   });
   it('releases a weapon on knockdown without destroying it', () => {
     const model = createMatch('dale', 'britt', 'chaos', 'easy'); model.labMode = true;
