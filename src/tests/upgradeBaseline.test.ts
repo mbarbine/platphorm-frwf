@@ -2,13 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync, existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { createMatch, advanceMatch } from '../game/systems/combat';
-import { KEYBOARD_ACTIONS, GAMEPAD_BUTTON_ACTIONS } from '../game/input/actionLayer';
+import { KEYBOARD_ACTIONS, GAMEPAD_BUTTON_ACTIONS, GAMEPAD_HELD_ACTIONS } from '../game/input/actionLayer';
 import { WORLD_ENCOUNTERS, canStandAt } from '../game/world/showground';
 import { LAWNMOWER_ACTIVITY, nearLawnmower } from '../game/world/LawnmowerActivity';
 
 describe('FRWF upgrade baseline', () => {
   it('keeps keyboard and controller action coverage aligned', () => {
     const controller = new Set(GAMEPAD_BUTTON_ACTIONS.map(([, action]) => action));
+    controller.add('guard'); expect(GAMEPAD_HELD_ACTIONS.guard).toBe(6); expect(GAMEPAD_HELD_ACTIONS.sprint).toBe(7);
     for (const key of ['KeyJ', 'KeyK', 'KeyL', 'KeyI', 'Space', 'KeyC', 'KeyE', 'KeyF', 'KeyQ']) expect(controller.has(KEYBOARD_ACTIONS[key])).toBe(true);
   });
   it('releases a weapon on knockdown without destroying it', () => {
