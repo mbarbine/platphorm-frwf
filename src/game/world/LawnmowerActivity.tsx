@@ -19,6 +19,5 @@ export function LawnmowerGame({ onClose }: { onClose: () => void }) {
     <button className="button button--quiet" onClick={onClose}>RETURN TO FRWF</button><h2>Mow the grounds</h2>
     <p>Your FRWF position is saved. Lawnmower runs its own game and progress.</p>
     {!started ? <button className="button button--hero" onClick={() => setStarted(true)}>PLAY LAWNMOWER HERE</button> : <iframe title="Lawnmower game" src={LAWNMOWER_ACTIVITY.url} style={{ width: '100%', height: '65vh', border: 0 }} allow="fullscreen; gamepad" allowFullScreen referrerPolicy="strict-origin-when-cross-origin" />}
-    <p><a href={LAWNMOWER_ACTIVITY.url} target="_blank" rel="noopener noreferrer">Open Lawnmower in its own tab</a> if the embedded game cannot load or capture controls.</p>
   </article></div>;
 }
