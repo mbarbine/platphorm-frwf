@@ -62,6 +62,10 @@ const ORIGINAL_VISUALS: Readonly<Record<'atlas' | 'vex' | 'nova' | 'brick' | 'da
 
 export const FIGHTER_VISUALS: Readonly<Record<FighterId, FighterVisualProfile>> = { ...ORIGINAL_VISUALS,
   josh: { ...ORIGINAL_VISUALS.brick, hairColor: '#786044', browColor: '#786044', waistScale: .98, motionTempo: 1 },
+  chelsea: { ...ORIGINAL_VISUALS.brick, hairColor: '#a57b50', motionTempo: 0.91 },
+  britt: { ...ORIGINAL_VISUALS.brick, hairColor: '#433329', motionTempo: 1.03 },
+  beer_bandit_bill: { ...ORIGINAL_VISUALS.brick, hairColor: '#433329', motionTempo: 0.93 },
+  beer_bandit_ted: { ...ORIGINAL_VISUALS.brick, hairColor: '#433329', motionTempo: 1.07 },
   thomas: { ...ORIGINAL_VISUALS.dale, hairColor: '#c5ab68', browColor: '#8e7549' },
   sonny: { ...ORIGINAL_VISUALS.vex, hairColor: '#685039' },
   wrecking_ball: { ...ORIGINAL_VISUALS.brick, waistScale: 1.5, chestScale: 1.3, stepWeight: 1.5 },

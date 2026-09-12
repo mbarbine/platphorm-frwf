@@ -144,6 +144,42 @@ export const FIGHTERS: readonly FighterDefinition[] = [
     physics: { massKg: 88, standingHeightM: 1.85, shoulderWidthM: .51, hipWidthM: .37, armLength: 1, legLength: 1, torsoLength: 1, centerOfMassBias: -.04, reachM: 1.93, muscleStrength: .78, gripStrength: .86, balanceRecovery: .84, jointStiffness: .88 },
     stats: { power: 78, speed: 78, stamina: 84, technique: 84, charisma: 76 },
   },
+  {
+    id: 'chelsea', name: 'CHELSEA WHIPLASH', nickname: 'Whiplash', archetype: 'Agile Grappler',
+    bio: 'An FRWF original inspired by the supplied archive. A playable movement and signature profile; the shared model is provisional while the individual likeness and attire are authored.', signature: 'WHIPLASH REVERSAL', taunt: 'Salutes the crowd, then settles into a ready stance.', tendency: 'technical',
+    personality: { cowardly: 8, showman: 88, technical: 94, aggressive: 66, reckless: 45, dirty: 25, athletic: 94, powerhouse: 66 },
+    palette: { primary: '#dba56d', secondary: '#20252a', skin: '#c39b81', emissive: '#898659' },
+    proportions: { height: 0.904, width: 0.83, headwear: 'bandana' },
+    physics: { massKg: 69, standingHeightM: 1.7, shoulderWidthM: 0.44, hipWidthM: 0.37, armLength: 0.904, legLength: 0.904, torsoLength: 0.904, centerOfMassBias: -.04, reachM: 1.78, muscleStrength: 0.66, gripStrength: .9, balanceRecovery: .8, jointStiffness: .9 },
+    stats: { power: 66, speed: 94, stamina: 92, technique: 94, charisma: 88 },
+  },
+  {
+    id: 'britt', name: 'BRITT BASH', nickname: 'Britt Bash', archetype: 'Agile Grappler',
+    bio: 'An FRWF original inspired by the supplied archive. A playable movement and signature profile; the shared model is provisional while the individual likeness and attire are authored.', signature: 'BASH LANDING', taunt: 'Salutes the crowd, then settles into a ready stance.', tendency: 'technical',
+    personality: { cowardly: 8, showman: 88, technical: 94, aggressive: 66, reckless: 45, dirty: 25, athletic: 94, powerhouse: 66 },
+    palette: { primary: '#e14798', secondary: '#20252a', skin: '#c39b81', emissive: '#898659' },
+    proportions: { height: 0.904, width: 0.83, headwear: 'bandana' },
+    physics: { massKg: 69, standingHeightM: 1.7, shoulderWidthM: 0.44, hipWidthM: 0.37, armLength: 0.904, legLength: 0.904, torsoLength: 0.904, centerOfMassBias: -.04, reachM: 1.78, muscleStrength: 0.66, gripStrength: .9, balanceRecovery: .8, jointStiffness: .9 },
+    stats: { power: 66, speed: 94, stamina: 92, technique: 94, charisma: 88 },
+  },
+  {
+    id: 'beer_bandit_bill', name: 'BEER BANDIT BILL', nickname: 'Beer Bandit Bill', archetype: 'Fast Counter Striker',
+    bio: 'An FRWF original inspired by the supplied archive. A playable movement and signature profile; the shared model is provisional while the individual likeness and attire are authored.', signature: 'GREEN LIGHT HEIST', taunt: 'Crosses his arms, then points toward his opponent.', tendency: 'opportunistic',
+    personality: { cowardly: 8, showman: 91, technical: 82, aggressive: 68, reckless: 45, dirty: 25, athletic: 92, powerhouse: 68 },
+    palette: { primary: '#76bd3b', secondary: '#36413e', skin: '#c49a79', emissive: '#d9d5c5' },
+    proportions: { height: 0.952, width: 0.906, headwear: 'bandana' },
+    physics: { massKg: 82, standingHeightM: 1.79, shoulderWidthM: 0.48, hipWidthM: 0.35, armLength: 0.952, legLength: 0.952, torsoLength: 0.952, centerOfMassBias: -.04, reachM: 1.87, muscleStrength: 0.68, gripStrength: .9, balanceRecovery: .8, jointStiffness: .9 },
+    stats: { power: 68, speed: 92, stamina: 87, technique: 82, charisma: 91 },
+  },
+  {
+    id: 'beer_bandit_ted', name: 'BEER BANDIT TED', nickname: 'Beer Bandit Ted', archetype: 'Fast Counter Striker',
+    bio: 'An FRWF original inspired by the supplied archive. A playable movement and signature profile; the shared model is provisional while the individual likeness and attire are authored.', signature: 'LAST CALL DRIVER', taunt: 'Crosses his arms, then points toward his opponent.', tendency: 'opportunistic',
+    personality: { cowardly: 8, showman: 91, technical: 82, aggressive: 68, reckless: 45, dirty: 25, athletic: 92, powerhouse: 68 },
+    palette: { primary: '#696f76', secondary: '#36413e', skin: '#c49a79', emissive: '#d9d5c5' },
+    proportions: { height: 0.952, width: 0.906, headwear: 'bandana' },
+    physics: { massKg: 82, standingHeightM: 1.79, shoulderWidthM: 0.48, hipWidthM: 0.35, armLength: 0.952, legLength: 0.952, torsoLength: 0.952, centerOfMassBias: -.04, reachM: 1.87, muscleStrength: 0.68, gripStrength: .9, balanceRecovery: .8, jointStiffness: .9 },
+    stats: { power: 68, speed: 92, stamina: 87, technique: 82, charisma: 91 },
+  },
 ] as const;
 
 // Precompute fast O(1) lookup map for fighters to avoid repetitive array .find calls

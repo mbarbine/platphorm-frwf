@@ -22,5 +22,9 @@ export const WRESTLING_STYLES: Record<FighterId, WrestlingStyle> = {
   mondo: { stride: .92, guard: .82, armSwing: 1.15, stance: .071, signatureBase: 'side_toss', commitment: 1.2, turn: -.3, chain: ['jab', 'headbutt', 'combo'] },
   gil: { stride: .86, guard: 1.14, armSwing: .94, stance: .024, signatureBase: 'takedown', commitment: .9, turn: .32, chain: ['jab', 'high_punch', 'combo'] },
   josh: { stride: .97, guard: 1.1, armSwing: .92, stance: .038, signatureBase: 'spinebuster', commitment: .98, turn: -.14, chain: ['jab', 'combo', 'high_punch'] },
+  chelsea: { stride: 0.91, guard: 1.02, armSwing: 0.81, stance: 0.026, signatureBase: 'arm_drag', commitment: 0.95, turn: -0.27, chain: ['jab', 'combo', 'uppercut'] },
+  britt: { stride: 1.03, guard: 1.06, armSwing: 0.8700000000000001, stance: 0.031, signatureBase: 'side_toss', commitment: 1.02, turn: -0.1, chain: ['jab', 'high_punch', 'uppercut'] },
+  beer_bandit_bill: { stride: 0.93, guard: 1.1, armSwing: 0.93, stance: 0.036, signatureBase: 'takedown', commitment: 1.0899999999999999, turn: 0.07, chain: ['jab', 'combo', 'uppercut'] },
+  beer_bandit_ted: { stride: 1.07, guard: 1.1400000000000001, armSwing: 0.99, stance: 0.040999999999999995, signatureBase: 'piledriver', commitment: 1.16, turn: 0.24, chain: ['jab', 'high_punch', 'uppercut'] },
 };
 export const signatureMoveId = (id: FighterId) => `signature_${id}`;

@@ -73,5 +73,25 @@
     "skinUrl": "/characters/sonny-skin.e91d94e61d72.webp",
     "sha256": "e91d94e61d72dc66d73fa9d8de2a360a5ca787b8255e663f4629ffe22c5c7d4a",
     "hairUrl": "/characters/short01.42ce588f4d40.webp"
+  },
+  "chelsea": {
+    "skinUrl": "/characters/gil-skin.1e059d557bbb.webp",
+    "sha256": "1e059d557bbb3c741a6d90c91e4d1610ccc87969a8d59413e4a9213b2af1f954",
+    "hairUrl": "/characters/long01.a129620db6c3.webp"
+  },
+  "britt": {
+    "skinUrl": "/characters/gil-skin.1e059d557bbb.webp",
+    "sha256": "1e059d557bbb3c741a6d90c91e4d1610ccc87969a8d59413e4a9213b2af1f954",
+    "hairUrl": "/characters/long01.a129620db6c3.webp"
+  },
+  "beer_bandit_bill": {
+    "skinUrl": "/characters/sonny-skin.e91d94e61d72.webp",
+    "sha256": "e91d94e61d72dc66d73fa9d8de2a360a5ca787b8255e663f4629ffe22c5c7d4a",
+    "hairUrl": "/characters/short01.42ce588f4d40.webp"
+  },
+  "beer_bandit_ted": {
+    "skinUrl": "/characters/sonny-skin.e91d94e61d72.webp",
+    "sha256": "e91d94e61d72dc66d73fa9d8de2a360a5ca787b8255e663f4629ffe22c5c7d4a",
+    "hairUrl": "/characters/short01.42ce588f4d40.webp"
   }
 }

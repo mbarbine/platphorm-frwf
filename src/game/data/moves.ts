@@ -54,7 +54,8 @@ const BASE_MOVES: Readonly<Record<string, MoveDefinition>> = {
 
 export const MOVES: Readonly<Record<string, MoveDefinition>> = { ...BASE_MOVES, ...Object.fromEntries(FIGHTERS.map(fighter => {
   const style = WRESTLING_STYLES[fighter.id];
-  const base = BASE_MOVES.finisher!;
+  const base = BASE_MOVES.finisher;
+  if (!base) throw new Error('Finisher definition missing');
   const id = signatureMoveId(fighter.id);
   return [id, { ...base, id, displayName: fighter.signature, signatureBase: style.signatureBase, anticipationDuration: base.anticipationDuration * style.commitment, recoveryDuration: base.recoveryDuration * style.commitment, counterWindow: [.2 * style.commitment, .5 * style.commitment] as const }];
 })) };

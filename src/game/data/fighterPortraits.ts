@@ -2,6 +2,10 @@ import type { FighterId } from '../types/game';
 
 /** Original user-provided photographs; framing leaves the source images intact. */
 export const FIGHTER_PORTRAITS: Partial<Record<FighterId, { url: string; position: string }>> = {
+  chelsea: { url: '/archive/chelsea-whiplash.png', position: '70% 25%' },
+  britt: { url: '/archive/britt-bash.png', position: '35% 20%' },
+  beer_bandit_bill: { url: '/archive/beer-bandits.png', position: '22% 30%' },
+  beer_bandit_ted: { url: '/archive/beer-bandits.png', position: '70% 20%' },
   josh: { url: '/portraits/josh.png', position: '50% 35%' },
   chad: { url: '/portraits/chad.png', position: '50% 12%' },
   dale: { url: '/portraits/dale.png', position: '48% 12%' },

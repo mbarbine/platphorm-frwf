@@ -13,7 +13,8 @@ describe('underground wrestling upgrade', () => {
   it('provides reachable weapons, table climbing and broken-object rejection', () => {
     const model = createMatch('josh', 'vex', 'chaos', 'easy'); configureCombatVenue(model, 'underground');
     model.opponent.position = { x: 6, z: 5 };
-    const chair = model.props.find(p => p.kind === 'chair')!;
+    const chair = model.props.find(p => p.kind === 'chair');
+    if (!chair) throw new Error('Missing underground chair');
     model.player.position = { ...chair.position };
     expect(requestCommand(model, 'player', 'quick')).toBe(true);
     expect(model.player.heldPropId).toBe(chair.id);
@@ -22,7 +23,7 @@ describe('underground wrestling upgrade', () => {
     expect(resolveContextAction(model, 'player').actionId).toBe('object_climb');
     expect(requestCommand(model, 'player', 'context')).toBe(true);
     expect(model.player.climbObjectId).toBe('table-1');
-    model.player.state = 'idle'; model.propsById['table-1']!.broken = true;
+    model.player.state = 'idle'; const table = model.propsById['table-1']; if (!table) throw new Error('Missing table'); table.broken = true;
     expect(resolveContextAction(model, 'player').legalState).toBe(false);
   });
   it('does not offer remote corner climbs or pickups through the ring apron', () => {
