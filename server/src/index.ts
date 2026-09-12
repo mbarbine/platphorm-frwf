@@ -37,6 +37,10 @@ async function bootstrap(): Promise<void> {
     res.setHeader('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'");
     // Enforce HTTP Strict Transport Security (HSTS) to prevent protocol downgrade and MITM attacks (CWE-523)
     res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    // Enforce Referrer-Policy to prevent URL credential / path leakage in HTTP referrer headers (CWE-200)
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    // Enforce Permissions-Policy to restrict browser feature usage (CWE-693)
+    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
     next();
   });
 
