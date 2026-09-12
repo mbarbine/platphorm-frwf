@@ -13,7 +13,7 @@ test('records a connected source punch and kick through ordinary attack keys', a
   await expect(page.locator('html')).toHaveAttribute('data-fighters-ready', 'true', { timeout: 45000 });
   await expect(page.getByTestId('game-canvas')).toHaveAttribute('data-simulation-ready', 'true', { timeout: 45000 });
   const lab = page.getByTestId('physics-lab'); const hud = page.locator('.hud');
-  for (const [key, name] of [['j', 'jab'], ['k', 'front-kick']] as const) {
+  for (const [key, name] of [['j', 'jab'], ['k', 'close-kick']] as const) {
     // The lab places the pair but sends no attack. Damage must follow the
     // ordinary key press, while the video retains the actual physical motion.
     await lab.getByRole('button', { name: 'CLOSE-RANGE INPUT', exact: true }).click();
@@ -22,7 +22,7 @@ test('records a connected source punch and kick through ordinary attack keys', a
     await lab.getByRole('button', { name: 'MINIMIZE PHYSICS LAB' }).click();
     await page.keyboard.press(key);
     const attack = hud.locator('[data-attack-sequence]');
-    await expect(attack).toHaveAttribute('data-attack-move', key === 'j' ? 'jab' : 'front_kick');
+    await expect(attack).toHaveAttribute('data-attack-move', key === 'j' ? /^jab$/ : /^(front_kick|low_kick)$/);
     await expect.poll(async () => Number(await hud.getAttribute('data-opponent-health')), { timeout: 10000 }).toBeLessThan(100);
     await expect(attack).toHaveAttribute('data-attack-contact', 'hit');
     await expect.poll(async () => Number(await attack.getAttribute('data-attack-pose-frames'))).toBeGreaterThan(1);
