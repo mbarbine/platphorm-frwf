@@ -54,7 +54,8 @@ for (const [bone, entries] of Object.entries(weights)) {
   const index = names.indexOf(segment(bone));
   for (const [vertex, weight] of entries) merged[vertex].set(index, (merged[vertex].get(index) ?? 0) + weight);
 }
-const profiles = FIGHTERS.map(fighter => ({ id: fighter.id, height: fighter.physics.standingHeightM, width: 1, skin: fighter.palette.skin, gear: fighter.palette.secondary, accent: fighter.palette.emissive, tattoo: phenotypes[fighter.id].tattoo }));
+const provisionalModels = JSON.parse(readFileSync(new URL('provisional-models.json', import.meta.url), 'utf8'));
+const profiles = FIGHTERS.filter(fighter => !provisionalModels[fighter.id]).map(fighter => ({ id: fighter.id, height: fighter.physics.standingHeightM, width: 1, skin: fighter.palette.skin, gear: fighter.palette.secondary, accent: fighter.palette.emissive, tattoo: phenotypes[fighter.id].tattoo }));
 const shirts = ['#923b3a','#36516c','#d0b475','#35594b','#70466c','#c2b5a5'];
 const skins = ['#b98163','#84573f','#5a3d30','#d4a480','#b98d72','#724e3e'];
 for (let i=0;i<12;i++) profiles.push({id:`crowd-${i}`, crowd:true, width:1,skin:skins[i%skins.length],gear:shirts[i%shirts.length],accent:'#303744',tattoo:'none'});
@@ -216,6 +217,11 @@ for (const profile of profiles) {
   const eyeCenter=bonePoint('eye.L','head').add(bonePoint('eye.R','head')).multiplyScalar(.5);
   const faceOffset=eyeCenter.sub(bones[3].position).toArray();
   manifest.fighters.push({faceOffset,id:profile.id,url:`/characters/${filename}`,sha256,bytes:data.length,triangles:indices.length/3,bones:names});console.log(profile.id,data.length,indices.length/3);
+}
+for (const [id, sharedAssetFrom] of Object.entries(provisionalModels)) {
+  const shared = manifest.fighters.find(asset => asset.id === sharedAssetFrom);
+  if (!shared) throw new Error(`Missing provisional source: ${sharedAssetFrom}`);
+  manifest.fighters.push({ ...shared, id, sharedAssetFrom, presentationStatus: 'provisional' });
 }
 const existingManifest = new URL('manifest.json',output);
 // Keep the current crowd usable during an incremental authoring rebuild.

@@ -17,7 +17,8 @@ describe('canonical humanoid scale', () => {
     const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
     const gltf = await new GLTFLoader().parseAsync(buffer, '');
     const sourceHead = gltf.scene.getObjectByName('head')?.position.y;
-    const source = gltf.scene.getObjectByName(asset.id) as SkinnedMesh;
+    const meshName = 'sharedAssetFrom' in asset ? asset.sharedAssetFrom : asset.id;
+    const source = gltf.scene.getObjectByName(meshName) as SkinnedMesh;
     const originalY = source.geometry.getAttribute('position').getY(0);
     const instance = clone(gltf.scene);
     const fit = fitHumanoid(instance, asset.id as FighterId);
@@ -26,7 +27,7 @@ describe('canonical humanoid scale', () => {
     expect((instance.getObjectByName('head')?.position.y ?? 0) - (instance.getObjectByName('leftFoot')?.position.y ?? 0)).toBeCloseTo(targetSpan, 4);
     expect(gltf.scene.getObjectByName('head')?.position.y).toBe(sourceHead);
     expect(source.geometry.getAttribute('position').getY(0)).toBe(originalY);
-    const fitted = instance.getObjectByName(asset.id) as SkinnedMesh;
+    const fitted = instance.getObjectByName(meshName) as SkinnedMesh;
     expect(fitted.geometry).not.toBe(source.geometry);
     expect(fit.scale).toBeGreaterThan(1);
     fitted.skeleton.update();

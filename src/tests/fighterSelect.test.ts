@@ -82,7 +82,7 @@ describe('Fighter Select Keyboard and ARIA Accessibility', () => {
     expect(atlasCard.getAttribute('aria-pressed')).toBe('true');
     expect(screen.getByText(/Selected fighter: ATLAS REX, Heavyweight Powerhouse/i)).toBeTruthy();
 
-    // 5. Trigger ArrowLeft (Should wrap to the last fighter "G.I. JIL")
+    // 5. Trigger ArrowLeft (Should wrap to the last fighter "Josh The Enforcer")
     act(() => {
       window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft' }));
     });
