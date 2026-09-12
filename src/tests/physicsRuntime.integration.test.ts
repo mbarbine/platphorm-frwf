@@ -330,6 +330,21 @@ describe('Rapier-backed Bodyworks integration', () => {
     } finally { runtime.reset(); world.free(); }
   });
 
+  it('physically ascends all corner stages from one ordinary context command', () => {
+    const { world, runtime, model } = makeHarness();
+    try {
+      model.labMode = true;
+      runtime.prepareLabPositions({ x: 4.9, z: 3.35 }, { x: 0, z: -2 });
+      for (let frame = 0; frame < 60; frame++) stepHarness(world, runtime, model);
+      const initialY = runtime.fighterSnapshot('player').pelvisY;
+      expect(requestCommand(model, 'player', 'context')).toBe(true);
+      for (let frame = 0; frame < 300; frame++) stepHarness(world, runtime, model);
+      expect(model.player.climbStage, JSON.stringify(runtime.fighterSnapshot('player'))).toBe(3);
+      expect(runtime.fighterSnapshot('player').pelvisY).toBeGreaterThan(initialY + 1);
+      expect(runtime.metrics.emergencyResetCount).toBe(0);
+    } finally { runtime.reset(); world.free(); }
+  });
+
   it('climbs from the ringside floor over the solid apron before moving into the ring', () => {
     const { world, runtime, model } = makeHarness();
     try {

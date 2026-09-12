@@ -489,7 +489,7 @@ describe('deterministic combat rules', () => {
     const model = createMatch('chad', 'atlas', 'standard', 'normal'); model.player.position = { x: 0, z: 0 }; model.opponent.position = { x: 1, z: 0 };
     model.player.momentum = 100; model.opponent.state = 'staggered';
     expect(requestCommand(model, 'player', 'context')).toBe(true); expect(model.opponent.state).toBe('grabbed');
-    advanceMatch(model, .2, none); expect(model.opponent.state).toBe('grabbed'); expect(model.player.moveId).toBe('signature_atlas');
+    advanceMatch(model, .2, none); expect(model.opponent.state).toBe('grabbed'); expect(model.player.moveId).toBe('signature_chad');
   });
 
   it('registers The Claw as a complete playable fighter', () => {

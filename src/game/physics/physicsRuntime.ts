@@ -2013,7 +2013,7 @@ export class BodyWorksRuntime {
       // Lift toward the carrier's shoulder instead of accelerating upward for
       // the entire anticipation window. The old open-loop drive launched a
       // body-slam victim more than three metres above its standing height.
-      const liftHeight = clamp(throwMotionFor(environmentTarget ? 'slam' : move.id).liftHeight * liftDrive, .5, 1.2);
+      const liftHeight = clamp(throwMotionFor(environmentTarget ? 'slam' : move.signatureBase ?? move.id).liftHeight * liftDrive, .5, 1.2);
       const liftError = attackerPosition.y + liftHeight - defenderPosition.y;
       const liftAcceleration = clamp(18 + liftError * 72 - defenderPelvis.linvel().y * 14, -30, 76);
       this.applyRigAcceleration(defenderRig, { x: 0, y: liftAcceleration, z: 0 });
@@ -2035,8 +2035,8 @@ export class BodyWorksRuntime {
       // A held direction during the release is the player's throw direction.
       // A neutral throw uses its own lane relative to the live clinch axis.
       // Deliberate steering takes priority over that authored direction.
-      const motion = throwMotionFor(environmentTarget ? 'slam' : move.id);
-      const inputDirection = throwDirection({ x: separationX, z: separationZ }, attackerIntent.move, move.id);
+      const motion = throwMotionFor(environmentTarget ? 'slam' : move.signatureBase ?? move.id);
+      const inputDirection = throwDirection({ x: separationX, z: separationZ }, attackerIntent.move, move.signatureBase ?? move.id);
       const environmentDelta = environmentTarget ? { x: environmentTarget.position.x - defenderPosition.x, z: environmentTarget.position.z - defenderPosition.z } : null;
       // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt for ~8x speedup.
       const environmentDistance = environmentDelta ? Math.sqrt(environmentDelta.x * environmentDelta.x + environmentDelta.z * environmentDelta.z) : Number.POSITIVE_INFINITY;
