@@ -1,7 +1,8 @@
 import { expect, test } from '@playwright/test';
 test.setTimeout(90000);
 test('opens the source archive and launches the embedded mower from the grounds', async ({ page }) => {
-  await page.goto('/');
+  const live = process.env.RUN_LIVE_INTEGRATION_TESTS === 'true';
+  await page.goto(live ? 'https://frwf.platphormnews.com' : '/');
   await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
   await page.getByRole('button', { name: 'EXPLORE SHOWGROUND' }).click();
   await page.getByRole('button', { name: 'BEER BANDIT BILL', exact: true }).click();
@@ -20,9 +21,12 @@ test('opens the source archive and launches the embedded mower from the grounds'
   await page.getByRole('button', { name: /PLAY LAWNMOWER/ }).click();
   const frame = page.locator('iframe[title="Lawnmower game"]');
   await expect(frame).toHaveAttribute('src', 'https://lawnmower.platphormnews.com/embed');
+  // The provider permits PlatPhorm parents, not localhost. Validate the real bridge on the canonical host.
+  if (live) {
   await expect(page.frameLocator('iframe[title="Lawnmower game"]').locator('body')).not.toBeEmpty({ timeout: 30000 });
   await expect(page.getByText(/MULCH MADNESS ·/)).toBeVisible({ timeout: 35000 });
   await page.screenshot({ path: 'test-results/mower-embedded.png' });
+  }
   await page.getByRole('button', { name: 'RETURN TO FRWF' }).click();
   await expect(frame).toHaveCount(0); await expect(world).toBeVisible();
 });

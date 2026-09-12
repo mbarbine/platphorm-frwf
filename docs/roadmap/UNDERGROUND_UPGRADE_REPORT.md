@@ -9,7 +9,7 @@ FRWF remains a local-first browser wrestling game with an explorable showground.
 - FRWF Underground is selectable in match setup and reachable through a showground encounter. Twelve of the 45 supplied venue models are imported with hashed files and shared textures: chair, table, trash can, brick wall, column, beam, gate, banner, crate, work light, bleachers and speakers. Decorative architecture is not a claim of climbable scenery.
 - Nineteen selectable wrestlers, including Josh, Chelsea Whiplash, Britt Bash, Beer Bandit Bill and Beer Bandit Ted. Each has a movement profile, quick-strike sequence, taunt pose and named signature based on existing physical move families. Josh and the newest four explicitly use provisional shared models. Their likeness, outfit and bespoke animation delivery remains open. Bill and Ted's challenges are singles; team identity does not imply tag-team mechanics.
 - Eleven local showground encounters. Fifteen original supplied images are preserved unedited in `public/archive`, with SHA-256 provenance records and an in-game historical archive. Historical tournament notices and flyers do not control current results or advertise current events.
-- One original procedural push mower in the showground at x=4, z=15 launches `https://lawnmower.platphormnews.com` inside an iframe. FRWF pauses and checkpoints its own position. Closing removes the iframe and resumes exploration. No separate-tab launch, API key, shared score claim or remote save integration.
+- One original procedural push mower in the showground at x=4, z=15 launches `https://lawnmower.platphormnews.com/embed` inside an iframe. FRWF pauses and checkpoints its own position. Closing removes the iframe and resumes exploration. The origin/source-checked embed bridge reports readiness and mowing coverage, supports pause/resume and exit. No separate-tab launch, API key or shared-save integration.
 - Battle royale traversal and object climbing no longer reject an uninvolved wrestler merely because two other wrestlers are grappling.
 - Climbing has gravity-compensated vertical drive and physical stage advancement. The old per-frame upward velocity cap could not overcome gravity. Table climbing uses an intact table's actual surface height.
 - Knockdown releases held props. Dropping no longer launches a weapon as if thrown. Throws use the requested direction. Pickup approaches the actual grip anchor before attaching, reducing the old half-metre joint snap. Carrying, swings and acquisition still require additional dynamic-body and visual acceptance.
@@ -22,16 +22,16 @@ This is baseline version 1, not the completed lab overhaul. Physical-controller 
 
 ## Files changed
 
-Roster/protocol: `packages/game-protocol/src/types.ts`, fighters, styles, portraits, visuals, choreography, character manifests/material aliases and provisional asset tooling. Gameplay: context resolver, combat, physics runtime, prop release helper, input bindings and match store. World/UI: App, FighterSelection, venues, FightVenue, UndergroundSet, WorldWrestler, WorldScene, showground, FrwfArchive, LawnmowerActivity and PhysicsLab. Assets: `public/venue/completion`, `public/archive`. Verification: undergroundUpgrade, upgradeBaseline, contextResolver, physicsRuntime integration, roster/contract tests, and mower-archive browser journey.
+Roster/protocol: `packages/game-protocol/src/types.ts`, fighters, styles, portraits, visuals, choreography, character manifests/material aliases and provisional asset tooling. Gameplay: context resolver, combat, physics runtime, prop release helper, input bindings and match store. World/UI: App, FighterSelection, venues, FightVenue (including UndergroundSet), WorldWrestler, WorldScene, showground, FrwfArchive, LawnmowerActivity and PhysicsLab. Assets: `public/venue/completion`, `public/archive`. Verification: undergroundUpgrade, upgradeBaseline, contextResolver, physicsRuntime integration, roster/contract tests, and mower-archive browser journey.
 
 ## Verification and evidence boundaries
 
 - Production build (`pnpm build`) passes after correcting `WorldWrestler` to pass the existing `fighter` parameter.
-- `pnpm test`: 732 tests passed across 76 files after prop-release corrections. This includes rules/asset/input checks and existing physics tests, not 732 visual playtests.
-- `pnpm lint`: passed before the final lab rules-selector edit; final check recorded in the task response.
+- `pnpm test`: 735 tests passed across 77 files after prop-release corrections. This includes rules/asset/input checks and existing physics tests, not 735 visual playtests.
+- `pnpm lint`: passed after the final lab rules-selector edit.
 - Earlier targeted physical corner ascent: ordinary context command reached all three stages with no emergency reset. The fixture does not certify every real corner/rope collision or table interaction.
-- Lawnmower HTTPS returned 200 with no frame-blocking header in the inspected response. Actual iframe journey result is recorded below when complete.
-- No production deployment, DNS change, certificate repair or authenticated integration was performed in this increment. The user has been committing concurrently; source availability is not deployment proof.
+- Lawnmower production browser journey passed (44.2s): archive, approach mower, iframe content, ready/coverage message and return to FRWF. Localhost iframe failed because the provider frame-ancestors policy permits PlatPhorm parents only; the test now distinguishes local launcher coverage from live embed verification.
+- The user deployed Vercel; the canonical game was then verified by the production mower journey. Cloudflare production Worker and static assets deployed through the new cloudflare-deploy.sh: version 7faac2eb-3ffc-4aaa-9f99-eb8d9027c73e, release 1.4.1, source marker workspace-575084a6c3a5. Health, database, R2 and game JavaScript verified operational. Worker typecheck, dry-run build and all 3 integration tests passed. No secrets, DNS or D1 schema changes. Concurrent commits were preserved.
 
 ## Platform impact
 
@@ -45,3 +45,7 @@ Discovery reports updated encounter/roster scope and preserves honest local-save
 4. Finish Josh/Chelsea/Britt/Bill/Ted models and attire; replace provisional aliases only after asset and visual checks.
 5. Improve showground scenery/crowd and integrate the remaining 33 source models in measured batches. Preserve the real FRWF backyard direction.
 6. Verify final production release and canonical host separately after gameplay acceptance; do not confuse an uploaded build with a completed gameplay overhaul.
+
+## End-of-day handoff
+
+Deployment tooling: root `cloudflare-deploy.sh` supports `--dry-run`, freezes upload artifacts, preserves secrets and checks post-deployment health/assets. See `cloudflare/DEPLOYMENT.md`. The script was syntax-checked and executed successfully. Root build/lint/735 tests and Worker build/typecheck/3 tests passed. Production embed journey passed. Gameplay visual acceptance remains open, particularly foot/ankle alignment, carrying, swings and recovery. The remaining network sites were not changed or certified.
