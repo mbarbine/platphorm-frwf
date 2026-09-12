@@ -1,15 +1,16 @@
-import { describe, expect, it, beforeEach, afterEach } from 'vitest';
+import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 import React from 'react';
 import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import { Tutorial } from '../ui/Tutorial';
 
 describe('Tutorial accessibility & keyboard navigation', () => {
   beforeEach(() => {
-    localStorage.clear();
+    const values = new Map<string,string>();
+    vi.stubGlobal('localStorage',{ getItem: (key:string) => values.get(key) ?? null, setItem: (key:string,value:string) => values.set(key,value), clear: () => values.clear() });
   });
 
   afterEach(() => {
-    cleanup();
+    cleanup(); vi.unstubAllGlobals();
   });
 
   it('renders live region announcement when tutorial is displayed', () => {

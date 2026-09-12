@@ -9,7 +9,7 @@ import { fogBurstEnvelope } from '../presentation/crowdActivity';
 export function EntranceFog() {
   const reduced = useSettings(s => s.reducedMotion);
   const mesh = useRef<InstancedMesh>(null); const material = useRef<MeshBasicMaterial>(null);
-  const age = useRef(12); const dummy = useMemo(() => new Object3D(),[]);
+  const age = useRef(0); const dummy = useMemo(() => new Object3D(),[]);
   const texture = useMemo(() => {
     const canvas = document.createElement('canvas'); canvas.width=64;canvas.height=64;
     const ctx=canvas.getContext('2d');

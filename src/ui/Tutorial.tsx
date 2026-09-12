@@ -4,12 +4,12 @@ import type { ControlDevice } from '../game/types/game';
 const KEY = 'ringfall-tutorial-complete-v2';
 
 export function Tutorial({ device }: { device: ControlDevice }) {
-  const [visible, setVisible] = useState(() => localStorage.getItem(KEY) !== 'true');
+  const [visible, setVisible] = useState(() => { try { return localStorage?.getItem(KEY) !== 'true'; } catch { return true; } });
   const [timeRemaining, setTimeRemaining] = useState(7_000);
   const [isPaused, setIsPaused] = useState(false);
 
   const close = (): void => {
-    localStorage.setItem(KEY, 'true');
+    try { localStorage?.setItem(KEY, 'true'); } catch { /* Storage may be disabled in private browsing. */ }
     setVisible(false);
   };
 
