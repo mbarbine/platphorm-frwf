@@ -1,3 +1,4 @@
+import { climbVerticalDelta, objectClimbTarget } from '../systems/climbing';
 import { AttackOutcomeTracker, type AttackIdentity, type AttackOutcome } from '../input/attackOutcome';
 import { VENUES, venueFor, type CombatVenue } from '../data/venues';
 import { planarInputVelocity } from '../input/playerController';
@@ -975,20 +976,25 @@ export class BodyWorksRuntime {
       const position = pelvis.translation(); const target = rig.cornerAnchor;
       target.stage = fighter.climbStage || 1;
       const legReach = 1.12 * definition.physics.standingHeightM / 1.88;
-      const targetY = (target.stage === 1 ? 2.35 : target.stage === 2 ? 2.9 : 3.6) + legReach - (target.stage < 3 ? .24 : .1);
+      const surface = fighter.climbObjectId ? objectClimbTarget(model, fighter.climbObjectId) : null;
+      if (fighter.climbObjectId && !surface) { fighter.state = 'airborne'; fighter.climbStage = 0; fighter.climbObjectId = null; rig.cornerAnchor = null; return; }
+      if (surface) { target.x = surface.x; target.z = surface.z; }
+      const targetY = surface ? surface.topY + legReach - (target.stage < 3 ? .35 : .08) : (target.stage === 1 ? 2.35 : target.stage === 2 ? 2.9 : 3.6) + legReach - (target.stage < 3 ? .24 : .1);
       // Pull the articulated tree with one critically damped centre-of-mass
       // velocity. The old high-gain acceleration fought the fixed post every
       // frame, producing the visible rope-merge jitter. This remains physical:
       // contacts and joints solve the approach and no transform is written.
       const center = this.rigPlanarCenter(rig);
       const desiredX = clamp((target.x - center.x) * 5.6, -3.2, 3.2);
-      const desiredY = clamp((targetY - position.y) * 5.8, -3.4, 3.4);
+      const feetY = Math.min(rig.bodies.leftFoot?.translation().y ?? 0, rig.bodies.rightFoot?.translation().y ?? 0);
+      const clearingObject = Boolean(surface && feetY < surface.topY + .12 && Math.hypot(target.x - center.x, target.z - center.z) > .3);
       const desiredZ = clamp((target.z - center.z) * 5.6, -3.2, 3.2);
       this.applyRigVelocityDelta(rig, {
-        x: clamp(desiredX - center.velocityX, -.24, .24),
-        y: clamp(desiredY - velocity.y, -.22, .22),
-        z: clamp(desiredZ - center.velocityZ, -.24, .24),
+        x: clamp((clearingObject ? 0 : desiredX) - center.velocityX, -24 * dt, 24 * dt),
+        y: climbVerticalDelta(targetY - position.y + (clearingObject ? .5 : 0), velocity.y, dt),
+        z: clamp((clearingObject ? 0 : desiredZ) - center.velocityZ, -24 * dt, 24 * dt),
       });
+      if (target.stage < 3 && fighter.stateElapsed > .4 && Math.abs(targetY - position.y) < .25 && Math.hypot(target.x - center.x, target.z - center.z) < .35) { fighter.climbStage = (target.stage + 1) as 2 | 3; fighter.stateElapsed = 0; }
       this.applyPoseDrive(rig, fighter, motorProfile);
       return;
     }

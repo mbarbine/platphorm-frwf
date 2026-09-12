@@ -1,3 +1,4 @@
+import { cornerClimbAvailable, nearbyClimbableObject } from './climbing';
 import { venueFor } from '../data/venues';
 import { getMove } from '../data/moves';
 import { BALANCE } from '../data/balance';
@@ -11,6 +12,7 @@ export type ContextActionId =
   | 'top_rope_aerial'
   | 'corner_move'
   | 'environmental_wrestling_move'
+  | 'object_climb'
   | 'turnbuckle_climb'
   | 'ring_traversal'
   | 'stand_opponent'
@@ -65,7 +67,7 @@ export const resolveContextAction = (model: MatchModel, actorKey: FighterSlot, d
   }
 
   // F4 — a wrestler already on top resolves the aerial before any corner/traversal branch.
-  if (venueFor(model).hasRing && actor.state === 'climbing' && actor.climbStage === 3 && separation <= getMove('aerial').maximumRange && !['defeated', 'victorious'].includes(target.state)) {
+  if (actor.state === 'climbing' && actor.climbStage === 3 && separation <= getMove('aerial').maximumRange && !['defeated', 'victorious'].includes(target.state)) {
     return resolved('top_rope_aerial', getMove('aerial').displayName.toUpperCase(), targetKey, 'Top-rope target is in aerial range', 4);
   }
 
@@ -84,13 +86,17 @@ export const resolveContextAction = (model: MatchModel, actorKey: FighterSlot, d
     return resolved('environmental_wrestling_move', venueFor(model).hasRing ? 'COMMENTARY DESK SPOT' : 'WOODEN TABLE SPOT', table.id, 'Secured clinch is aligned with the table', 6);
   }
 
-  if (venueFor(model).hasRing && actor.state === 'climbing' && actor.climbStage < 3) {
-    return resolved('turnbuckle_climb', actor.climbStage === 1 ? 'CLIMB MIDDLE ROPE' : 'CLIMB TOP ROPE', 'turnbuckle', 'Continue the active staged climb', 7);
+  if (actor.state === 'climbing' && actor.climbStage < 3) {
+    if (actor.climbObjectId) return rejected('object_climb', 'CLIMBING TABLE · WAIT FOR FOOTING', 'Climb advances when physically supported', 7);
+    return resolved(actor.climbObjectId ? 'object_climb' : 'turnbuckle_climb', actor.climbStage === 1 ? 'CLIMB MIDDLE ROPE' : 'CLIMB TOP ROPE', 'turnbuckle', 'Continue the active staged climb', 7);
   }
-  const nearCorner = Math.abs(actor.position.x) > 4.35 && Math.abs(actor.position.z) > 2.95;
+  const nearCorner = cornerClimbAvailable(actor);
   if (venueFor(model).hasRing && nearCorner && ['idle', 'locomotion'].includes(actor.state)) {
     return resolved('turnbuckle_climb', 'CLIMB LOWER ROPE', 'turnbuckle', 'Standing inside the turnbuckle climb lane', 7);
   }
+
+  const climbObject = ['idle', 'locomotion'].includes(actor.state) ? nearbyClimbableObject(model, actor) : null;
+  if (climbObject && !model.grapple) return resolved('object_climb', 'CLIMB TABLE', climbObject, 'Supported table edge within reach', 7);
 
   if (venueFor(model).hasRing && canTraverseRopes(actor.position) && ['idle', 'locomotion'].includes(actor.state) && !model.grapple) {
     const ringside = Math.abs(actor.position.x) > 5.82 || Math.abs(actor.position.z) > 4.32;

@@ -22,6 +22,7 @@ export const WORLD_OBSTACLES: readonly WorldObstacle[] = [
 ];
 export interface WorldEncounter { id: string; title: string; host: FighterId; position: Vec2; description: string; difficulty: Difficulty; rules: Ruleset; region: RegionId; venue: CombatVenue; requiredVictories?: number }
 export const WORLD_ENCOUNTERS: readonly WorldEncounter[] = [
+  { id: 'underground', title: 'The Enforcer’s underground challenge', host: 'josh', position: { x: -1, z: -19 }, description: 'Enter the brick-walled underground: chairs, a trash can and a climbable table. No disqualifications, falls count anywhere.', difficulty: 'easy', rules: 'chaos', region: 'backstage', venue: 'underground' },
   { id: 'warmup', title: 'Backyard warm-up', host: 'vex', position: { x: 0, z: 10 }, description: 'Wrestle outdoors in the backyard fight pit. Close the distance, secure a clinch, then throw.', difficulty: 'easy', rules: 'standard', region: 'showground', venue: 'yard' },
   { id: 'sparring', title: 'Backstage fight club', host: 'nova', position: { x: -13.5, z: -13 }, description: 'A close-quarters wrestling bout in the locker yard. Work a clinch into a wooden-table slam.', difficulty: 'easy', rules: 'standard', region: 'backstage', venue: 'backstage' },
   { id: 'main-event', title: 'The Claw’s open challenge', host: 'chad', position: { x: 11, z: -2.5 }, description: 'A full Singles match in the Volt Dome. Win here to earn your first main-event victory.', difficulty: 'normal', rules: 'standard', region: 'ringside', venue: 'dome' },

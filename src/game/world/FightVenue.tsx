@@ -66,7 +66,8 @@ export function FightVenue({ venue }: { venue: Exclude<CombatVenue, 'dome'> }) {
   const profile = VENUES[venue]; const { halfWidth: w, halfDepth: d, floorY: y } = profile;
   const floor = useRef<RapierRigidBody>(null);
   const props = useMatchStore(s => s.model.props); const runtimeId = useMatchStore(s => s.model.runtimeId);
-  const backstage = venue === 'backstage';
+  const underground = venue === 'underground';
+  const backstage = venue === 'backstage' || underground;
   const texture = useMemo(() => {
     const canvas = document.createElement('canvas'); canvas.width = canvas.height = 256;
     const ctx = canvas.getContext('2d');
@@ -91,7 +92,7 @@ export function FightVenue({ venue }: { venue: Exclude<CombatVenue, 'dome'> }) {
     <mesh position={[0, y + .015, 0]} rotation={[-Math.PI / 2, 0, 0]}><ringGeometry args={[2.9, 2.94, 64]} /><meshStandardMaterial color="#e6d9b5" roughness={1} transparent opacity={.65} /></mesh>
     <WorldSign text={profile.name.toUpperCase()} position={[0, y + 3.4, -d - 2]} width={6.5} />
     <WorldSign text="FRWF • FALLS COUNT ANYWHERE" position={[0, y + .65, -d + .14]} width={5} />
-    {backstage ? <>
+    {underground ? <UndergroundSet width={w} depth={d} floor={y} /> : backstage ? <>
       <Block at={[0, y + 2, -d - 1.5]} size={[w * 2 + 4, 4, .3]} color="#505c5d" />
       {Array.from({ length: 10 }, (_, i) => <group key={i} position={[-6.5 + i * 1.4, y, -d - 1.15]}><Block at={[0, 1.1, 0]} size={[1.15, 2.2, .45]} color={i % 2 ? '#5f6b69' : '#667c7a'} />{[1.5, 1.65, 1.8].map(h => <Block key={h} at={[0, h, .24]} size={[.7, .035, .025]} color="#273733" />)}<Block at={[.35, 1, .25]} size={[.06, .2, .04]} color="#d1b778" /></group>)}
       {[-5, 5].map(x => <group key={x}><Block at={[x, y + 4, -d - 1]} size={[2.4, .08, .16]} color="#efe3bc" /><pointLight position={[x, y + 3.7, -d + 1]} intensity={12} distance={12} color="#ffd8a0" /></group>)}
@@ -104,5 +105,24 @@ export function FightVenue({ venue }: { venue: Exclude<CombatVenue, 'dome'> }) {
     {!backstage && <group position={[-5, y, -d - 4]}><mesh position={[0, 3.1, 0]} rotation={[0, Math.PI / 4, 0]} castShadow><coneGeometry args={[3.7, 1, 4]} /><meshStandardMaterial color="#44627b" roughness={.9} /></mesh>{[-2.5, 2.5].flatMap(x => [-2.5, 2.5].map(z => <Block key={`${x}-${z}`} at={[x, 1.45, z]} size={[.07, 2.9, .07]} color="#b7b7a2" metal={.55} />))}</group>}
     <RingsideFans width={w} depth={d} floor={y} />
     {props.map(prop => prop.kind === 'table' ? <WoodenTable key={`${runtimeId}-${prop.id}`} prop={prop} floor={y} /> : !prop.broken && <PhysicalProp key={`${runtimeId}-${prop.id}`} prop={prop} initialPosition={[prop.position.x, y + .65, prop.position.z]} />)}
+  </>;
+}
+
+/** Modular source assets reuse loader-cached geometry/materials; the near camera wall stays open. */
+function UndergroundSet({ width: w, depth: d, floor: y }: { width: number; depth: number; floor: number }) {
+  return <>
+    {[-6, -2, 2, 6].map(x => <group key={`back-${x}`} position={[x, y, -d - .4]}><VenueAsset kind="brickWall" /></group>)}
+    {[-1, 1].flatMap(side => [-4, 0, 4].map(z => <group key={`${side}-${z}`} position={[side * (w + .4), y, z]} rotation={[0, Math.PI / 2, 0]}><VenueAsset kind="brickWall" /></group>))}
+    {[-8, 0, 8].map(x => <group key={x} position={[x, y, -d - .2]}><VenueAsset kind="column" /></group>)}
+    {[-4.5, 4.5].map(x => <group key={x} position={[x, y + 4.1, -d - .2]}><VenueAsset kind="beam" /></group>)}
+    <group position={[0, y + 1.4, -d + .12]}><VenueAsset kind="banner" /></group>
+    <group position={[w + .25, y, 3]} rotation={[0, -Math.PI / 2, 0]}><VenueAsset kind="gate" /></group>
+    {[-1, 1].map(side => <group key={side}>
+      <group position={[side * 7.6, y, -5.8]}><VenueAsset kind="speakers" /></group>
+      <group position={[side * 7.4, y, 5.6]} rotation={[0, -side * .7, 0]}><VenueAsset kind="workLight" /></group>
+      <pointLight position={[side * 6, y + 3, 3]} color={side < 0 ? '#f8c281' : '#9ed4df'} intensity={18} distance={15} />
+      <group position={[side * (w + 3), y, -2]} rotation={[0, -side * Math.PI / 2, 0]}><VenueAsset kind="bleachers" /></group>
+      <group position={[side * 7.5, y, -4.3]}><VenueAsset kind="crate" /></group>
+    </group>)}
   </>;
 }

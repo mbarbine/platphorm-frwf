@@ -594,12 +594,15 @@ export const requestCommand = (model: MatchModel, actorKey: FighterSlot, command
     }
     if (resolution.actionId === 'pin') return startPin(actor, target);
     if (resolution.actionId === 'top_rope_aerial') return launchAerial(model, actor, target, 'aerial');
-    if (resolution.actionId === 'turnbuckle_climb') {
+    if (resolution.actionId === 'turnbuckle_climb' || resolution.actionId === 'object_climb') {
+      if (resolution.actionId === 'object_climb') actor.climbObjectId = resolution.target;
+      else if (actor.state !== 'climbing') actor.climbObjectId = null;
       if (actor.state === 'climbing') {
+        if (model.physicsAuthority) return false;
         actor.climbStage = (actor.climbStage + 1) as 2 | 3; actor.stateElapsed = 0; return true;
       }
       actor.state = 'climbing'; actor.climbStage = 1; actor.stateElapsed = 0; actor.velocity = { x: 0, z: 0 };
-      if (!model.physicsAuthority) actor.position = { x: Math.sign(actor.position.x) * 5.25, z: Math.sign(actor.position.z) * 3.7 };
+      if (!model.physicsAuthority && !actor.climbObjectId) actor.position = { x: Math.sign(actor.position.x) * 5.25, z: Math.sign(actor.position.z) * 3.7 };
       return true;
     }
     if (resolution.actionId === 'ring_traversal') {
@@ -839,6 +842,7 @@ const updateFighter = (model: MatchModel, actorKey: FighterSlot, dt: number, mov
   }
 
   if (actor.state === 'climbing') {
+    if (!model.physicsAuthority && actor.climbStage < 3 && actor.stateElapsed > .75) { actor.climbStage = (actor.climbStage + 1) as 2 | 3; actor.stateElapsed = 0; }
     actor.velocity = scale(actor.velocity, Math.exp(-dt * 12));
     actor.stamina = clamp(actor.stamina + dt * 4, 0, actor.staminaCap);
     actor.facing = Math.atan2(target.position.x - actor.position.x, target.position.z - actor.position.z);

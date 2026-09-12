@@ -15,6 +15,8 @@ This is the canonical forward plan. Earlier release notes remain historical evid
 5. [Physics lab and quality gates](LAB_AND_QUALITY.md): shared runtime, reproducible failures, playtests and device evidence.
 6. [World, online and platform](WORLD_ONLINE_PLATFORM.md): connected-world scope, multiplayer authority, delivery, auth, operations and deferred expansion.
 
+[Implementation and validation report](PLANNING_AND_JOSH_REPORT.md) records this planning batch and Josh addition.
+
 ## How to use this plan
 
 The requirements ledger is the single status authority for this planning snapshot. Workstream documents specify intended behavior, not separate completion claims. Statuses are **implemented/unaccepted**, **partial**, **planned**, and **verified infrastructure snapshot**. Close a requirement only with its acceptance evidence linked to a source SHA and asset version. Implementation and artistic acceptance are separate decisions.

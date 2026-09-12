@@ -156,6 +156,7 @@ export interface FighterRuntime {
   lastActionAt: number;
   ropeRebound: number;
   finisherPrimed: boolean;
+  climbObjectId?: string | null;
   climbStage: 0 | 1 | 2 | 3;
   recoveryOrientation: RecoveryOrientation;
   fallReason: FallReason | null;
@@ -239,6 +240,7 @@ export interface ReplayFighterFrame {
   stamina: number;
   staminaCap: number;
   momentum: number;
+  climbObjectId?: string | null;
   climbStage: 0 | 1 | 2 | 3;
   recoveryOrientation: RecoveryOrientation;
   body: {

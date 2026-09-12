@@ -15,9 +15,18 @@ from PIL import Image
 ROOT = Path(__file__).resolve().parents[2]
 OUTPUT = ROOT / 'public/venue/completion'
 PREFIX = 'FRWF_Asset_Completion/'
-SELECTED = {'chair': 'PRP-001', 'table': 'PRP-002', 'trash': 'PRP-004'}
+SELECTED = {'chair': 'PRP-001', 'table': 'PRP-002', 'trash': 'PRP-004', 'brickWall': 'ARC-001', 'column': 'ARC-010', 'beam': 'ARC-011', 'gate': 'HER-003', 'banner': 'HER-005', 'crate': 'PRP-007', 'workLight': 'PRP-011', 'bleachers': 'PRP-013', 'speakers': 'PRP-015'}
 # Match the game's grip origin and table landing plane; meters, Y up.
 TARGETS = {
+    'brickWall': [[-2, 0, -.16], [2, 3.6, .16]],
+    'column': [[-.18, 0, -.18], [.18, 4.2, .18]],
+    'beam': [[-4.5, 0, -.16], [4.5, .32, .16]],
+    'gate': [[-1.8, 0, -.12], [1.8, 2.8, .12]],
+    'banner': [[-2.5, 0, -.04], [2.5, 1.6, .04]],
+    'crate': [[-.8, 0, -.65], [.8, .9, .65]],
+    'workLight': [[-.5, 0, -.5], [.5, 2.6, .5]],
+    'bleachers': [[-3, 0, -1.3], [3, 2, 1.3]],
+    'speakers': [[-.6, 0, -.5], [.6, 2.4, .5]],
     'chair': [[-.35, -.6, -.4], [.35, .65, .4]],
     'table': [[-1.5, -.9, -.65], [1.5, .065, .65]],
     'trash': [[-.46, -.59, -.46], [.46, .765, .46]],
