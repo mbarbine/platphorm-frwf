@@ -1,0 +1,72 @@
+{
+  "atlas": {
+    "skinUrl": "/characters/atlas-skin.8372d88b3626.webp",
+    "sha256": "8372d88b3626454f060b757e14b6868ab8f658a69a5a2ca6ae15f0e9e7f1a777",
+    "hairUrl": null
+  },
+  "vex": {
+    "skinUrl": "/characters/vex-skin.2325c40fb39e.webp",
+    "sha256": "2325c40fb39e59984f2f78050b0c6b2f5a26a3bfd81a9b9f668bd60f21742013",
+    "hairUrl": null
+  },
+  "nova": {
+    "skinUrl": "/characters/nova-skin.9c9e98fce3a4.webp",
+    "sha256": "9c9e98fce3a4830895bfe8b6ccfeb5e5da97b8a97dfea58617f85a422fe49ba3",
+    "hairUrl": "/characters/short01.42ce588f4d40.webp"
+  },
+  "brick": {
+    "skinUrl": "/characters/brick-skin.ae83ab7d918c.webp",
+    "sha256": "ae83ab7d918c8dee2cae2b080b79d30c98d48498c8542bae976fcdd4bef6ba0a",
+    "hairUrl": "/characters/short02.2869c613490f.webp"
+  },
+  "chad": {
+    "skinUrl": "/characters/chad-skin.9d60040e660a.webp",
+    "sha256": "9d60040e660abec8449ea1bcbd6c2a22d8dd166c6d62bfab029e720dc4c1cae8",
+    "hairUrl": "/characters/short02.2869c613490f.webp"
+  },
+  "dale": {
+    "skinUrl": "/characters/dale-skin.a557798fec17.webp",
+    "sha256": "a557798fec17cc0d7fd8761d6eb29a5e5422378bc99d2d81ab4a64797972f65f",
+    "hairUrl": "/characters/long01.a129620db6c3.webp"
+  },
+  "thomas": {
+    "skinUrl": "/characters/thomas-skin.e229a2ba93b9.webp",
+    "sha256": "e229a2ba93b97763e7df1b8cb5311858aef74b342035e27c9be3479a073bfb92",
+    "hairUrl": "/characters/long01-blonde.998d4f6d55c0.webp"
+  },
+  "sonny": {
+    "skinUrl": "/characters/sonny-skin.f1a1d0e403d0.webp",
+    "sha256": "f1a1d0e403d07a7098ccd174a7e62df3f62fd544b9fee3146595e6b2237dbe1b",
+    "hairUrl": "/characters/short01.42ce588f4d40.webp"
+  },
+  "wrecking_ball": {
+    "skinUrl": "/characters/wrecking_ball-skin.86db5bba6737.webp",
+    "sha256": "86db5bba6737c18dcb4d3839e53f406d633775ef35e2c23135f14a3551b16a24",
+    "hairUrl": "/characters/short02.2869c613490f.webp"
+  },
+  "steve": {
+    "skinUrl": "/characters/steve-skin.5ea147ce6d17.webp",
+    "sha256": "5ea147ce6d17597ba83fd26c92bec64dcc7cebab67ef3f4a9cc4ebe0da52bbfc",
+    "hairUrl": "/characters/short02.2869c613490f.webp"
+  },
+  "john": {
+    "skinUrl": "/characters/john-skin.c6c044193f53.webp",
+    "sha256": "c6c044193f533bdf6447d44a41b2bea7e49fd343df18b41a0b04ffdda06201fd",
+    "hairUrl": "/characters/long01.a129620db6c3.webp"
+  },
+  "justin": {
+    "skinUrl": "/characters/justin-skin.6e74881d35fd.webp",
+    "sha256": "6e74881d35fd9a564b2ab3b21eb7d8ae84b6f6664867a7d93bcff0680a6f3c0e",
+    "hairUrl": "/characters/short02.2869c613490f.webp"
+  },
+  "mondo": {
+    "skinUrl": "/characters/mondo-skin.31ca33d560db.webp",
+    "sha256": "31ca33d560db389a5bdf2e90b74eee4397006892a80c8e080a01fca86d678670",
+    "hairUrl": "/characters/long01.a129620db6c3.webp"
+  },
+  "gil": {
+    "skinUrl": "/characters/gil-skin.cd544c005fe3.webp",
+    "sha256": "cd544c005fe32c365eb286aeb5e4cd68ce237874946592dac3560755b62f86a0",
+    "hairUrl": "/characters/long01.a129620db6c3.webp"
+  }
+}

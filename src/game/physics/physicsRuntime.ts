@@ -1,3 +1,4 @@
+import { AttackOutcomeTracker, type AttackIdentity, type AttackOutcome } from '../input/attackOutcome';
 import { VENUES, venueFor, type CombatVenue } from '../data/venues';
 import { planarInputVelocity } from '../input/playerController';
 import type { RapierRigidBody } from '@react-three/rapier';
@@ -18,6 +19,7 @@ import { applyBodyLanguage } from '../animation/bodyLanguage';
 import { POSES } from '../animation/poses';
 import type { Pose } from '../animation/poses';
 import { RECOVERY_DURATION, recoveryPose } from '../animation/recoveryMotion';
+import { gaitCycle } from '../animation/gaitCycle';
 import { locomotionPose } from '../animation/locomotion';
 import { authoredIdlePose } from '../animation/combatMotion';
 import { throwDirection, throwMotionFor } from './throwMotion';
@@ -51,7 +53,7 @@ export interface BufferedPhysicsCommand {
   deferredReason?: string;
 }
 
-export type ActionFeedbackStatus = 'buffered' | 'executed' | 'expired' | 'rejected' | 'duplicate';
+export type ActionFeedbackStatus = 'buffered' | 'executed' | 'expired' | 'rejected' | 'duplicate' | 'interrupted';
 export interface ActionFeedback {
   event: ActionEvent;
   status: ActionFeedbackStatus;
@@ -62,6 +64,7 @@ export interface ActionFeedback {
 
 export interface ActionExecutionResult {
   executed: boolean;
+  attack?: AttackIdentity;
   deferredReason?: string;
   displayName?: string;
   rejectionReason?: string;
@@ -281,6 +284,7 @@ export class BodyWorksRuntime {
   private readonly intents: Record<FighterKey, IntentState> = { player: EMPTY_INTENT(), opponent: EMPTY_INTENT(), rival1: EMPTY_INTENT(), rival2: EMPTY_INTENT(), rival3: EMPTY_INTENT() };
   private readonly actions = new ActionBuffer<BufferedPhysicsCommand>({ capacity: 32 });
   private playerActionFeedback: ActionFeedback | null = null;
+  private readonly playerAttack = new AttackOutcomeTracker();
   private readonly contacts: BodyWorksContact[] = [];
   private contactId = 0;
   private generation = 0;
@@ -450,7 +454,11 @@ export class BodyWorksRuntime {
       const result = attempt(command);
       const executed = typeof result === 'boolean' ? result : result.executed;
       const displayName = typeof result === 'boolean' ? null : result.displayName ?? null;
-      if (executed && fighter === 'player') this.playerActionFeedback = { event: command.event, status: 'executed', updatedAt: now, reason: null, displayName };
+      if (executed && fighter === 'player') {
+        this.playerActionFeedback = { event: command.event, status: 'executed', updatedAt: now, reason: null, displayName };
+        if (typeof result !== 'boolean' && result.attack) this.playerAttack.begin(command.event.sequence, result.attack, now);
+        else this.playerAttack.reset();
+      }
       if (!executed && typeof result !== 'boolean' && result.rejectionReason) {
         if (fighter === 'player') this.playerActionFeedback = { event: command.event, status: 'rejected', updatedAt: now, reason: result.rejectionReason, displayName };
         return 'rejected';
@@ -468,6 +476,21 @@ export class BodyWorksRuntime {
     });
     this.syncActionMetrics();
   }
+
+  observePlayerAttack(fighter: FighterRuntime, now: number, reason?: string): void {
+    if (!this.playerAttack.observe(fighter, now, reason)) return;
+    const attack = this.playerAttack.snapshot(); const feedback = this.playerActionFeedback;
+    if (attack?.outcome === 'interrupted' && feedback?.status === 'executed' && feedback.event.sequence === attack.sequence) {
+      this.playerActionFeedback = { ...feedback, status: 'interrupted', reason: attack.reason, updatedAt: now };
+    }
+  }
+
+  recordPlayerAttackContact(attack: AttackIdentity, contact: Exclude<AttackOutcome['contact'], 'none'>, now: number): void {
+    this.playerAttack.recordContact(attack, contact, now);
+  }
+
+  recordPlayerAttackPose(attack: AttackIdentity): void { this.playerAttack.recordPose(attack); }
+  attackOutcome(): Readonly<AttackOutcome> | null { return this.playerAttack.snapshot(); }
 
   rejectPendingActions(fighter: FighterKey, now: number, reason: string): number {
     let latestEvent: ActionEvent | null = null;
@@ -563,7 +586,7 @@ export class BodyWorksRuntime {
     // Every lab scenario is an isolated deterministic trial. Buffered input,
     // an opponent task from the prior trial, or a stale contact must never be
     // allowed to time out during the next scenario and falsify its evidence.
-    this.tasks.clear(); this.actions.clear(); this.playerActionFeedback = null; this.pendingLandings.clear(); this.landingDeflections.clear(); this.grappleEnvironmentTarget = null; this.contacts.length = 0;
+    this.tasks.clear(); this.actions.clear(); this.playerActionFeedback = null; this.playerAttack.reset(); this.pendingLandings.clear(); this.landingDeflections.clear(); this.grappleEnvironmentTarget = null; this.contacts.length = 0;
     this.metrics.contactCount = 0; this.metrics.lastContactPair = 'none'; this.metrics.lastContactMaximumForce = 0; this.metrics.lastContactRelativeSpeed = 0;
     this.metrics.lastStrikeDistance = 0; this.metrics.minimumStrikeDistance = 0; this.metrics.minimumStrikePlanarDistance = 0; this.metrics.minimumStrikeVerticalDistance = 0;
     this.metrics.gripCreateCount = 0; this.metrics.maximumGripError = 0; this.metrics.maximumGripLoad = 0; this.metrics.lastGripBreakReason = 'none';
@@ -1163,6 +1186,7 @@ export class BodyWorksRuntime {
       // a world-space lock and a corrective motor as its parent moves.
       for (const segment of ['leftUpperArm', 'rightUpperArm', 'leftForearm', 'rightForearm', 'leftHand', 'rightHand'] as const) dynamic.add(segment);
     }
+    if (fighter.state === 'locomotion') for (const segment of ['leftThigh', 'rightThigh', 'leftShin', 'rightShin', 'leftFoot', 'rightFoot'] as const) dynamic.add(segment);
     const recoveredSupportScore = fighter.state === 'idle' && fighter.lastFallReason !== null ? this.supportScore(rig) : 1;
     const settlingRecoveredStance = fighter.state === 'idle' && fighter.lastFallReason !== null
       && (fighter.stateElapsed < 1.5 || rig.supportContacts.size === 0 || recoveredSupportScore < .55);
@@ -1245,10 +1269,20 @@ export class BodyWorksRuntime {
 
   private applyFootPlantDrive(rig: FighterRigRegistration, fighter: FighterRuntime, desiredVelocity: Vec2, inputLength: number): void {
     if (!['idle', 'locomotion', 'blocking', 'recovering'].includes(fighter.state)) return;
-    // The pelvis owns planar locomotion. Feet only remove visible residual
-    // skate after the fighter has stopped; they never counter-drive a stride.
-    // OPTIMIZATION: Replacing slow Math.hypot with a zero-allocation squared-magnitude check to avoid square root extraction entirely.
-    if (fighter.state === 'locomotion' || inputLength > .08 || (desiredVelocity.x * desiredVelocity.x + desiredVelocity.z * desiredVelocity.z) > 0.08 * 0.08) return;
+    const moving = fighter.state === 'locomotion' && inputLength > .08;
+    if (moving) {
+      for (const [id, phase] of [['leftFoot', fighter.body.gaitPhase], ['rightFoot', fighter.body.gaitPhase + Math.PI]] as const) {
+        const foot = rig.bodies[id]; const cycle = gaitCycle(phase);
+        if (!foot || !rig.supportContacts.has(id) || !cycle.planted) continue;
+        // Contact traction acts only on the stance foot. The swing boot is free
+        // to clear the deck, and Rapier still owns support and all joint limits.
+        const velocity = foot.linvel(); const mass = foot.mass();
+        const gain = 8 * cycle.supportWeight;
+        foot.addForce({ x: clamp(-velocity.x * gain, -40, 40) * mass, y: 0, z: clamp(-velocity.z * gain, -40, 40) * mass }, true);
+      }
+      return;
+    }
+    if (inputLength > .08 || desiredVelocity.x * desiredVelocity.x + desiredVelocity.z * desiredVelocity.z > .08 * .08) return;
     const entries: readonly [BodySegmentId, boolean][] = [['leftFoot', fighter.body.leftFoot.planted], ['rightFoot', fighter.body.rightFoot.planted]];
     for (const [id, planted] of entries) {
       if (!planted) continue;
@@ -2072,8 +2106,12 @@ export class BodyWorksRuntime {
       if (thigh?.isValid()) targets[`${side}Shin`] = quaternionMultiply(thigh.rotation(), quaternionFromEuler([kneeFlexion(pose[`${side}Shin`][0]), 0, 0]));
       if (shin?.isValid()) {
         const plant = ['idle', 'locomotion', 'blocking', 'recovering'].includes(fighter.state);
-        const ankle = plant ? clamp(-pose.rootTilt - pose[`${side}Leg`][0] - kneeFlexion(pose[`${side}Shin`][0]), -.58, .68) : 0;
-        targets[`${side}Foot`] = quaternionMultiply(shin.rotation(), quaternionFromEuler([ankle, 0, 0]));
+        // A loaded ankle targets the mat frame, not the authored shin angle.
+        // Cancelling the planned angle against a lagging physical shin left
+        // the sole pitched forward under load, producing the tiptoe gait.
+        targets[`${side}Foot`] = plant
+          ? quaternionFromEuler([0, fighter.facing + pose.rootYaw, 0])
+          : shin.rotation();
       }
     }
     const strike = fighter.moveId ? strikeDriveProfile(fighter.moveId) : null;
@@ -2087,11 +2125,18 @@ export class BodyWorksRuntime {
       const onMat = supportedFall || ['pinning', 'pinned'].includes(fighter.state);
       const recovering = fighter.state === 'recovering';
       const authority = .65 + Math.min(1, motorStrengthFor(fighter, motorProfile, segment)) * .35;
-      const gain = striking ? 15 : onMat ? 9 : recovering ? 10 : 12;
-      const speed = striking ? 9 * authority : onMat ? 3.8 : recovering ? 4 : 5.5;
+      const stepping = fighter.state === 'locomotion' && /Thigh|Shin|Foot/.test(segment);
+      const gain = stepping ? 18 : striking ? 15 : onMat ? 9 : recovering ? 10 : 12;
+      const speed = stepping ? 9 : striking ? 9 * authority : onMat ? 3.8 : recovering ? 4 : 5.5;
       // One bounded velocity servo per body. The solver still owns every
       // constraint/contact; no second torque impulse can kick it off target.
-      body.setAngvel(chasePoseAngularVelocity(body.rotation(), targets[segment], body.angvel(), gain, speed, .65), true);
+      const parent = stepping && segment.endsWith('Shin') ? rig.bodies[segment === 'leftShin' ? 'leftThigh' : 'rightThigh'] : undefined;
+      const follow = parent?.angvel() ?? { x: 0, y: 0, z: 0 };
+      const angular = body.angvel();
+      // A knee motor controls flexion relative to a moving thigh. Without
+      // parent angular feed-forward, sprinting hips outrun the shin servo.
+      const drive = chasePoseAngularVelocity(body.rotation(), targets[segment], { x: angular.x - follow.x, y: angular.y - follow.y, z: angular.z - follow.z }, gain, speed, .65);
+      body.setAngvel({ x: drive.x + follow.x, y: drive.y + follow.y, z: drive.z + follow.z }, true);
     }
   }
 
@@ -2112,6 +2157,7 @@ export class BodyWorksRuntime {
       this.syncFighter(key, model[key], model.labMode);
       this.settleSupportedAirborneFighter(key, model);
     }
+    this.observePlayerAttack(model.player, model.elapsed);
     this.replayAccumulator += this.currentFixedDt;
     if (this.replayAccumulator >= 1 / 30) {
       this.replayAccumulator %= 1 / 30;
@@ -2581,7 +2627,7 @@ export class BodyWorksRuntime {
     if (this.world) this.releaseAllGrips(this.world);
     if (this.world) for (const grip of [...this.propGrips.values()]) this.releasePropGrip(this.world, grip, null);
     if (this.instrumentedWorld && this.originalRemoveImpulseJoint) this.instrumentedWorld.removeImpulseJoint = this.originalRemoveImpulseJoint;
-    this.generation += 1; this.rigs.clear(); this.actions.clear(true); this.playerActionFeedback = null; this.contacts.length = 0; this.replay.clear(); this.tasks.clear(); this.networkTargets.clear();
+    this.generation += 1; this.rigs.clear(); this.actions.clear(true); this.playerActionFeedback = null; this.playerAttack.reset(); this.contacts.length = 0; this.replay.clear(); this.tasks.clear(); this.networkTargets.clear();
     this.pendingLandings.clear(); this.landingDeflections.clear(); this.grappleEnvironmentTarget = null; this.props.clear(); this.landingSurfaces.clear(); this.propGrips.clear(); this.releasedPropAttacks.clear(); this.replayAccumulator = 0; this.world = null; this.instrumentedWorld = null; this.originalRemoveImpulseJoint = null; this.stepStartedAt = -1; this.lastStrikeMetricKey = '';
     this.stepSamples.fill(0); this.stepSampleCursor = 0; this.stepSampleCount = 0; this.stepSampleTotal = 0;
     for (const key of FIGHTER_SLOTS) { this.intents[key] = EMPTY_INTENT(); this.presentationPoints[key] = {}; this.labAdditionalMass[key] = 0; }

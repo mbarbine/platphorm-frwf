@@ -44,21 +44,21 @@ export const resolveRuntimeQuality = (input: RuntimeQualityInput): RuntimeQualit
   if (tier === 'performance') return {
     tier,
     dpr: [.8, 1],
-    crowdCount: input.physicsLab ? 0 : mobile ? 60 : 96,
+    crowdCount: input.physicsLab ? 0 : mobile ? 128 : 192,
     antialias: false,
     shadows: false,
   };
   if (tier === 'quality') return {
     tier,
     dpr: mobile ? [.8, 1.3] : [.9, 1.65],
-    crowdCount: input.physicsLab ? 0 : mobile ? 120 : 216,
+    crowdCount: input.physicsLab ? 0 : mobile ? 384 : 768,
     antialias: true,
     shadows: true,
   };
   return {
     tier,
     dpr: mobile ? [.7, 1.15] : [.75, 1.4],
-    crowdCount: input.physicsLab ? 0 : mobile ? 90 : 156,
+    crowdCount: input.physicsLab ? 0 : mobile ? 240 : 480,
     antialias: true,
     shadows: true,
   };

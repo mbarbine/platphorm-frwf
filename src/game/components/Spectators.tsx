@@ -1,34 +1,31 @@
-import { useEffect, useMemo, useRef } from 'react';
-import { useFrame } from '@react-three/fiber';
-import { Color, Object3D, Vector3, type InstancedMesh } from 'three';
+import { Suspense, useMemo, useRef } from 'react';
+import { useFrame, useLoader } from '@react-three/fiber';
+import { Mesh, Object3D, type InstancedMesh } from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { useMatchStore } from '../state/matchStore';
 import { useSettings } from '../state/settings';
+import { crowdPopulation } from '../presentation/crowdPopulation';
+import assets from '../../../public/characters/manifest.json';
 
-/** Five shared meshes, articulated silhouettes, and reactions to the live bout. */
+/** MPFB bodies are baked and instanced; the arena never waits for crowd loading. */
 export function Spectators({ count }: { count: number }) {
-  const torso = useRef<InstancedMesh>(null); const head = useRef<InstancedMesh>(null);
-  const limbs = useRef<InstancedMesh>(null); const hair = useRef<InstancedMesh>(null); const seats = useRef<InstancedMesh>(null);
+  return <Suspense fallback={null}><CrowdPopulation count={count} /></Suspense>;
+}
+
+function CrowdPopulation({ count }: { count: number }) {
+  const gltf = useLoader(GLTFLoader, assets.crowd.url);
+  const reducedMotion = useSettings(s => s.reducedMotion);
+  const instances = useRef(new Map<number, InstancedMesh>());
   const dummy = useMemo(() => new Object3D(), []);
-  const vector = useMemo(() => new Vector3(), []); const up = useMemo(() => new Vector3(0, 1, 0), []);
-  const age = useRef(0); const reducedMotion = useSettings(s => s.reducedMotion);
-  const fans = useMemo(() => Array.from({ length: count }, (_, i) => {
-    const row = Math.floor(i / 42); const angle = (i % 42) / 42 * Math.PI * 2 + row * .055;
-    return { x: Math.cos(angle) * (13.9 + row * 1.28), z: Math.sin(angle) * (13.9 + row * 1.28), floor: .4 + row * .62, yaw: -angle - Math.PI / 2, height: .92 + i % 5 * .035 };
-  }), [count]);
-  useEffect(() => {
-    const shirts = ['#673940', '#37474c', '#536b67', '#827446', '#4b496c', '#9b644e'];
-    const skins = ['#c59373', '#b4785a', '#75513f', '#dbb299', '#946b50'];
-    for (let i = 0; i < count; i++) {
-      const skin = new Color(skins[i % skins.length]);
-      torso.current?.setColorAt(i, new Color(shirts[i % shirts.length])); head.current?.setColorAt(i, skin);
-      hair.current?.setColorAt(i, new Color(i % 4 === 0 ? '#817462' : '#302a28'));
-      for (let j = 0; j < 8; j++) limbs.current?.setColorAt(i * 8 + j, j < 4 ? new Color(i % 2 ? '#303942' : '#414044') : skin);
-    }
-    for (const mesh of [torso.current, head.current, limbs.current, hair.current]) if (mesh?.instanceColor) mesh.instanceColor.needsUpdate = true;
-  }, [count]);
+  const age = useRef(0); const sinceUpdate = useRef(1);
+  const groups = useMemo(() => {
+    const meshes: Mesh[] = [];
+    gltf.scene.traverse(node => { if (node instanceof Mesh) meshes.push(node); });
+    meshes.sort((a, b) => a.name.localeCompare(b.name));
+    const fans = crowdPopulation(count, meshes.length);
+    return meshes.map((mesh, variant) => ({ mesh, fans: fans.filter(fan => fan.variant === variant) }));
+  }, [gltf, count]);
   useFrame((_, dt) => {
-    if (!torso.current || !head.current || !limbs.current || !hair.current || !seats.current) return;
-    const torsoMesh = torso.current; const headMesh = head.current; const limbMesh = limbs.current; const hairMesh = hair.current; const seatMesh = seats.current;
     const model = useMatchStore.getState().model;
     if (!model.paused && !reducedMotion) age.current += Math.min(dt, .05);
     const hype = model.hype / 100;
@@ -63,13 +60,8 @@ export function Spectators({ count }: { count: number }) {
         limb(5 + offset, elbow, hand, .105);
       }
     });
-    for (const mesh of [torso.current, head.current, limbs.current, hair.current, seats.current]) mesh.instanceMatrix.needsUpdate = true;
   });
-  return <>
-    <instancedMesh ref={torso} args={[undefined, undefined, count]} frustumCulled={false}><boxGeometry /><meshStandardMaterial roughness={.95} /></instancedMesh>
-    <instancedMesh ref={head} args={[undefined, undefined, count]} frustumCulled={false}><sphereGeometry args={[1, 8, 6]} /><meshStandardMaterial roughness={.9} /></instancedMesh>
-    <instancedMesh ref={hair} args={[undefined, undefined, count]} frustumCulled={false}><sphereGeometry args={[1, 8, 5]} /><meshStandardMaterial roughness={1} /></instancedMesh>
-    <instancedMesh ref={limbs} args={[undefined, undefined, count * 8]} frustumCulled={false}><cylinderGeometry args={[.5, .5, 1, 6]} /><meshStandardMaterial roughness={.95} /></instancedMesh>
-    <instancedMesh ref={seats} args={[undefined, undefined, count]} frustumCulled={false}><boxGeometry /><meshStandardMaterial color="#252936" roughness={.8} /></instancedMesh>
-  </>;
+  return <>{groups.map(({ mesh, fans }, index) => fans.length > 0 && <instancedMesh key={mesh.name}
+    ref={instance => { if (instance) instances.current.set(index, instance); else instances.current.delete(index); }}
+    args={[mesh.geometry, mesh.material, fans.length]} frustumCulled={false} />)}</>;
 }

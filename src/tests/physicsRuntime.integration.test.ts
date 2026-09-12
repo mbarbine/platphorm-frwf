@@ -872,3 +872,27 @@ it('the actual rig rejects exhausted sprint at the same speed as exhausted walki
     walk.runtime.reset(); walk.world.free(); run.runtime.reset(); run.world.free();
   }
 });
+
+it.each([false, true])('walking and running keep the loaded sole level (run=%s)', run => {
+  const { world, runtime, model, rig } = makeHarness('chad');
+  try {
+    model.labMode = true;
+    for (let frame = 0; frame < 90; frame++) stepHarness(world, runtime, model);
+    let tilted = 0; let supported = 0; let worst = 0; let folded = 0; let firstFold = {};
+    // One full stride in clear space, before the forward sprint reaches the ropes.
+    for (let frame = 0; frame < 60; frame++) {
+      stepHarness(world, runtime, model, {x: 0, z: .7}, run);
+      const feet = [rig.bodies.leftFoot, rig.bodies.rightFoot] as const;
+      const foot = feet[0].translation().y < feet[1].translation().y ? feet[0] : feet[1];
+      const q = foot.rotation(); const tilt = Math.acos(Math.max(-1, Math.min(1, 1 - 2 * (q.x*q.x+q.z*q.z))));
+      if (foot.translation().y < 2.02) { supported++; if (tilt > .4) tilted++; worst = Math.max(worst, tilt); }
+      for (const side of ['left', 'right'] as const) {
+        const error = shortestQuaternionError(rig.bodies[`${side}Thigh`].rotation(), rig.bodies[`${side}Shin`].rotation());
+        if (rig.bodies[`${side}Foot`] === foot && foot.translation().y < 2.02 && Math.hypot(error.x,error.y,error.z) > .75) { if (!folded) firstFold = { frame, side, knee:error, phase:model.player.body.gaitPhase, facing:model.player.facing, velocity:model.player.velocity, foot:foot.translation(), thigh:rig.bodies[`${side}Thigh`].translation(), state:model.player.state }; folded++; }
+      }
+    }
+    expect(supported, JSON.stringify({tilted,supported,worst,folded,position:model.player.position})).toBeGreaterThan(40);
+    expect(tilted, JSON.stringify({tilted,supported,worst,folded})).toBeLessThan(12);
+    expect(folded, JSON.stringify(firstFold)).toBe(0);
+  } finally { runtime.reset(); world.free(); }
+});

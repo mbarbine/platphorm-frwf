@@ -158,9 +158,12 @@ export const useMatchStore = create<MatchStore>((set) => ({
       const deferredReason = model.player.state === 'staggered' ? 'Hit interrupted your action — try again when steady'
         : model.player.state === 'grabbed' ? 'Escape the hold before this action'
           : transient ? 'Finish the current motion before this action' : undefined;
-      return { executed: accepted, displayName, rejectionReason, deferredReason };
+      const attack = accepted && model.player.moveId && model.player.attackPhase
+        ? { moveId: model.player.moveId, instanceId: model.player.attackInstanceId } : undefined;
+      return { executed: accepted, displayName, rejectionReason, deferredReason, attack };
     });
     advanceMatch(model, dt, { ...input, actions: pinRecoveryActions, commands: [] });
+    bodyWorksRuntime.observePlayerAttack(model.player, model.elapsed);
     if (!wasPlayerInactive && ['defeated', 'victorious'].includes(model.player.state)) bodyWorksRuntime.rejectPendingActions('player', model.elapsed, 'Fighter is no longer active');
     for (const slot of AI_FIGHTER_SLOTS) {
       const fighter = model[slot];
@@ -258,7 +261,17 @@ export const useMatchStore = create<MatchStore>((set) => ({
   resolvePhysicsContacts: (contacts) => set((state) => {
     if (state.model.networkAuthority) return state;
     let changed = false;
-    for (const contact of contacts) changed = applyPhysicalContact(state.model, contact) || changed;
+    for (const contact of contacts) {
+      if (!applyPhysicalContact(state.model, contact)) continue;
+      changed = true;
+      const impact = state.model.lastImpact;
+      if (contact.sourceFighter === 'player' && contact.attackInstanceId !== null && contact.moveId) {
+        const result = impact?.kind === 'counter' ? 'countered' : impact?.kind === 'blocked' ? 'blocked' : 'hit';
+        bodyWorksRuntime.recordPlayerAttackContact({ moveId: contact.moveId, instanceId: contact.attackInstanceId }, result, state.model.elapsed);
+      }
+      const incomingMove = impact?.targetFighter === 'player' && impact.moveId ? getSafeMove(impact.moveId)?.displayName : undefined;
+      bodyWorksRuntime.observePlayerAttack(state.model.player, state.model.elapsed, impact?.kind === 'counter' ? 'Your move was countered' : incomingMove ? `Stopped by ${incomingMove}` : undefined);
+    }
     return changed ? { model: { ...state.model }, revision: state.revision + 1 } : state;
   }),
   cyclePlayerTarget: (direction = 1) => set((state) => cyclePlayerTarget(state.model, direction)
