@@ -89,7 +89,7 @@ describe('Fighter Select Keyboard and ARIA Accessibility', () => {
     const lastCard = document.querySelector('[data-fighter-select-id="beer_bandit_ted"]') as HTMLButtonElement;
     expect(lastCard).toBeTruthy();
     expect(lastCard.getAttribute('aria-pressed')).toBe('true');
-    expect(screen.getByText(/Selected fighter: BEER BANDIT TED, Counter Brawler/i)).toBeTruthy();
+    expect(screen.getByText(/Selected fighter: BEER BANDIT TED, Fast Counter Striker/i)).toBeTruthy();
 
     // 6. Trigger ArrowRight (Should wrap around to the first fighter "ATLAS REX")
     act(() => {
