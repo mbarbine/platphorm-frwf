@@ -4,14 +4,31 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
-import { Bone, Group, Vector3, type SkinnedMesh } from 'three';
-import { fitHumanoid } from '../game/presentation/fitHumanoid';
+import { Bone, BufferGeometry, Float32BufferAttribute, Group, Skeleton, SkinnedMesh, Uint16BufferAttribute, Vector3 } from 'three';
+import { fitBodyVolume, fitHumanoid } from '../game/presentation/fitHumanoid';
+import { bodyVolume } from '../game/presentation/bodyVolume';
 import { buildBodySchema } from '../game/physics/bodySchema';
 import { fighterById } from '../game/data/fighters';
 import type { FighterId } from '../game/types/game';
 import manifest from '../../public/characters/manifest.json';
 
 describe('canonical humanoid scale', () => {
+  it('adds muscle across a bent arm without moving its joint or stretching its length', () => {
+    const scene = new Group(); const bone = new Bone(); bone.name = 'rightUpperArm';
+    bone.position.set(.3, 1.5, .1); bone.rotation.z = .6; scene.add(bone); scene.updateMatrixWorld(true);
+    const point = new Vector3(.08, -.14, .04).applyMatrix4(bone.matrixWorld);
+    const geometry = new BufferGeometry();
+    geometry.setAttribute('position', new Float32BufferAttribute([...point.toArray(), ...point.clone().add(new Vector3(0, .1, 0)).toArray(), ...point.clone().add(new Vector3(.1, 0, 0)).toArray()], 3));
+    geometry.setAttribute('skinIndex', new Uint16BufferAttribute([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], 4));
+    geometry.setAttribute('skinWeight', new Float32BufferAttribute([1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0], 4));
+    const mesh = new SkinnedMesh(geometry); scene.add(mesh); mesh.bind(new Skeleton([bone])); scene.updateMatrixWorld(true);
+    const anchor = bone.position.clone(); fitBodyVolume(mesh, 'atlas');
+    const fitted = new Vector3().fromBufferAttribute(geometry.getAttribute('position'), 0).applyMatrix4(bone.matrixWorld.clone().invert());
+    const [width, depth] = bodyVolume('atlas', 'rightUpperArm');
+    expect(fitted.x).toBeCloseTo(.08 * width, 5); expect(fitted.z).toBeCloseTo(.04 * depth, 5);
+    expect(fitted.y).toBeCloseTo(-.14, 5); expect(bone.position).toEqual(anchor);
+    expect(width).toBeGreaterThan(1.3); geometry.dispose();
+  });
   it.each(manifest.fighters)('fits $id to contact landmarks without mutating the cached asset', async asset => {
     const bytes = readFileSync(resolve(import.meta.dirname, `../../public${asset.url}`));
     const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
