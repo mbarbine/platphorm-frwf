@@ -17,7 +17,9 @@ export function situationalStrike(actor: FighterRuntime, target: FighterRuntime,
   }
   if (button === 'heavy') {
     if (actor.heldPropId) return 'prop';
-    if (actor.ropeRebound > 0 || running && Math.hypot(actor.velocity.x, actor.velocity.z) > 3.6) return combatDirection(direction) === 'left' ? 'rebound' : 'stiff_arm';
+    // OPTIMIZATION: Use zero-allocation squared speed check (> 12.96 equivalent to > 3.6) to avoid slow Math.hypot calls.
+    const speedSq = actor.velocity.x * actor.velocity.x + actor.velocity.z * actor.velocity.z;
+    if (actor.ropeRebound > 0 || (running && speedSq > 12.96)) return combatDirection(direction) === 'left' ? 'rebound' : 'stiff_arm';
     if (combatDirection(direction) === 'neutral') {
       const gap = distance(actor.position, target.position);
       if (gap < 1.05 || actor.stamina < getMove('front_kick').staminaCost) return 'low_kick';
