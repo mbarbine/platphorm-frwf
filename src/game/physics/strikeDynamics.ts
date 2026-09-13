@@ -16,9 +16,9 @@ const HAND_STRIKE: StrikeDriveProfile = { source: 'rightHand', target: 'chest', 
 
 export const strikeDriveProfile = (moveId: string): StrikeDriveProfile | null => {
   if (moveId === 'jab') return HAND_STRIKE;
-  if (moveId === 'combo') return { source: 'leftHand', target: 'chest', speed: 13.5, response: 17, maximumAcceleration: 185, pelvisAcceleration: 2.2 };
-  if (moveId === 'high_punch') return { source: 'rightHand', target: 'head', speed: 14.5, response: 18, maximumAcceleration: 195, pelvisAcceleration: 2.7 };
-  if (moveId === 'heavy') return { source: 'rightHand', target: 'head', speed: 16.5, response: 18, maximumAcceleration: 225, pelvisAcceleration: 3.4 };
+  if (moveId === 'combo') return { source: 'leftHand', target: 'chest', speed: 17, response: 28, maximumAcceleration: 460, pelvisAcceleration: 3.2 };
+  if (moveId === 'high_punch') return { source: 'rightHand', target: 'head', speed: 16, response: 25, maximumAcceleration: 350, pelvisAcceleration: 2.7 };
+  if (moveId === 'heavy') return { source: 'rightHand', target: 'head', speed: 17, response: 25, maximumAcceleration: 390, pelvisAcceleration: 3.4 };
   if (moveId === 'uppercut') return { source: 'rightHand', target: 'head', speed: 13.5, response: 32, maximumAcceleration: 520, pelvisAcceleration: 4.2 };
   if (moveId === 'headbutt') return { source: 'head', target: 'head', speed: 20, response: 32, maximumAcceleration: 560, pelvisAcceleration: 12.8 };
   if (moveId === 'low_kick') return { source: 'rightFoot', target: 'leftShin', speed: 18.5, response: 26, maximumAcceleration: 370, pelvisAcceleration: 6.8 };

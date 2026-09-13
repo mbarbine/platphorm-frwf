@@ -47,6 +47,9 @@ export function authoredStrikePose(base: Pose, move: MoveDefinition, phase: Atta
   const envelope = phase === 'anticipation' ? clamp(progress * 4) : phase === 'recovery' ? clamp((1 - progress) * 3) : 1;
   if (envelope < 1e-8) return base;
   const result = blend(base, captured, .65 * envelope);
+  // Keep the deliberate shoulder load and follow-through legible at bout speed.
+  // Imported motion supplies secondary movement, not a replacement strike arc.
+  result.torso = blend(base, captured, .2 * envelope).torso;
   // Preserve the authored contact reach. Retargeted clips add timing and body
   // movement, but their bent elbow/hip offsets must not erase the strike itself.
   const contactCommitment = phase === 'active' ? 1 : phase === 'recovery' ? clamp(1 - progress * 2) : clamp((progress - .6) / .4);

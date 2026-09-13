@@ -313,9 +313,9 @@ const strikeFrames = (moveId: string): readonly PoseKeyframe[] => {
   ];
   if (moveId === 'combo') return [
     { at: 0, pose: POSES.combatIdle },
-    { at: .36, pose: pose({ torso: [-.05, .28, 0], leftArm: [.12, 0, -.7], leftForearm: [-1.18, 0, 0], rightArm: [-.7, 0, .42], rightForearm: [-1.05, 0, 0], rootYaw: .2 }) },
-    { at: .58, pose: pose({ torso: [.08, -.18, 0], leftArm: [-1.48, 0, -.08], leftForearm: [-.1, 0, 0], rightArm: [-.65, 0, .42], rootYaw: -.18, rootZ: .1 }) },
-    { at: .76, pose: pose({ torso: [.12, .22, 0], leftArm: [-.6, 0, -.38], rightArm: [-1.5, 0, .08], rightForearm: [-.08, 0, 0], rootYaw: .16, rootZ: .16 }) },
+    { at: .46, pose: pose({ torso: [-.08, -.34, .04], leftArm: [.24, .08, -.76], leftForearm: [-1.5, 0, 0], rightArm: [-.78, 0, .42], rightForearm: [-1.15, 0, 0], rootYaw: -.24 }) },
+    { at: .68, pose: pose({ torso: [.1, .34, 0], leftArm: [-1.64, .06, -.03], leftForearm: [-.02, 0, 0], rightArm: [-.78, 0, .46], rightForearm: [-1.15, 0, 0], rootYaw: .22, rootZ: .22, rootTilt: .12 }) },
+    { at: .8, pose: pose({ torso: [.1, .34, 0], leftArm: [-1.64, .06, -.03], leftForearm: [-.02, 0, 0], rightArm: [-.78, 0, .46], rightForearm: [-1.15, 0, 0], rootYaw: .22, rootZ: .22, rootTilt: .12 }) },
     { at: 1, pose: POSES.combatIdle },
   ];
   if (moveId === 'high_punch') return [
@@ -359,7 +359,7 @@ const strikeFrames = (moveId: string): readonly PoseKeyframe[] => {
   if (moveId === 'uppercut') return [
     { at: 0, pose: POSES.combatIdle },
     { at: .46, pose: pose({ torso: [.12, .18, -.04], rightArm: [-.15, 0, .16], rightForearm: [-1.65, 0, 0], leftArm: [-.85, 0, -.3], leftForearm: [-1.2, 0, 0], leftLeg: [-.16, 0, 0], rightLeg: [-.22, 0, 0], leftShin: [-.3, 0, 0], rightShin: [-.4, 0, 0], rootY: -.1, rootTilt: .08 }) },
-    { at: .72, pose: pose({ torso: [-.08, -.18, .04], rightArm: [-1.5, 0, .12], rightForearm: [-1.1, 0, 0], leftArm: [-.82, 0, -.3], leftForearm: [-1.2, 0, 0], rootTilt: -.05 }) },
+    { at: .72, pose: pose({ torso: [-.12, -.34, .06], rightArm: [-1.72, 0, .12], rightForearm: [-.92, 0, 0], leftArm: [-.82, 0, -.3], leftForearm: [-1.2, 0, 0], rootTilt: -.08 }) },
     { at: .86, pose: pose({ rightArm: [-1.1, 0, .16], rightForearm: [-1.25, 0, 0], leftArm: [-.85, 0, -.3], leftForearm: [-1.2, 0, 0] }) },
     { at: 1, pose: POSES.combatIdle },
   ];

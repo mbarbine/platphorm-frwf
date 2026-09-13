@@ -834,6 +834,7 @@ const updatePin = (model: MatchModel, dt: number, playerInput: FrameInput): void
 
 const updateFighter = (model: MatchModel, actorKey: FighterSlot, dt: number, movement: Vec2, run: boolean, blockingHeld: boolean): void => {
   const actor = model[actorKey];
+  expireHitCombo(actor, model.elapsed, model.targets[actorKey]);
   const target = model[targetSlotFor(model, actorKey)];
   const definition = fighterById(actor.definitionId);
   actor.stateElapsed += dt;
