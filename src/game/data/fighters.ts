@@ -154,8 +154,8 @@ export const FIGHTERS: readonly FighterDefinition[] = [
     stats: { power: 66, speed: 94, stamina: 92, technique: 94, charisma: 88 },
   },
   {
-    id: 'britt', name: 'BRITT BASH', nickname: 'Britt Bash', archetype: 'Agile Grappler',
-    bio: 'An FRWF original inspired by the supplied archive. A playable movement and signature profile; the shared model is provisional while the individual likeness and attire are authored.', signature: 'BASH LANDING', taunt: 'Salutes the crowd, then settles into a ready stance.', tendency: 'technical',
+    id: 'britt', name: 'ANASTASIA BRITT', nickname: 'Anastasia Britt', archetype: 'Agile Grappler',
+    bio: 'A poised FRWF grappler with quick footwork and a sharp counter game. Her shared model remains provisional while her individual likeness and attire are authored.', signature: 'BASH LANDING', taunt: 'Salutes the crowd, then settles into a ready stance.', tendency: 'technical',
     personality: { cowardly: 8, showman: 88, technical: 94, aggressive: 66, reckless: 45, dirty: 25, athletic: 94, powerhouse: 66 },
     palette: { primary: '#e14798', secondary: '#20252a', skin: '#c39b81', emissive: '#898659' },
     proportions: { height: 0.904, width: 0.83, headwear: 'bandana' },

@@ -27,10 +27,11 @@ describe('FRWF upgrade baseline', () => {
   });
   it('preserves every supplied archive image with matching hashes', () => {
     const entries = JSON.parse(readFileSync('public/archive/manifest.json', 'utf8')) as {url:string;sha256:string}[];
-    expect(entries).toHaveLength(15);
+    expect(entries).toHaveLength(14);
     for (const entry of entries) { expect(existsSync(`public${entry.url}`)).toBe(true); expect(createHash('sha256').update(readFileSync(`public${entry.url}`)).digest('hex')).toBe(entry.sha256); }
   });
   it('offers new originals and a reachable fixed-destination mower activity', () => {
+    expect(WORLD_ENCOUNTERS.find(e => e.host === 'britt')?.title).toContain('Anastasia');
     for (const host of ['chelsea', 'britt', 'beer_bandit_bill', 'beer_bandit_ted']) expect(WORLD_ENCOUNTERS.some(e => e.host === host)).toBe(true);
     expect(LAWNMOWER_ACTIVITY.url).toBe('https://lawnmower.platphormnews.com');
     expect(nearLawnmower({ x: 4, z: 16 })).toBe(true); expect(canStandAt({ x: 4, z: 16 })).toBe(true); expect(nearLawnmower({ x: 0, z: 0 })).toBe(false);

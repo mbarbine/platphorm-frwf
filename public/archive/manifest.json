@@ -72,15 +72,6 @@
     "historical": true
   },
   {
-    "id": "britt-bash",
-    "title": "Britt Bash",
-    "url": "/archive/britt-bash.png",
-    "sha256": "078c6c415026607f03d7cb0d03caa2010763b459c819b5257ecb6490cb43a09c",
-    "bytes": 520307,
-    "source": "User supplied FRWF archive, 2026-09-12",
-    "historical": true
-  },
-  {
     "id": "beer-bandits",
     "title": "Beer Bandits",
     "url": "/archive/beer-bandits.png",

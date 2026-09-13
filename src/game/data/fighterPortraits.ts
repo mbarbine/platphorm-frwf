@@ -1,9 +1,9 @@
 import type { FighterId } from '../types/game';
 
-/** Original user-provided photographs; framing leaves the source images intact. */
+/** Portrait assets used by fighter-select cards; each newly authored character gets its own image. */
 export const FIGHTER_PORTRAITS: Partial<Record<FighterId, { url: string; position: string }>> = {
   chelsea: { url: '/archive/chelsea-whiplash.png', position: '70% 25%' },
-  britt: { url: '/archive/britt-bash.png', position: '35% 20%' },
+  britt: { url: '/portraits/anastasia-britt.png', position: '50% 34%' },
   beer_bandit_bill: { url: '/archive/beer-bandits.png', position: '22% 30%' },
   beer_bandit_ted: { url: '/archive/beer-bandits.png', position: '70% 20%' },
   josh: { url: '/portraits/josh.png', position: '50% 35%' },
