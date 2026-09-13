@@ -22,7 +22,8 @@ export function nearbyClimbableObject(model: MatchModel, actor: FighterRuntime):
     if (!target) continue;
     const dx = Math.max(0, Math.abs(actor.position.x - target.x) - 1.5);
     const dz = Math.max(0, Math.abs(actor.position.z - target.z) - .65);
-    if (Math.hypot(dx, dz) <= .85 && (!venueFor(model).hasRing || Math.abs(actor.position.x) > 5.8 || Math.abs(actor.position.z) > 4.3)) return prop.id;
+    // OPTIMIZATION: Replacing slow Math.hypot with zero-allocation squared-magnitude check (<= 0.7225 equivalent to <= 0.85).
+    if (dx * dx + dz * dz <= .7225 && (!venueFor(model).hasRing || Math.abs(actor.position.x) > 5.8 || Math.abs(actor.position.z) > 4.3)) return prop.id;
   }
   return null;
 }
