@@ -20,6 +20,15 @@ describe('HUD and Results Accessibility', () => {
     expect(cameraBtn).toBeTruthy();
   });
 
+  it('renders target switch button with descriptive ARIA label containing current target wrestler name in battle royale', () => {
+    useMatchStore.getState().configure('atlas', 'nova', 'standard', 'normal', 0, 0, 'battle_royale');
+
+    render(React.createElement(HUD, { device: 'keyboard', paused: false }));
+
+    const targetBtn = screen.getByRole('button', { name: /Switch target wrestler, currently targeting/i });
+    expect(targetBtn).toBeTruthy();
+  });
+
   it('renders instant replay skip button with descriptive ARIA label when replay is active', () => {
     useMatchStore.setState({ replayActive: true });
     render(React.createElement('div', { className: 'replay-overlay' },

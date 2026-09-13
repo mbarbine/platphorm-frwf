@@ -35,3 +35,7 @@
 ## 2025-02-25 - Standard ARIA Progressbar Semantics on Custom Meter Tracks
 **Learning:** Custom visual meter bars (like Health, Stamina, Balance, and Momentum) need explicit `role="progressbar"` along with `aria-label`, `aria-valuenow`, `aria-valuemin`, and `aria-valuemax` attributes so screen readers accurately announce progress meter values and state updates.
 **Action:** Always attach `role="progressbar"` and numeric ARIA range attributes (`aria-valuenow`, `aria-valuemin`, `aria-valuemax`) to custom meter components.
+
+## 2025-03-01 - Dynamic Context-Aware ARIA Labels for Multi-Target Controls
+**Learning:** Interactive target switching buttons in multi-opponent game modes (like Battle Royale) can be confusing for screen reader users if the button label only states 'Switch target wrestler'. Incorporating the current target wrestler's name dynamically into the ARIA label (e.g. `Switch target wrestler, currently targeting {name}`) gives screen reader users immediate awareness of their current target state before activating the button.
+**Action:** Always include current active target context inside ARIA labels for dynamic cycling or switching controls.
