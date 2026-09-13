@@ -1,4 +1,5 @@
-import { Bone, SkinnedMesh, Vector3 } from 'three';
+import { Bone, Matrix4, SkinnedMesh, Vector3 } from 'three';
+import { bodyVolume } from './bodyVolume';
 import type { Object3D } from 'three';
 import { buildBodySchema } from '../physics/bodySchema';
 import { fighterById } from '../data/fighters';
@@ -29,8 +30,38 @@ export function fitHumanoid(scene: Object3D, fighterId: FighterId): { scale: num
   });
   scene.updateMatrixWorld(true);
   for (const mesh of meshes) {
+    fitBodyVolume(mesh, fighterId);
     mesh.skeleton.calculateInverses();
     mesh.bind(mesh.skeleton, mesh.matrixWorld);
   }
   return { scale, dispose: () => { for (const mesh of meshes) mesh.geometry.dispose(); } };
+}
+
+/** Inflate in each bone's anatomical frame, blended by the authored skin weights.
+ * A world-X scale would stretch bent arms sideways and pull wrists off their joints. */
+export function fitBodyVolume(mesh: SkinnedMesh, fighterId: FighterId): void {
+  const position = mesh.geometry.getAttribute('position');
+  const indices = mesh.geometry.getAttribute('skinIndex');
+  const weights = mesh.geometry.getAttribute('skinWeight');
+  if (!position || !indices || !weights) return;
+  const inverseMesh = new Matrix4().copy(mesh.matrixWorld).invert();
+  const transforms = mesh.skeleton.bones.map(bone => {
+    const [width, depth] = bodyVolume(fighterId, bone.name);
+    const boneToMesh = new Matrix4().multiplyMatrices(inverseMesh, bone.matrixWorld);
+    return new Matrix4().copy(boneToMesh).multiply(new Matrix4().makeScale(width, 1, depth)).multiply(boneToMesh.clone().invert());
+  });
+  const source = new Vector3(); const transformed = new Vector3(); const sum = new Vector3();
+  for (let vertex = 0; vertex < position.count; vertex++) {
+    source.fromBufferAttribute(position, vertex); sum.set(0, 0, 0);
+    let total = 0;
+    for (let influence = 0; influence < 4; influence++) {
+      const weight = weights.getComponent(vertex, influence);
+      const transform = transforms[indices.getComponent(vertex, influence)];
+      if (!transform || weight <= 0) continue;
+      sum.addScaledVector(transformed.copy(source).applyMatrix4(transform), weight); total += weight;
+    }
+    if (total > 0) { sum.divideScalar(total); position.setXYZ(vertex, sum.x, sum.y, sum.z); }
+  }
+  position.needsUpdate = true;
+  mesh.geometry.computeVertexNormals(); mesh.geometry.computeBoundingBox(); mesh.geometry.computeBoundingSphere();
 }

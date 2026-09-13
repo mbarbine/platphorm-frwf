@@ -3,9 +3,10 @@ import { getMove, MOVES } from '../data/moves';
 import { BALANCE } from '../data/balance';
 import { distance, seededRandom } from '../utils/math';
 import { FIGHTER_SLOTS } from '../types/game';
-import type { FighterDefinition, FighterSlot, GameCommand, MatchModel } from '../types/game';
+import type { FighterDefinition, FighterSlot, GameCommand, MatchModel, Vec2 } from '../types/game';
 import { GRAPPLE_ACQUISITION_RANGE } from '../systems/moveSelection';
 import { situationalStrike } from '../systems/strikeResolver';
+import { canLinkStrike } from '../systems/hitCombos';
 import { isRingside } from '../physics/ringDynamics';
 
 export interface AiDecision { command: GameCommand | null; move: { x: number; z: number }; run: boolean; nextSeed: number }
@@ -33,7 +34,7 @@ const strikeDirectionFor = (command: 'quick' | 'heavy', tendency: FighterDefinit
   return { x: 1, z: 0 }; // high kick
 };
 
-export const isActionLegal = (model: MatchModel, command: GameCommand, actorKey: FighterSlot): boolean => {
+export const isActionLegal = (model: MatchModel, command: GameCommand, actorKey: FighterSlot, direction?: Vec2, running = false): boolean => {
   const actor = model[actorKey];
   const target = model[model.targets[actorKey]];
   if (model.paused || model.resolved || actor.state === 'pinned' || actor.state === 'pinning' || actor.state === 'defeated' || actor.state === 'victorious') return false;
@@ -71,14 +72,15 @@ export const isActionLegal = (model: MatchModel, command: GameCommand, actorKey:
   if (command === 'grapple' && model.grapple) return false;
   let selectedMove;
   if (command === 'quick') {
-    selectedMove = getMove(situationalStrike(actor, target, 'quick', delta));
+    selectedMove = getMove(situationalStrike(actor, target, 'quick', direction ?? delta, running));
   } else if (command === 'heavy') {
-    selectedMove = getMove(situationalStrike(actor, target, 'heavy', delta));
+    selectedMove = getMove(situationalStrike(actor, target, 'heavy', direction ?? delta, running));
   } else {
     selectedMove = MOVES.slam;
   }
   if (!selectedMove) return false;
-  return selectedMove.requiredActorStates.includes(actor.state) && actor.stamina >= selectedMove.staminaCost && (command !== 'grapple' || targetDistance <= GRAPPLE_ACQUISITION_RANGE);
+  const link = (command === 'quick' || command === 'heavy') && actor.moveId !== null && canLinkStrike(actor, getMove(actor.moveId));
+  return (selectedMove.requiredActorStates.includes(actor.state) || link) && actor.stamina >= selectedMove.staminaCost && (command !== 'grapple' || targetDistance <= GRAPPLE_ACQUISITION_RANGE);
 };
 
 export const chooseAiDecision = (model: MatchModel, definition: FighterDefinition, actorKey: FighterSlot = 'opponent'): AiDecision => {

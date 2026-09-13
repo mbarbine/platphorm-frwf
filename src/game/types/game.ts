@@ -153,6 +153,12 @@ export interface FighterRuntime {
   pinEscape: number;
   heldPropId: string | null;
   comboStep: number;
+  comboInputs: ('quick' | 'heavy')[];
+  comboTarget: FighterSlot | null;
+  comboExpiresAt: number;
+  comboAttackId: number;
+  comboName: string | null;
+  strikeInput: 'quick' | 'heavy' | null;
   recentMoves: string[];
   lastActionAt: number;
   ropeRebound: number;

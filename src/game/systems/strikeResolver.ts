@@ -1,4 +1,4 @@
-import { WRESTLING_STYLES } from '../data/wrestlingStyles';
+import { comboStrike } from './hitCombos';
 import { getMove } from '../data/moves';
 import { venueFor } from '../data/venues';
 import { isRingside } from '../physics/ringDynamics';
@@ -11,6 +11,10 @@ import { resolvePropAction } from './contextResolver';
 export function situationalStrike(actor: FighterRuntime, target: FighterRuntime, button: StrikeButton, direction: Vec2 = { x: 0, z: 0 }, running = false): string {
   if (button === 'quick' && actor.heldPropId) return 'prop';
   if (target.state === 'downed' && distance(actor.position, target.position) <= 1.8) return button === 'heavy' ? 'ground' : 'ground_punch';
+  if (!actor.heldPropId && !running && actor.ropeRebound <= 0 && combatDirection(direction) === 'neutral') {
+    const chained = comboStrike(actor, button);
+    if (chained) return chained;
+  }
   if (button === 'heavy') {
     if (actor.heldPropId) return 'prop';
     if (actor.ropeRebound > 0 || running && Math.hypot(actor.velocity.x, actor.velocity.z) > 3.6) return combatDirection(direction) === 'left' ? 'rebound' : 'stiff_arm';
@@ -19,10 +23,6 @@ export function situationalStrike(actor: FighterRuntime, target: FighterRuntime,
       if (gap < 1.05 || actor.stamina < getMove('front_kick').staminaCost) return 'low_kick';
       if (target.state === 'staggered' && gap > 1.35 && actor.stamina >= getMove('high_kick').staminaCost) return 'high_kick';
     }
-  }
-  if (button === 'quick' && combatDirection(direction) === 'neutral') {
-    const chain = WRESTLING_STYLES[actor.definitionId].chain;
-    return chain[actor.comboStep % chain.length] ?? 'jab';
   }
   return selectDirectionalStrike(direction, button, actor.comboStep);
 }

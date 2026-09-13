@@ -1,4 +1,5 @@
 import { signatureMoveId } from '../data/wrestlingStyles';
+import { canLinkStrike, clearHitCombo, confirmComboHit, expireHitCombo } from './hitCombos';
 import { RECOVERY_DURATION } from '../animation/recoveryMotion';
 import { configureCombatVenue, venueFor } from '../data/venues';
 import { FIGHTERS, fighterById } from '../data/fighters';
@@ -59,6 +60,7 @@ export const createFighterRuntime = (definitionId: FighterId, position: Vec2, be
   definitionId, position, velocity: { x: 0, z: 0 }, facing: 0, health: 100, stamina: staminaCap, staminaCap, beersDrunk: beers, momentum: 0,
   state: 'idle', moveId: null, attackPhase: null, phaseElapsed: 0, stateElapsed: 0, hitTargets: [], attackInstanceId: 0, downTimer: 0,
   counterWindow: 0, invulnerability: 0, pinCount: 0, pinEscape: 0, heldPropId: null, comboStep: 0, recentMoves: [],
+  comboInputs: [], comboTarget: null, comboExpiresAt: 0, comboAttackId: -1, comboName: null, strikeInput: null,
   lastActionAt: 0, ropeRebound: 0, finisherPrimed: false, climbStage: 0, recoveryOrientation: 'back',
   fallReason: null, lastFallReason: null, fallSequence: 0,
   body: createBodyDynamics(definition),
@@ -142,7 +144,7 @@ export const canStartMove = (actor: FighterRuntime, target: FighterRuntime, move
   // press animates at all. Grapples, finishers, aerials, and contextual utility
   // actions still require their real acquisition/workflow range.
   const motionCanWhiff = ['quick', 'heavy', 'ground', 'prop'].includes(move.category);
-  return move.requiredActorStates.includes(actor.state)
+  return (move.requiredActorStates.includes(actor.state) || (move.category === 'quick' || move.category === 'heavy') && actor.moveId !== null && canLinkStrike(actor, getMove(actor.moveId)))
     && actor.stamina >= move.staminaCost
     && (motionCanWhiff || targetDistance >= move.minimumRange)
     && (motionCanWhiff || targetDistance <= maximumInputRange)
@@ -158,6 +160,7 @@ export const startMove = (actor: FighterRuntime, target: FighterRuntime, move: M
   actor.phaseElapsed = 0;
   actor.stateElapsed = 0;
   actor.hitTargets = [];
+  actor.strikeInput = null;
   actor.attackInstanceId += 1;
   actor.stamina = clamp(actor.stamina - move.staminaCost, 0, actor.staminaCap);
   actor.finisherPrimed = move.category === 'finisher';
@@ -214,7 +217,7 @@ export const applyMoveHit = (model: MatchModel, actorKey: FighterSlot, targetKey
   const target = model[targetKey];
   const targetPreHealth = target.health;
   const inSingles = model.matchMode === 'singles';
-  const isComboFinisher = inSingles && actor.comboStep >= 2 && (move.category === 'heavy' || move.category === 'grapple' || move.category === 'prop' || move.category === 'aerial');
+  const isComboFinisher = inSingles && actor.comboStep >= 2 && (move.category === 'grapple' || move.category === 'prop' || move.category === 'aerial');
   if (['defeated', 'victorious'].includes(actor.state) || ['defeated', 'victorious'].includes(target.state)) return false;
   const impactPosition = contact?.point ? { x: contact.point[0], z: contact.point[2] } : target.position;
   const hitToken = contact ? `${targetKey}:${actor.attackInstanceId}` : targetKey;
@@ -239,7 +242,7 @@ export const applyMoveHit = (model: MatchModel, actorKey: FighterSlot, targetKey
   let comboDamageMultiplier = 1.0;
   if (inSingles && actor.comboStep >= 2) {
     if (move.category === 'quick') {
-      comboDamageMultiplier = 1.0 + Math.min(0.5, (actor.comboStep - 1) * 0.1);
+      comboDamageMultiplier = 1.0 + Math.min(0.2, (actor.comboStep - 1) * 0.05);
     } else if (isComboFinisher) {
       comboDamageMultiplier = 1.2;
     }
@@ -258,6 +261,7 @@ export const applyMoveHit = (model: MatchModel, actorKey: FighterSlot, targetKey
   } : baseImpact;
   const spatialGuard = contact ? target.state === 'blocking' && (contact.targetSegment?.includes('Forearm') === true || contact.targetSegment?.includes('Hand') === true) : target.state === 'blocking';
   if (spatialGuard && move.category !== 'grapple' && move.category !== 'finisher' && move.category !== 'utility') {
+    clearHitCombo(actor);
     const isPerfectParry = inSingles && target.stateElapsed <= PERFECT_PARRY_WINDOW_SECONDS && move.category !== 'aerial';
     if (isPerfectParry) {
       actor.hitTargets.push(hitToken);
@@ -300,7 +304,8 @@ export const applyMoveHit = (model: MatchModel, actorKey: FighterSlot, targetKey
   }
   if (!model.toyTestMode) target.health = clamp(target.health - damage, 0, 100);
   actor.hitTargets.push(hitToken);
-  target.comboStep = 0; // reset opponent combo streak on hit
+  clearHitCombo(target);
+  confirmComboHit(actor, targetKey, model.elapsed, move);
   const variety = varietyMultiplier(actor, move.id);
   const surge = model.chaosEvent?.type === 'CROWD SURGE' ? 1.6 : 1;
   const stats = model.fighterStats[actorKey];
@@ -432,11 +437,15 @@ export const applyMoveHit = (model: MatchModel, actorKey: FighterSlot, targetKey
     }
   }
 
+  if (actor.comboName) {
+    model.announcement = `${actor.comboStep} HITS · ${actor.comboName}!`;
+    model.announcementTimer = 1.05;
+  }
   if (isComboFinisher) {
     model.announcement = 'COMBO FINISHER!';
     model.announcementTimer = 1.05;
     model.slowMotion = Math.max(model.slowMotion, 0.35);
-    actor.comboStep = 0;
+    clearHitCombo(actor);
   }
   const exhaustionKnockout = model.elapsed >= BALANCE.knockout.earliestSeconds
     && target.health <= BALANCE.knockout.healthThreshold
@@ -541,6 +550,7 @@ const launchAerial = (model: MatchModel, actor: FighterRuntime, target: FighterR
 
 export const requestCommand = (model: MatchModel, actorKey: FighterSlot, command: GameCommand, direction: Vec2 = { x: 0, z: 0 }, running = false): boolean => {
   const actor = model[actorKey];
+  expireHitCombo(actor, model.elapsed, model.targets[actorKey]);
   const targetKey = targetSlotFor(model, actorKey);
   const target = model[targetKey];
   if (actor.state === 'climbing' && actor.climbStage === 3 && (command === 'quick' || command === 'heavy')) {
@@ -624,7 +634,7 @@ export const requestCommand = (model: MatchModel, actorKey: FighterSlot, command
     && ['idle', 'locomotion'].includes(actor.state)) return startMove(actor, target, getMove('grapple_miss'));
   if (['downed', 'recovering'].includes(actor.state)
     && ['quick', 'heavy', 'grapple', 'dodge'].includes(command)) return startGetUp(actor);
-  if (!isActionLegal(model, command, actorKey)) return false;
+  if (!isActionLegal(model, command, actorKey, direction, running)) return false;
   if (command === 'block') {
     // Holding guard sustains the existing defensive window. Restarting its
     // clock every fixed step made every held block an accidental perfect
@@ -656,12 +666,14 @@ export const requestCommand = (model: MatchModel, actorKey: FighterSlot, command
     if (quickPickup(model, actorKey)) return useProp(model, actorKey, direction);
     const moveId = situationalStrike(actor, target, 'quick', direction, running);
     const started = startMove(actor, target, getMove(moveId));
-    if (started) actor.comboStep += 1;
+    if (started) actor.strikeInput = 'quick';
     return started;
   }
   if (command === 'heavy') {
     const moveId = situationalStrike(actor, target, 'heavy', direction, running);
-    return startMove(actor, target, getMove(moveId));
+    const started = startMove(actor, target, getMove(moveId));
+    if (started) actor.strikeInput = 'heavy';
+    return started;
   }
   // OPTIMIZATION: Replaced Math.hypot with a zero-allocation squared-magnitude check (> 14.0625 equivalent to > 3.75)
   if (running && (actor.velocity.x * actor.velocity.x + actor.velocity.z * actor.velocity.z) > 14.0625 && target.state !== 'downed') return startMove(actor, target, getMove('spear'));
@@ -679,7 +691,7 @@ export const requestCommand = (model: MatchModel, actorKey: FighterSlot, command
   const moveId = selectGrappleEntryMove(direction);
   const started = startMove(actor, target, getMove(moveId));
   if (started) {
-    actor.comboStep += 1; target.state = model.physicsAuthority ? 'staggered' : 'grabbed'; target.stateElapsed = 0; target.velocity = scale(target.velocity, .3);
+    clearHitCombo(actor); target.state = model.physicsAuthority ? 'staggered' : 'grabbed'; target.stateElapsed = 0; target.velocity = scale(target.velocity, .3);
     target.moveId = null; target.attackPhase = null;
     model.grapple = createGrappleRuntime(actorKey, targetKey, moveId);
   }
@@ -920,6 +932,7 @@ const updateFighter = (model: MatchModel, actorKey: FighterSlot, dt: number, mov
     // Attack phases author movement only. Damage is resolved exclusively by
     // applyPhysicalContact after Rapier reports a solved limb/body manifold.
     if (!actor.attackPhase) {
+      if (actor.strikeInput && actor.comboAttackId !== actor.attackInstanceId) clearHitCombo(actor);
       const completedTurnbuckleTaunt = move.id === 'taunt' && actor.state === 'climbing';
       if (move.id === 'taunt' && !model.toyTestMode) {
         const variety = varietyMultiplier(actor, move.id); const surge = model.chaosEvent?.type === 'CROWD SURGE' ? 1.6 : 1;

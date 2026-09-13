@@ -1,4 +1,5 @@
 import type { FighterDefinition } from '../types/game';
+import { bodyVolume } from '../presentation/bodyVolume';
 
 export type BodySegmentId =
   | 'pelvis' | 'abdomen' | 'chest' | 'head'
@@ -44,9 +45,10 @@ const segment = (definition: FighterDefinition, id: BodySegmentId, side: Segment
     : arm ? left ? 'leftArm' : 'rightArm' : left ? 'leftLeg' : 'rightLeg';
   const strike = id.includes('Hand') || id.includes('Forearm') || id.includes('Foot');
   const support = id.includes('Foot');
+  const [width, depth] = bodyVolume(definition.id, id);
   return {
     id, side, bodyRegion, colliderRole: support ? 'support' : strike ? 'strike' : 'body',
-    massKg: definition.physics.massKg * SEGMENT_RATIOS[id], halfLength, radius, torsoDepth: definition.physics.torsoDepthM,
+    massKg: definition.physics.massKg * SEGMENT_RATIOS[id], halfLength, radius: radius * width, torsoDepth: definition.physics.torsoDepthM * depth,
     damageMultiplier: id === 'head' ? 1.35 : id === 'abdomen' ? 1.08 : leg ? .82 : arm ? .72 : 1,
     attackEligible: strike,
     gripAnchorEligible: arm || ['head', 'chest', 'abdomen', 'pelvis'].includes(id),
