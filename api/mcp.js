@@ -48,7 +48,10 @@ export default function handler(request, response) {
         },
       })
     }
-    if (request.method !== "POST") return response.status(405).json(error(null, -32600, "Method not allowed"))
+    if (request.method !== "POST") {
+      response.setHeader("Allow", "GET, POST")
+      return response.status(405).json(error(null, -32600, "Method not allowed"))
+    }
 
     let payload = request.body
     if (typeof payload === "string") {

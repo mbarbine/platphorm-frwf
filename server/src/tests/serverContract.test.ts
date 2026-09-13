@@ -387,6 +387,35 @@ describe('authoritative server contract', () => {
     /* eslint-enable @typescript-eslint/no-explicit-any */
   });
 
+  it('rejects unsupported HTTP methods in api/mcp.js with 405 status and Allow header', async () => {
+    /* eslint-disable @typescript-eslint/no-explicit-any */
+    // @ts-expect-error - JavaScript file lacks type definitions
+    const mcpModule = await import('../../../api/mcp.js');
+    const mcpHandler = mcpModule.default;
+    const req = {
+      method: 'PUT',
+    };
+    const res = {
+      status: vi.fn().mockReturnThis(),
+      setHeader: vi.fn(),
+      json: vi.fn(),
+    };
+
+    mcpHandler(req as any, res as any);
+
+    expect(res.status).toHaveBeenCalledWith(405);
+    expect(res.setHeader).toHaveBeenCalledWith('Allow', 'GET, POST');
+    expect(res.json).toHaveBeenCalledWith({
+      jsonrpc: '2.0',
+      id: null,
+      error: {
+        code: -32600,
+        message: 'Method not allowed',
+      },
+    });
+    /* eslint-enable @typescript-eslint/no-explicit-any */
+  });
+
   it('Express middleware sets Referrer-Policy and Permissions-Policy security headers', async () => {
     /* eslint-disable @typescript-eslint/no-explicit-any */
     const middleware = (_req: any, res: any, next: any) => {
