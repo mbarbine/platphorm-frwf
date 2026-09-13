@@ -62,6 +62,9 @@ export function authoredStrikePose(base: Pose, move: MoveDefinition, phase: Atta
   } else {
     result[`${strikeSide}Arm`] = controlled[`${strikeSide}Arm`];
     result[`${strikeSide}Forearm`] = controlled[`${strikeSide}Forearm`];
+    const guardSide = strikeSide === 'left' ? 'right' : 'left';
+    result[`${guardSide}Arm`] = base[`${guardSide}Arm`];
+    result[`${guardSide}Forearm`] = base[`${guardSide}Forearm`];
   }
   result.rootX = base.rootX; result.rootY = base.rootY; result.rootZ = base.rootZ;
   result.rootTilt = clamp(result.rootTilt, -.22, .22); result.rootRoll = clamp(result.rootRoll, -.18, .18);

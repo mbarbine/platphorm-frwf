@@ -1,4 +1,6 @@
 import { OriginalFaceDetails } from './OriginalFaceDetails';
+import { fighterById } from '../data/fighters';
+import { segmentSchema } from '../physics/bodySchema';
 import { useFrame } from '@react-three/fiber';
 import { useEffect, useMemo, useRef } from 'react';
 import { CanvasTexture, SRGBColorSpace } from 'three';
@@ -40,7 +42,7 @@ export function FighterAccessories({ fighterId, side, previewPose, modelScale = 
     if (waist.current) { const model = useMatchStore.getState().model; waist.current.visible = Boolean(side && model[side].state === 'victorious'); }
   });
   return <>
-    {side && <RingGear side={side} />}
+    {side && <RingGear side={side} fighterId={fighterId} />}
     <group ref={head} scale={modelScale}>
       <OriginalFaceDetails fighterId={fighterId} />
       {fighterId === 'atlas' ? <group position={[0, .13, 0]}>
@@ -57,7 +59,7 @@ export function FighterAccessories({ fighterId, side, previewPose, modelScale = 
 
 
 /** Ring equipment follows solved joints, including throughout falls and covers. */
-function RingGear({ side }: { side: FighterSlot }) {
+function RingGear({ side, fighterId }: { side: FighterSlot; fighterId: FighterId }) {
   const refs = useRef(new Map<BodySegmentId, Group>());
   useFrame(() => {
     for (const [segment, group] of refs.current) {
@@ -65,7 +67,14 @@ function RingGear({ side }: { side: FighterSlot }) {
       if (pose) { group.position.copy(pose.position); group.quaternion.set(pose.rotation.x, pose.rotation.y, pose.rotation.z, pose.rotation.w); }
     }
   });
-  return <>{(['leftFoot', 'rightFoot'] as const).map(segment => <group key={segment} ref={group => { if (group) refs.current.set(segment, group); else refs.current.delete(segment); }}>
+  const definition = fighterById(fighterId);
+  return <>{(['leftForearm', 'rightForearm'] as const).map(segment => {
+    const radius = segmentSchema(definition, segment).radius + .004;
+    return <group key={segment} ref={group => { if (group) refs.current.set(segment, group); else refs.current.delete(segment); }}>
+      <mesh position={[0, -.12, 0]}><cylinderGeometry args={[radius, radius * .93, .105, 12]} /><meshStandardMaterial color="#e4ddc9" roughness={.94} /></mesh>
+      {[-.15, -.095].map(y => <mesh key={y} position={[0, y, 0]}><cylinderGeometry args={[radius + .001, radius + .001, .012, 12]} /><meshStandardMaterial color={definition.palette.primary} roughness={.78} /></mesh>)}
+    </group>;
+  })}{(['leftFoot', 'rightFoot'] as const).map(segment => <group key={segment} ref={group => { if (group) refs.current.set(segment, group); else refs.current.delete(segment); }}>
     {<group position={[0, .048, .1]}>{[-.035, 0, .035].map(z => <mesh key={z} position={[0, 0, z]} rotation={[Math.PI / 2, 0, Math.PI / 2]}><cylinderGeometry args={[.005, .005, .11, 5]} /><meshStandardMaterial color="#b3aa97" roughness={1} /></mesh>)}</group>}
   </group>)}</>;
 }

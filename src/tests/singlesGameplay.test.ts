@@ -119,10 +119,10 @@ describe('Singles Gameplay Enhancements', () => {
     model.player.comboStep = 3;
     model.player.hitTargets = [];
     model.player.state = 'attacking';
-    model.player.moveId = 'heavy';
+    model.player.moveId = 'slam';
     model.player.attackPhase = 'active';
 
-    applyMoveHit(model, 'player', 'opponent', getMove('heavy'));
+    applyMoveHit(model, 'player', 'opponent', getMove('slam'));
     expect(model.announcement).toBe('COMBO FINISHER!');
     expect(model.player.comboStep).toBe(0); // combo gets reset after finisher lands
   });

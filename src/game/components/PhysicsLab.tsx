@@ -255,7 +255,7 @@ export function PhysicsLab() {
   };
 
   const exportBaseline = (): void => {
-    const payload = { version: 1, release: RELEASE_IDENTITY, scenario: lastScenario.current?.id ?? null, fighter: playerId, opponent: opponentId, venue: model.venue, seed, signature: signatureMoveId(playerId), input: 'scripted keyboard through shipping action layer', controllerHardware: 'not verified', visualAcceptance: 'not assessed by telemetry', samples: samples.current };
+    const payload = { version: 2, release: RELEASE_IDENTITY, scenario: lastScenario.current?.id ?? null, fighter: playerId, opponent: opponentId, venue: model.venue, seed, signature: signatureMoveId(playerId), input: 'scripted keyboard through shipping action layer', controllerHardware: 'not verified', visualAcceptance: 'not assessed by telemetry', maximumConfirmedHits: Math.max(0, ...samples.current.map(sample => sample.hits)), samples: samples.current };
     const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })); const link = document.createElement('a'); link.href = url; link.download = `frwf-baseline-${playerId}-${lastScenario.current?.id ?? 'manual'}.json`; link.click(); window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
   const applyPair = (): void => { clearTimers(); setActive(null); useMatchStore.getState().configureLab(playerId, opponentId, seed, playerStamina, opponentStamina, playerMass, opponentMass, venue, ruleset); };

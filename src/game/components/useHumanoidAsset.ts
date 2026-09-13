@@ -1,6 +1,7 @@
 import { useLoader } from '@react-three/fiber';
 import { useEffect, useMemo } from 'react';
 import { fitHumanoid } from '../presentation/fitHumanoid';
+import { fighterVisual } from '../presentation/fighterVisuals';
 import { Bone, SkinnedMesh, TextureLoader, SRGBColorSpace, MeshStandardMaterial } from 'three';
 import { bindFingerPoses } from '../presentation/handPose';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
@@ -28,7 +29,7 @@ export function useHumanoidAsset(fighterId: FighterId) {
         if (!/Thumb|Index|Middle|Ring|Little/.test(node.name)) bones.set(node.name as BodySegmentId, node);
       }
       if (node instanceof SkinnedMesh) {
-        if (node.material instanceof MeshStandardMaterial) { node.material = node.material.clone(); node.material.map = node.material.name === 'hair' ? hair : skin; node.material.roughness = node.material.name === 'hair' ? .92 : .7; }
+        if (node.material instanceof MeshStandardMaterial) { node.material = node.material.clone(); node.material.map = node.material.name === 'hair' ? hair : skin; node.material.roughness = node.material.name === 'hair' ? .92 : Math.max(.54, fighterVisual(fighterId).skinRoughness); }
         node.castShadow = true; node.receiveShadow = true; node.frustumCulled = false; }
     });
     return { scene, bones, fingers, modelScale: fit.scale, dispose: () => { fit.dispose(); scene.traverse(node => { if (node instanceof SkinnedMesh && node.material instanceof MeshStandardMaterial) node.material.dispose(); }); } };

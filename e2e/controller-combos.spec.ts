@@ -1,0 +1,34 @@
+import { expect, test } from '@playwright/test';
+import { readFile } from 'node:fs/promises';
+
+test('reevaluates visible hit chains through live input and solved contacts', async ({ page }, testInfo) => {
+  test.setTimeout(240_000);
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/?physicsLab=1');
+  await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
+  await page.getByRole('button', { name: 'PLAY', exact: true }).click();
+  await page.getByRole('button', { name: /LOCK IN ATLAS/ }).click();
+  await page.getByRole('button', { name: 'STANDARD', exact: true }).click();
+  await page.getByRole('button', { name: 'START MATCH' }).click();
+  const hud = page.locator('.hud'); const lab = page.getByTestId('physics-lab');
+  await expect(hud).toHaveAttribute('data-physics-bodies', '32', { timeout: 45_000 });
+  await lab.getByRole('button', { name: 'STANDING STABILITY', exact: true }).click();
+  await expect(lab).toHaveAttribute('data-lab-scenario', 'idle', { timeout: 40_000 });
+  await page.screenshot({ path: testInfo.outputPath('01-fuller-roster.png') });
+  await lab.getByRole('button', { name: 'SIX PUNCHES · HIT CONFIRM', exact: true }).click();
+  await expect(page.getByTestId('hit-combo')).toHaveAttribute('data-hits', /^[2-6]$/, { timeout: 45_000 });
+  await page.screenshot({ path: testInfo.outputPath('02-confirmed-chain.png') });
+  await expect(lab).toHaveAttribute('data-lab-scenario', 'idle', { timeout: 90_000 });
+  const download = page.waitForEvent('download');
+  await lab.getByRole('button', { name: 'EXPORT BASELINE' }).click();
+  const artifact = await download; const file = testInfo.outputPath('six-punch-baseline.json'); await artifact.saveAs(file);
+  const baseline = JSON.parse(await readFile(file, 'utf8')) as { version: number; maximumConfirmedHits: number; samples: Array<{ move: string | null; damage: number; upright: number; hits: number }> };
+  expect(baseline.version).toBe(2);
+  expect(baseline.maximumConfirmedHits).toBeGreaterThanOrEqual(3);
+  expect(new Set(baseline.samples.map(sample => sample.move)).size).toBeGreaterThanOrEqual(4);
+  expect(baseline.samples.some(sample => sample.damage > 0)).toBe(true);
+  await expect(hud).toHaveAttribute('data-physics-emergency-resets', '0');
+  await expect(lab).toHaveAttribute('data-lab-numerical-faults', '0');
+  expect(errors).toEqual([]);
+});
