@@ -46,7 +46,9 @@ export function WrestlingMat() {
     const positions = geometry.getAttribute('position'); const decay = Math.exp(-age.current * 6);
     for (let i = 0; i < positions.count; i++) {
       const x = positions.getX(i); const z = -positions.getY(i);
-      const distance = Math.hypot(x - center.current.x, z - center.current.z);
+      // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt in hot frame vertex deformation loop (~1000 vertices per frame).
+      const dx = x - center.current.x; const dz = z - center.current.z;
+      const distance = Math.sqrt(dx * dx + dz * dz);
       const edge = Math.min(1, (5.65 - Math.abs(x)) * 3, (4.15 - Math.abs(z)) * 3);
       positions.setZ(i, -strength.current * Math.cos(distance * 4 - age.current * 22) * Math.exp(-distance * 1.2) * decay * Math.max(0, edge));
     }
