@@ -10,6 +10,7 @@ import { useMatchStore } from '../game/state/matchStore';
 import type { ControlDevice, ImpactEvent } from '../game/types/game';
 import { mobileInput } from '../game/input/mobileInput';
 import { buildControlReadout, controlPrompt, ControlDeck } from './ControlDeck';
+import { ComboReadout } from './ComboReadout';
 import { announcementTier } from './announcementTier';
 import { isRingside } from '../game/physics/ringDynamics';
 import { FIGHTER_SLOTS } from '../game/types/game';
@@ -136,6 +137,7 @@ export function HUD({ device, paused }: { device: ControlDevice; paused: boolean
       <div className="fighter-hud fighter-hud--right"><div className="fighter-hud__name"><span>{model.matchMode === 'battle_royale' ? 'CURRENT TARGET' : `${model.difficulty.toUpperCase()} AI`}</span><b>{opponent.name}</b></div><Meter label="HEALTH" value={target.health} kind="health" /><Meter label="STAMINA" value={target.stamina} max={target.staminaCap} kind="stamina" /><Meter label="BALANCE" value={target.body.balance} kind="balance" /><Meter label="MOMENTUM" value={target.momentum} kind="momentum" /></div>
     </div>
     <ImpactReadout impact={model.lastImpact} />
+    {!model.networkAuthority && <ComboReadout actor={model.player} punch={controlPrompt(activeDevice, 'quick')} kick={controlPrompt(activeDevice, 'heavy')} />}
     {model.announcement && announcementClass !== 'routine' && <div className={`announcement announcement--${announcementClass}`} key={model.announcement}>{model.announcement}</div>}
     {model.chaosEvent && <div className="event-banner"><span>LIVE CIRCUIT EVENT</span><b>{model.chaosEvent.type}</b><small>{Math.ceil(model.chaosEvent.remaining)}s</small></div>}
     {showPrompts && model.player.state === 'grappling' && grappleGuide !== 'off' && <div className={`grapple-guide grapple-guide--${grappleGuide}`} data-testid="grapple-guide" data-guide-mode={grappleGuide}>

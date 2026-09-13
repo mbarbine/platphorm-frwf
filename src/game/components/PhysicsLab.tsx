@@ -1,4 +1,6 @@
 import { signatureMoveId } from '../data/wrestlingStyles';
+import { canLinkStrike } from '../systems/hitCombos';
+import { getMove } from '../data/moves';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { VENUES, type CombatVenue } from '../data/venues';
 import { FIGHTERS } from '../data/fighters';
@@ -11,17 +13,20 @@ import { RELEASE_IDENTITY } from '../release/releaseIdentity';
 import { renderDiagnostics } from '../runtime/renderDiagnostics';
 
 interface KeyStep { at: number; code: string; down: boolean }
-interface LabScenario { id: string; label: string; steps: readonly KeyStep[]; duration: number; stressGripAt?: number }
+interface LabScenario { id: string; label: string; steps: readonly KeyStep[]; duration: number; stressGripAt?: number; combo?: readonly string[] }
 
 // Scenario placement resets an articulated body tree. Give Rapier a short,
 // deterministic settle window before injecting input so a test measures the
 // requested action, not the one-frame registration pose.
 const SCENARIO_SETTLE_MS = 360;
-type BaselineSample = { time: number; state: string; move: string | null; speed: number; supportFeet: number; upright: number; leftFootY: number; rightFootY: number; damage: number }; 
+type BaselineSample = { time: number; state: string; move: string | null; speed: number; supportFeet: number; upright: number; leftFootY: number; rightFootY: number; damage: number; hits: number; chain: string; combo: string | null }; 
 
 const tap = (code: string, at = 0, duration = 90): readonly KeyStep[] => [{ at, code, down: true }, { at: at + duration, code, down: false }];
 const hold = (code: string, at: number, duration: number): readonly KeyStep[] => [{ at, code, down: true }, { at: at + duration, code, down: false }];
 const SCENARIOS: readonly LabScenario[] = [
+  { id: 'sixPack', label: 'SIX PUNCHES · HIT CONFIRM', steps: [], combo: ['KeyJ', 'KeyJ', 'KeyJ', 'KeyJ', 'KeyJ', 'KeyJ'], duration: 9000 },
+  { id: 'circuitCombo', label: 'PUNCH / KICK × 2', steps: [], combo: ['KeyJ', 'KeyK', 'KeyJ', 'KeyK'], duration: 7000 },
+  { id: 'bootCombo', label: 'ONE-TWO / BOOT', steps: [], combo: ['KeyJ', 'KeyJ', 'KeyK'], duration: 6000 },
   { id: 'propDrop', label: 'PICK UP / CARRY / DROP', steps: [...tap('KeyE', 500), ...tap('KeyE', 3500)], duration: 5500 },
   { id: 'propThrow', label: 'PICK UP / AIM / THROW', steps: [...tap('KeyE', 500), ...hold('KeyD', 3400, 400), ...tap('KeyE', 3500)], duration: 5500 },
   { id: 'strikeChain', label: 'CHARACTER PUNCH CHAIN', steps: [...tap('KeyJ', 0), ...tap('KeyJ', 650), ...tap('KeyJ', 1300)], duration: 3200 },
@@ -153,7 +158,7 @@ export function PhysicsLab() {
     // Keep the bodies initially separate; the physical brow drive must
     // close the head-surface gap during the active window.
     else if (scenario.id === 'headbutt') useMatchStore.getState().prepareLabScenario({ x: 0, z: -.32 }, { x: 0, z: .32 });
-    else if (closeRange) useMatchStore.getState().prepareLabScenario({ x: 0, z: -.4 }, { x: 0, z: .4 }, 'idle', scenario.id === 'soakRound' ? 1 : 100, 'back', 5, scenario.id === 'failedLift' ? 34 : undefined);
+    else if (closeRange || scenario.combo) useMatchStore.getState().prepareLabScenario({ x: 0, z: -.4 }, { x: 0, z: .4 }, 'idle', scenario.id === 'soakRound' ? 1 : 100, 'back', 5, scenario.id === 'failedLift' ? 34 : undefined);
     else if (scenario.id === 'miss' || scenario.id === 'jabWhiff') useMatchStore.getState().prepareLabScenario({ x: 0, z: -2.6 }, { x: 0, z: 2.6 });
     else useMatchStore.getState().prepareLabScenario({ x: -1.4, z: 0 }, { x: 2.2, z: 0 });
     document.documentElement.dataset.labResetPelvisY = bodyWorksRuntime.fighterSnapshot('player').pelvisY.toFixed(3);
@@ -163,6 +168,7 @@ export function PhysicsLab() {
     // headless GPU because key-up could arrive after only a handful of ticks.
     samples.current = [];
     let sampledAt = -1;
+    let comboIndex = 0; let comboKey: string | null = null; let comboReleaseAt = 0; let comboAttackId = -1;
     const startedAt = useMatchStore.getState().model.elapsed; const wallStartedAt = performance.now();
     const dispatched = new Set<number>(); let blockedJabQueued = false; let blockedJabNextAttemptAt = SCENARIO_SETTLE_MS + 360; let gripStressComplete = scenario.stressGripAt === undefined; let labKnockoutResolved = false;
     let blockedJabAttempts = 0;
@@ -171,7 +177,13 @@ export function PhysicsLab() {
     let stagedLastClimbStage = -1; let stagedFinishIssued = false;
     const scheduler = window.setInterval(() => {
       const current = useMatchStore.getState().model; const elapsedMs = (current.elapsed - startedAt) * 1_000;
-      if (elapsedMs - sampledAt >= 50 && samples.current.length < 1200) { const physical = bodyWorksRuntime.fighterSnapshot('player'); samples.current.push({ time: elapsedMs / 1000, state: current.player.state, move: current.player.moveId, speed: physical.speed, supportFeet: physical.supportFeet, upright: physical.upright, leftFootY: physical.leftFootY, rightFootY: physical.rightFootY, damage: 100 - current.opponent.health }); sampledAt = elapsedMs; }
+      if (elapsedMs - sampledAt >= 50 && samples.current.length < 1200) { const physical = bodyWorksRuntime.fighterSnapshot('player'); samples.current.push({ time: elapsedMs / 1000, state: current.player.state, move: current.player.moveId, speed: physical.speed, supportFeet: physical.supportFeet, upright: physical.upright, leftFootY: physical.leftFootY, rightFootY: physical.rightFootY, damage: 100 - current.opponent.health, hits: current.player.comboStep, chain: current.player.comboInputs.join(','), combo: current.player.comboName }); sampledAt = elapsedMs; }
+      if (comboKey && elapsedMs >= comboReleaseAt) { dispatchKey(comboKey, false); comboKey = null; }
+      if (scenario.combo && !comboKey && comboIndex < scenario.combo.length && elapsedMs >= SCENARIO_SETTLE_MS
+        && (comboIndex === 0 || current.player.attackInstanceId > comboAttackId && (current.player.state === 'idle' || current.player.moveId && canLinkStrike(current.player, getMove(current.player.moveId))))) {
+        comboKey = scenario.combo[comboIndex] ?? null; comboAttackId = current.player.attackInstanceId;
+        if (comboKey) { dispatchKey(comboKey, true); comboReleaseAt = elapsedMs + 90; comboIndex++; }
+      }
       if (performance.now() - wallStartedAt > Math.max(60_000, Math.min(180_000, scenario.duration * 20))) {
         clearTimers();
         document.documentElement.dataset.labScenarioAbort = `${scenario.id}:simulation-timeout`;
@@ -232,6 +244,7 @@ export function PhysicsLab() {
       }
       if (elapsedMs < scenario.duration) return;
       window.clearInterval(scheduler);
+      if (comboKey) dispatchKey(comboKey, false);
       for (const step of scenario.steps) if (step.down) dispatchKey(step.code, false);
       if (reboundPressAt !== null && !reboundReleased) dispatchKey('KeyK', false);
       if (slamPressAt !== null && !slamReleased) dispatchKey('KeyK', false);
