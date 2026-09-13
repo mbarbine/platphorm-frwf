@@ -639,6 +639,23 @@ it('requires a real cross-body cover before counting a physical pin', () => {
 });
 
 
+it('lands a six-punch chain through six distinct physical attack instances', () => {
+  const { world, runtime, model } = makeGrappleHarness(undefined, 'atlas', 'nova');
+  try {
+    for (let frame = 0; frame < 90; frame++) stepGrappleHarness(world, runtime, model);
+    let issued = 0; let peakHits = 0; const moves: string[] = []; const contacts: string[] = [];
+    let previousImpact = model.impactSequence;
+    for (let frame = 0; frame < 720; frame++) {
+      if (issued < 6 && requestCommand(model, 'player', 'quick')) { issued++; moves.push(model.player.moveId ?? 'none'); }
+      stepGrappleHarness(world, runtime, model);
+      peakHits = Math.max(peakHits, model.player.comboStep);
+      if (model.impactSequence > previousImpact) { contacts.push(model.lastImpact?.moveId ?? 'none'); previousImpact = model.impactSequence; }
+    }
+    expect(peakHits, JSON.stringify({ issued, moves, contacts, health: model.opponent.health, player: model.player.position, target: model.opponent.position })).toBe(6);
+    expect(runtime.metrics.emergencyResetCount).toBe(0);
+  } finally { runtime.reset(); world.free(); }
+});
+
 it('connects an uppercut through the rising hand and preserves a standing base', () => {
   const {world,runtime,model}=makeGrappleHarness();
   try {

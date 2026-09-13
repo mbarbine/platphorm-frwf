@@ -23,7 +23,7 @@ export const strikeDriveProfile = (moveId: string): StrikeDriveProfile | null =>
   if (moveId === 'headbutt') return { source: 'head', target: 'head', speed: 20, response: 32, maximumAcceleration: 560, pelvisAcceleration: 12.8 };
   if (moveId === 'low_kick') return { source: 'rightFoot', target: 'leftShin', speed: 18.5, response: 26, maximumAcceleration: 370, pelvisAcceleration: 6.8 };
   if (moveId === 'high_kick') return { source: 'rightFoot', target: 'head', speed: 17.2, response: 19, maximumAcceleration: 240, pelvisAcceleration: 3.9 };
-  if (moveId === 'roundhouse') return { source: 'rightFoot', target: 'head', speed: 18.5, response: 20, maximumAcceleration: 255, pelvisAcceleration: 4.5 };
+  if (moveId === 'roundhouse') return { source: 'rightFoot', target: 'chest', speed: 18.5, response: 24, maximumAcceleration: 340, pelvisAcceleration: 4.5 };
   if (moveId === 'front_kick') return { source: 'rightFoot', target: 'chest', speed: 17.4, response: 21, maximumAcceleration: 275, pelvisAcceleration: 5.2 };
   // A wrestling stiff-arm lands through the braced forearm/elbow line. The
   // rope rebound uses the opposite arm so the player can pick left or right.

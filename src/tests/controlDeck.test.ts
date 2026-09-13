@@ -99,7 +99,7 @@ describe('live wrestling control deck', () => {
 
   it('names the exact neutral combo strike before it is pressed', () => {
     const model = createMatch('atlas', 'nova', 'standard', 'normal'); model.player.comboStep = 1; model.player.comboInputs = ['quick'];
-    expect(buildControlLabels(model.player, model.opponent, 0, 1.4).quick).toBe('NEON ONE-TWO');
+    expect(buildControlLabels(model.player, model.opponent, 0, 1.4).quick).toBe('LEAD CROSS');
   });
 
   it('switches the whole action deck for grapple, turnbuckle, rope exit, and kick-up states', () => {

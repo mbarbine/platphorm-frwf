@@ -9,7 +9,8 @@ test('reevaluates visible hit chains through live input and solved contacts', as
   await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
   await page.getByRole('button', { name: 'PLAY', exact: true }).click();
   await page.getByRole('button', { name: /LOCK IN ATLAS/ }).click();
-  await page.getByRole('button', { name: 'STANDARD', exact: true }).click();
+  await page.getByRole('button', { name: /^SINGLES / }).click({ timeout: 10_000 });
+  await page.getByRole('button', { name: /^STANDARD / }).click({ timeout: 10_000 });
   await page.getByRole('button', { name: 'START MATCH' }).click();
   const hud = page.locator('.hud'); const lab = page.getByTestId('physics-lab');
   await expect(hud).toHaveAttribute('data-physics-bodies', '32', { timeout: 45_000 });
