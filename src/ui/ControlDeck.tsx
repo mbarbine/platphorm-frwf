@@ -186,6 +186,6 @@ export function ControlDeck({ device, player, opponent, speed, distance, paused,
 
   return <aside className={`control-deck control-deck--${mode}${paused ? ' control-deck--paused' : ''}`} aria-label="Live wrestling controls" data-testid="control-deck" data-control-mode={mode} data-control-state={readout.state} data-control-direction={combatDirection(direction)} data-context-preview={contextPreview ?? ''} data-prop-preview={propPreview ?? ''}>
     <header><span>LIVE WRESTLING CONTROLS · {device.toUpperCase()}</span><b>{readout.state}</b><strong>{contextPreview || propPreview ? `${keys.context} ${contextPreview ?? 'NO ACTION'} · ${keys.interact} ${propPreview ?? 'NO ACTION'}` : readout.callout}</strong></header>
-    <ul>{controls.map((control) => <li className={readout.active.has(control.id) ? 'is-active' : ''} data-control={control.id} data-move-label={control.label} key={control.id}><kbd>{control.key}</kbd><span>{control.label}</span></li>)}</ul>
+    <ul>{controls.map((control) => <li className={readout.active.has(control.id) ? 'is-active' : ''} data-control={control.id} data-move-label={control.label} key={control.id} aria-label={`${control.key} key: ${control.label}`}><kbd>{control.key}</kbd><span>{control.label}</span></li>)}</ul>
   </aside>;
 }

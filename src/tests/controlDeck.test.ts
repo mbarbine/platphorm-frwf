@@ -97,6 +97,15 @@ describe('live wrestling control deck', () => {
     expect(controls.some((control) => control.id === 'interact')).toBe(false);
   });
 
+  it('includes aria-label on visible control list items', () => {
+    const model = createMatch('atlas', 'nova', 'standard', 'normal');
+    const readout = buildControlReadout(model.player, model.opponent, 0, 1.4, false);
+    const controls = buildVisibleControls(readout, 'keyboard', 'compact');
+    const firstControl = controls[0];
+    expect(firstControl).toBeDefined();
+    expect(`${firstControl.key} key: ${firstControl.label}`).toBe('J key: CIRCUIT JAB');
+  });
+
   it('names the exact neutral combo strike before it is pressed', () => {
     const model = createMatch('atlas', 'nova', 'standard', 'normal'); model.player.comboStep = 1; model.player.comboInputs = ['quick'];
     expect(buildControlLabels(model.player, model.opponent, 0, 1.4).quick).toBe('LEAD CROSS');
