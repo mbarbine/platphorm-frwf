@@ -33,13 +33,28 @@ function ChampionshipPlate() {
 /** Identity details remain attached to solved anatomy throughout a throw. */
 export function FighterAccessories({ fighterId, side, previewPose, modelScale = 1 }: { modelScale?: number; fighterId: FighterId; side?: FighterSlot; previewPose?: (segment: 'head' | 'pelvis' | 'chest') => { position: Vector3; rotation: Quaternion } | undefined }) {
   const head = useRef<Group>(null); const waist = useRef<Group>(null);
+  // OPTIMIZATION: Update head and waist segment transforms directly to avoid per-frame array allocations in useFrame
   useFrame(() => {
-    for (const [ref, segment] of [[head, 'head'], [waist, 'pelvis']] as const) {
-      const pose = previewPose ? previewPose(segment) : side ? bodyWorksRuntime.segmentSnapshot(side, segment) : undefined; if (!pose || !ref.current) continue;
-      ref.current.position.copy(pose.position); ref.current.quaternion.set(pose.rotation.x, pose.rotation.y, pose.rotation.z, pose.rotation.w);
+    if (head.current) {
+      const pose = previewPose ? previewPose('head') : side ? bodyWorksRuntime.segmentSnapshot(side, 'head') : undefined;
+      if (pose) {
+        head.current.position.copy(pose.position);
+        head.current.quaternion.set(pose.rotation.x, pose.rotation.y, pose.rotation.z, pose.rotation.w);
+      }
+      if (fighterId === 'atlas') {
+        const model = useMatchStore.getState().model;
+        head.current.visible = Boolean(side && model[side].state === 'victorious');
+      }
     }
-    if (head.current && fighterId === 'atlas') { const model = useMatchStore.getState().model; head.current.visible = Boolean(side && model[side].state === 'victorious'); }
-    if (waist.current) { const model = useMatchStore.getState().model; waist.current.visible = Boolean(side && model[side].state === 'victorious'); }
+    if (waist.current) {
+      const pose = previewPose ? previewPose('pelvis') : side ? bodyWorksRuntime.segmentSnapshot(side, 'pelvis') : undefined;
+      if (pose) {
+        waist.current.position.copy(pose.position);
+        waist.current.quaternion.set(pose.rotation.x, pose.rotation.y, pose.rotation.z, pose.rotation.w);
+      }
+      const model = useMatchStore.getState().model;
+      waist.current.visible = Boolean(side && model[side].state === 'victorious');
+    }
   });
   return <>
     {side && <RingGear side={side} fighterId={fighterId} />}
@@ -58,23 +73,33 @@ export function FighterAccessories({ fighterId, side, previewPose, modelScale = 
 }
 
 
+const GEAR_SEGMENTS: readonly BodySegmentId[] = ['leftForearm', 'rightForearm', 'leftFoot', 'rightFoot'];
+
 /** Ring equipment follows solved joints, including throughout falls and covers. */
 function RingGear({ side, fighterId }: { side: FighterSlot; fighterId: FighterId }) {
-  const refs = useRef(new Map<BodySegmentId, Group>());
+  const refs = useRef<Partial<Record<BodySegmentId, Group | null>>>({});
+  // OPTIMIZATION: Iterate static GEAR_SEGMENTS over object dictionary to avoid Map iterator allocations in useFrame
   useFrame(() => {
-    for (const [segment, group] of refs.current) {
+    for (let i = 0; i < GEAR_SEGMENTS.length; i++) {
+      const segment = GEAR_SEGMENTS[i];
+      if (!segment) continue;
+      const group = refs.current[segment];
+      if (!group) continue;
       const pose = bodyWorksRuntime.segmentSnapshot(side, segment);
-      if (pose) { group.position.copy(pose.position); group.quaternion.set(pose.rotation.x, pose.rotation.y, pose.rotation.z, pose.rotation.w); }
+      if (pose) {
+        group.position.copy(pose.position);
+        group.quaternion.set(pose.rotation.x, pose.rotation.y, pose.rotation.z, pose.rotation.w);
+      }
     }
   });
   const definition = fighterById(fighterId);
   return <>{(['leftForearm', 'rightForearm'] as const).map(segment => {
     const radius = segmentSchema(definition, segment).radius + .004;
-    return <group key={segment} ref={group => { if (group) refs.current.set(segment, group); else refs.current.delete(segment); }}>
+    return <group key={segment} ref={group => { refs.current[segment] = group; }}>
       <mesh position={[0, -.12, 0]}><cylinderGeometry args={[radius, radius * .93, .105, 12]} /><meshStandardMaterial color="#e4ddc9" roughness={.94} /></mesh>
       {[-.15, -.095].map(y => <mesh key={y} position={[0, y, 0]}><cylinderGeometry args={[radius + .001, radius + .001, .012, 12]} /><meshStandardMaterial color={definition.palette.primary} roughness={.78} /></mesh>)}
     </group>;
-  })}{(['leftFoot', 'rightFoot'] as const).map(segment => <group key={segment} ref={group => { if (group) refs.current.set(segment, group); else refs.current.delete(segment); }}>
+  })}{(['leftFoot', 'rightFoot'] as const).map(segment => <group key={segment} ref={group => { refs.current[segment] = group; }}>
     {<group position={[0, .048, .1]}>{[-.035, 0, .035].map(z => <mesh key={z} position={[0, 0, z]} rotation={[Math.PI / 2, 0, Math.PI / 2]}><cylinderGeometry args={[.005, .005, .11, 5]} /><meshStandardMaterial color="#b3aa97" roughness={1} /></mesh>)}</group>}
   </group>)}</>;
 }
