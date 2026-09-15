@@ -103,7 +103,9 @@ describe('live wrestling control deck', () => {
     const controls = buildVisibleControls(readout, 'keyboard', 'compact');
     const firstControl = controls[0];
     expect(firstControl).toBeDefined();
-    expect(`${firstControl.key} key: ${firstControl.label}`).toBe('J key: CIRCUIT JAB');
+    if (firstControl) {
+      expect(`${firstControl.key} key: ${firstControl.label}`).toBe('J key: CIRCUIT JAB');
+    }
   });
 
   it('names the exact neutral combo strike before it is pressed', () => {

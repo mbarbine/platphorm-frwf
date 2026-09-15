@@ -39,3 +39,7 @@
 ## 2025-03-01 - Dynamic Context-Aware ARIA Labels for Multi-Target Controls
 **Learning:** Interactive target switching buttons in multi-opponent game modes (like Battle Royale) can be confusing for screen reader users if the button label only states 'Switch target wrestler'. Incorporating the current target wrestler's name dynamically into the ARIA label (e.g. `Switch target wrestler, currently targeting {name}`) gives screen reader users immediate awareness of their current target state before activating the button.
 **Action:** Always include current active target context inside ARIA labels for dynamic cycling or switching controls.
+
+## 2025-03-02 - Accessible Double-Confirmation Announcements for Destructive Actions
+**Learning:** Two-step double-confirmation button flows that rely on visual text swaps (such as changing 'RESET SAVED SETTINGS' to 'CONFIRM RESET?') do not automatically trigger screen reader announcements on button state changes. Providing a context-prefixed `aria-live="polite"` region that announces confirmation requirements ('Settings reset confirmation required: press again to confirm reset of all settings to defaults.') and successful completion ('All saved settings have been reset to defaults.') gives screen reader users immediate, unambiguous auditory feedback without altering visual layout.
+**Action:** Always pair double-confirmation button flows with a context-prefixed `aria-live="polite"` region announcing state requirements and completion status.
