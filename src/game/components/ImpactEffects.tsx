@@ -41,6 +41,23 @@ function ContactBurst({ burst, expire, reducedMotion, lowFlash }: { burst: Burst
   const particles = useRef<InstancedMesh>(null); const ring = useRef<Mesh>(null);
   const age = useRef(0); const expired = useRef(false);
   const dummy = useMemo(() => new Object3D(), []); const p = burst.presentation;
+
+  // OPTIMIZATION: Pre-calculate particle trigonometric values, speeds, and trajectory constants to eliminate per-frame Math.cos/Math.sin/modulo operations in the render loop.
+  const particleLayout = useMemo(() => {
+    const layout = [];
+    for (let i = 0; i < p.particles; i++) {
+      const angle = i * 2.39996 + burst.id;
+      layout.push({
+        angle,
+        cosAngle: Math.cos(angle),
+        sinAngle: Math.sin(angle),
+        speed: .8 + (i % 5) * .22,
+        liftFactor: .5 + (i % 3) * .2,
+      });
+    }
+    return layout;
+  }, [p.particles, burst.id]);
+
   useFrame(({ camera }, dt) => {
     if (useMatchStore.getState().model.paused || expired.current) return;
     age.current += Math.min(dt, .05);
@@ -53,10 +70,11 @@ function ContactBurst({ burst, expire, reducedMotion, lowFlash }: { burst: Burst
     }
     if (!particles.current) return;
     for (let i = 0; i < p.particles; i++) {
-      const angle = i * 2.39996 + burst.id; const speed = .8 + (i % 5) * .22;
-      const travel = reducedMotion ? 0 : age.current * speed;
-      dummy.position.set(Math.cos(angle) * travel, Math.max(-.04, travel * (.5 + (i % 3) * .2) - 2.6 * age.current ** 2), Math.sin(angle) * travel);
-      dummy.rotation.set(0, angle, 0); dummy.scale.setScalar((p.ground ? .032 : .018) * (1 - progress));
+      const item = particleLayout[i];
+      if (!item) continue;
+      const travel = reducedMotion ? 0 : age.current * item.speed;
+      dummy.position.set(item.cosAngle * travel, Math.max(-.04, travel * item.liftFactor - 2.6 * age.current ** 2), item.sinAngle * travel);
+      dummy.rotation.set(0, item.angle, 0); dummy.scale.setScalar((p.ground ? .032 : .018) * (1 - progress));
       dummy.updateMatrix(); particles.current.setMatrixAt(i, dummy.matrix);
     }
     particles.current.instanceMatrix.needsUpdate = true;
