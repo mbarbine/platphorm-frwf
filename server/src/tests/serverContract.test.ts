@@ -570,4 +570,33 @@ describe('authoritative server contract', () => {
     /* eslint-enable @typescript-eslint/no-explicit-any */
   });
 
+  it('sanitizes JSON-RPC id payloads in api/mcp.js to prevent object reflection or memory amplification DoS', async () => {
+    /* eslint-disable @typescript-eslint/no-explicit-any */
+    // @ts-expect-error - JavaScript file lacks type definitions
+    const mcpModule = await import('../../../api/mcp.js');
+    const mcpHandler = mcpModule.default;
+
+    // 1. Object ID payload should be sanitized to null
+    const reqObject = {
+      method: 'POST',
+      body: { jsonrpc: '2.0', id: { nested: 'object' }, method: 'ping' },
+    };
+    const resObject = { status: vi.fn().mockReturnThis(), json: vi.fn() };
+    mcpHandler(reqObject as any, resObject as any);
+    expect(resObject.status).toHaveBeenCalledWith(200);
+    expect(resObject.json).toHaveBeenCalledWith(expect.objectContaining({ jsonrpc: '2.0', id: null }));
+
+    // 2. Overly long string ID should be truncated to 128 characters
+    const longId = 'a'.repeat(200);
+    const reqLong = {
+      method: 'POST',
+      body: { jsonrpc: '2.0', id: longId, method: 'ping' },
+    };
+    const resLong = { status: vi.fn().mockReturnThis(), json: vi.fn() };
+    mcpHandler(reqLong as any, resLong as any);
+    expect(resLong.status).toHaveBeenCalledWith(200);
+    expect(resLong.json).toHaveBeenCalledWith(expect.objectContaining({ jsonrpc: '2.0', id: 'a'.repeat(128) }));
+    /* eslint-enable @typescript-eslint/no-explicit-any */
+  });
+
 });
