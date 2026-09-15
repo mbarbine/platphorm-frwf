@@ -5,10 +5,14 @@ import { useSettings } from '../game/state/settings';
 export function SettingsPanel({ onBack }: { onBack: () => void }) {
   const settings = useSettings();
   const [confirmReset, setConfirmReset] = useState(false);
+  const [resetAnnounce, setResetAnnounce] = useState('');
 
   useEffect(() => {
     if (!confirmReset) return;
-    const timer = setTimeout(() => setConfirmReset(false), 3000);
+    const timer = setTimeout(() => {
+      setConfirmReset(false);
+      setResetAnnounce('');
+    }, 3000);
     return () => clearTimeout(timer);
   }, [confirmReset]);
 
@@ -16,8 +20,10 @@ export function SettingsPanel({ onBack }: { onBack: () => void }) {
     if (confirmReset) {
       settings.reset();
       setConfirmReset(false);
+      setResetAnnounce('All saved settings have been reset to defaults.');
     } else {
       setConfirmReset(true);
+      setResetAnnounce('Settings reset confirmation required: press again to confirm reset of all settings to defaults.');
     }
   };
 
@@ -47,6 +53,7 @@ export function SettingsPanel({ onBack }: { onBack: () => void }) {
   };
 
   return <section className="panel panel--settings"><div className="section-heading"><span>ACCESSIBILITY + AUDIO</span><h2>SETTINGS</h2></div>
+    <p className="sr-only" role="status" aria-live="polite">{resetAnnounce}</p>
     <div className="settings-grid">
       <label className="setting-row setting-row--select" htmlFor="setting-player-camera"><span>Playing camera</span><select id="setting-player-camera" value={settings.playerCamera} onChange={event => settings.update({ playerCamera: event.target.value as typeof settings.playerCamera })}>{PLAYER_CAMERA_MODES.map(mode => <option key={mode.id} value={mode.id}>{mode.label}</option>)}</select></label>
       <label className="setting-row setting-row--select" htmlFor="setting-control-style">
