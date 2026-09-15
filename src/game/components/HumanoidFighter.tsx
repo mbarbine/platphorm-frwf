@@ -10,6 +10,9 @@ import type { FighterRuntime, FighterSlot } from '../types/game';
 import { FighterAccessories } from './FighterAccessories';
 import { applyPhysicalBonePose } from '../presentation/physicalSkinBinding';
 
+// OPTIMIZATION: Extract inline gripping state array to static constant to eliminate per-frame GC allocations in useFrame.
+const GRIPPING_STATES = new Set(['grappling', 'grabbed', 'climbing']);
+
 /** A standard skinned glTF asset, driven by the same solved bones as contact. */
 export function HumanoidFighter({ runtime, side }: { runtime: FighterRuntime; side: FighterSlot }) {
   const { scene, bones, fingers, modelScale } = useHumanoidAsset(runtime.definitionId);
@@ -25,7 +28,7 @@ export function HumanoidFighter({ runtime, side }: { runtime: FighterRuntime; si
       applyPhysicalBonePose(bone, transform, parentRotation);
       posedBones += 1;
     }
-    const gripping = ['grappling', 'grabbed', 'climbing'].includes(runtime.state);
+    const gripping = GRIPPING_STATES.has(runtime.state);
     for (const finger of fingers) {
       curl.setFromAxisAngle(finger.curlAxis, finger.closedAngle * (gripping ? .55 : 1));
       fingerTarget.copy(finger.rest).multiply(curl);
