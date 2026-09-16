@@ -42,6 +42,9 @@ function dispatch(message) {
 
 export default function handler(request, response) {
   try {
+    // SECURITY ENHANCEMENT: Set defense-in-depth security headers (CWE-79 / CWE-524)
+    response.setHeader("X-Content-Type-Options", "nosniff")
+    response.setHeader("Cache-Control", "no-store, max-age=0")
     if (request.method === "GET") {
       return response.status(200).json({
         ok: true,
