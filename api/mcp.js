@@ -42,6 +42,12 @@ function dispatch(message) {
 
 export default function handler(request, response) {
   try {
+    // SECURITY ENHANCEMENT: Set security headers to prevent MIME sniffing and response caching (CWE-79 / CWE-524)
+    if (typeof response?.setHeader === "function") {
+      response.setHeader("X-Content-Type-Options", "nosniff")
+      response.setHeader("Cache-Control", "no-store, max-age=0")
+    }
+
     if (request.method === "GET") {
       return response.status(200).json({
         ok: true,
