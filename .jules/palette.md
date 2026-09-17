@@ -43,3 +43,7 @@
 ## 2025-03-02 - Accessible Double-Confirmation Announcements for Destructive Actions
 **Learning:** Two-step double-confirmation button flows that rely on visual text swaps (such as changing 'RESET SAVED SETTINGS' to 'CONFIRM RESET?') do not automatically trigger screen reader announcements on button state changes. Providing a context-prefixed `aria-live="polite"` region that announces confirmation requirements ('Settings reset confirmation required: press again to confirm reset of all settings to defaults.') and successful completion ('All saved settings have been reset to defaults.') gives screen reader users immediate, unambiguous auditory feedback without altering visual layout.
 **Action:** Always pair double-confirmation button flows with a context-prefixed `aria-live="polite"` region announcing state requirements and completion status.
+
+## 2025-03-03 - Polite ARIA Live Regions for Real-Time Combat Combo Readouts
+**Learning:** Fast-paced combat UI elements that appear conditionally during action sequences (such as hit combo displays) are easily missed by screen reader users if rendered without status ARIA attributes. Decorating the combo container with `role="status"`, `aria-live="polite"`, and a context-prefixed `aria-label` (e.g. `Combo: {count} {name}`) ensures assistive technologies politely announce landed strike combos and named finisher chains as they occur in real time.
+**Action:** Always annotate transient combat overlays with `role="status"`, `aria-live="polite"`, and context-prefixed `aria-label` descriptions.
