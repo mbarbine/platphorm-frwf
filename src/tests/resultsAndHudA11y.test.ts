@@ -58,14 +58,21 @@ describe('HUD and Results Accessibility', () => {
     expect(kbd.tagName.toLowerCase()).toBe('kbd');
   });
 
-  it('renders ComboReadout with role="status", aria-live="polite", and context-prefixed aria-label when combo is active', () => {
+  it('renders combo readout with role="status", aria-live="polite", and context-prefixed aria-label when combo step >= 1', () => {
     useMatchStore.getState().configure('atlas', 'nova', 'standard', 'normal', 0, 0, 'singles');
-    const actor = { ...useMatchStore.getState().model.player, comboStep: 2, comboName: 'ONE-TWO BOOT', comboInputs: ['quick', 'heavy'] };
+    const store = useMatchStore.getState();
+    store.model.player.comboStep = 2;
+    store.model.player.comboName = 'LIGHTNING RUSH';
 
-    render(React.createElement(ComboReadout, { actor, punch: 'J', kick: 'K' }));
+    render(React.createElement(ComboReadout, {
+      actor: store.model.player,
+      punch: 'J',
+      kick: 'K',
+    }));
 
-    const statusEl = screen.getByRole('status', { name: 'Combo: 2 ONE-TWO BOOT' });
+    const statusEl = screen.getByRole('status');
     expect(statusEl).toBeTruthy();
     expect(statusEl.getAttribute('aria-live')).toBe('polite');
+    expect(statusEl.getAttribute('aria-label')).toBe('Combo: 2 LIGHTNING RUSH');
   });
 });
