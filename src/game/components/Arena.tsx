@@ -34,9 +34,37 @@ function ArenaRibbon() {
   </group>;
 }
 
+// OPTIMIZATION: Pre-calculate static sine envelope table for rope vertices to avoid repeated Math.sin calls in hot render frames
+const ROPE_SEGMENT_COUNT = 7;
+const SIN_ROPE_ENVELOPE = Array.from({ length: ROPE_SEGMENT_COUNT + 1 }, (_, vertex) => Math.sin((Math.PI * vertex) / ROPE_SEGMENT_COUNT));
+
+// OPTIMIZATION: Extract point computation outside component to avoid closure allocation per segment per frame
+function computeRopePoint(
+  vertex: number,
+  length: number,
+  segmentLength: number,
+  contactAlong: number,
+  elapsed: number,
+  rebound: number,
+  side: number,
+  compression: number,
+  pulse: number,
+  ropeIndex: number,
+  axis: 'x' | 'z',
+  y: number,
+  target: Vector3,
+) {
+  const along = -length / 2 + segmentLength * vertex;
+  const distance = Math.abs(along - contactAlong);
+  const envelope = Math.exp(-distance * distance * .42) * SIN_ROPE_ENVELOPE[vertex];
+  const wave = Math.sin(elapsed * 25 - distance * 2.2) * rebound * .075;
+  const deflection = side * (compression * (.34 + pulse * .1) + wave) * envelope;
+  target.set(axis === 'x' ? deflection : along, y + pulse * .008 * (ropeIndex + 1) * envelope, axis === 'x' ? along : deflection);
+}
+
 function RopeSide({ axis, side, color, emissive }: { axis: 'x' | 'z'; side: -1 | 1; color: string; emissive: string }) {
   const rope = useRef<InstancedMesh>(null); const material = useRef<MeshStandardMaterial>(null); const dummy = useMemo(() => new Object3D(), []); const elapsed = useRef(0);
-  const segmentCount = 7; const length = axis === 'x' ? 8.5 : 11.5; const segmentLength = length / segmentCount; const ropeCount = 3;
+  const segmentCount = ROPE_SEGMENT_COUNT; const length = axis === 'x' ? 8.5 : 11.5; const segmentLength = length / segmentCount; const ropeCount = 3;
   const start = useMemo(() => new Vector3(), []);
   const end = useMemo(() => new Vector3(), []);
   const direction = useMemo(() => new Vector3(), []);
@@ -57,22 +85,19 @@ function RopeSide({ axis, side, color, emissive }: { axis: 'x' | 'z'; side: -1 |
     const pulse = Math.sin(elapsed.current * (overdrive ? 29 : 21)) * (compression + rebound * .34);
     for (let ropeIndex = 0; ropeIndex < ropeCount; ropeIndex += 1) {
       const y = 2.5 + ropeIndex * .55;
+      computeRopePoint(0, length, segmentLength, contactAlong, elapsed.current, rebound, side, compression, pulse, ropeIndex, axis, y, start);
       for (let index = 0; index < segmentCount; index += 1) {
-        // Adjacent cylinders share their exact endpoints, including under load.
-        const point = (vertex: number, target: Vector3) => {
-          const along = -length / 2 + segmentLength * vertex;
-          const distance = Math.abs(along - contactAlong);
-          const envelope = Math.exp(-distance * distance * .42) * Math.sin(Math.PI * vertex / segmentCount);
-          const wave = Math.sin(elapsed.current * 25 - distance * 2.2) * rebound * .075;
-          const deflection = side * (compression * (.34 + pulse * .1) + wave) * envelope;
-          target.set(axis === 'x' ? deflection : along, y + pulse * .008 * (ropeIndex + 1) * envelope, axis === 'x' ? along : deflection);
-        };
-        point(index, start); point(index + 1, end);
+        computeRopePoint(index + 1, length, segmentLength, contactAlong, elapsed.current, rebound, side, compression, pulse, ropeIndex, axis, y, end);
         direction.subVectors(end, start);
+        // OPTIMIZATION: Reuse computed segment length for scaling and normalization to avoid duplicate Math.sqrt in direction.normalize()
+        const dist = Math.sqrt(direction.x * direction.x + direction.y * direction.y + direction.z * direction.z);
+        if (dist > 0) direction.divideScalar(dist); else direction.set(0, 1, 0);
         dummy.position.copy(start).add(end).multiplyScalar(.5);
-        dummy.quaternion.setFromUnitVectors(cylinderAxis, direction.normalize());
-        dummy.scale.set(1, start.distanceTo(end) + .012, 1);
+        dummy.quaternion.setFromUnitVectors(cylinderAxis, direction);
+        dummy.scale.set(1, dist + .012, 1);
         dummy.updateMatrix(); rope.current.setMatrixAt(ropeIndex * segmentCount + index, dummy.matrix);
+        // Adjacent cylinders share their exact endpoints; copy end to start for next segment
+        start.copy(end);
       }
     }
     rope.current.instanceMatrix.needsUpdate = true;
@@ -613,16 +638,18 @@ function StunningAssets() {
     // Slowly rotate the entire halo
     assetsGroup.current.rotation.y = elapsed.current * 0.15;
 
-    // Animate each item
-    assetsGroup.current.children.forEach((child, i) => {
+    // OPTIMIZATION: Use indexed for loop instead of forEach to eliminate closure allocations inside useFrame
+    const children = assetsGroup.current.children;
+    for (let i = 0; i < children.length; i++) {
+      const child = children[i];
       const data = assetsData[i];
-      if (data) {
+      if (child && data) {
         child.rotation.x += dt * data.rotSpeedX;
         child.rotation.y += dt * data.rotSpeedY;
         child.rotation.z += dt * data.rotSpeedZ;
         child.position.y = data.y + Math.sin(elapsed.current * 2 + data.phaseOffset) * 0.5;
       }
-    });
+    }
   });
 
   return <group ref={assetsGroup}>
