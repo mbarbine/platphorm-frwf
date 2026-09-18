@@ -3,6 +3,27 @@ import { describe, expect, it, vi } from 'vitest';
 import handler from '../../../api/v1/route-compliance.js';
 
 describe('Route Compliance Serverless Handler', () => {
+  it('sets X-Content-Type-Options and Cache-Control security headers on responses', () => {
+    const req = {
+      method: 'GET',
+      headers: {
+        host: 'platphormnews.com',
+      },
+      query: {},
+    };
+    const res = {
+      status: vi.fn().mockReturnThis(),
+      setHeader: vi.fn(),
+      end: vi.fn(),
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    handler(req as any, res as any);
+
+    expect(res.setHeader).toHaveBeenCalledWith('X-Content-Type-Options', 'nosniff');
+    expect(res.setHeader).toHaveBeenCalledWith('Cache-Control', 'no-store, max-age=0');
+  });
+
   it('redirects to the base domain with sanitized/validated timeoutMs when input is valid', () => {
     const req = {
       method: 'GET',
@@ -91,6 +112,7 @@ describe('Route Compliance Serverless Handler', () => {
     };
     const res = {
       status: vi.fn().mockReturnThis(),
+      setHeader: vi.fn(),
       json: vi.fn(),
     };
 
@@ -118,6 +140,7 @@ describe('Route Compliance Serverless Handler', () => {
     };
     const res = {
       status: vi.fn().mockReturnThis(),
+      setHeader: vi.fn(),
       json: vi.fn(),
     };
 
@@ -200,6 +223,7 @@ describe('Route Compliance Serverless Handler', () => {
     };
     const res = {
       status: vi.fn().mockReturnThis(),
+      setHeader: vi.fn(),
       json: vi.fn(),
     };
 
