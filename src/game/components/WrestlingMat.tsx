@@ -28,6 +28,16 @@ export function WrestlingMat() {
     const map = new CanvasTexture(canvas); map.colorSpace = SRGBColorSpace; map.anisotropy = 4; return map;
   }, []);
   useEffect(() => () => { geometry.dispose(); texture.dispose(); }, [geometry, texture]);
+  // OPTIMIZATION: Precompute static mat edge dampening factors to eliminate ~2,100 redundant Math.abs/Math.min/Math.max calls per frame inside hot vertex deformation loop.
+  const edgeFactors = useMemo(() => {
+    const positions = geometry.getAttribute('position');
+    const edges = new Float32Array(positions.count);
+    for (let i = 0; i < positions.count; i++) {
+      const x = positions.getX(i); const z = -positions.getY(i);
+      edges[i] = Math.max(0, Math.min(1, (5.65 - Math.abs(x)) * 3, (4.15 - Math.abs(z)) * 3));
+    }
+    return edges;
+  }, [geometry]);
   const last = useRef(0); const age = useRef(10); const center = useRef({ x: 0, z: 0 }); const strength = useRef(0);
   useFrame((_, dt) => {
     const model = useMatchStore.getState().model; if (model.paused) return;
@@ -49,8 +59,7 @@ export function WrestlingMat() {
       // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt in hot frame vertex deformation loop (~1000 vertices per frame).
       const dx = x - center.current.x; const dz = z - center.current.z;
       const distance = Math.sqrt(dx * dx + dz * dz);
-      const edge = Math.min(1, (5.65 - Math.abs(x)) * 3, (4.15 - Math.abs(z)) * 3);
-      positions.setZ(i, -strength.current * Math.cos(distance * 4 - age.current * 22) * Math.exp(-distance * 1.2) * decay * Math.max(0, edge));
+      positions.setZ(i, -strength.current * Math.cos(distance * 4 - age.current * 22) * Math.exp(-distance * 1.2) * decay * edgeFactors[i]);
     }
     positions.needsUpdate = true;
   });
