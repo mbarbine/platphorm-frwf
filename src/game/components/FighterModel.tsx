@@ -16,7 +16,8 @@ import type { FighterDetail } from '../presentation/presentationManifest';
 import { bodyWorksRuntime } from '../physics/physicsRuntime';
 import { authoredDeckPoseOwnsRoot, visiblePelvisDrop } from '../presentation/matPresentation';
 import { strikeDriveProfile } from '../physics/strikeDynamics';
-import { buildBodySchema } from '../physics/bodySchema';
+import { segmentSchema } from '../physics/bodySchema';
+import type { BodySegmentId } from '../physics/bodySchema';
 import { PhysicalPoseBinding } from '../presentation/physicalPoseBinding';
 import type { AnimationKey, FighterDefinition, FighterId, FighterRuntime, FighterSlot } from '../types/game';
 
@@ -678,37 +679,38 @@ export function FighterModel({ runtime, counterpart, fighterId, preview = false,
       const headBody = bodyWorksRuntime.segmentSnapshot(side, 'head');
       if (pelvisBody && chestBody && headBody) {
         const fit = binding.current;
-        const schema = buildBodySchema(fighter);
-        const at = (segment: string) => {
-          const entry = schema.find((candidate) => candidate.id === segment);
-          if (!entry) throw new Error(`Missing anatomy: ${segment}`);
-          return entry;
-        };
+        // OPTIMIZATION: Replaced inner closure and array .find() calls with O(1) segmentSchema map lookups to prevent GC pressure and execution overhead in useFrame
         fit.landmark(root.current, pelvisBody, [0, 1.02 * height, 0]);
         fit.landmark(torso.current, chestBody, [0, .25, 0]);
         fit.landmark(head.current, headBody, [0, 0, 0]);
         for (const limbSide of ['left', 'right'] as const) {
-          const upperId = `${limbSide}UpperArm` as const;
-          const lowerId = `${limbSide}Forearm` as const;
+          const upperId = `${limbSide}UpperArm` as BodySegmentId;
+          const lowerId = `${limbSide}Forearm` as BodySegmentId;
           const upper = bodyWorksRuntime.segmentSnapshot(side, upperId);
           const lower = bodyWorksRuntime.segmentSnapshot(side, lowerId);
-          const hand = bodyWorksRuntime.segmentSnapshot(side, `${limbSide}Hand`);
-          const thighId = `${limbSide}Thigh` as const;
-          const shinId = `${limbSide}Shin` as const;
+          const hand = bodyWorksRuntime.segmentSnapshot(side, `${limbSide}Hand` as BodySegmentId);
+          const thighId = `${limbSide}Thigh` as BodySegmentId;
+          const shinId = `${limbSide}Shin` as BodySegmentId;
           const thigh = bodyWorksRuntime.segmentSnapshot(side, thighId);
           const shin = bodyWorksRuntime.segmentSnapshot(side, shinId);
-          const foot = bodyWorksRuntime.segmentSnapshot(side, `${limbSide}Foot`);
+          const foot = bodyWorksRuntime.segmentSnapshot(side, `${limbSide}Foot` as BodySegmentId);
           const points = jointPoints.current;
           if (upper && lower && hand) {
-            fit.anchor(chestBody, [at(upperId).localPosition[0], (at(upperId).localPosition[1] - at('chest').localPosition[1]) * .5, 0], points.start);
-            fit.anchor(upper, [0, (at(lowerId).localPosition[1] - at(upperId).localPosition[1]) * .5, 0], points.middle);
+            const upperSchema = segmentSchema(fighter, upperId);
+            const chestSchema = segmentSchema(fighter, 'chest');
+            const lowerSchema = segmentSchema(fighter, lowerId);
+            fit.anchor(chestBody, [upperSchema.localPosition[0], (upperSchema.localPosition[1] - chestSchema.localPosition[1]) * .5, 0], points.start);
+            fit.anchor(upper, [0, (lowerSchema.localPosition[1] - upperSchema.localPosition[1]) * .5, 0], points.middle);
             points.end.copy(hand.position);
             fit.limb(limbSide === 'left' ? leftArm.current : rightArm.current, points.start, points.middle, [0, -.64, 0], upper);
             fit.limb(limbSide === 'left' ? leftForearm.current : rightForearm.current, points.middle, points.end, [0, -.58, .035], lower);
           }
           if (thigh && shin && foot) {
-            fit.anchor(pelvisBody, [at(thighId).localPosition[0], (at(thighId).localPosition[1] - at('pelvis').localPosition[1]) * .5, 0], points.start);
-            fit.anchor(thigh, [0, (at(shinId).localPosition[1] - at(thighId).localPosition[1]) * .5, 0], points.middle);
+            const thighSchema = segmentSchema(fighter, thighId);
+            const pelvisSchema = segmentSchema(fighter, 'pelvis');
+            const shinSchema = segmentSchema(fighter, shinId);
+            fit.anchor(pelvisBody, [thighSchema.localPosition[0], (thighSchema.localPosition[1] - pelvisSchema.localPosition[1]) * .5, 0], points.start);
+            fit.anchor(thigh, [0, (shinSchema.localPosition[1] - thighSchema.localPosition[1]) * .5, 0], points.middle);
             points.end.copy(foot.position);
             fit.limb(limbSide === 'left' ? leftLeg.current : rightLeg.current, points.start, points.middle, [0, -.69, 0], thigh);
             fit.limb(limbSide === 'left' ? leftShin.current : rightShin.current, points.middle, points.end, [0, -.66, .13], shin);
