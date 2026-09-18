@@ -370,6 +370,7 @@ describe('authoritative server contract', () => {
     };
     const res = {
       status: vi.fn().mockReturnThis(),
+      setHeader: vi.fn(),
       json: vi.fn(),
     };
 
@@ -601,7 +602,7 @@ describe('authoritative server contract', () => {
       method: 'POST',
       body: { jsonrpc: '2.0', id: { nested: 'object' }, method: 'ping' },
     };
-    const resObject = { status: vi.fn().mockReturnThis(), json: vi.fn() };
+    const resObject = { status: vi.fn().mockReturnThis(), setHeader: vi.fn(), json: vi.fn() };
     mcpHandler(reqObject as any, resObject as any);
     expect(resObject.status).toHaveBeenCalledWith(200);
     expect(resObject.json).toHaveBeenCalledWith(expect.objectContaining({ jsonrpc: '2.0', id: null }));
@@ -612,10 +613,31 @@ describe('authoritative server contract', () => {
       method: 'POST',
       body: { jsonrpc: '2.0', id: longId, method: 'ping' },
     };
-    const resLong = { status: vi.fn().mockReturnThis(), json: vi.fn() };
+    const resLong = { status: vi.fn().mockReturnThis(), setHeader: vi.fn(), json: vi.fn() };
     mcpHandler(reqLong as any, resLong as any);
     expect(resLong.status).toHaveBeenCalledWith(200);
     expect(resLong.json).toHaveBeenCalledWith(expect.objectContaining({ jsonrpc: '2.0', id: 'a'.repeat(128) }));
+    /* eslint-enable @typescript-eslint/no-explicit-any */
+  });
+
+  it('sets X-Content-Type-Options and Cache-Control security headers on responses in api/mcp.js', async () => {
+    /* eslint-disable @typescript-eslint/no-explicit-any */
+    // @ts-expect-error - JavaScript file lacks type definitions
+    const mcpModule = await import('../../../api/mcp.js');
+    const mcpHandler = mcpModule.default;
+
+    const req = { method: 'GET' };
+    const res = {
+      status: vi.fn().mockReturnThis(),
+      setHeader: vi.fn(),
+      json: vi.fn(),
+    };
+
+    mcpHandler(req as any, res as any);
+
+    expect(res.setHeader).toHaveBeenCalledWith('X-Content-Type-Options', 'nosniff');
+    expect(res.setHeader).toHaveBeenCalledWith('Cache-Control', 'no-store, max-age=0');
+    expect(res.status).toHaveBeenCalledWith(200);
     /* eslint-enable @typescript-eslint/no-explicit-any */
   });
 
