@@ -570,6 +570,26 @@ describe('authoritative server contract', () => {
     /* eslint-enable @typescript-eslint/no-explicit-any */
   });
 
+  it('sets X-Content-Type-Options and Cache-Control headers on api/mcp.js responses', async () => {
+    /* eslint-disable @typescript-eslint/no-explicit-any */
+    // @ts-expect-error - JavaScript file lacks type definitions
+    const mcpModule = await import('../../../api/mcp.js');
+    const mcpHandler = mcpModule.default;
+
+    const req = { method: 'GET' };
+    const res = {
+      status: vi.fn().mockReturnThis(),
+      setHeader: vi.fn(),
+      json: vi.fn(),
+    };
+
+    mcpHandler(req as any, res as any);
+
+    expect(res.setHeader).toHaveBeenCalledWith('X-Content-Type-Options', 'nosniff');
+    expect(res.setHeader).toHaveBeenCalledWith('Cache-Control', 'no-store, max-age=0');
+    /* eslint-enable @typescript-eslint/no-explicit-any */
+  });
+
   it('sanitizes JSON-RPC id payloads in api/mcp.js to prevent object reflection or memory amplification DoS', async () => {
     /* eslint-disable @typescript-eslint/no-explicit-any */
     // @ts-expect-error - JavaScript file lacks type definitions
