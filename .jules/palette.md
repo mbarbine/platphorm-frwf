@@ -43,3 +43,7 @@
 ## 2025-03-02 - Accessible Double-Confirmation Announcements for Destructive Actions
 **Learning:** Two-step double-confirmation button flows that rely on visual text swaps (such as changing 'RESET SAVED SETTINGS' to 'CONFIRM RESET?') do not automatically trigger screen reader announcements on button state changes. Providing a context-prefixed `aria-live="polite"` region that announces confirmation requirements ('Settings reset confirmation required: press again to confirm reset of all settings to defaults.') and successful completion ('All saved settings have been reset to defaults.') gives screen reader users immediate, unambiguous auditory feedback without altering visual layout.
 **Action:** Always pair double-confirmation button flows with a context-prefixed `aria-live="polite"` region announcing state requirements and completion status.
+
+## 2025-03-03 - Real-Time Screen Reader Announcements for Transient Combat Combos
+**Learning:** Transient HUD elements (like hit combo chains and finisher indicators) that appear conditionally during fast-paced gameplay are invisible to screen readers unless explicitly assigned `role="status"`, `aria-live="polite"`, and a context-prefixed `aria-label` (e.g. `Combo: {step} {label}`). Annotating transient HUD overlays allows assistive technologies to announce combo hits and finisher milestones in real time as attacks land.
+**Action:** Annotate transient combat feedback overlays with `role="status"`, `aria-live="polite"`, and context-prefixed ARIA labels.
