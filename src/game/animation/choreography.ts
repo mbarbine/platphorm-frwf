@@ -9,20 +9,28 @@ type PosePatch = Partial<Pose>;
 interface PoseKeyframe { at: number; pose: Pose }
 
 const pose = (patch: PosePatch): Pose => ({ ...POSES.combatIdle, ...patch });
-const tuple = (a: [number, number, number], b: [number, number, number], t: number): [number, number, number] => [
-  a[0] + (b[0] - a[0]) * t,
-  a[1] + (b[1] - a[1]) * t,
-  a[2] + (b[2] - a[2]) * t,
-];
-
+// OPTIMIZATION: Inlining 3D vector element interpolation directly in mixPose avoids 9 helper function calls and temporary stack frame allocations per pose blend.
 export const mixPose = (a: Pose, b: Pose, amount: number): Pose => {
   const t = Math.max(0, Math.min(1, amount));
+  const at = a.torso; const bt = b.torso;
+  const ala = a.leftArm; const bla = b.leftArm;
+  const ara = a.rightArm; const bra = b.rightArm;
+  const alf = a.leftForearm; const blf = b.leftForearm;
+  const arf = a.rightForearm; const brf = b.rightForearm;
+  const all = a.leftLeg; const bll = b.leftLeg;
+  const arl = a.rightLeg; const brl = b.rightLeg;
+  const als = a.leftShin; const bls = b.leftShin;
+  const ars = a.rightShin; const brs = b.rightShin;
   return {
-    torso: tuple(a.torso, b.torso, t),
-    leftArm: tuple(a.leftArm, b.leftArm, t), rightArm: tuple(a.rightArm, b.rightArm, t),
-    leftForearm: tuple(a.leftForearm, b.leftForearm, t), rightForearm: tuple(a.rightForearm, b.rightForearm, t),
-    leftLeg: tuple(a.leftLeg, b.leftLeg, t), rightLeg: tuple(a.rightLeg, b.rightLeg, t),
-    leftShin: tuple(a.leftShin, b.leftShin, t), rightShin: tuple(a.rightShin, b.rightShin, t),
+    torso: [at[0] + (bt[0] - at[0]) * t, at[1] + (bt[1] - at[1]) * t, at[2] + (bt[2] - at[2]) * t],
+    leftArm: [ala[0] + (bla[0] - ala[0]) * t, ala[1] + (bla[1] - ala[1]) * t, ala[2] + (bla[2] - ala[2]) * t],
+    rightArm: [ara[0] + (bra[0] - ara[0]) * t, ara[1] + (bra[1] - ara[1]) * t, ara[2] + (bra[2] - ara[2]) * t],
+    leftForearm: [alf[0] + (blf[0] - alf[0]) * t, alf[1] + (blf[1] - alf[1]) * t, alf[2] + (blf[2] - alf[2]) * t],
+    rightForearm: [arf[0] + (brf[0] - arf[0]) * t, arf[1] + (brf[1] - arf[1]) * t, arf[2] + (brf[2] - arf[2]) * t],
+    leftLeg: [all[0] + (bll[0] - all[0]) * t, all[1] + (bll[1] - all[1]) * t, all[2] + (bll[2] - all[2]) * t],
+    rightLeg: [arl[0] + (brl[0] - arl[0]) * t, arl[1] + (brl[1] - arl[1]) * t, arl[2] + (brl[2] - arl[2]) * t],
+    leftShin: [als[0] + (bls[0] - als[0]) * t, als[1] + (bls[1] - als[1]) * t, als[2] + (bls[2] - als[2]) * t],
+    rightShin: [ars[0] + (brs[0] - ars[0]) * t, ars[1] + (brs[1] - ars[1]) * t, ars[2] + (brs[2] - ars[2]) * t],
     rootX: a.rootX + (b.rootX - a.rootX) * t,
     rootY: a.rootY + (b.rootY - a.rootY) * t,
     rootZ: a.rootZ + (b.rootZ - a.rootZ) * t,

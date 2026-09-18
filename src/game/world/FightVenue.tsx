@@ -32,9 +32,17 @@ function WoodenTable({ prop, floor }: { prop: PropRuntime; floor: number }) {
 function RingsideFans({ width, depth, floor }: { width: number; depth: number; floor: number }) {
   const torsos = useRef<InstancedMesh>(null); const heads = useRef<InstancedMesh>(null); const limbs = useRef<InstancedMesh>(null);
   const dummy = useMemo(() => new Object3D(), []);
+  // OPTIMIZATION: Pre-calculate cosYaw and sinYaw to eliminate 224 Math.cos/Math.sin calls per frame in useFrame
   const fans = useMemo(() => Array.from({ length: 28 }, (_, i) => {
     const side = i < 10 ? -1 : 1; const column = i % 10; const back = i >= 20;
-    return { x: back ? -width + 1 + (i - 20) * (width * 2 - 2) / 7 : side * (width + 1.1), z: back ? -depth - 1.2 : -depth + 1 + column * (depth * 2 - 2) / 9, yaw: back ? 0 : -side * Math.PI / 2 };
+    const yaw = back ? 0 : -side * Math.PI / 2;
+    return {
+      x: back ? -width + 1 + (i - 20) * (width * 2 - 2) / 7 : side * (width + 1.1),
+      z: back ? -depth - 1.2 : -depth + 1 + column * (depth * 2 - 2) / 9,
+      yaw,
+      cosYaw: Math.cos(yaw),
+      sinYaw: Math.sin(yaw)
+    };
   }), [width, depth]);
   useEffect(() => {
     fans.forEach((_, i) => {
@@ -45,19 +53,23 @@ function RingsideFans({ width, depth, floor }: { width: number; depth: number; f
     });
     for (const mesh of [torsos.current, heads.current, limbs.current]) if (mesh?.instanceColor) mesh.instanceColor.needsUpdate = true;
   }, [fans]);
+  // OPTIMIZATION: Replacing forEach callback with an indexed for loop and using pre-computed cosYaw/sinYaw
   useFrame(({ clock }) => {
     if (!torsos.current || !heads.current || !limbs.current) return;
     const hype = useMatchStore.getState().model.hype;
-    fans.forEach((fan, i) => {
-      const y = floor + Math.max(0, Math.sin(clock.elapsedTime * 3.5 + i)) * hype * .0015;
+    const time = clock.elapsedTime;
+    for (let i = 0; i < fans.length; i++) {
+      const fan = fans[i];
+      if (!fan) continue;
+      const y = floor + Math.max(0, Math.sin(time * 3.5 + i)) * hype * .0015;
       dummy.rotation.set(0, fan.yaw, 0); dummy.position.set(fan.x, y + 1.1, fan.z); dummy.scale.set(.48, .58, .28); dummy.updateMatrix(); torsos.current?.setMatrixAt(i, dummy.matrix);
       dummy.position.y = y + 1.58; dummy.scale.set(.19, .21, .19); dummy.updateMatrix(); heads.current?.setMatrixAt(i, dummy.matrix);
       for (let j = 0; j < 4; j++) {
         const arm = j >= 2; const side = j % 2 ? 1 : -1; const offset = side * (arm ? .39 : .13);
-        dummy.position.set(fan.x + Math.cos(fan.yaw) * offset, y + (arm ? 1.45 : .43), fan.z - Math.sin(fan.yaw) * offset);
-        dummy.rotation.set(0, fan.yaw, arm ? side * (.6 + Math.sin(clock.elapsedTime * 2 + i) * .12) : 0); dummy.scale.set(arm ? .13 : .17, arm ? .47 : .85, arm ? .14 : .22); dummy.updateMatrix(); limbs.current?.setMatrixAt(i * 4 + j, dummy.matrix);
+        dummy.position.set(fan.x + fan.cosYaw * offset, y + (arm ? 1.45 : .43), fan.z - fan.sinYaw * offset);
+        dummy.rotation.set(0, fan.yaw, arm ? side * (.6 + Math.sin(time * 2 + i) * .12) : 0); dummy.scale.set(arm ? .13 : .17, arm ? .47 : .85, arm ? .14 : .22); dummy.updateMatrix(); limbs.current?.setMatrixAt(i * 4 + j, dummy.matrix);
       }
-    });
+    }
     torsos.current.instanceMatrix.needsUpdate = true; heads.current.instanceMatrix.needsUpdate = true; limbs.current.instanceMatrix.needsUpdate = true;
   });
   return <><instancedMesh ref={torsos} args={[undefined, undefined, 28]} frustumCulled={false} castShadow><boxGeometry /><meshStandardMaterial roughness={.95} /></instancedMesh><instancedMesh ref={heads} args={[undefined, undefined, 28]} frustumCulled={false} castShadow><sphereGeometry args={[1, 10, 8]} /><meshStandardMaterial roughness={.9} /></instancedMesh><instancedMesh ref={limbs} args={[undefined, undefined, 112]} frustumCulled={false} castShadow><boxGeometry /><meshStandardMaterial roughness={.95} /></instancedMesh></>;
