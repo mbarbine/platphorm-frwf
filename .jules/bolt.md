@@ -105,3 +105,7 @@
 ## 2026-09-14 - [Precomputing Particle Layouts in Hot R3F Particle Frame Loops]
 **Learning:** In React Three Fiber particle components (`ImpactEffects.tsx` and `EntranceFog.tsx`), calculating particle angles, trigonometric values (`Math.cos`/`Math.sin`), lift factors, and modulo index offsets inside `useFrame` render loops every frame introduces redundant math and modulo operations for active particles. Pre-calculating particle parameters using `useMemo` or module-level static arrays eliminates hundreds of redundant math computations per frame in 60+ FPS rendering loops.
 **Action:** Pre-compute particle angles, trigonometric values, speeds, lift factors, and index offset constants outside or via `useMemo` in R3F particle components.
+
+## 2026-09-16 - [Precomputing Instanced Fan Yaw Trigonometry in RingsideFans]
+**Learning:** In `FightVenue.tsx` (`RingsideFans`), evaluating `Math.cos(fan.yaw)` and `Math.sin(fan.yaw)` 4 times per fan across 28 fans (224 redundant trigonometric calls) inside an instanced Three.js `useFrame` loop caused unnecessary CPU math calculations and function closure overhead from `.forEach`. Precomputing `cosYaw` and `sinYaw` on layout initialization inside `useMemo` and using an indexed `for` loop eliminated 224 redundant math evaluations per frame.
+**Action:** Pre-calculate `cosYaw` and `sinYaw` on static or fixed-orientation instanced objects in `useMemo` and iterate using indexed `for` loops inside `useFrame`.
