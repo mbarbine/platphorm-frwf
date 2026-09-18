@@ -2,6 +2,7 @@ import { describe, expect, it, afterEach } from 'vitest';
 import React from 'react';
 import { render, screen, cleanup } from '@testing-library/react';
 import { HUD } from '../ui/HUD';
+import { ComboReadout } from '../ui/ComboReadout';
 import { useMatchStore } from '../game/state/matchStore';
 import { useSettings } from '../game/state/settings';
 
@@ -55,5 +56,16 @@ describe('HUD and Results Accessibility', () => {
 
     const kbd = screen.getByText('WASD');
     expect(kbd.tagName.toLowerCase()).toBe('kbd');
+  });
+
+  it('renders ComboReadout with role="status", aria-live="polite", and context-prefixed aria-label when combo is active', () => {
+    useMatchStore.getState().configure('atlas', 'nova', 'standard', 'normal', 0, 0, 'singles');
+    const actor = { ...useMatchStore.getState().model.player, comboStep: 2, comboName: 'ONE-TWO BOOT', comboInputs: ['quick', 'heavy'] };
+
+    render(React.createElement(ComboReadout, { actor, punch: 'J', kick: 'K' }));
+
+    const statusEl = screen.getByRole('status', { name: 'Combo: 2 ONE-TWO BOOT' });
+    expect(statusEl).toBeTruthy();
+    expect(statusEl.getAttribute('aria-live')).toBe('polite');
   });
 });
