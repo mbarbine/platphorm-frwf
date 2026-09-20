@@ -1,5 +1,9 @@
 # Bolt's Journal - Critical Learnings Only
 
+## 2026-09-19 - [Zero-Allocation Vector Math in World Wrestler Exploration Gait]
+**Learning:** In React Three Fiber world rendering (`WorldWrestler.tsx`), running 12 wrestler instances in parallel resulted in over 300 temporary `Vector3` and array allocations per frame inside `useFrame` during exploration gait calculations. Pre-allocating reusable `Vector3` helpers (`proximalVec`, `distalVec`, `jointVec`, `legAnchorVec`, `armJointVec`, `handOffsetVec`) and static segment ID lists completely eliminated dynamic heap allocations in hot render loops, preventing GC micro-stutter during free-roam exploration.
+**Action:** In multi-instance R3F animation components, pre-allocate reusable vectors and static index arrays outside or via `useMemo` to ensure zero allocations per frame inside `useFrame`.
+
 ## 2026-07-25 - [Replacing Math.hypot with Math.sqrt in Hot Loop Mechanics]
 **Learning:** In high-frequency physics checks (like `ringDynamics.ts` rope release direction resolver) and real-time state synchronization ticks (`matchStore.ts`), using the general `Math.hypot` introduces massive performance bottlenecks because it performs runtime safety scaling to prevent floating-point underflow/overflow. For normal/bounded 2D coordinates, standard direct squared additions followed by `Math.sqrt` are mathematically identical, but run up to ~48x faster in modern JS engines.
 **Action:** Replace `Math.hypot(x, y)` with standard algebraic `Math.sqrt(x * x + y * y)` inside all active frame loops, collision calculations, and state synchronization methods.
