@@ -82,7 +82,9 @@ export function HUD({ device, paused }: { device: ControlDevice; paused: boolean
   const continuousStrike = bodyWorksRuntime.continuousStrikeDiagnostics();
   const alignment = bodyWorksRuntime.presentationAlignmentSnapshot();
   const playerPhysics = bodyWorksRuntime.fighterSnapshot('player'); const opponentPhysics = bodyWorksRuntime.fighterSnapshot(targetSlot);
-  const rosterPhysics = Object.fromEntries(FIGHTER_SLOTS.map((slot) => [slot, bodyWorksRuntime.fighterSnapshot(slot)])) as Record<(typeof FIGHTER_SLOTS)[number], ReturnType<typeof bodyWorksRuntime.fighterSnapshot>>;
+  // OPTIMIZATION: Avoid Object.fromEntries and dynamic tuple allocations on every HUD render frame.
+  const rosterPhysics = {} as Record<(typeof FIGHTER_SLOTS)[number], ReturnType<typeof bodyWorksRuntime.fighterSnapshot>>;
+  for (const slot of FIGHTER_SLOTS) rosterPhysics[slot] = bodyWorksRuntime.fighterSnapshot(slot);
   const activeRoster = FIGHTER_SLOTS.filter((slot) => model[slot].state !== 'defeated');
   const minimumActivePelvisY = Math.min(...activeRoster.map((slot) => rosterPhysics[slot].pelvisY));
   const playerIntent = bodyWorksRuntime.intentSnapshot('player');
