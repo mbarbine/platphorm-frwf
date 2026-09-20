@@ -56,7 +56,7 @@ function computeRopePoint(
 ) {
   const along = -length / 2 + segmentLength * vertex;
   const distance = Math.abs(along - contactAlong);
-  const envelope = Math.exp(-distance * distance * .42) * SIN_ROPE_ENVELOPE[vertex];
+  const envelope = Math.exp(-distance * distance * .42) * (SIN_ROPE_ENVELOPE[vertex] ?? 0);
   const wave = Math.sin(elapsed * 25 - distance * 2.2) * rebound * .075;
   const deflection = side * (compression * (.34 + pulse * .1) + wave) * envelope;
   target.set(axis === 'x' ? deflection : along, y + pulse * .008 * (ropeIndex + 1) * envelope, axis === 'x' ? along : deflection);

@@ -166,6 +166,8 @@ export default {
     const headers = new Headers(response.headers);
     headers.set('X-Content-Type-Options', 'nosniff'); headers.set('Referrer-Policy', 'no-referrer');
     headers.set('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'");
+    headers.set('X-Frame-Options', 'DENY');
+    headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
     if (!headers.has('Cache-Control')) headers.set('Cache-Control', 'no-store');
     const incoming = request.headers.get('traceparent') ?? '';
     const match = /^00-([a-f0-9]{32})-([a-f0-9]{16})-([a-f0-9]{2})$/.exec(incoming);
