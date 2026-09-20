@@ -13,14 +13,18 @@ import { fighterById } from '../data/fighters';
 import type { FighterId } from '../types/game';
 
 const PLAYBACK_SECONDS = 3.85;
+const MAJOR_SLAM_MOVES = new Set(['slam', 'piledriver', 'powerbomb', 'spinebuster', 'mountain_drop', 'skyhook', 'suplex']);
 
 function RecordedPhysicalFighter({ frameRef, side, fighterId }: { frameRef: React.RefObject<PhysicsReplayFrame | null>; side: 'player' | 'opponent'; fighterId: FighterId }) {
   const segments = useMemo(() => buildBodySchema(fighterById(fighterId)), [fighterId]);
+  const segmentIds = useMemo(() => segments.map((s) => s.id), [segments]);
   const bodies = useRef<Partial<Record<BodySegmentId, Group | null>>>({});
   useFrame(() => {
     const transforms = frameRef.current?.fighters[side]; if (!transforms) return;
-    for (const segment of segments) {
-      const group = bodies.current[segment.id]; const transform = transforms[segment.id]; if (!group || !transform) continue;
+    // OPTIMIZATION: Use indexed for loop over pre-memoized segment IDs to avoid iterator allocation and property lookup overhead in useFrame
+    for (let i = 0; i < segmentIds.length; i++) {
+      const id = segmentIds[i];
+      const group = bodies.current[id]; const transform = transforms[id]; if (!group || !transform) continue;
       group.position.set(transform.position.x, transform.position.y, transform.position.z);
       group.quaternion.set(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
       group.visible = true;
@@ -31,11 +35,14 @@ function RecordedPhysicalFighter({ frameRef, side, fighterId }: { frameRef: Reac
 
 function RecordedProps({ frameRef }: { frameRef: React.RefObject<PhysicsReplayFrame | null> }) {
   const matchProps = useMatchStore((state) => state.model.props); const props = useMemo(() => matchProps.filter((prop) => prop.kind !== 'table'), [matchProps]);
+  const propIds = useMemo(() => props.map((p) => p.id), [props]);
   const bodies = useRef<Record<string, Group | null>>({});
   useFrame(() => {
     const transforms = frameRef.current?.props; if (!transforms) return;
-    for (const prop of props) {
-      const group = bodies.current[prop.id]; const transform = transforms[prop.id]; if (!group || !transform) continue;
+    // OPTIMIZATION: Use indexed for loop over pre-memoized prop IDs to avoid iterator allocations inside useFrame
+    for (let i = 0; i < propIds.length; i++) {
+      const id = propIds[i];
+      const group = bodies.current[id]; const transform = transforms[id]; if (!group || !transform) continue;
       group.position.set(transform.position.x, transform.position.y, transform.position.z);
       group.quaternion.set(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
       group.visible = true;
@@ -58,7 +65,7 @@ export function ReplayDirector() {
     // while a replay is already open. Treat those as part of the current spot so
     // Skip never closes one overlay only to immediately queue another.
     if (active) { replayedImpact.current = lastImpact.id; return; }
-    const majorSlam = lastImpact.kind === 'grapple' && ['slam', 'piledriver', 'powerbomb', 'spinebuster', 'mountain_drop', 'skyhook', 'suplex'].includes(lastImpact.moveId ?? '');
+    const majorSlam = lastImpact.kind === 'grapple' && MAJOR_SLAM_MOVES.has(lastImpact.moveId ?? '');
     const replayWorthy = majorSlam || lastImpact.kind === 'finisher' || lastImpact.kind === 'table' || lastImpact.kind === 'ko';
     if (!replayWorthy || bodyWorksRuntime.replay.size < 45) return;
     replayedImpact.current = lastImpact.id; useMatchStore.getState().startReplay();
