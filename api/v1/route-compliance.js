@@ -4,6 +4,12 @@ function trustedSite(hostname) {
 
 export default function handler(request, response) {
   try {
+    // SECURITY ENHANCEMENT: Set security headers to prevent MIME sniffing and response caching (CWE-79 / CWE-524)
+    if (typeof response?.setHeader === "function") {
+      response.setHeader("X-Content-Type-Options", "nosniff")
+      response.setHeader("Cache-Control", "no-store, max-age=0")
+    }
+
     // Defensive method validation to prevent unexpected side effects on non-safe methods (CWE-650)
     if (request.method !== "GET" && request.method !== "HEAD") {
       response.setHeader("Allow", "GET, HEAD")
