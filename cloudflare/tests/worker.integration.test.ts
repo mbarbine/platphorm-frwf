@@ -19,6 +19,8 @@ afterAll(async () => { await worker?.dispose(); });
 describe('real Worker / Durable Object / D1 / R2 integration', () => {
   it('probes storage and returns genuinely empty results with no credential disclosure', async () => {
     const health = await worker.dispatchFetch(origin + '/api/health');
+    expect(health.headers.get('X-Frame-Options')).toBe('DENY');
+    expect(health.headers.get('Strict-Transport-Security')).toBe('max-age=31536000; includeSubDomains');
     expect(await health.json()).toMatchObject({ ok: true, data: { databaseStatus: 'operational', assetStatus: 'operational', routeComplianceScore: null } });
     const release = await worker.dispatchFetch(origin + '/api/release');
     expect(await release.json()).toMatchObject({ data: { release: 'integration-test', gitSha: '1234567890abcdef' } });
