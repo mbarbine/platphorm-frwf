@@ -11,7 +11,7 @@ import type { BodyWorksContact } from '../physics/physicsRuntime';
 import type { Difficulty, FighterId, FighterSlot, FighterState, GameCommand, MatchMode, MatchModel, RecoveryOrientation, Ruleset, Vec2 } from '../types/game';
 import type { ClientFighterState } from '../multiplayer/ColyseusClient';
 import type { ImpactEventMessage } from '@frwf/game-protocol';
-import { AI_FIGHTER_SLOTS } from '../types/game';
+import { AI_FIGHTER_SLOTS, SINGLES_FIGHTER_SLOTS } from '../types/game';
 import { useSpectatorStore } from './spectatorStore';
 import { createActionEvent, gameCommandToAction } from '../input/actionLayer';
 import { beginFall } from '../systems/falls';
@@ -107,7 +107,7 @@ export const useMatchStore = create<MatchStore>((set) => ({
       if (!model.announcementTimer) model.announcement = null;
       model.hitStop = Math.max(0, model.hitStop - dt);
       model.slowMotion = Math.max(0, model.slowMotion - dt);
-      for (const slot of ['player', 'opponent'] as const) {
+      for (const slot of SINGLES_FIGHTER_SLOTS) {
         const fighter = model[slot];
         fighter.stateElapsed += dt;
         fighter.phaseElapsed += fighter.moveId ? dt : 0;

@@ -9,7 +9,7 @@ import { chooseAiDecision, isActionLegal } from '../ai/utilityAI';
 import { applyLocalizedImpact, calculateImpact, createBodyDynamics, integrateLocomotion, stepBodyDynamics } from '../physics/bodyDynamics';
 import { createGrappleRuntime, releaseGrapple, retargetGrapple, stepGrappleDynamics } from '../physics/grappleDynamics';
 import { clamp, distance, normalize, scale, seededRandom } from '../utils/math';
-import { AI_FIGHTER_SLOTS, FIGHTER_SLOTS } from '../types/game';
+import { AI_FIGHTER_SLOTS, FIGHTER_SLOTS, SINGLES_FIGHTER_SLOTS } from '../types/game';
 import type { Difficulty, FighterId, FighterRuntime, FighterSlot, GameCommand, HighlightMoment, ImpactEvent, MatchHighlights, MatchMode, MatchModel, MatchResult, MatchStats, MoveDefinition, PropRuntime, ReplayFighterFrame, Ruleset, Vec2 } from '../types/game';
 import type { BodyWorksContact } from '../physics/physicsRuntime';
 import { VOLT_DOME } from '../data/arena';
@@ -96,7 +96,7 @@ export const createMatch = (playerId: FighterId, opponentId: FighterId, ruleset:
   };
 };
 
-export const activeFighterSlots = (model: MatchModel): readonly FighterSlot[] => model.matchMode === 'battle_royale' ? FIGHTER_SLOTS : ['player', 'opponent'];
+export const activeFighterSlots = (model: MatchModel): readonly FighterSlot[] => model.matchMode === 'battle_royale' ? FIGHTER_SLOTS : SINGLES_FIGHTER_SLOTS;
 
 export const targetSlotFor = (model: MatchModel, actor: FighterSlot): FighterSlot => model.targets[actor];
 

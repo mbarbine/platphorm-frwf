@@ -7,7 +7,7 @@ import type { RapierRigidBody } from '@react-three/rapier';
 import type { ImpulseJoint, JointData, World } from '@dimforge/rapier3d-compat';
 import { Ray } from '@dimforge/rapier3d-compat';
 import type { FrameInput } from '../systems/combat';
-import { AI_FIGHTER_SLOTS, FALL_REASONS, FIGHTER_SLOTS } from '../types/game';
+import { AI_FIGHTER_SLOTS, FALL_REASONS, FIGHTER_SLOTS, SINGLES_FIGHTER_SLOTS } from '../types/game';
 import type { AttackPhase, BodyRegion, FighterRuntime, FighterSlot, GameCommand, MatchModel, PropRuntime, RecoveryOrientation, Vec2 } from '../types/game';
 import { clamp } from '../utils/math';
 import { CORE_SEGMENTS, HEAD_COLLIDER_RADIUS, buildBodySchema, torsoColliderArgs } from './bodySchema';
@@ -749,7 +749,7 @@ export class BodyWorksRuntime {
     this.pendingStrikeCasts.clear();
     if (model.networkAuthority) this.applyNetworkCorrections();
     this.syncMotionTasks(dt, model);
-    const slots = model.matchMode === 'battle_royale' ? FIGHTER_SLOTS : FIGHTER_SLOTS.slice(0, 2);
+    const slots = model.matchMode === 'battle_royale' ? FIGHTER_SLOTS : SINGLES_FIGHTER_SLOTS;
     for (const key of AI_FIGHTER_SLOTS) {
       if (!slots.includes(key) || !['idle', 'locomotion'].includes(model[key].state)) continue;
       const controller = model.aiControllers[key]; const intent = this.intents[key];
@@ -813,7 +813,7 @@ export class BodyWorksRuntime {
   }
 
   private syncMotionTasks(dt: number, model: MatchModel): void {
-    const slots = model.matchMode === 'battle_royale' ? FIGHTER_SLOTS : FIGHTER_SLOTS.slice(0, 2);
+    const slots = model.matchMode === 'battle_royale' ? FIGHTER_SLOTS : SINGLES_FIGHTER_SLOTS;
     for (const key of slots) {
       const fighter = model[key];
       if (!fighter.moveId) {
@@ -1268,7 +1268,7 @@ export class BodyWorksRuntime {
   }
 
   private applyCloseRangeSeparation(model: MatchModel): void {
-    const slots = model.matchMode === 'battle_royale' ? FIGHTER_SLOTS : FIGHTER_SLOTS.slice(0, 2);
+    const slots = model.matchMode === 'battle_royale' ? FIGHTER_SLOTS : SINGLES_FIGHTER_SLOTS;
     for (let firstIndex = 0; firstIndex < slots.length; firstIndex += 1) for (let secondIndex = firstIndex + 1; secondIndex < slots.length; secondIndex += 1) {
       const firstKey = slots[firstIndex]; const secondKey = slots[secondIndex]; if (!firstKey || !secondKey) continue;
       if (model.grapple && [model.grapple.attacker, model.grapple.defender].includes(firstKey) && [model.grapple.attacker, model.grapple.defender].includes(secondKey)) continue;
@@ -2193,7 +2193,7 @@ export class BodyWorksRuntime {
     this.refreshCoverEvidence(model);
     this.inspectNumericalHealth();
     this.containRigsToArena(model);
-    const slots = model.matchMode === 'battle_royale' ? FIGHTER_SLOTS : FIGHTER_SLOTS.slice(0, 2);
+    const slots = model.matchMode === 'battle_royale' ? FIGHTER_SLOTS : SINGLES_FIGHTER_SLOTS;
     for (const key of slots) {
       this.correctCoreDeckPenetration(key, model);
       this.syncFighter(key, model[key], model.labMode);
@@ -2214,7 +2214,7 @@ export class BodyWorksRuntime {
    */
   private refreshActiveStrikeContacts(model: MatchModel): void {
     const world = this.world; if (!world) return;
-    const slots = model.matchMode === 'battle_royale' ? FIGHTER_SLOTS : FIGHTER_SLOTS.slice(0, 2);
+    const slots = model.matchMode === 'battle_royale' ? FIGHTER_SLOTS : SINGLES_FIGHTER_SLOTS;
     for (const sourceKey of slots) {
       const sourceRuntime = model[sourceKey]; const moveId = sourceRuntime.moveId;
       const capturedActiveStep = moveId ? [...this.pendingStrikeCasts.values()].some((candidate) => candidate.sourceFighter === sourceKey
@@ -2499,7 +2499,7 @@ export class BodyWorksRuntime {
   }
 
   private containRigsToArena(model: MatchModel): void {
-    const slots = model.matchMode === 'battle_royale' ? FIGHTER_SLOTS : FIGHTER_SLOTS.slice(0, 2);
+    const slots = model.matchMode === 'battle_royale' ? FIGHTER_SLOTS : SINGLES_FIGHTER_SLOTS;
     for (const key of slots) {
       const rig = this.rigs.get(key); const pelvis = rig?.bodies.pelvis; if (!rig || !pelvis?.isValid()) continue;
       const battleContained = model.matchMode === 'battle_royale' && !model.labMode && !['defeated', 'victorious'].includes(model[key].state);
