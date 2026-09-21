@@ -37,7 +37,7 @@ import { pulseConnectedGamepads } from '../input/gamepadHaptics';
 import { renderDiagnostics, resetRenderDiagnostics, sampleRenderDiagnostics } from '../runtime/renderDiagnostics';
 import { selectFighterDetail } from '../presentation/presentationManifest';
 import type { FighterDetail } from '../presentation/presentationManifest';
-import { FALL_REASONS, FIGHTER_SLOTS } from '../types/game';
+import { FALL_REASONS, FIGHTER_SLOTS, SINGLES_FIGHTER_SLOTS } from '../types/game';
 import { resolvedSpectatorTarget, useSpectatorStore } from '../state/spectatorStore';
 import { BODY_SEGMENT_COUNT } from '../physics/bodySchema';
 import { fallCount } from '../systems/falls';
@@ -110,7 +110,7 @@ function Simulation({ onPause, onDevice, onFinished, inputEnabled = true, online
         useMatchStore.getState().resolveNetworkMatch(network.matchResult.winner === localSessionId ? 'player' : 'opponent', network.matchResult.method);
       }
     }
-    const activeSlots = model.matchMode === 'battle_royale' ? FIGHTER_SLOTS.filter((slot) => model[slot].state !== 'defeated') : FIGHTER_SLOTS.slice(0, 2);
+    const activeSlots = model.matchMode === 'battle_royale' ? FIGHTER_SLOTS.filter((slot) => model[slot].state !== 'defeated') : SINGLES_FIGHTER_SLOTS;
     const expectedBodies = activeSlots.length * BODY_SEGMENT_COUNT;
     if (rosterReadiness.current.runtimeId !== model.runtimeId) rosterReadiness.current = { runtimeId: model.runtimeId, ready: false };
     if (!rosterReadiness.current.ready && bodyWorksRuntime.metrics.bodyCount >= expectedBodies && rosterIsPresented(model.runtimeId, activeSlots)) rosterReadiness.current.ready = true;
@@ -244,7 +244,7 @@ function SpectatorFreeCamera() {
 function Fighters({ detail }: { detail: FighterDetail }) {
   const model = useMatchStore((state) => state.model); const runtimeId = model.runtimeId;
   const replayActive = useMatchStore((state) => state.replayActive);
-  const slots = model.matchMode === 'battle_royale' ? FIGHTER_SLOTS : FIGHTER_SLOTS.slice(0, 2);
+  const slots = model.matchMode === 'battle_royale' ? FIGHTER_SLOTS : SINGLES_FIGHTER_SLOTS;
   return <group key={runtimeId} visible={!replayActive}>
     {slots.map((slot) => <PhysicalFighterRig key={`physics-${slot}`} runtime={model[slot]} side={slot} showVisuals={false} />)}
     {slots.map((slot) => <Suspense key={`visual-${slot}`} fallback={<FighterModel runtime={model[slot]} counterpart={model[model.targets[slot]]} side={slot} detail={detail} />}><HumanoidFighter runtime={model[slot]} side={slot} /></Suspense>)}
@@ -405,7 +405,7 @@ class SceneBoundary extends Component<{ children: ReactNode }, BoundaryState> {
 function RosterLoading() {
   const model = useMatchStore(s => s.model);
   useRosterPresentation();
-  const slots = model.matchMode === 'battle_royale' ? FIGHTER_SLOTS : FIGHTER_SLOTS.slice(0,2);
+  const slots = model.matchMode === 'battle_royale' ? FIGHTER_SLOTS : SINGLES_FIGHTER_SLOTS;
   const ready = rosterIsPresented(model.runtimeId,slots);
   useEffect(() => { document.documentElement.dataset.fightersReady = String(ready); return () => {delete document.documentElement.dataset.fightersReady;}; },[ready]);
   return ready ? null : <div className="graphics-recovery" role="status"><b>WRESTLERS ENTERING</b><span>Preparing the selected wrestlers.</span></div>;
