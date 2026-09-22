@@ -931,7 +931,7 @@ export class BodyWorksRuntime {
     // earn real Rapier contact and scales with gait compression.
     const stanceDrop = fighter.state === 'blocking' ? .065
       : fighter.state === 'locomotion' ? clamp(.04 + planarSpeed * .012, .04, .13)
-        : ['idle', 'attacking', 'grappling', 'victorious'].includes(fighter.state) ? .045 : 0;
+        : (fighter.state === 'idle' || fighter.state === 'attacking' || fighter.state === 'grappling' || fighter.state === 'victorious') ? .045 : 0;
     const ringPelvisY = 1.8 + 1.12 * (definition.physics.standingHeightM / 1.88) - fighter.body.pelvisDrop * .32 - grappleHipLoad - stanceDrop;
     const physicalCenter = this.rigPlanarCenter(rig); const physicalPosition = { x: physicalCenter.x, z: physicalCenter.z };
     const outsideRopes = this.isRingside(physicalPosition);
