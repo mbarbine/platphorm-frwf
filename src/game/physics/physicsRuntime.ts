@@ -10,7 +10,7 @@ import type { FrameInput } from '../systems/combat';
 import { AI_FIGHTER_SLOTS, FALL_REASONS, FIGHTER_SLOTS, SINGLES_FIGHTER_SLOTS } from '../types/game';
 import type { AttackPhase, BodyRegion, FighterRuntime, FighterSlot, GameCommand, MatchModel, PropRuntime, RecoveryOrientation, Vec2 } from '../types/game';
 import { clamp } from '../utils/math';
-import { CORE_SEGMENTS, HEAD_COLLIDER_RADIUS, buildBodySchema, torsoColliderArgs } from './bodySchema';
+import { ALL_BODY_SEGMENTS, CORE_SEGMENTS, HEAD_COLLIDER_RADIUS, buildBodySchema, torsoColliderArgs } from './bodySchema';
 import type { BodySegmentId } from './bodySchema';
 import { chasePoseAngularVelocity, strikePoseChain } from './motorController';
 import { PhysicsReplayBuffer } from './replayBuffer';
@@ -322,7 +322,7 @@ export class BodyWorksRuntime {
   registerFighter(fighter: FighterKey, bodies: Partial<Record<BodySegmentId, RapierRigidBody>>, jointCount: number): () => void {
     const pelvisPosition = bodies.pelvis?.translation() ?? { x: 0, y: 3.02, z: 0 };
     const restOffsets: Partial<Record<BodySegmentId, Vector3Value>> = {};
-    for (const _segment in bodies) {
+    for (const _segment of ALL_BODY_SEGMENTS) {
       const segment = _segment as BodySegmentId;
       const body = bodies[segment] as RapierRigidBody;
       if (!body) continue;
@@ -406,7 +406,7 @@ export class BodyWorksRuntime {
   private rigPlanarCenter(rig: FighterRigRegistration): { x: number; z: number; velocityX: number; velocityZ: number; mass: number } {
     let mass = 0; let x = 0; let z = 0; let velocityX = 0; let velocityZ = 0;
     // OPTIMIZATION: Avoid Object.values allocation in hot-path physics calculation
-    for (const _segment in rig.bodies) {
+    for (const _segment of ALL_BODY_SEGMENTS) {
       const body = rig.bodies[_segment as BodySegmentId];
       if (!body?.isValid()) continue;
       const bodyMass = body.mass(); const position = body.translation(); const velocity = body.linvel();
@@ -419,7 +419,7 @@ export class BodyWorksRuntime {
 
   private applyRigAcceleration(rig: FighterRigRegistration, acceleration: Vector3Value): void {
     // OPTIMIZATION: Avoid Object.values allocation in hot-path physics calculation
-    for (const _segment in rig.bodies) {
+    for (const _segment of ALL_BODY_SEGMENTS) {
       const body = rig.bodies[_segment as BodySegmentId];
       if (!body?.isValid()) continue;
       const mass = body.mass(); body.addForce({ x: acceleration.x * mass, y: acceleration.y * mass, z: acceleration.z * mass }, true);
@@ -428,7 +428,7 @@ export class BodyWorksRuntime {
 
   private applyRigVelocityDelta(rig: FighterRigRegistration, delta: Vector3Value): void {
     // OPTIMIZATION: Avoid Object.values allocation in hot-path physics calculation
-    for (const _segment in rig.bodies) {
+    for (const _segment of ALL_BODY_SEGMENTS) {
       const body = rig.bodies[_segment as BodySegmentId];
       if (!body?.isValid()) continue;
       const mass = body.mass(); body.applyImpulse({ x: delta.x * mass, y: delta.y * mass, z: delta.z * mass }, true);
@@ -540,7 +540,7 @@ export class BodyWorksRuntime {
     const rig = this.rigs.get(fighter);
     if (!rig || !this.canJump(fighter)) return false;
     rig.supportContacts.clear();
-    for (const _segment in rig.bodies) {
+    for (const _segment of ALL_BODY_SEGMENTS) {
       const body = rig.bodies[_segment as BodySegmentId];
       if (!body?.isValid()) continue;
       const deltaY = Math.max(0, 8.2 - body.linvel().y);
@@ -573,7 +573,7 @@ export class BodyWorksRuntime {
     // Launch the complete articulated mass with one shared velocity impulse.
     // Driving only the pelvis left the other fifteen bodies at rest, turning a
     // top-rope dive into a short joint stretch instead of committed flight.
-    for (const _segment in rig.bodies) {
+    for (const _segment of ALL_BODY_SEGMENTS) {
       const body = rig.bodies[_segment as BodySegmentId];
       if (!body?.isValid()) continue;
       const velocity = body.linvel(); const mass = body.mass();
@@ -611,7 +611,7 @@ export class BodyWorksRuntime {
         : orientation === 'left' ? quaternionFromEuler([0, facing, -Math.PI / 2])
           : quaternionFromEuler([0, facing, Math.PI / 2]);
     const origin = pelvis.translation(); const anchorY = 2.13 + surfaceOffset;
-    for (const _segment in rig.bodies) {
+    for (const _segment of ALL_BODY_SEGMENTS) {
       const segment = _segment as BodySegmentId;
       const body = rig.bodies[segment] as RapierRigidBody;
       if (!body) continue;
@@ -627,7 +627,7 @@ export class BodyWorksRuntime {
   private placeFighter(fighter: FighterKey, target: Vec2): void {
     const rig = this.rigs.get(fighter); const pelvis = rig?.bodies.pelvis; if (!rig || !pelvis) return;
     const placementPelvisY = rig.restPelvisY - (this.isRingside(target) ? 1.46 : 0);
-    for (const _segment in rig.bodies) {
+    for (const _segment of ALL_BODY_SEGMENTS) {
       const segment = _segment as BodySegmentId;
       const body = rig.bodies[segment] as RapierRigidBody;
       if (!body) continue;
@@ -703,7 +703,7 @@ export class BodyWorksRuntime {
     // from leaving one core collider below the fixed mat while preserving the
     // actual landing pose and contact result.
     const correctionY = surfaceY === null || !Number.isFinite(lowestCore) ? 0 : clamp(surfaceY + .08 - lowestCore, 0, .32);
-    for (const _segment in rig.bodies) {
+    for (const _segment of ALL_BODY_SEGMENTS) {
       const body = rig.bodies[_segment as BodySegmentId];
       if (!body?.isValid()) continue;
       body.resetForces(true); body.resetTorques(true);
@@ -742,7 +742,7 @@ export class BodyWorksRuntime {
     if (this.world) {
       this.metrics.worldJointCount = this.world.impulseJoints.len(); this.metrics.worldBodyCount = this.world.bodies.len();
       let invalidRegisteredBodies = 0;
-      for (const rig of this.rigs.values()) for (const _segment in rig.bodies) { const body = rig.bodies[_segment as BodySegmentId]; if (body && !body.isValid()) invalidRegisteredBodies += 1; }
+      for (const rig of this.rigs.values()) for (const _segment of ALL_BODY_SEGMENTS) { const body = rig.bodies[_segment as BodySegmentId]; if (body && !body.isValid()) invalidRegisteredBodies += 1; }
       this.metrics.invalidRegisteredBodyCount = invalidRegisteredBodies;
     }
     if (model.paused || model.resolved) { this.stepStartedAt = -1; return; }
@@ -797,7 +797,7 @@ export class BodyWorksRuntime {
         });
       }
       let mass = 0; let verticalMomentum = 0;
-      for (const _segment in rig.bodies) {
+      for (const _segment of ALL_BODY_SEGMENTS) {
         const body = rig.bodies[_segment as BodySegmentId];
         if (!body?.isValid()) continue;
         mass += body.mass(); verticalMomentum += body.linvel().y * body.mass();
@@ -805,7 +805,7 @@ export class BodyWorksRuntime {
       const deltaY = clamp(targetVerticalVelocity - verticalMomentum / Math.max(.001, mass), -.72, .5);
       // Accelerate the connected wrestler together. An upward velocity bonus
       // on every hand and boot folded the legs over the torso during slams.
-      for (const _segment in rig.bodies) {
+      for (const _segment of ALL_BODY_SEGMENTS) {
         const body = rig.bodies[_segment as BodySegmentId];
         if (body?.isValid()) body.applyImpulse({ x: 0, y: body.mass() * deltaY, z: 0 }, true);
       }
@@ -1097,7 +1097,7 @@ export class BodyWorksRuntime {
       const centerSpeedSqForSettled = center.velocityX * center.velocityX + center.velocityZ * center.velocityZ;
       // OPTIMIZATION: Replacing slow Math.hypot with a zero-allocation squared-magnitude check to avoid square root extraction entirely.
       const settled = inputLength <= .08 && centerSpeedSqForSettled < 0.006 * 0.006;
-      if (!settled) for (const _segment in rig.bodies) {
+      if (!settled) for (const _segment of ALL_BODY_SEGMENTS) {
         const body = rig.bodies[_segment as BodySegmentId];
         if (!body?.isValid()) continue;
         body.applyImpulse({ x: body.mass() * deltaX, y: 0, z: body.mass() * deltaZ }, true);
@@ -1138,7 +1138,7 @@ export class BodyWorksRuntime {
     if (fighter.state === 'downed' && fighter.stateElapsed > .22 && !this.pendingLandings.has(key)) {
       // Once the real landing has been absorbed, let the ragdoll rest instead
       // of continuously feeding tiny motor/contact corrections into the mat.
-      for (const _segment in rig.bodies) {
+      for (const _segment of ALL_BODY_SEGMENTS) {
         const body = rig.bodies[_segment as BodySegmentId];
         if (!body?.isValid()) continue;
         const linear = body.linvel(); const angular = body.angvel();
@@ -1246,7 +1246,7 @@ export class BodyWorksRuntime {
     }
     const signature = `${profile.rootMode}:${[...dynamic].sort().join(',')}`;
     if (signature === rig.rotationSignature) return;
-    for (const _segment in rig.bodies) {
+    for (const _segment of ALL_BODY_SEGMENTS) {
       const segment = _segment as BodySegmentId;
       const body = rig.bodies[segment] as RapierRigidBody;
       if (!body) continue;
@@ -1425,11 +1425,11 @@ export class BodyWorksRuntime {
   private hasExternalSupport(rig: FighterRigRegistration): boolean {
     const world = this.world; if (!world) return false;
     const ownHandles = new Set<number>();
-    for (const _segment in rig.bodies) {
+    for (const _segment of ALL_BODY_SEGMENTS) {
       const body = rig.bodies[_segment as BodySegmentId];
       if (body?.isValid()) ownHandles.add(body.handle);
     }
-    for (const _segment in rig.bodies) {
+    for (const _segment of ALL_BODY_SEGMENTS) {
       const body = rig.bodies[_segment as BodySegmentId];
       if (!body?.isValid() || body.numColliders() === 0) continue;
       const collider = body.collider(0); let touching = false;
@@ -1561,7 +1561,7 @@ export class BodyWorksRuntime {
       z: sourceLinearVelocity.z + sourceForce.z / sourceMass * this.currentFixedDt,
     };
     const pendingKey = `${sourceFighter}:${targetFighter}:${fighter.attackInstanceId}`;
-    for (const _segment in targetRig.bodies) {
+    for (const _segment of ALL_BODY_SEGMENTS) {
       const targetSegment = _segment as BodySegmentId;
       const targetBody = targetRig.bodies[targetSegment] as RapierRigidBody;
       if (!targetBody) continue;
@@ -1793,7 +1793,7 @@ export class BodyWorksRuntime {
   }
 
   private capRigVelocity(rig: FighterRigRegistration): void {
-    for (const _segment in rig.bodies) {
+    for (const _segment of ALL_BODY_SEGMENTS) {
       const body = rig.bodies[_segment as BodySegmentId];
       if (!body?.isValid()) continue;
       body.resetForces(true); body.resetTorques(true);
@@ -2076,14 +2076,14 @@ export class BodyWorksRuntime {
       // Release into a brief upward clearance and one shared angular velocity.
       // The pending-landing controller owns the subsequent fall, so feet do
       // not catch the mat before the torso can rotate through the impact.
-      for (const _segment in defenderRig.bodies) {
+      for (const _segment of ALL_BODY_SEGMENTS) {
         const body = defenderRig.bodies[_segment as BodySegmentId];
         if (!body?.isValid()) continue;
         const mass = body.mass(); const velocity = body.linvel();
         body.applyImpulse({ x: (direction.x * horizontalReleaseSpeed - velocity.x) * mass, y: (motion.riseSpeed - velocity.y) * mass, z: (direction.z * horizontalReleaseSpeed - velocity.z) * mass }, true);
       }
       const fallTorque = { x: direction.z, z: -direction.x };
-      for (const _segment in defenderRig.bodies) {
+      for (const _segment of ALL_BODY_SEGMENTS) {
         const body = defenderRig.bodies[_segment as BodySegmentId];
         if (!body?.isValid()) continue;
         const spin = body.angvel();
@@ -2248,7 +2248,7 @@ export class BodyWorksRuntime {
           const sourceBody = sourceRig.bodies[sourceSegment];
           if (!sourceBody?.isValid() || sourceBody.numColliders() === 0) continue;
           const sourceCollider = sourceBody.collider(0);
-          for (const _segment in targetRig.bodies) {
+          for (const _segment of ALL_BODY_SEGMENTS) {
       const targetSegment = _segment as BodySegmentId;
       const targetBody = targetRig.bodies[targetSegment] as RapierRigidBody;
       if (!targetBody) continue;
@@ -2389,7 +2389,7 @@ export class BodyWorksRuntime {
       return;
     }
     let mass = 0; let weightedVerticalVelocity = 0; let lowestCenterY = Number.POSITIVE_INFINITY;
-    for (const _segment in rig.bodies) {
+    for (const _segment of ALL_BODY_SEGMENTS) {
       const body = rig.bodies[_segment as BodySegmentId];
       if (!body?.isValid()) continue;
       const bodyMass = body.mass(); mass += bodyMass; weightedVerticalVelocity += body.linvel().y * bodyMass;
@@ -2429,7 +2429,7 @@ export class BodyWorksRuntime {
           const otherParent = other.parent();
           if (otherParent) {
             let ownBody = false;
-            for (const _segment in rig.bodies) {
+            for (const _segment of ALL_BODY_SEGMENTS) {
               const body = rig.bodies[_segment as BodySegmentId];
               if (body?.isValid() && body.handle === otherParent.handle) { ownBody = true; break; }
             }
@@ -2456,7 +2456,7 @@ export class BodyWorksRuntime {
     for (const rig of this.rigs.values()) {
       rig.settlingFrames += 1;
       let bodyFault: NumericalFault | null = null;
-      for (const _segment in rig.bodies) {
+      for (const _segment of ALL_BODY_SEGMENTS) {
       const segment = _segment as BodySegmentId;
       const body = rig.bodies[segment] as RapierRigidBody;
       if (!body) continue;
@@ -2516,7 +2516,7 @@ export class BodyWorksRuntime {
       const activeFighter = !['defeated', 'victorious'].includes(model[key].state);
       const belowDeck = activeFighter && (!venueFor(model).hasRing || (Math.abs(pelvisPosition.x) <= RING_HARD_LIMIT.x && Math.abs(pelvisPosition.z) <= RING_HARD_LIMIT.z)) && pelvisPosition.y < 1.22;
       let brokenTree = belowDeck || rig.jointFaultFrames > 45 || ![pelvisPosition.x, pelvisPosition.y, pelvisPosition.z].every(Number.isFinite);
-      for (const _segment in rig.bodies) {
+      for (const _segment of ALL_BODY_SEGMENTS) {
         const body = rig.bodies[_segment as BodySegmentId];
         if (!body?.isValid()) continue;
         const position = body.translation();
@@ -2532,7 +2532,7 @@ export class BodyWorksRuntime {
         const anchorX = clamp(Number.isFinite(pelvisPosition.x) ? rig.lastSafeCenter.x : modelPosition.x, -maximumX, maximumX);
         const anchorZ = clamp(Number.isFinite(pelvisPosition.z) ? rig.lastSafeCenter.z : modelPosition.z, -maximumZ, maximumZ);
         const anchorY = rig.restPelvisY - (this.isRingside({ x: anchorX, z: anchorZ }) ? 1.48 : 0);
-        for (const _segment in rig.bodies) {
+        for (const _segment of ALL_BODY_SEGMENTS) {
           const segment = _segment as BodySegmentId;
           const body = rig.bodies[segment] as RapierRigidBody;
           if (!body) continue;
@@ -2550,7 +2550,7 @@ export class BodyWorksRuntime {
       const center = this.rigPlanarCenter(rig); const boundedX = clamp(center.x, -maximumX, maximumX); const boundedZ = clamp(center.z, -maximumZ, maximumZ);
       const dx = boundedX - center.x; const dz = boundedZ - center.z;
       if (Math.abs(dx) < .001 && Math.abs(dz) < .001) continue;
-      for (const _segment in rig.bodies) {
+      for (const _segment of ALL_BODY_SEGMENTS) {
         const body = rig.bodies[_segment as BodySegmentId];
         if (!body?.isValid()) continue;
         const velocity = body.linvel(); const desiredX = Math.abs(dx) > .001 ? clamp(dx * 8, -5.5, 5.5) : velocity.x; const desiredZ = Math.abs(dz) > .001 ? clamp(dz * 8, -5.5, 5.5) : velocity.z;
@@ -2585,7 +2585,7 @@ export class BodyWorksRuntime {
     // standing reset: the wrestler remains downed and must recover normally.
     const correctionY = clamp(surfaceY + .003 - lowestCoreClearance, .003, .28);
     const settlingOnDeck = ['downed', 'recovering', 'pinned', 'defeated'].includes(fighter.state);
-    for (const _segment in rig.bodies) {
+    for (const _segment of ALL_BODY_SEGMENTS) {
       const body = rig.bodies[_segment as BodySegmentId];
       if (!body?.isValid()) continue;
       const position = body.translation(); const linear = body.linvel(); const angular = body.angvel();
@@ -2601,7 +2601,7 @@ export class BodyWorksRuntime {
     const fighters = { player: {}, opponent: {}, rival1: {}, rival2: {}, rival3: {} } as Record<FighterKey, Partial<Record<BodySegmentId, { position: Vector3Value; rotation: QuaternionValue }>>>;
     for (const key of FIGHTER_SLOTS) {
       const rig = this.rigs.get(key); if (!rig) continue;
-      for (const _segment in rig.bodies) {
+      for (const _segment of ALL_BODY_SEGMENTS) {
       const segment = _segment as BodySegmentId;
       const body = rig.bodies[segment] as RapierRigidBody;
       if (!body) continue;
@@ -2623,7 +2623,7 @@ export class BodyWorksRuntime {
 
   private supportScore(rig: FighterRigRegistration): number {
     let totalMass = 0; let centerX = 0; let centerZ = 0;
-    for (const _segment in rig.bodies) {
+    for (const _segment of ALL_BODY_SEGMENTS) {
       const body = rig.bodies[_segment as BodySegmentId];
       if (!body?.isValid()) continue;
       const mass = body.mass(); const position = body.translation(); totalMass += mass; centerX += position.x * mass; centerZ += position.z * mass;
@@ -2720,7 +2720,7 @@ export class BodyWorksRuntime {
   expandFighterBounds(key: FighterKey, bounds: { min: Vector3Value; max: Vector3Value }): void {
     const rig = this.rigs.get(key);
     if (!rig) return;
-    for (const _segment in rig.bodies) {
+    for (const _segment of ALL_BODY_SEGMENTS) {
       const body = rig.bodies[_segment as BodySegmentId];
       if (!body?.isValid()) continue;
       const point = body.translation();
