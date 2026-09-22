@@ -1,22 +1,39 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, type Mock } from 'vitest';
 // @ts-expect-error - JavaScript serverless function lacks type definitions
 import handler from '../../api/v1/route-compliance.js';
 
+interface MockRequest {
+  method?: string;
+  headers?: Record<string, string | undefined>;
+  query?: Record<string, string | undefined>;
+}
+
+interface MockResponse {
+  status: Mock;
+  setHeader: Mock;
+  end: Mock;
+  json: Mock;
+}
+
+function createMockResponse(): MockResponse {
+  const res: Partial<MockResponse> = {};
+  res.status = vi.fn().mockReturnValue(res);
+  res.setHeader = vi.fn();
+  res.end = vi.fn();
+  res.json = vi.fn();
+  return res as MockResponse;
+}
+
 describe('Route Compliance Serverless Handler Security Checks', () => {
   it('redirects to the base domain with sanitized timeoutMs when input is valid', () => {
-    const req = {
+    const req: MockRequest = {
       method: 'GET',
       headers: { host: 'platphormnews.com' },
       query: { timeoutMs: '1500' },
     };
-    const res = {
-      status: vi.fn().mockReturnThis(),
-      setHeader: vi.fn(),
-      end: vi.fn(),
-    };
+    const res = createMockResponse();
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    handler(req as any, res as any);
+    handler(req, res);
 
     expect(res.status).toHaveBeenCalledWith(307);
     expect(res.setHeader).toHaveBeenCalledWith(
@@ -26,20 +43,16 @@ describe('Route Compliance Serverless Handler Security Checks', () => {
   });
 
   it('rejects chained X-Forwarded-Host header payloads attempting to bypass domain validation (CWE-290/CWE-346)', () => {
-    const req = {
+    const req: MockRequest = {
       method: 'GET',
       headers: {
         'x-forwarded-host': 'untrusted.com, base.platphormnews.com',
       },
       query: {},
     };
-    const res = {
-      status: vi.fn().mockReturnThis(),
-      json: vi.fn(),
-    };
+    const res = createMockResponse();
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    handler(req as any, res as any);
+    handler(req, res);
 
     expect(res.status).toHaveBeenCalledWith(400);
     expect(res.json).toHaveBeenCalledWith(
@@ -54,21 +67,16 @@ describe('Route Compliance Serverless Handler Security Checks', () => {
   });
 
   it('correctly processes valid X-Forwarded-Host with port and secondary proxies', () => {
-    const req = {
+    const req: MockRequest = {
       method: 'GET',
       headers: {
         'x-forwarded-host': 'platphormnews.com:443, proxy.internal',
       },
       query: {},
     };
-    const res = {
-      status: vi.fn().mockReturnThis(),
-      setHeader: vi.fn(),
-      end: vi.fn(),
-    };
+    const res = createMockResponse();
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    handler(req as any, res as any);
+    handler(req, res);
 
     expect(res.status).toHaveBeenCalledWith(307);
     expect(res.setHeader).toHaveBeenCalledWith(
@@ -78,19 +86,14 @@ describe('Route Compliance Serverless Handler Security Checks', () => {
   });
 
   it('rejects non-GET and non-HEAD methods with 405 Method Not Allowed', () => {
-    const req = {
+    const req: MockRequest = {
       method: 'POST',
       headers: { host: 'platphormnews.com' },
       query: {},
     };
-    const res = {
-      status: vi.fn().mockReturnThis(),
-      setHeader: vi.fn(),
-      json: vi.fn(),
-    };
+    const res = createMockResponse();
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    handler(req as any, res as any);
+    handler(req, res);
 
     expect(res.status).toHaveBeenCalledWith(405);
     expect(res.setHeader).toHaveBeenCalledWith('Allow', 'GET, HEAD');
