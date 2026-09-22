@@ -751,7 +751,7 @@ export class BodyWorksRuntime {
     this.syncMotionTasks(dt, model);
     const slots = model.matchMode === 'battle_royale' ? FIGHTER_SLOTS : SINGLES_FIGHTER_SLOTS;
     for (const key of AI_FIGHTER_SLOTS) {
-      if (!slots.includes(key) || !['idle', 'locomotion'].includes(model[key].state)) continue;
+      if (!slots.includes(key) || (model[key].state !== 'idle' && model[key].state !== 'locomotion')) continue;
       const controller = model.aiControllers[key]; const intent = this.intents[key];
       intent.move.x = controller.movement.x; intent.move.z = controller.movement.z; intent.run = controller.running;
       intent.block = controller.blockTimer > 0;
