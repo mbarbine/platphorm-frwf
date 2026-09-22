@@ -16,7 +16,7 @@
  * ✅ types/         — fully mirrored to game-protocol
  * ✅ utils/math     — pure, no dependencies
  * ✅ data/balance   — pure data
- * 🔄 combat/        — extraction in progress (see src/combat/)
+ * ✅ combat/        — combat simulation API
  * 🔄 ai/            — extraction in progress
  * 🔄 physics/grapple — extraction in progress
  * 🔄 physics/body   — extraction in progress
@@ -43,6 +43,5 @@ export { BALANCE } from './data/balance.js';
 export * from './onlineSimulation.js';
 
 // Simulation API — the primary integration surface for both client and server
-// TODO: uncomment as extraction completes
-// export { createMatch, createFighterRuntime, advanceMatch, requestCommand } from './combat/combat.ts';
-// export type { FrameInput, MatchModel, FighterRuntime } from './combat/types.ts';
+export { createMatch, createFighterRuntime, advanceMatch, requestCommand } from './combat/combat.js';
+export type { FrameInput, MatchModel, FighterRuntime } from './combat/types.js';
