@@ -10,7 +10,7 @@ import type { FrameInput } from '../systems/combat';
 import { AI_FIGHTER_SLOTS, FALL_REASONS, FIGHTER_SLOTS, SINGLES_FIGHTER_SLOTS } from '../types/game';
 import type { AttackPhase, BodyRegion, FighterRuntime, FighterSlot, GameCommand, MatchModel, PropRuntime, RecoveryOrientation, Vec2 } from '../types/game';
 import { clamp } from '../utils/math';
-import { CORE_SEGMENTS, HEAD_COLLIDER_RADIUS, buildBodySchema, torsoColliderArgs } from './bodySchema';
+import { ALL_BODY_SEGMENTS, CORE_SEGMENTS, HEAD_COLLIDER_RADIUS, buildBodySchema, torsoColliderArgs } from './bodySchema';
 import type { BodySegmentId } from './bodySchema';
 import { chasePoseAngularVelocity, strikePoseChain } from './motorController';
 import { PhysicsReplayBuffer } from './replayBuffer';
@@ -406,8 +406,8 @@ export class BodyWorksRuntime {
   private rigPlanarCenter(rig: FighterRigRegistration): { x: number; z: number; velocityX: number; velocityZ: number; mass: number } {
     let mass = 0; let x = 0; let z = 0; let velocityX = 0; let velocityZ = 0;
     // OPTIMIZATION: Avoid Object.values allocation in hot-path physics calculation
-    for (const _segment in rig.bodies) {
-      const body = rig.bodies[_segment as BodySegmentId];
+    for (const segment of ALL_BODY_SEGMENTS) {
+      const body = rig.bodies[segment];
       if (!body?.isValid()) continue;
       const bodyMass = body.mass(); const position = body.translation(); const velocity = body.linvel();
       mass += bodyMass; x += position.x * bodyMass; z += position.z * bodyMass;
@@ -419,8 +419,8 @@ export class BodyWorksRuntime {
 
   private applyRigAcceleration(rig: FighterRigRegistration, acceleration: Vector3Value): void {
     // OPTIMIZATION: Avoid Object.values allocation in hot-path physics calculation
-    for (const _segment in rig.bodies) {
-      const body = rig.bodies[_segment as BodySegmentId];
+    for (const segment of ALL_BODY_SEGMENTS) {
+      const body = rig.bodies[segment];
       if (!body?.isValid()) continue;
       const mass = body.mass(); body.addForce({ x: acceleration.x * mass, y: acceleration.y * mass, z: acceleration.z * mass }, true);
     }
@@ -428,8 +428,8 @@ export class BodyWorksRuntime {
 
   private applyRigVelocityDelta(rig: FighterRigRegistration, delta: Vector3Value): void {
     // OPTIMIZATION: Avoid Object.values allocation in hot-path physics calculation
-    for (const _segment in rig.bodies) {
-      const body = rig.bodies[_segment as BodySegmentId];
+    for (const segment of ALL_BODY_SEGMENTS) {
+      const body = rig.bodies[segment];
       if (!body?.isValid()) continue;
       const mass = body.mass(); body.applyImpulse({ x: delta.x * mass, y: delta.y * mass, z: delta.z * mass }, true);
     }
