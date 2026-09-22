@@ -10,7 +10,7 @@ import type { FrameInput } from '../systems/combat';
 import { AI_FIGHTER_SLOTS, FALL_REASONS, FIGHTER_SLOTS, SINGLES_FIGHTER_SLOTS } from '../types/game';
 import type { AttackPhase, BodyRegion, FighterRuntime, FighterSlot, GameCommand, MatchModel, PropRuntime, RecoveryOrientation, Vec2 } from '../types/game';
 import { clamp } from '../utils/math';
-import { CORE_SEGMENTS, HEAD_COLLIDER_RADIUS, buildBodySchema, torsoColliderArgs } from './bodySchema';
+import { ALL_BODY_SEGMENTS, CORE_SEGMENTS, HEAD_COLLIDER_RADIUS, buildBodySchema, torsoColliderArgs } from './bodySchema';
 import type { BodySegmentId } from './bodySchema';
 import { chasePoseAngularVelocity, strikePoseChain } from './motorController';
 import { PhysicsReplayBuffer } from './replayBuffer';
@@ -611,8 +611,7 @@ export class BodyWorksRuntime {
         : orientation === 'left' ? quaternionFromEuler([0, facing, -Math.PI / 2])
           : quaternionFromEuler([0, facing, Math.PI / 2]);
     const origin = pelvis.translation(); const anchorY = 2.13 + surfaceOffset;
-    for (const _segment in rig.bodies) {
-      const segment = _segment as BodySegmentId;
+    for (const segment of ALL_BODY_SEGMENTS) {
       const body = rig.bodies[segment] as RapierRigidBody;
       if (!body) continue;
       const offset = rig.restOffsets[segment]; if (!body?.isValid() || !offset) continue;
@@ -627,8 +626,7 @@ export class BodyWorksRuntime {
   private placeFighter(fighter: FighterKey, target: Vec2): void {
     const rig = this.rigs.get(fighter); const pelvis = rig?.bodies.pelvis; if (!rig || !pelvis) return;
     const placementPelvisY = rig.restPelvisY - (this.isRingside(target) ? 1.46 : 0);
-    for (const _segment in rig.bodies) {
-      const segment = _segment as BodySegmentId;
+    for (const segment of ALL_BODY_SEGMENTS) {
       const body = rig.bodies[segment] as RapierRigidBody;
       if (!body) continue;
       if (!body?.isValid()) continue;
