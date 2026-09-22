@@ -1,6 +1,6 @@
 import { gaitCycle } from '../animation/gaitCycle';
 import { clamp, length, normalize } from '../utils/math';
-import type { BodyDynamicsRuntime, BodyRegion, CollisionOutcome, FighterDefinition, FighterRuntime, MoveDefinition, Vec2 } from '../types/game';
+import type { BodyDynamicsRuntime, BodyRegion, CollisionOutcome, FighterDefinition, FighterRuntime, FighterState, MoveDefinition, Vec2 } from '../types/game';
 
 const wrapAngle = (angle: number): number => Math.atan2(Math.sin(angle), Math.cos(angle));
 const approach = (value: number, target: number, maximumDelta: number): number => value + clamp(target - value, -maximumDelta, maximumDelta);
@@ -13,6 +13,11 @@ export interface ImpactCalculation {
   verticalImpulse: number;
   closingSpeed: number;
 }
+
+
+const DECK_BOUND_STATES = new Set<FighterState>(['airborne', 'downed', 'recovering', 'pinned', 'defeated']);
+const GROUND_RESET_STATES = new Set<FighterState>(['idle', 'locomotion', 'blocking', 'recovering']);
+const RECOVERABLE_STATES = new Set<FighterState>(['idle', 'locomotion', 'blocking', 'downed', 'recovering']);
 
 export interface LocomotionProfile { walkSpeed: number; runSpeed: number; acceleration: number; runAcceleration: number; braking: number; turnRate: number; sprintTurnRate: number }
 
@@ -136,7 +141,7 @@ export const stepBodyDynamics = (fighter: FighterRuntime, dt: number): { landed:
   const body = fighter.body;
   const staminaRatio = fighter.staminaCap > 0 ? fighter.stamina / fighter.staminaCap : 0;
   body.muscle = clamp(staminaRatio * .68 + fighter.health / 100 * .32, .16, 1);
-  const deckBound = ['airborne', 'downed', 'recovering', 'pinned', 'defeated'].includes(fighter.state);
+  const deckBound = DECK_BOUND_STATES.has(fighter.state);
   const desiredPelvisDrop = deckBound ? 0 : (1 - body.muscle) * .2 + (body.balance < 40 ? (40 - body.balance) / 230 : 0);
   body.pelvisDrop += (desiredPelvisDrop - body.pelvisDrop) * Math.min(1, dt * (deckBound ? 24 : 7));
   if (deckBound && body.pelvisDrop < .002) body.pelvisDrop = 0;
@@ -149,7 +154,7 @@ export const stepBodyDynamics = (fighter: FighterRuntime, dt: number): { landed:
   body.headVelocity += -body.headSnap * dt * 21;
   const damping = Math.exp(-dt * (4.2 + body.muscle * 2.4));
   body.leanVelocity *= damping; body.sideVelocity *= damping; body.twistVelocity *= damping; body.headVelocity *= damping;
-  if (['idle', 'locomotion', 'blocking', 'recovering'].includes(fighter.state) && body.verticalOffset <= .002 && Math.abs(body.verticalVelocity) <= .18) {
+  if (GROUND_RESET_STATES.has(fighter.state) && body.verticalOffset <= .002 && Math.abs(body.verticalVelocity) <= .18) {
     body.verticalOffset = 0;
     body.verticalVelocity = 0;
   }
@@ -168,7 +173,7 @@ export const stepBodyDynamics = (fighter: FighterRuntime, dt: number): { landed:
     if (Math.abs(body.leanSide) < .002) body.leanSide = 0;
   }
 
-  const recoverable = ['idle', 'locomotion', 'blocking', 'downed', 'recovering'].includes(fighter.state);
+  const recoverable = RECOVERABLE_STATES.has(fighter.state);
   if (recoverable && body.verticalOffset <= .001) body.balance = clamp(body.balance + dt * (2.5 + body.muscle * 6.5), 0, 100);
 
   let landed = false; let landingEnergy = 0;
