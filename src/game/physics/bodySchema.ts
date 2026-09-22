@@ -51,7 +51,7 @@ const segment = (definition: FighterDefinition, id: BodySegmentId, side: Segment
     massKg: definition.physics.massKg * SEGMENT_RATIOS[id], halfLength, radius: radius * width, torsoDepth: (definition.physics.torsoDepthM ?? .28) * depth,
     damageMultiplier: id === 'head' ? 1.35 : id === 'abdomen' ? 1.08 : leg ? .82 : arm ? .72 : 1,
     attackEligible: strike,
-    gripAnchorEligible: arm || ['head', 'chest', 'abdomen', 'pelvis'].includes(id),
+    gripAnchorEligible: arm || id === 'head' || id === 'chest' || id === 'abdomen' || id === 'pelvis',
     localPosition: [x, y, 0],
   };
 };
