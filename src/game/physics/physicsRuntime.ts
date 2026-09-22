@@ -231,6 +231,11 @@ interface PendingStrikeCast {
 
 const EMPTY_INTENT = (): IntentState => ({ move: { x: 0, z: 0 }, run: false, block: false });
 const MAX_CONTACTS = 128;
+const DYNAMIC_ARM_PROFILES = new Set<MotorProfileId>([
+  'neutral', 'combat', 'walking', 'running', 'braking', 'jumpLoad', 'landing', 'victory',
+]);
+const PHYSICAL_REACH_MOVES = new Set<string>(['grapple_miss', 'prop_pickup', 'prop_drop']);
+const GROUNDED_POSE_STATES = new Set<string>(['idle', 'locomotion', 'blocking']);
 const JOINT_LINKS: readonly (readonly [BodySegmentId, BodySegmentId])[] = [
   ['pelvis', 'abdomen'], ['abdomen', 'chest'], ['chest', 'head'],
   ['chest', 'leftUpperArm'], ['chest', 'rightUpperArm'],
@@ -1205,12 +1210,12 @@ export class BodyWorksRuntime {
 
   private configureRotationalAuthority(rig: FighterRigRegistration, fighter: FighterRuntime, profile: MotorProfile): void {
     const dynamic = new Set<BodySegmentId>();
-    const targets = physicalPoseTargets(targetPoseFor(fighter), fighter.facing, ['idle', 'locomotion', 'blocking'].includes(fighter.state));
+    const targets = physicalPoseTargets(targetPoseFor(fighter), fighter.facing, GROUNDED_POSE_STATES.has(fighter.state));
     if (profile.rootMode === 'physical') for (const segment of Object.keys(rig.bodies) as BodySegmentId[]) dynamic.add(segment);
     // Arms remain a live, supported chain in standing locomotion so hands are
     // physically held in a guard and can reach from that guard. Locking them
     // in their spawn-down orientation made every contact-true punch miss.
-    if (['neutral', 'combat', 'walking', 'running', 'braking', 'jumpLoad', 'landing', 'victory'].includes(profile.id)) {
+    if (DYNAMIC_ARM_PROFILES.has(profile.id)) {
       // A wrist must follow its forearm through turns, not alternate between
       // a world-space lock and a corrective motor as its parent moves.
       for (const segment of ['leftUpperArm', 'rightUpperArm', 'leftForearm', 'rightForearm', 'leftHand', 'rightHand'] as const) dynamic.add(segment);
@@ -1226,7 +1231,7 @@ export class BodyWorksRuntime {
       for (const segment of ['leftThigh', 'rightThigh', 'leftShin', 'rightShin', 'leftFoot', 'rightFoot'] as const) dynamic.add(segment);
     }
     if (fighter.state === 'blocking') for (const segment of ['leftUpperArm', 'rightUpperArm', 'leftForearm', 'rightForearm', 'leftHand', 'rightHand'] as const) dynamic.add(segment);
-    const physicalReach = ['grapple_miss', 'prop_pickup', 'prop_drop'].includes(fighter.moveId ?? '');
+    const physicalReach = PHYSICAL_REACH_MOVES.has(fighter.moveId ?? '');
     if (fighter.state === 'grappling' || physicalReach || profile.id === 'clinch' || profile.id === 'lift' || profile.id === 'throw') for (const segment of ['leftUpperArm', 'rightUpperArm', 'leftForearm', 'rightForearm', 'leftHand', 'rightHand', 'chest', 'abdomen'] as const) dynamic.add(segment);
     const strike = fighter.moveId ? strikeDriveProfile(fighter.moveId) : null;
     if (strike) {
