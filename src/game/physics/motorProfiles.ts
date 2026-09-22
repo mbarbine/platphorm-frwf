@@ -71,6 +71,10 @@ export const motorChainForSegment = (segment: BodySegmentId): MotorChain => {
   return segment.startsWith('left') ? 'leftLeg' : 'rightLeg';
 };
 
+const REACH_MOVES = new Set(['grapple_miss', 'prop_pickup', 'prop_drop']);
+const THROW_MOVES = new Set(['slam', 'suplex', 'powerbomb', 'spinebuster', 'mountain_drop', 'skyhook', 'finisher', 'piledriver']);
+const CLINCH_MOVES = new Set(['whip', 'arm_drag', 'takedown', 'clutch', 'side_toss', 'corner_smash']);
+
 export const selectMotorProfile = (fighter: FighterRuntime): MotorProfile => {
   if (fighter.state === 'pinning' || fighter.state === 'pinned') return MOTOR_PROFILES.getUp;
   if (fighter.state === 'defeated') return MOTOR_PROFILES.knockout;
@@ -86,9 +90,9 @@ export const selectMotorProfile = (fighter: FighterRuntime): MotorProfile => {
   if (fighter.state === 'locomotion') return (fighter.velocity.x * fighter.velocity.x + fighter.velocity.z * fighter.velocity.z) > 14.0625 ? MOTOR_PROFILES.running : MOTOR_PROFILES.walking;
   if (fighter.moveId) {
     if (fighter.attackPhase === 'recovery') return MOTOR_PROFILES.neutral;
-    if (['grapple_miss', 'prop_pickup', 'prop_drop'].includes(fighter.moveId)) return MOTOR_PROFILES.grappleReach;
-    if (['slam', 'suplex', 'powerbomb', 'spinebuster', 'mountain_drop', 'skyhook', 'finisher', 'piledriver'].includes(fighter.moveId)) return fighter.attackPhase === 'active' ? MOTOR_PROFILES.throw : MOTOR_PROFILES.lift;
-    if (['whip', 'arm_drag', 'takedown', 'clutch', 'side_toss', 'corner_smash'].includes(fighter.moveId)) return MOTOR_PROFILES.clinch;
+    if (REACH_MOVES.has(fighter.moveId)) return MOTOR_PROFILES.grappleReach;
+    if (THROW_MOVES.has(fighter.moveId)) return fighter.attackPhase === 'active' ? MOTOR_PROFILES.throw : MOTOR_PROFILES.lift;
+    if (CLINCH_MOVES.has(fighter.moveId)) return MOTOR_PROFILES.clinch;
     if (fighter.moveId.includes('kick') || fighter.moveId === 'roundhouse' || fighter.moveId === 'aerial') return MOTOR_PROFILES.kick;
     if (fighter.moveId === 'heavy' || fighter.moveId === 'uppercut' || fighter.moveId === 'stiff_arm' || fighter.moveId === 'rebound') return MOTOR_PROFILES.heavyStrike;
     if (fighter.state === 'grappling') return MOTOR_PROFILES.grappleReach;
