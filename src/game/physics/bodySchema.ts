@@ -14,6 +14,12 @@ export const BODY_SEGMENT_COUNT = 16;
 export const HEAD_COLLIDER_RADIUS = .17;
 export const HEAD_COLLIDER_OFFSET: [number, number, number] = [0, -.065, 0];
 
+export const ALL_BODY_SEGMENTS: readonly BodySegmentId[] = [
+  "pelvis", "abdomen", "chest", "head",
+  "leftUpperArm", "rightUpperArm", "leftForearm", "rightForearm", "leftHand", "rightHand",
+  "leftThigh", "rightThigh", "leftShin", "rightShin", "leftFoot", "rightFoot",
+] as const;
+
 export const CORE_SEGMENTS: readonly BodySegmentId[] = ['chest', 'abdomen', 'pelvis', 'head'] as const;
 export const ALL_BODY_SEGMENTS: readonly BodySegmentId[] = [
   'pelvis', 'abdomen', 'chest', 'head',
