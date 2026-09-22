@@ -14,6 +14,15 @@ describe('authoritative server contract', () => {
     expect(SERVER_CONFIG.RECONNECT_GRACE_SECONDS).toBeGreaterThan(0);
   });
 
+  it('enforces restricted CORS_ORIGIN and never defaults to wildcard *', () => {
+    expect(SERVER_CONFIG.CORS_ORIGIN).not.toBe('*');
+    if (process.env.NODE_ENV === 'production') {
+      expect(SERVER_CONFIG.CORS_ORIGIN).toBe(process.env.CORS_ORIGIN ?? '');
+    } else {
+      expect(SERVER_CONFIG.CORS_ORIGIN).toBe(process.env.CORS_ORIGIN ?? 'http://localhost:5173');
+    }
+  });
+
   it('starts synchronized match state in an honest empty lobby', () => {
     const state = new MatchRoomStateSchema();
 
