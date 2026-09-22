@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { fighterById } from '../game/data/fighters';
-import { BODY_SEGMENT_COUNT, HEAD_COLLIDER_RADIUS, buildBodySchema } from '../game/physics/bodySchema';
+import { ALL_BODY_SEGMENTS, BODY_SEGMENT_COUNT, HEAD_COLLIDER_RADIUS, buildBodySchema } from '../game/physics/bodySchema';
 
 describe('articulated fighter body schema', () => {
+  it('exports ALL_BODY_SEGMENTS matching BODY_SEGMENT_COUNT', () => {
+    expect(ALL_BODY_SEGMENTS).toHaveLength(BODY_SEGMENT_COUNT);
+  });
+
   it('keeps the runtime registration count aligned with the canonical schema', () => {
     expect(buildBodySchema(fighterById('atlas'))).toHaveLength(BODY_SEGMENT_COUNT);
   });
