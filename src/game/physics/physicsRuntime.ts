@@ -33,7 +33,7 @@ import { locomotionIntent, locomotionProfile } from './bodyDynamics';
 import { VOLT_DOME } from '../data/arena';
 import { BODYWORKS_FLAGS } from './bodyWorksFlags';
 import { MOTOR_PROFILES, motorStrengthFor, selectMotorProfile } from './motorProfiles';
-import type { MotorProfile } from './motorProfiles';
+import type { MotorProfile, MotorProfileId } from './motorProfiles';
 import { inspectNumericalBody, jointSeparationFault } from './numericalHealth';
 import type { NumericalFault } from './numericalHealth';
 import { MotionTaskRunner } from './motionTaskRunner';
@@ -229,6 +229,7 @@ interface PendingStrikeCast {
   impulse: number;
 }
 
+const STANDING_MOTOR_PROFILE_IDS = new Set<MotorProfileId>(['neutral', 'combat', 'walking', 'running', 'braking', 'jumpLoad', 'landing', 'victory']);
 const EMPTY_INTENT = (): IntentState => ({ move: { x: 0, z: 0 }, run: false, block: false });
 const MAX_CONTACTS = 128;
 const JOINT_LINKS: readonly (readonly [BodySegmentId, BodySegmentId])[] = [
@@ -1210,7 +1211,7 @@ export class BodyWorksRuntime {
     // Arms remain a live, supported chain in standing locomotion so hands are
     // physically held in a guard and can reach from that guard. Locking them
     // in their spawn-down orientation made every contact-true punch miss.
-    if (['neutral', 'combat', 'walking', 'running', 'braking', 'jumpLoad', 'landing', 'victory'].includes(profile.id)) {
+    if (STANDING_MOTOR_PROFILE_IDS.has(profile.id)) {
       // A wrist must follow its forearm through turns, not alternate between
       // a world-space lock and a corrective motor as its parent moves.
       for (const segment of ['leftUpperArm', 'rightUpperArm', 'leftForearm', 'rightForearm', 'leftHand', 'rightHand'] as const) dynamic.add(segment);
