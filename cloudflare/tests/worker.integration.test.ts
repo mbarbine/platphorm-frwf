@@ -36,6 +36,25 @@ describe('real Worker / Durable Object / D1 / R2 integration', () => {
     expect(JSON.stringify(json)).not.toContain(testKey);
     const rejected = await worker.dispatchFetch(`${origin}/api/rooms/${json.data.roomId}/socket`, { headers: { Origin: origin, Upgrade: 'websocket', 'Sec-WebSocket-Protocol': 'frwf-v1,invalid' } });
     expect(rejected.status).toBe(401);
+
+    const ticket = json.data.tickets[0]?.ticket;
+    expect(ticket).toBeDefined();
+    const wsRes = await worker.dispatchFetch(`${origin}/api/rooms/${json.data.roomId}/socket`, {
+      headers: { Origin: origin, Upgrade: "websocket", "Sec-WebSocket-Protocol": `frwf-v1, ${ticket}` }
+    });
+    expect(wsRes.status).toBe(101);
+    const clientWs = wsRes.webSocket;
+    expect(clientWs).not.toBeNull();
+    if (clientWs) {
+      clientWs.accept();
+      const closePromise = new Promise<{ code: number; reason: string }>((resolve) => {
+        clientWs.addEventListener("close", (event) => resolve({ code: event.code, reason: event.reason }));
+      });
+      clientWs.send("{ invalid json }");
+      const closeEvent = await closePromise;
+      expect(closeEvent.code).toBe(1008);
+      expect(closeEvent.reason).toBe("Invalid JSON");
+    }
   });
   it('preserves trace identity and JSON-RPC ids while rejecting foreign origins and large batches', async () => {
     const trace = '00-11111111111111111111111111111111-2222222222222222-01';
