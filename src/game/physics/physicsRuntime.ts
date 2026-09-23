@@ -21,7 +21,7 @@ import { applyBodyLanguage } from '../animation/bodyLanguage';
 import { POSES } from '../animation/poses';
 import type { Pose } from '../animation/poses';
 import { RECOVERY_DURATION, recoveryPose } from '../animation/recoveryMotion';
-import { gaitCycle } from '../animation/gaitCycle';
+import { gaitCycle, gaitRunBlend } from '../animation/gaitCycle';
 import { locomotionPose } from '../animation/locomotion';
 import { authoredIdlePose } from '../animation/combatMotion';
 import { throwDirection, throwMotionFor } from './throwMotion';
@@ -33,7 +33,7 @@ import { locomotionIntent, locomotionProfile } from './bodyDynamics';
 import { VOLT_DOME } from '../data/arena';
 import { BODYWORKS_FLAGS } from './bodyWorksFlags';
 import { MOTOR_PROFILES, motorStrengthFor, selectMotorProfile } from './motorProfiles';
-import type { MotorProfile } from './motorProfiles';
+import type { MotorProfile, MotorProfileId } from './motorProfiles';
 import { inspectNumericalBody, jointSeparationFault } from './numericalHealth';
 import type { NumericalFault } from './numericalHealth';
 import { MotionTaskRunner } from './motionTaskRunner';
@@ -1304,7 +1304,7 @@ export class BodyWorksRuntime {
     const moving = fighter.state === 'locomotion' && inputLength > .08;
     if (moving) {
       for (const [id, phase] of [['leftFoot', fighter.body.gaitPhase], ['rightFoot', fighter.body.gaitPhase + Math.PI]] as const) {
-        const foot = rig.bodies[id]; const cycle = gaitCycle(phase);
+        const foot = rig.bodies[id]; const cycle = gaitCycle(phase, gaitRunBlend(Math.hypot(fighter.velocity.x, fighter.velocity.z)));
         if (!foot || !rig.supportContacts.has(id) || !cycle.planted) continue;
         // Contact traction acts only on the stance foot. The swing boot is free
         // to clear the deck, and Rapier still owns support and all joint limits.
@@ -2002,7 +2002,6 @@ export class BodyWorksRuntime {
     const attackerPosition = attackerPelvis.translation(); const defenderPosition = defenderPelvis.translation();
     const separationX = defenderPosition.x - attackerPosition.x; const separationZ = defenderPosition.z - attackerPosition.z;
     // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt for ~8x speedup.
-    const planarSeparation = Math.max(.001, Math.sqrt(separationX * separationX + separationZ * separationZ));
     grapple.rotation = Math.atan2(separationX, separationZ) - attacker.facing;
     grapple.lift = Math.max(0, defenderPosition.y - attackerPosition.y);
     const environmentTarget = this.grappleEnvironmentTarget?.attacker === grapple.attacker
@@ -2054,10 +2053,21 @@ export class BodyWorksRuntime {
       // here overwhelmed standing support and forced every lift onto the knees.
     }
     if (grapple.phase === 'clinch' || grapple.phase === 'load') {
-      const braceX = separationX / planarSeparation; const braceZ = separationZ / planarSeparation; const shuffle = Math.sin(grapple.age * 18) * (grapple.phase === 'load' ? 1 : .55);
-      for (const [footId, side] of [['leftFoot', -1], ['rightFoot', 1]] as const) {
-        const foot = defenderRig.bodies[footId]; if (!foot) continue;
-        foot.addForce({ x: (braceX * 11 + braceZ * shuffle * side * 4.5) * foot.mass(), y: 0, z: (braceZ * 11 - braceX * shuffle * side * 4.5) * foot.mass() }, true);
+      // A clinch is a contest of grounded bases. Resist foot sliding only
+      // while supported; never manufacture a sideways shuffle or pull an
+      // airborne boot against the lift. Directional input permits small steps.
+      for (const [rig, intent] of [[attackerRig, attackerIntent], [defenderRig, defenderIntent]] as const) {
+        for (const footId of ['leftFoot', 'rightFoot'] as const) {
+          const foot = rig.bodies[footId];
+          if (!foot || !rig.supportContacts.has(footId)) continue;
+          const velocity = foot.linvel();
+          const pace = grapple.phase === 'load' ? .15 : .45;
+          foot.addForce({
+            x: clamp((intent.move.x * pace - velocity.x) * 10, -16, 16) * foot.mass(),
+            y: 0,
+            z: clamp((intent.move.z * pace - velocity.z) * 10, -16, 16) * foot.mass(),
+          }, true);
+        }
       }
     }
     if (attacker.attackPhase === 'active') {

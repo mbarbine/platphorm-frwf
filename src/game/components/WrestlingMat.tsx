@@ -59,7 +59,7 @@ export function WrestlingMat() {
       // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt in hot frame vertex deformation loop (~1000 vertices per frame).
       const dx = x - center.current.x; const dz = z - center.current.z;
       const distance = Math.sqrt(dx * dx + dz * dz);
-      positions.setZ(i, -strength.current * Math.cos(distance * 4 - age.current * 22) * Math.exp(-distance * 1.2) * decay * edgeFactors[i]);
+      positions.setZ(i, -strength.current * Math.cos(distance * 4 - age.current * 22) * Math.exp(-distance * 1.2) * decay * (edgeFactors[i] ?? 0));
     }
     positions.needsUpdate = true;
   });

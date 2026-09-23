@@ -2,12 +2,11 @@ import { describe, test, expect } from 'vitest';
 
 describe('PhysicsRuntime Hot Loop Benchmark', () => {
   test('measures state membership check performance', () => {
-    const states = ['idle', 'locomotion', 'attacking', 'staggered', 'downed', 'recovering'];
     const iterations = 10_000_000;
 
     // Test data setup
     const keys = ['rival1', 'rival2', 'rival3'] as const;
-    const model: Record<string, { state: string }> = {
+    const model = {
       rival1: { state: 'idle' },
       rival2: { state: 'attacking' },
       rival3: { state: 'locomotion' },

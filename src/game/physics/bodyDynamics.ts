@@ -1,4 +1,4 @@
-import { gaitCycle } from '../animation/gaitCycle';
+import { gaitCycle, gaitRunBlend } from '../animation/gaitCycle';
 import { clamp, length, normalize } from '../utils/math';
 import type { BodyDynamicsRuntime, BodyRegion, CollisionOutcome, FighterDefinition, FighterRuntime, MoveDefinition, Vec2 } from '../types/game';
 
@@ -69,11 +69,11 @@ export const createBodyDynamics = (definition: FighterDefinition): BodyDynamicsR
 };
 
 const updateFoot = (fighter: FighterRuntime, foot: BodyDynamicsRuntime['leftFoot'], phase: number, stride: number, side: number): void => {
-  const cycle = gaitCycle(phase);
+  const cycle = gaitCycle(phase, gaitRunBlend(length(fighter.velocity)));
   foot.phase = phase;
   foot.planted = cycle.planted;
   foot.lift = cycle.lift * (.08 + stride * .11);
-  const forward = Math.cos(phase) * stride * .34;
+  const forward = cycle.travel * stride * .34;
   const forwardVector = { x: Math.sin(fighter.facing), z: Math.cos(fighter.facing) };
   const rightVector = { x: Math.cos(fighter.facing), z: -Math.sin(fighter.facing) };
   foot.offset = { x: forwardVector.x * forward + rightVector.x * side, z: forwardVector.z * forward + rightVector.z * side };
@@ -121,7 +121,7 @@ export const integrateLocomotion = (fighter: FighterRuntime, definition: Fighter
   body.stride = clamp(speed / Math.max(.1, topSpeed), 0, 1) * (running ? 1 : .72);
   if (speed > .08) {
     // Travel, not wall time, drives each complete left/right stride.
-    const strideLength = (running ? 2.05 : 1.45) * definition.physics.standingHeightM / 1.88;
+    const strideLength = (1.45 + .6 * gaitRunBlend(speed)) * definition.physics.standingHeightM / 1.88;
     body.gaitPhase += speed * dt * Math.PI * 2 / strideLength;
     updateFoot(fighter, body.leftFoot, body.gaitPhase, body.stride, -.16 * definition.proportions.width);
     updateFoot(fighter, body.rightFoot, body.gaitPhase + Math.PI, body.stride, .16 * definition.proportions.width);
