@@ -101,4 +101,35 @@ describe('Settings Store', () => {
       expect.stringContaining('"masterVolume":0.72')
     );
   });
+  it("returns DEFAULTS when localStorage.getItem throws an error", async () => {
+    globalThis.window = { matchMedia: vi.fn().mockReturnValue({ matches: false }) } as unknown as Window & typeof globalThis;
+    globalThis.localStorage = {
+      getItem: vi.fn().mockImplementation(() => {
+        throw new Error("SecurityError: Access is denied");
+      }),
+      setItem: vi.fn(),
+      clear: vi.fn(),
+      removeItem: vi.fn(),
+      length: 0,
+      key: vi.fn(),
+    };
+
+    const { useSettings } = await import("../game/state/settings");
+    const state = useSettings.getState();
+    expect(state.masterVolume).toBe(0.72);
+    expect(state.graphicsQuality).toBe("quality");
+  });
+
+  it("handles errors gracefully when localStorage.setItem throws during update or reset", async () => {
+    const { useSettings } = await setupTest("{}");
+    (globalThis.localStorage.setItem as ReturnType<typeof vi.fn>).mockImplementation(() => {
+      throw new Error("QuotaExceededError");
+    });
+
+    expect(() => useSettings.getState().update({ masterVolume: 0.3 })).not.toThrow();
+    expect(useSettings.getState().masterVolume).toBe(0.3);
+
+    expect(() => useSettings.getState().reset()).not.toThrow();
+    expect(useSettings.getState().masterVolume).toBe(0.72);
+  });
 });

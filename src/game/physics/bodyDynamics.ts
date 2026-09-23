@@ -1,4 +1,4 @@
-import { gaitCycle } from '../animation/gaitCycle';
+import { gaitCycle, gaitRunBlend } from '../animation/gaitCycle';
 import { clamp, length, normalize } from '../utils/math';
 import type { BodyDynamicsRuntime, BodyRegion, CollisionOutcome, FighterDefinition, FighterRuntime, MoveDefinition, Vec2 } from '../types/game';
 
@@ -69,11 +69,11 @@ export const createBodyDynamics = (definition: FighterDefinition): BodyDynamicsR
 };
 
 const updateFoot = (fighter: FighterRuntime, foot: BodyDynamicsRuntime['leftFoot'], phase: number, stride: number, side: number): void => {
-  const cycle = gaitCycle(phase);
+  const cycle = gaitCycle(phase, gaitRunBlend(length(fighter.velocity)));
   foot.phase = phase;
   foot.planted = cycle.planted;
   foot.lift = cycle.lift * (.08 + stride * .11);
-  const forward = Math.cos(phase) * stride * .34;
+  const forward = cycle.travel * stride * .34;
   const forwardVector = { x: Math.sin(fighter.facing), z: Math.cos(fighter.facing) };
   const rightVector = { x: Math.cos(fighter.facing), z: -Math.sin(fighter.facing) };
   foot.offset = { x: forwardVector.x * forward + rightVector.x * side, z: forwardVector.z * forward + rightVector.z * side };
@@ -121,7 +121,7 @@ export const integrateLocomotion = (fighter: FighterRuntime, definition: Fighter
   body.stride = clamp(speed / Math.max(.1, topSpeed), 0, 1) * (running ? 1 : .72);
   if (speed > .08) {
     // Travel, not wall time, drives each complete left/right stride.
-    const strideLength = (running ? 2.05 : 1.45) * definition.physics.standingHeightM / 1.88;
+    const strideLength = (1.45 + .6 * gaitRunBlend(speed)) * definition.physics.standingHeightM / 1.88;
     body.gaitPhase += speed * dt * Math.PI * 2 / strideLength;
     updateFoot(fighter, body.leftFoot, body.gaitPhase, body.stride, -.16 * definition.proportions.width);
     updateFoot(fighter, body.rightFoot, body.gaitPhase + Math.PI, body.stride, .16 * definition.proportions.width);
@@ -134,9 +134,10 @@ export const integrateLocomotion = (fighter: FighterRuntime, definition: Fighter
 
 export const stepBodyDynamics = (fighter: FighterRuntime, dt: number): { landed: boolean; landingEnergy: number } => {
   const body = fighter.body;
+  const state = fighter.state;
   const staminaRatio = fighter.staminaCap > 0 ? fighter.stamina / fighter.staminaCap : 0;
   body.muscle = clamp(staminaRatio * .68 + fighter.health / 100 * .32, .16, 1);
-  const deckBound = ['airborne', 'downed', 'recovering', 'pinned', 'defeated'].includes(fighter.state);
+  const deckBound = state === 'airborne' || state === 'downed' || state === 'recovering' || state === 'pinned' || state === 'defeated';
   const desiredPelvisDrop = deckBound ? 0 : (1 - body.muscle) * .2 + (body.balance < 40 ? (40 - body.balance) / 230 : 0);
   body.pelvisDrop += (desiredPelvisDrop - body.pelvisDrop) * Math.min(1, dt * (deckBound ? 24 : 7));
   if (deckBound && body.pelvisDrop < .002) body.pelvisDrop = 0;
@@ -149,7 +150,7 @@ export const stepBodyDynamics = (fighter: FighterRuntime, dt: number): { landed:
   body.headVelocity += -body.headSnap * dt * 21;
   const damping = Math.exp(-dt * (4.2 + body.muscle * 2.4));
   body.leanVelocity *= damping; body.sideVelocity *= damping; body.twistVelocity *= damping; body.headVelocity *= damping;
-  if (['idle', 'locomotion', 'blocking', 'recovering'].includes(fighter.state) && body.verticalOffset <= .002 && Math.abs(body.verticalVelocity) <= .18) {
+  if ((state === 'idle' || state === 'locomotion' || state === 'blocking' || state === 'recovering') && body.verticalOffset <= .002 && Math.abs(body.verticalVelocity) <= .18) {
     body.verticalOffset = 0;
     body.verticalVelocity = 0;
   }
@@ -168,7 +169,7 @@ export const stepBodyDynamics = (fighter: FighterRuntime, dt: number): { landed:
     if (Math.abs(body.leanSide) < .002) body.leanSide = 0;
   }
 
-  const recoverable = ['idle', 'locomotion', 'blocking', 'downed', 'recovering'].includes(fighter.state);
+  const recoverable = state === 'idle' || state === 'locomotion' || state === 'blocking' || state === 'downed' || state === 'recovering';
   if (recoverable && body.verticalOffset <= .001) body.balance = clamp(body.balance + dt * (2.5 + body.muscle * 6.5), 0, 100);
 
   let landed = false; let landingEnergy = 0;
@@ -218,7 +219,8 @@ export const applyLocalizedImpact = (target: FighterRuntime, impact: ImpactCalcu
   const body = target.body;
   const plantedCount = Number(body.leftFoot.planted) + Number(body.rightFoot.planted);
   const stanceFactor = plantedCount === 2 ? .82 : plantedCount === 1 ? 1 : 1.2;
-  const regionBalance = impact.region === 'head' ? 1.28 : impact.region === 'pelvis' ? 1.12 : impact.region.includes('Leg') ? 1.38 : .94;
+  const isLeg = impact.region === 'leftLeg' || impact.region === 'rightLeg';
+  const regionBalance = impact.region === 'head' ? 1.28 : impact.region === 'pelvis' ? 1.12 : isLeg ? 1.38 : .94;
   const balanceLoss = impact.force * regionBalance * stanceFactor * (1.28 - body.muscle * .28) * (112 / body.mass);
   body.balance = clamp(body.balance - balanceLoss, 0, 100);
   body.impactEnergy = Math.max(body.impactEnergy, impact.force);
@@ -229,7 +231,7 @@ export const applyLocalizedImpact = (target: FighterRuntime, impact: ImpactCalcu
   body.leanVelocity -= impact.force * (impact.region === 'head' ? .052 : .035);
   if (impact.region === 'head') body.headVelocity -= impact.force * .075;
   if (impact.region === 'ribs' || impact.region === 'chest') body.twistVelocity += (impact.torque >= 0 ? 1 : -1) * impact.force * .026;
-  if (impact.region === 'pelvis' || impact.region.includes('Leg')) body.pelvisDrop = clamp(body.pelvisDrop + impact.force * .012, 0, .45);
+  if (impact.region === 'pelvis' || isLeg) body.pelvisDrop = clamp(body.pelvisDrop + impact.force * .012, 0, .45);
   const speedChange = impact.force * (108 / body.mass) * .11;
   target.velocity.x += impact.direction.x * speedChange;
   target.velocity.z += impact.direction.z * speedChange;
@@ -238,7 +240,7 @@ export const applyLocalizedImpact = (target: FighterRuntime, impact: ImpactCalcu
 
   if (impact.force > 21 || body.balance < 9) return 'launch';
   if (body.balance < 19) return 'fall';
-  if (impact.region.includes('Leg') && body.balance < 46) return 'trip';
+  if (isLeg && body.balance < 46) return 'trip';
   if (Math.abs(impact.torque) > 1.05 && body.balance < 54) return 'spin';
   if (body.balance < 63 || impact.force > 8.25) return 'stagger';
   return 'absorbed';

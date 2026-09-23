@@ -36,6 +36,47 @@ describe('real Worker / Durable Object / D1 / R2 integration', () => {
     expect(JSON.stringify(json)).not.toContain(testKey);
     const rejected = await worker.dispatchFetch(`${origin}/api/rooms/${json.data.roomId}/socket`, { headers: { Origin: origin, Upgrade: 'websocket', 'Sec-WebSocket-Protocol': 'frwf-v1,invalid' } });
     expect(rejected.status).toBe(401);
+
+    const ticket = json.data.tickets[0]?.ticket;
+    expect(ticket).toBeDefined();
+    const wsRes = await worker.dispatchFetch(`${origin}/api/rooms/${json.data.roomId}/socket`, {
+      headers: { Origin: origin, Upgrade: "websocket", "Sec-WebSocket-Protocol": `frwf-v1, ${ticket}` }
+    });
+    expect(wsRes.status).toBe(101);
+    const clientWs = wsRes.webSocket;
+    expect(clientWs).not.toBeNull();
+    if (clientWs) {
+      clientWs.accept();
+      const closePromise = new Promise<{ code: number; reason: string }>((resolve) => {
+        clientWs.addEventListener("close", (event) => resolve({ code: event.code, reason: event.reason }));
+      });
+      clientWs.send("{ invalid json }");
+      const closeEvent = await closePromise;
+      expect(closeEvent.code).toBe(1008);
+      expect(closeEvent.reason).toBe("Invalid JSON");
+    }
+  });
+  it('closes room WebSocket with code 1008 on invalid JSON message', async () => {
+    const response = await post('/api/rooms', { ruleset: 'standard' }, true);
+    const json = await response.json() as { data: { roomId: string; tickets: { role: string; ticket: string }[] } };
+    const ticket = json.data.tickets[0]?.ticket;
+    const socketRes = await worker.dispatchFetch(`${origin}/api/rooms/${json.data.roomId}/socket`, {
+      headers: { Origin: origin, Upgrade: 'websocket', 'Sec-WebSocket-Protocol': `frwf-v1, ${ticket}` },
+    });
+    expect(socketRes.status).toBe(101);
+    const ws = socketRes.webSocket;
+    expect(ws).toBeDefined();
+    if (!ws) return;
+    ws.accept();
+    const closePromise = new Promise<{ code: number; reason: string }>(resolve => {
+      ws.addEventListener('close', (event: any) => {
+        resolve({ code: event.code, reason: event.reason });
+      });
+    });
+    ws.send('invalid json payload {');
+    const closeEvent = await closePromise;
+    expect(closeEvent.code).toBe(1008);
+    expect(closeEvent.reason).toBe('Invalid JSON');
   });
   it('preserves trace identity and JSON-RPC ids while rejecting foreign origins and large batches', async () => {
     const trace = '00-11111111111111111111111111111111-2222222222222222-01';

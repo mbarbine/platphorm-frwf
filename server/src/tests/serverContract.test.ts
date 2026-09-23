@@ -1,9 +1,30 @@
 import { describe, expect, it, vi } from 'vitest';
+import type { Request, Response, NextFunction } from 'express';
 import { PROTOCOL_VERSION } from '@frwf/game-protocol';
 import { SERVER_CONFIG } from '../config';
 import { FighterStateSchema, MatchRoomStateSchema } from '../rooms/WrestlingRoomState';
 import { WrestlingRoom } from '../rooms/WrestlingRoom';
 import type { ActionEvent } from '@frwf/game-protocol';
+
+
+interface MockResponse {
+  status: ReturnType<typeof vi.fn>;
+  setHeader: ReturnType<typeof vi.fn>;
+  json: ReturnType<typeof vi.fn>;
+  end: ReturnType<typeof vi.fn>;
+}
+
+function createMockResponse(): MockResponse & Response {
+  const res: Partial<MockResponse> = {
+    setHeader: vi.fn(),
+    json: vi.fn(),
+    end: vi.fn(),
+  };
+  res.status = vi.fn().mockReturnValue(res);
+  return res as MockResponse & Response;
+}
+
+type McpHandler = (req: Partial<Request>, res: Response) => void;
 
 describe('authoritative server contract', () => {
   it('uses the documented fixed simulation and snapshot rates', () => {
@@ -12,6 +33,15 @@ describe('authoritative server contract', () => {
     expect(SERVER_CONFIG.SNAPSHOT_RATE).toBeLessThanOrEqual(20);
     expect(SERVER_CONFIG.PROTOCOL_VERSION).toBe(PROTOCOL_VERSION);
     expect(SERVER_CONFIG.RECONNECT_GRACE_SECONDS).toBeGreaterThan(0);
+  });
+
+  it('enforces restricted CORS_ORIGIN and never defaults to wildcard *', () => {
+    expect(SERVER_CONFIG.CORS_ORIGIN).not.toBe('*');
+    if (process.env.NODE_ENV === 'production') {
+      expect(SERVER_CONFIG.CORS_ORIGIN).toBe(process.env.CORS_ORIGIN ?? '');
+    } else {
+      expect(SERVER_CONFIG.CORS_ORIGIN).toBe(process.env.CORS_ORIGIN ?? 'http://localhost:5173');
+    }
   });
 
   it('starts synchronized match state in an honest empty lobby', () => {
@@ -356,11 +386,10 @@ describe('authoritative server contract', () => {
   });
 
   it('enforces JSON-RPC batch limit of 20 in api/mcp.js', async () => {
-    /* eslint-disable @typescript-eslint/no-explicit-any */
     // @ts-expect-error - JavaScript file lacks type definitions
     const mcpModule = await import('../../../api/mcp.js');
-    const mcpHandler = mcpModule.default;
-    const req = {
+    const mcpHandler: McpHandler = mcpModule.default;
+    const req: Partial<Request> = {
       method: 'POST',
       body: Array.from({ length: 21 }, (_, i) => ({
         jsonrpc: '2.0',
@@ -368,13 +397,9 @@ describe('authoritative server contract', () => {
         method: 'ping'
       })),
     };
-    const res = {
-      status: vi.fn().mockReturnThis(),
-      setHeader: vi.fn(),
-      json: vi.fn(),
-    };
+    const res = createMockResponse();
 
-    mcpHandler(req as any, res as any);
+    mcpHandler(req, res);
 
     expect(res.status).toHaveBeenCalledWith(400);
     expect(res.json).toHaveBeenCalledWith(
@@ -385,24 +410,18 @@ describe('authoritative server contract', () => {
         }),
       })
     );
-    /* eslint-enable @typescript-eslint/no-explicit-any */
   });
 
   it('rejects unsupported HTTP methods in api/mcp.js with 405 status and Allow header', async () => {
-    /* eslint-disable @typescript-eslint/no-explicit-any */
     // @ts-expect-error - JavaScript file lacks type definitions
     const mcpModule = await import('../../../api/mcp.js');
-    const mcpHandler = mcpModule.default;
-    const req = {
+    const mcpHandler: McpHandler = mcpModule.default;
+    const req: Partial<Request> = {
       method: 'PUT',
     };
-    const res = {
-      status: vi.fn().mockReturnThis(),
-      setHeader: vi.fn(),
-      json: vi.fn(),
-    };
+    const res = createMockResponse();
 
-    mcpHandler(req as any, res as any);
+    mcpHandler(req, res);
 
     expect(res.status).toHaveBeenCalledWith(405);
     expect(res.setHeader).toHaveBeenCalledWith('Allow', 'GET, POST');
@@ -414,12 +433,10 @@ describe('authoritative server contract', () => {
         message: 'Method not allowed',
       },
     });
-    /* eslint-enable @typescript-eslint/no-explicit-any */
   });
 
   it('Express middleware sets Referrer-Policy and Permissions-Policy security headers', async () => {
-    /* eslint-disable @typescript-eslint/no-explicit-any */
-    const middleware = (_req: any, res: any, next: any) => {
+    const middleware = (_req: Request, res: Response, next: NextFunction) => {
       res.setHeader('X-Content-Type-Options', 'nosniff');
       res.setHeader('X-Frame-Options', 'DENY');
       res.setHeader('X-XSS-Protection', '1; mode=block');
@@ -430,8 +447,8 @@ describe('authoritative server contract', () => {
       next();
     };
 
-    const req = {} as any;
-    const res = { setHeader: vi.fn() } as any;
+    const req = {} as Request;
+    const res = createMockResponse();
     const next = vi.fn();
 
     middleware(req, res, next);
@@ -440,19 +457,13 @@ describe('authoritative server contract', () => {
     expect(res.setHeader).toHaveBeenCalledWith('Referrer-Policy', 'strict-origin-when-cross-origin');
     expect(res.setHeader).toHaveBeenCalledWith('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
     expect(next).toHaveBeenCalled();
-    /* eslint-enable @typescript-eslint/no-explicit-any */
   });
 
   it('Express secure error handling middleware prevents stack trace disclosure', async () => {
-    /* eslint-disable @typescript-eslint/no-explicit-any */
     const { secureErrorHandler } = await import('../index');
     const err = new Error('Sensitive database connection failed! Stack trace should not be leaked.');
-    const req = {} as any;
-    const res = {
-      status: vi.fn().mockReturnThis(),
-      setHeader: vi.fn(),
-      json: vi.fn(),
-    } as any;
+    const req = {} as Request;
+    const res = createMockResponse();
     const next = vi.fn();
 
     // Verify the actual exported production middleware behaves securely
@@ -468,7 +479,6 @@ describe('authoritative server contract', () => {
     const jsonCallArgs = res.json.mock.calls[0][0];
     expect(JSON.stringify(jsonCallArgs)).not.toContain('Sensitive database connection failed');
     expect(JSON.stringify(jsonCallArgs)).not.toContain('stack');
-    /* eslint-enable @typescript-eslint/no-explicit-any */
   });
 
   it('vercel.json header configuration contains valid JSON and no duplicate header keys', async () => {
@@ -492,7 +502,6 @@ describe('authoritative server contract', () => {
   });
 
   it('rateLimiter middleware allows requests within limit and returns 429 when limit is exceeded', async () => {
-    /* eslint-disable @typescript-eslint/no-explicit-any */
     const { rateLimiter, rateLimitMap } = await import('../index');
 
     // Clear any existing rate limit tracking to have a clean slate
@@ -502,14 +511,9 @@ describe('authoritative server contract', () => {
     const req = {
       ip,
       socket: { remoteAddress: ip },
-    } as any;
+    } as unknown as Request;
 
-    const res = {
-      status: vi.fn().mockReturnThis(),
-      setHeader: vi.fn(),
-      json: vi.fn(),
-    } as any;
-
+    const res = createMockResponse();
     const next = vi.fn();
 
     // 1. Send 100 requests. All should call next() and not return 429 status.
@@ -535,7 +539,6 @@ describe('authoritative server contract', () => {
 
     // Cleanup
     rateLimitMap.clear();
-    /* eslint-enable @typescript-eslint/no-explicit-any */
   });
 
   it('rateLimiter enforces MAX_MAP_SIZE capacity bound to prevent memory exhaustion DoS', async () => {
@@ -572,73 +575,59 @@ describe('authoritative server contract', () => {
   });
 
   it('sets X-Content-Type-Options and Cache-Control headers on api/mcp.js responses', async () => {
-    /* eslint-disable @typescript-eslint/no-explicit-any */
     // @ts-expect-error - JavaScript file lacks type definitions
     const mcpModule = await import('../../../api/mcp.js');
-    const mcpHandler = mcpModule.default;
+    const mcpHandler: McpHandler = mcpModule.default;
 
-    const req = { method: 'GET' };
-    const res = {
-      status: vi.fn().mockReturnThis(),
-      setHeader: vi.fn(),
-      json: vi.fn(),
-    };
+    const req: Partial<Request> = { method: 'GET' };
+    const res = createMockResponse();
 
-    mcpHandler(req as any, res as any);
+    mcpHandler(req, res);
 
     expect(res.setHeader).toHaveBeenCalledWith('X-Content-Type-Options', 'nosniff');
     expect(res.setHeader).toHaveBeenCalledWith('Cache-Control', 'no-store, max-age=0');
-    /* eslint-enable @typescript-eslint/no-explicit-any */
   });
 
   it('sanitizes JSON-RPC id payloads in api/mcp.js to prevent object reflection or memory amplification DoS', async () => {
-    /* eslint-disable @typescript-eslint/no-explicit-any */
     // @ts-expect-error - JavaScript file lacks type definitions
     const mcpModule = await import('../../../api/mcp.js');
-    const mcpHandler = mcpModule.default;
+    const mcpHandler: McpHandler = mcpModule.default;
 
     // 1. Object ID payload should be sanitized to null
-    const reqObject = {
+    const reqObject: Partial<Request> = {
       method: 'POST',
       body: { jsonrpc: '2.0', id: { nested: 'object' }, method: 'ping' },
     };
-    const resObject = { status: vi.fn().mockReturnThis(), setHeader: vi.fn(), json: vi.fn() };
-    mcpHandler(reqObject as any, resObject as any);
+    const resObject = createMockResponse();
+    mcpHandler(reqObject, resObject);
     expect(resObject.status).toHaveBeenCalledWith(200);
     expect(resObject.json).toHaveBeenCalledWith(expect.objectContaining({ jsonrpc: '2.0', id: null }));
 
     // 2. Overly long string ID should be truncated to 128 characters
     const longId = 'a'.repeat(200);
-    const reqLong = {
+    const reqLong: Partial<Request> = {
       method: 'POST',
       body: { jsonrpc: '2.0', id: longId, method: 'ping' },
     };
-    const resLong = { status: vi.fn().mockReturnThis(), setHeader: vi.fn(), json: vi.fn() };
-    mcpHandler(reqLong as any, resLong as any);
+    const resLong = createMockResponse();
+    mcpHandler(reqLong, resLong);
     expect(resLong.status).toHaveBeenCalledWith(200);
     expect(resLong.json).toHaveBeenCalledWith(expect.objectContaining({ jsonrpc: '2.0', id: 'a'.repeat(128) }));
-    /* eslint-enable @typescript-eslint/no-explicit-any */
   });
 
   it('sets X-Content-Type-Options and Cache-Control security headers on responses in api/mcp.js', async () => {
-    /* eslint-disable @typescript-eslint/no-explicit-any */
     // @ts-expect-error - JavaScript file lacks type definitions
     const mcpModule = await import('../../../api/mcp.js');
-    const mcpHandler = mcpModule.default;
+    const mcpHandler: McpHandler = mcpModule.default;
 
-    const req = { method: 'GET' };
-    const res = {
-      status: vi.fn().mockReturnThis(),
-      setHeader: vi.fn(),
-      json: vi.fn(),
-    };
+    const req: Partial<Request> = { method: 'GET' };
+    const res = createMockResponse();
 
-    mcpHandler(req as any, res as any);
+    mcpHandler(req, res);
 
     expect(res.setHeader).toHaveBeenCalledWith('X-Content-Type-Options', 'nosniff');
     expect(res.setHeader).toHaveBeenCalledWith('Cache-Control', 'no-store, max-age=0');
     expect(res.status).toHaveBeenCalledWith(200);
-    /* eslint-enable @typescript-eslint/no-explicit-any */
   });
 
 });
