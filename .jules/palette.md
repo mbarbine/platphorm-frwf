@@ -47,3 +47,7 @@
 ## 2025-03-03 - Polite ARIA Live Regions for Real-Time Combat Combo Readouts
 **Learning:** Fast-paced combat UI elements that appear conditionally during action sequences (such as hit combo displays) are easily missed by screen reader users if rendered without status ARIA attributes. Decorating the combo container with `role="status"`, `aria-live="polite"`, and a context-prefixed `aria-label` (e.g. `Combo: {count} {name}`) ensures assistive technologies politely announce landed strike combos and named finisher chains as they occur in real time.
 **Action:** Always annotate transient combat overlays with `role="status"`, `aria-live="polite"`, and context-prefixed `aria-label` descriptions.
+
+## 2025-03-04 - Accessible Escape Key Navigation and Screen Reader Announcements for Guide Overlays
+**Learning:** Top-level guide panels (such as the 'How to Play' guide) can trap keyboard users if they do not listen to standard dismissal keys like 'Escape'. Furthermore, screen reader users entering guide panels benefit from an `aria-label` section landmark and a visually hidden `aria-live="polite"` status region announcing the active guide and dismissal instructions.
+**Action:** Always pair panel overlays with `Escape` keydown listeners, section landmark labels, and polite `aria-live` announcements.
