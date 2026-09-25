@@ -47,4 +47,52 @@ describe('PhysicsRuntime Hot Loop Benchmark', () => {
 
     expect(baselineMatches).toBe(optimizedMatches);
   });
+
+  test('measures for...in vs ALL_BODY_SEGMENTS iteration performance', { timeout: 15_000 }, () => {
+    const ALL_BODY_SEGMENTS = [
+      'head', 'chest', 'abdomen', 'pelvis',
+      'leftThigh', 'leftShin', 'leftFoot',
+      'rightThigh', 'rightShin', 'rightFoot',
+      'leftUpperArm', 'leftLowerArm', 'leftHand',
+      'rightUpperArm', 'rightLowerArm', 'rightHand'
+    ] as const;
+
+    const bodies: Record<string, { isValid: () => boolean; mass: () => number }> = {};
+    for (const seg of ALL_BODY_SEGMENTS) {
+      bodies[seg] = { isValid: () => true, mass: () => 1.5 };
+    }
+
+    const iterations = 1_000_000;
+
+    // Run baseline first
+    let baselineMass = 0;
+    const startBaseline = performance.now();
+    for (let i = 0; i < iterations; i++) {
+      for (const _segment in bodies) {
+        const body = bodies[_segment];
+        if (body?.isValid()) baselineMass += body.mass();
+      }
+    }
+    const baselineTime = performance.now() - startBaseline;
+
+    // Run optimized (for...of ALL_BODY_SEGMENTS) second
+    let optimizedMass = 0;
+    const startOptimized = performance.now();
+    for (let i = 0; i < iterations; i++) {
+      for (const segment of ALL_BODY_SEGMENTS) {
+        const body = bodies[segment];
+        if (body?.isValid()) optimizedMass += body.mass();
+      }
+    }
+    const optimizedTime = performance.now() - startOptimized;
+
+    console.log(`\n--- BODIES ITERATION BENCHMARK RESULTS ---`);
+    console.log(`Iterations: ${iterations.toLocaleString()}`);
+    console.log(`Baseline (for...in): ${baselineTime.toFixed(2)} ms`);
+    console.log(`Optimized (for...of ALL_BODY_SEGMENTS): ${optimizedTime.toFixed(2)} ms`);
+    console.log(`Speedup: ${(baselineTime / optimizedTime).toFixed(2)}x (${((1 - optimizedTime / baselineTime) * 100).toFixed(1)}% reduction)`);
+    console.log(`-------------------------------------------\n`);
+
+    expect(optimizedMass).toBe(baselineMass);
+  });
 });
