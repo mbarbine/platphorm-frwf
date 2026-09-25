@@ -9,9 +9,18 @@ describe('BodyWorksFlags and envFlag parsing', () => {
     vi.unstubAllEnvs();
   });
 
-  it('evaluates flags to default fallback (true) when env vars are undefined or empty', async () => {
+  it('evaluates all 11 flags to default fallback (true) when env vars are completely undefined or empty strings', async () => {
     vi.stubEnv('VITE_BODYWORKS_ENABLED', '');
     vi.stubEnv('VITE_BODYWORKS_PHYSICAL_RIG', '');
+    vi.stubEnv('VITE_BODYWORKS_LOCOMOTION', '');
+    vi.stubEnv('VITE_BODYWORKS_CONTACT_STRIKES', '');
+    vi.stubEnv('VITE_BODYWORKS_PHYSICAL_BLOCK', '');
+    vi.stubEnv('VITE_BODYWORKS_GRAPPLES', '');
+    vi.stubEnv('VITE_BODYWORKS_RECOVERY', '');
+    vi.stubEnv('VITE_BODYWORKS_ROPES', '');
+    vi.stubEnv('VITE_BODYWORKS_PROPS', '');
+    vi.stubEnv('VITE_BODYWORKS_CINEMATIC_DIRECTOR', '');
+    vi.stubEnv('VITE_BODYWORKS_REPLAYS', '');
 
     const { BODYWORKS_FLAGS, bodyWorksShippingEnabled } = await import('../game/physics/bodyWorksFlags');
 
@@ -29,12 +38,18 @@ describe('BodyWorksFlags and envFlag parsing', () => {
     expect(bodyWorksShippingEnabled()).toBe(true);
   });
 
-  it('evaluates flags to false for explicit falsy values ("0", "false", "off")', async () => {
+  it('evaluates all 11 flags to false for explicit falsy values ("0", "false", "off")', async () => {
     vi.stubEnv('VITE_BODYWORKS_ENABLED', '0');
     vi.stubEnv('VITE_BODYWORKS_PHYSICAL_RIG', 'false');
     vi.stubEnv('VITE_BODYWORKS_LOCOMOTION', 'off');
     vi.stubEnv('VITE_BODYWORKS_CONTACT_STRIKES', 'FALSE');
     vi.stubEnv('VITE_BODYWORKS_PHYSICAL_BLOCK', 'OFF');
+    vi.stubEnv('VITE_BODYWORKS_GRAPPLES', '0');
+    vi.stubEnv('VITE_BODYWORKS_RECOVERY', 'False');
+    vi.stubEnv('VITE_BODYWORKS_ROPES', 'Off');
+    vi.stubEnv('VITE_BODYWORKS_PROPS', 'false');
+    vi.stubEnv('VITE_BODYWORKS_CINEMATIC_DIRECTOR', '0');
+    vi.stubEnv('VITE_BODYWORKS_REPLAYS', 'off');
 
     const { BODYWORKS_FLAGS, bodyWorksShippingEnabled } = await import('../game/physics/bodyWorksFlags');
 
@@ -43,21 +58,41 @@ describe('BodyWorksFlags and envFlag parsing', () => {
     expect(BODYWORKS_FLAGS.locomotion).toBe(false);
     expect(BODYWORKS_FLAGS.contactStrikes).toBe(false);
     expect(BODYWORKS_FLAGS.physicalBlock).toBe(false);
+    expect(BODYWORKS_FLAGS.grapples).toBe(false);
+    expect(BODYWORKS_FLAGS.recovery).toBe(false);
+    expect(BODYWORKS_FLAGS.ropes).toBe(false);
+    expect(BODYWORKS_FLAGS.props).toBe(false);
+    expect(BODYWORKS_FLAGS.cinematicDirector).toBe(false);
+    expect(BODYWORKS_FLAGS.replays).toBe(false);
     expect(bodyWorksShippingEnabled()).toBe(false);
   });
 
-  it('evaluates flags to true for non-falsy values ("1", "true", "on", "yes", etc.)', async () => {
+  it('evaluates flags to true for non-falsy values ("1", "true", "on", "yes", "enabled", etc.)', async () => {
     vi.stubEnv('VITE_BODYWORKS_ENABLED', '1');
     vi.stubEnv('VITE_BODYWORKS_PHYSICAL_RIG', 'true');
     vi.stubEnv('VITE_BODYWORKS_LOCOMOTION', 'ON');
-    vi.stubEnv('VITE_BODYWORKS_GRAPPLES', 'yes');
+    vi.stubEnv('VITE_BODYWORKS_CONTACT_STRIKES', 'yes');
+    vi.stubEnv('VITE_BODYWORKS_PHYSICAL_BLOCK', 'TRUE');
+    vi.stubEnv('VITE_BODYWORKS_GRAPPLES', 'enabled');
+    vi.stubEnv('VITE_BODYWORKS_RECOVERY', '1');
+    vi.stubEnv('VITE_BODYWORKS_ROPES', 'On');
+    vi.stubEnv('VITE_BODYWORKS_PROPS', 'YES');
+    vi.stubEnv('VITE_BODYWORKS_CINEMATIC_DIRECTOR', 'true');
+    vi.stubEnv('VITE_BODYWORKS_REPLAYS', '1');
 
     const { BODYWORKS_FLAGS, bodyWorksShippingEnabled } = await import('../game/physics/bodyWorksFlags');
 
     expect(BODYWORKS_FLAGS.enabled).toBe(true);
     expect(BODYWORKS_FLAGS.physicalRig).toBe(true);
     expect(BODYWORKS_FLAGS.locomotion).toBe(true);
+    expect(BODYWORKS_FLAGS.contactStrikes).toBe(true);
+    expect(BODYWORKS_FLAGS.physicalBlock).toBe(true);
     expect(BODYWORKS_FLAGS.grapples).toBe(true);
+    expect(BODYWORKS_FLAGS.recovery).toBe(true);
+    expect(BODYWORKS_FLAGS.ropes).toBe(true);
+    expect(BODYWORKS_FLAGS.props).toBe(true);
+    expect(BODYWORKS_FLAGS.cinematicDirector).toBe(true);
+    expect(BODYWORKS_FLAGS.replays).toBe(true);
     expect(bodyWorksShippingEnabled()).toBe(true);
   });
 
@@ -65,6 +100,7 @@ describe('BodyWorksFlags and envFlag parsing', () => {
     const { BODYWORKS_FLAGS } = await import('../game/physics/bodyWorksFlags');
 
     expect(Object.isFrozen(BODYWORKS_FLAGS)).toBe(true);
+    expect(Object.keys(BODYWORKS_FLAGS)).toHaveLength(11);
     expect(BODYWORKS_FLAGS).toHaveProperty('enabled');
     expect(BODYWORKS_FLAGS).toHaveProperty('physicalRig');
     expect(BODYWORKS_FLAGS).toHaveProperty('locomotion');
