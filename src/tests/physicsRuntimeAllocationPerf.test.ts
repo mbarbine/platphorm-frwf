@@ -38,7 +38,7 @@ describe('physicsRuntime profile ID allocation performance', () => {
     const inlineStart = performance.now();
     let inlineHits = 0;
     for (let i = 0; i < iterations; i++) {
-      const profileId = testProfiles[i % testProfiles.length]!;
+      const profileId = testProfiles[i % testProfiles.length] ?? 'walking';
       if (['neutral', 'combat', 'walking', 'running', 'braking', 'jumpLoad', 'landing', 'victory'].includes(profileId)) {
         inlineHits++;
       }
@@ -48,7 +48,7 @@ describe('physicsRuntime profile ID allocation performance', () => {
     const setStart = performance.now();
     let setHits = 0;
     for (let i = 0; i < iterations; i++) {
-      const profileId = testProfiles[i % testProfiles.length]!;
+      const profileId = testProfiles[i % testProfiles.length] ?? 'walking';
       if (UPPER_BODY_DYNAMIC_PROFILES.has(profileId)) {
         setHits++;
       }

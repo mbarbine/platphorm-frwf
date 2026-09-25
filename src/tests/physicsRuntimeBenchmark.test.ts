@@ -16,7 +16,7 @@ describe('PhysicsRuntime Hot Loop Benchmark', () => {
     const startBaseline = performance.now();
     let baselineMatches = 0;
     for (let i = 0; i < iterations; i++) {
-      const key = keys[i % 3]!;
+      const key = keys[i % 3] ?? 'rival1';
       const state = model[key].state;
       if (!['idle', 'locomotion'].includes(state)) {
         baselineMatches++;
@@ -29,7 +29,7 @@ describe('PhysicsRuntime Hot Loop Benchmark', () => {
     const startOptimized = performance.now();
     let optimizedMatches = 0;
     for (let i = 0; i < iterations; i++) {
-      const key = keys[i % 3]!;
+      const key = keys[i % 3] ?? 'rival1';
       const state = model[key].state;
       if (state !== 'idle' && state !== 'locomotion') {
         optimizedMatches++;

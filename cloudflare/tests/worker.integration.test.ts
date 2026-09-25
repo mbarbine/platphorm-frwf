@@ -69,7 +69,7 @@ describe('real Worker / Durable Object / D1 / R2 integration', () => {
     if (!ws) return;
     ws.accept();
     const closePromise = new Promise<{ code: number; reason: string }>(resolve => {
-      ws.addEventListener('close', (event: any) => {
+      ws.addEventListener('close', (event: { code: number; reason: string }) => {
         resolve({ code: event.code, reason: event.reason });
       });
     });
