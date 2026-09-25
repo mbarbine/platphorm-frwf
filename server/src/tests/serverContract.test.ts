@@ -165,9 +165,12 @@ describe('authoritative server contract', () => {
     expect(() => room.onCreate(undefined as unknown as { ruleset?: string })).not.toThrow();
     expect(() => room.onCreate({ ruleset: 123, difficulty: { foo: 'bar' }, private: 'yes' } as unknown as { ruleset?: string })).not.toThrow();
 
-    // Check fallback to defaults
+    // Check fallback to defaults and cryptographically generated seed
     expect(room.state.ruleset).toBe('standard');
     expect(room.state.difficulty).toBe('normal');
+    expect(Number.isInteger(room.state.seed)).toBe(true);
+    expect(room.state.seed).toBeGreaterThanOrEqual(0);
+    expect(room.state.seed).toBeLessThanOrEqual(0xFFFFFF);
 
     // Verify onJoin handles various types of options safely
     const mockClient = {
