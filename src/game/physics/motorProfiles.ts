@@ -61,15 +61,26 @@ export const MOTOR_PROFILES: Readonly<Record<MotorProfileId, MotorProfile>> = {
   victory: profile('victory', 'planted', .82),
 };
 
-export const motorChainForSegment = (segment: BodySegmentId): MotorChain => {
-  if (segment === 'pelvis' || segment === 'abdomen' || segment === 'chest') return 'core';
-  if (segment === 'head') return 'head';
-  if (segment.includes('Hand')) return 'hands';
-  if (segment.includes('Foot')) return 'feet';
-  if (segment.startsWith('left') && (segment.includes('Arm') || segment.includes('Forearm'))) return 'leftArm';
-  if (segment.startsWith('right') && (segment.includes('Arm') || segment.includes('Forearm'))) return 'rightArm';
-  return segment.startsWith('left') ? 'leftLeg' : 'rightLeg';
+const SEGMENT_CHAIN_MAP: Readonly<Record<BodySegmentId, MotorChain>> = {
+  pelvis: 'core',
+  abdomen: 'core',
+  chest: 'core',
+  head: 'head',
+  leftHand: 'hands',
+  rightHand: 'hands',
+  leftFoot: 'feet',
+  rightFoot: 'feet',
+  leftUpperArm: 'leftArm',
+  leftForearm: 'leftArm',
+  rightUpperArm: 'rightArm',
+  rightForearm: 'rightArm',
+  leftThigh: 'leftLeg',
+  leftShin: 'leftLeg',
+  rightThigh: 'rightLeg',
+  rightShin: 'rightLeg',
 };
+
+export const motorChainForSegment = (segment: BodySegmentId): MotorChain => SEGMENT_CHAIN_MAP[segment];
 
 const REACH_MOVES = new Set(['grapple_miss', 'prop_pickup', 'prop_drop']);
 const THROW_MOVES = new Set(['slam', 'suplex', 'powerbomb', 'spinebuster', 'mountain_drop', 'skyhook', 'finisher', 'piledriver']);
