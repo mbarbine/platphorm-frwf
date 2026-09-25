@@ -236,6 +236,7 @@ const DYNAMIC_ARM_PROFILES = new Set<MotorProfileId>([
 ]);
 const PHYSICAL_REACH_MOVES = new Set<string>(['grapple_miss', 'prop_pickup', 'prop_drop']);
 const GROUNDED_POSE_STATES = new Set<string>(['idle', 'locomotion', 'blocking']);
+const GROUNDED_CONTROL_STATES = new Set<string>(['idle', 'locomotion', 'blocking', 'attacking', 'grappling', 'recovering', 'staggered', 'victorious']);
 const JOINT_LINKS: readonly (readonly [BodySegmentId, BodySegmentId])[] = [
   ['pelvis', 'abdomen'], ['abdomen', 'chest'], ['chest', 'head'],
   ['chest', 'leftUpperArm'], ['chest', 'rightUpperArm'],
@@ -1020,7 +1021,7 @@ export class BodyWorksRuntime {
     }
     if (fighter.state !== 'climbing') rig.cornerAnchor = null;
     const controlledJumpLanding = fighter.state === 'jumping' && fighter.body.verticalOffset < .35 && fighter.body.verticalVelocity <= 0;
-    const groundedControl = standingClinch || controlledJumpLanding || ['idle', 'locomotion', 'blocking', 'attacking', 'grappling', 'recovering', 'staggered', 'victorious'].includes(fighter.state);
+    const groundedControl = standingClinch || controlledJumpLanding || GROUNDED_CONTROL_STATES.has(fighter.state);
     if (groundedControl) {
       const recoveryBlend = fighter.state === 'recovering' ? clamp(fighter.stateElapsed / RECOVERY_DURATION, 0, 1) : 1;
       const recoveryTargetY = targetPelvisY - (1 - recoveryBlend) * .62;
