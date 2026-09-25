@@ -545,28 +545,23 @@ describe('authoritative server contract', () => {
   });
 
   it('rateLimiter enforces MAX_MAP_SIZE capacity bound to prevent memory exhaustion DoS', async () => {
-    /* eslint-disable @typescript-eslint/no-explicit-any */
     const { rateLimiter, rateLimitMap, MAX_MAP_SIZE } = await import('../index');
 
     rateLimitMap.clear();
 
-    const res = {
-      status: vi.fn().mockReturnThis(),
-      setHeader: vi.fn(),
-      json: vi.fn(),
-    } as any;
+    const res = createMockResponse();
     const next = vi.fn();
 
     // Fill up rateLimitMap to MAX_MAP_SIZE
     for (let i = 0; i < MAX_MAP_SIZE; i++) {
-      const req = { ip: `10.0.${Math.floor(i / 256)}.${i % 256}`, socket: {} } as any;
+      const req = { ip: `10.0.${Math.floor(i / 256)}.${i % 256}`, socket: {} } as unknown as Request;
       rateLimiter(req, res, next);
     }
 
     expect(rateLimitMap.size).toBe(MAX_MAP_SIZE);
 
     // Simulate request from new IP when map is at max capacity
-    const overflowReq = { ip: '192.168.1.1', socket: {} } as any;
+    const overflowReq = { ip: '192.168.1.1', socket: {} } as unknown as Request;
     rateLimiter(overflowReq, res, next);
 
     // Verify map size does not exceed MAX_MAP_SIZE
@@ -574,7 +569,6 @@ describe('authoritative server contract', () => {
     expect(rateLimitMap.has('192.168.1.1')).toBe(true);
 
     rateLimitMap.clear();
-    /* eslint-enable @typescript-eslint/no-explicit-any */
   });
 
   it('sets X-Content-Type-Options and Cache-Control headers on api/mcp.js responses', async () => {
