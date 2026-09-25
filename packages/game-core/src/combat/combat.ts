@@ -48,6 +48,7 @@ export const advanceMatch = (
   dt: number,
   _input?: FrameInput,
 ): MatchModel => {
+  void _input;
   stepOnlineMatch(match, dt);
   return match;
 };

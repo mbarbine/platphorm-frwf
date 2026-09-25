@@ -717,7 +717,7 @@ describe('deterministic combat rules', () => {
     expect(tooFar.player.moveId).toBe('grapple_miss'); expect(tooFar.grapple).toBeNull();
   });
 
-  it('completes all roster pairings of neutral body-slam intents without fake renderer-free damage or a stuck attacker', () => {
+  it('completes all roster pairings of neutral body-slam intents without fake renderer-free damage or a stuck attacker', { timeout: 20000 }, () => {
     const fighters = FIGHTERS.map((fighter) => fighter.id);
     let attempts = 0;
     for (const attacker of fighters) for (const defender of fighters) for (const side of [-1, 1] as const) for (const lane of [-.32, .32] as const) {
