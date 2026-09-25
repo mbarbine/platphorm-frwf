@@ -406,7 +406,7 @@ export class BodyWorksRuntime {
 
   private recount(fallbackJoints: number): void {
     let bodies = 0;
-    for (const rig of this.rigs.values()) bodies += Object.keys(rig.bodies).length;
+    for (const rig of this.rigs.values()) bodies += rig.bodyEntries.length;
     this.metrics.bodyCount = bodies;
     this.metrics.jointCount = this.rigs.size > 0 ? Math.max(this.metrics.jointCount, fallbackJoints * this.rigs.size) : 0;
   }
@@ -1214,7 +1214,7 @@ export class BodyWorksRuntime {
   private configureRotationalAuthority(rig: FighterRigRegistration, fighter: FighterRuntime, profile: MotorProfile): void {
     const dynamic = new Set<BodySegmentId>();
     const targets = physicalPoseTargets(targetPoseFor(fighter), fighter.facing, GROUNDED_POSE_STATES.has(fighter.state));
-    if (profile.rootMode === 'physical') for (const segment of Object.keys(rig.bodies) as BodySegmentId[]) dynamic.add(segment);
+    if (profile.rootMode === 'physical') { for (let i = 0; i < rig.bodyEntries.length; i++) { const entry = rig.bodyEntries[i]; if (entry) dynamic.add(entry.segment); } }
     // Arms remain a live, supported chain in standing locomotion so hands are
     // physically held in a guard and can reach from that guard. Locking them
     // in their spawn-down orientation made every contact-true punch miss.
@@ -1244,9 +1244,10 @@ export class BodyWorksRuntime {
     // A world-space rotation lock is only safe at the intended pose. Turns,
     // hit reactions and completed kicks all change that pose. Keep misaligned
     // chains motorized until they settle instead of freezing a bent wrestler.
-    for (const segment of Object.keys(rig.bodies) as BodySegmentId[]) {
+    for (let i = 0; i < rig.bodyEntries.length; i++) {
+      const entry = rig.bodyEntries[i]; if (!entry) continue; const { segment, body } = entry;
       if (segment === 'pelvis' || dynamic.has(segment)) continue;
-      const body = rig.bodies[segment]; if (!body?.isValid()) continue;
+      if (!body.isValid()) continue;
       const q = body.rotation(); const target = targets[segment];
       const agreement = Math.abs(q.x * target.x + q.y * target.y + q.z * target.z + q.w * target.w);
       const tolerance = rig.rotationallyDynamic.has(segment) ? .999 : .997;
@@ -2176,9 +2177,9 @@ export class BodyWorksRuntime {
     }
     const strike = fighter.moveId ? strikeDriveProfile(fighter.moveId) : null;
     const strikeSegments = strike ? strikePoseChain(strike.source) : [];
-    for (const segment of Object.keys(rig.bodies) as BodySegmentId[]) {
-      const body = rig.bodies[segment];
-      if (!body?.isValid() || supportedFall && segment === 'pelvis') continue;
+    for (let i = 0; i < rig.bodyEntries.length; i++) {
+      const entry = rig.bodyEntries[i]; if (!entry) continue; const { segment, body } = entry;
+      if (!body.isValid() || supportedFall && segment === 'pelvis') continue;
       if (segment !== 'pelvis' && !rig.rotationallyDynamic.has(segment)) continue;
       if (segment === 'pelvis' && rig.rootStabilized) continue;
       const striking = (strikeSegments.includes(segment) || Boolean(strike) && (segment === 'chest' || segment === 'abdomen')) && ['anticipation', 'active'].includes(fighter.attackPhase ?? '');
