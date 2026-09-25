@@ -630,4 +630,11 @@ describe('authoritative server contract', () => {
     expect(res.status).toHaveBeenCalledWith(200);
   });
 
+  it("disables X-Powered-By header on Express application instance", async () => {
+    const { createApp } = await import("../index");
+    const app = createApp();
+
+    expect(app.disabled("x-powered-by")).toBe(true);
+  });
+
 });
