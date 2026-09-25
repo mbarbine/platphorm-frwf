@@ -29,20 +29,26 @@ const STORAGE_KEY = 'ringfall-settings-v2';
 const load = (): Settings => {
   if (typeof window === 'undefined') return DEFAULTS;
   try {
+    const prefersReducedMotion = (): boolean => {
+      try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; }
+    };
     const parsed: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null');
-    if (!parsed || typeof parsed !== 'object') return { ...DEFAULTS, reducedMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches };
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return { ...DEFAULTS, reducedMotion: prefersReducedMotion() };
+    }
     const candidate = parsed as Partial<Settings>;
+    const isFiniteNumber = (val: unknown): val is number => typeof val === 'number' && Number.isFinite(val);
     return {
       playerCamera: candidate.playerCamera === 'first_person' || candidate.playerCamera === 'third_person' ? candidate.playerCamera : 'broadcast',
       controlStyle: candidate.controlStyle === 'technical' ? 'technical' : 'arcade',
       automaticReplays: candidate.automaticReplays === true,
-      masterVolume: typeof candidate.masterVolume === 'number' ? Math.min(1, Math.max(0, candidate.masterVolume)) : DEFAULTS.masterVolume,
-      musicVolume: typeof candidate.musicVolume === 'number' && Number.isFinite(candidate.musicVolume) ? Math.min(1, Math.max(0, candidate.musicVolume)) : DEFAULTS.musicVolume,
-      effectsVolume: typeof candidate.effectsVolume === 'number' ? Math.min(1, Math.max(0, candidate.effectsVolume)) : DEFAULTS.effectsVolume,
-      crowdVolume: typeof candidate.crowdVolume === 'number' ? Math.min(1, Math.max(0, candidate.crowdVolume)) : DEFAULTS.crowdVolume,
-      shake: typeof candidate.shake === 'number' ? Math.min(1, Math.max(0, candidate.shake)) : DEFAULTS.shake,
-      reducedMotion: typeof candidate.reducedMotion === 'boolean' ? candidate.reducedMotion : window.matchMedia('(prefers-reduced-motion: reduce)').matches,
-      uiScale: typeof candidate.uiScale === 'number' ? Math.min(1.25, Math.max(.85, candidate.uiScale)) : DEFAULTS.uiScale,
+      masterVolume: isFiniteNumber(candidate.masterVolume) ? Math.min(1, Math.max(0, candidate.masterVolume)) : DEFAULTS.masterVolume,
+      musicVolume: isFiniteNumber(candidate.musicVolume) ? Math.min(1, Math.max(0, candidate.musicVolume)) : DEFAULTS.musicVolume,
+      effectsVolume: isFiniteNumber(candidate.effectsVolume) ? Math.min(1, Math.max(0, candidate.effectsVolume)) : DEFAULTS.effectsVolume,
+      crowdVolume: isFiniteNumber(candidate.crowdVolume) ? Math.min(1, Math.max(0, candidate.crowdVolume)) : DEFAULTS.crowdVolume,
+      shake: isFiniteNumber(candidate.shake) ? Math.min(1, Math.max(0, candidate.shake)) : DEFAULTS.shake,
+      reducedMotion: typeof candidate.reducedMotion === 'boolean' ? candidate.reducedMotion : prefersReducedMotion(),
+      uiScale: isFiniteNumber(candidate.uiScale) ? Math.min(1.25, Math.max(.85, candidate.uiScale)) : DEFAULTS.uiScale,
       graphicsQuality: candidate.graphicsQuality === 'performance' || candidate.graphicsQuality === 'quality' || candidate.graphicsQuality === 'auto' ? candidate.graphicsQuality : DEFAULTS.graphicsQuality,
       controlDeckMode: ['full', 'compact', 'prompts', 'hidden'].includes(candidate.controlDeckMode ?? '') ? candidate.controlDeckMode as ControlDeckMode : DEFAULTS.controlDeckMode,
       grappleGuide: candidate.grappleGuide === 'full' || candidate.grappleGuide === 'off' ? candidate.grappleGuide : DEFAULTS.grappleGuide,
