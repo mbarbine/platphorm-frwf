@@ -800,16 +800,17 @@ export class BodyWorksRuntime {
         });
       }
       let mass = 0; let verticalMomentum = 0;
-      for (const _segment in rig.bodies) {
-        const body = rig.bodies[_segment as BodySegmentId];
+      // OPTIMIZATION: Avoid for...in loop dynamic enumeration in hot-path physics calculation
+      for (const segment of ALL_BODY_SEGMENTS) {
+        const body = rig.bodies[segment];
         if (!body?.isValid()) continue;
         mass += body.mass(); verticalMomentum += body.linvel().y * body.mass();
       }
       const deltaY = clamp(targetVerticalVelocity - verticalMomentum / Math.max(.001, mass), -.72, .5);
       // Accelerate the connected wrestler together. An upward velocity bonus
       // on every hand and boot folded the legs over the torso during slams.
-      for (const _segment in rig.bodies) {
-        const body = rig.bodies[_segment as BodySegmentId];
+      for (const segment of ALL_BODY_SEGMENTS) {
+        const body = rig.bodies[segment];
         if (body?.isValid()) body.applyImpulse({ x: 0, y: body.mass() * deltaY, z: 0 }, true);
       }
     }
