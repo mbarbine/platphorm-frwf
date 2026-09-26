@@ -37,6 +37,8 @@ function CrowdPopulation({ count }: { count: number }) {
   const propDummy = useMemo(() => new Object3D(), []);
   const age = useRef(0); const sinceUpdate = useRef(1);
   const textures = useMemo(() => CROWD_SIGNS.map(signTexture), []);
+  // OPTIMIZATION: Pre-allocated Int32Array avoids allocating Array(9) on every crowd update tick in useFrame
+  const cursors = useMemo(() => new Int32Array(9), []);
   const groups = useMemo(() => {
     const meshes: Mesh[] = [];
     gltf.scene.traverse(node => { if (node instanceof Mesh) meshes.push(node); });
@@ -80,28 +82,37 @@ function CrowdPopulation({ count }: { count: number }) {
     const model = useMatchStore.getState().model;
     if(!model.paused && !reducedMotion) age.current += Math.min(dt,.1);
     sinceUpdate.current += dt; if(sinceUpdate.current < 1/20) return; sinceUpdate.current = 0;
-    const cursors = Array<number>(9).fill(0);
-    groups.forEach(({fans,angles,anatomy},variant) => {
-      const mesh = instances.current.get(variant); if(!mesh) return;
-      fans.forEach((fan,index) => {
-        const arms = fanArmAngles(age.current,fan.phase,fan.activity,fan.prop,model.hype/100,reducedMotion);
-        angles.setXY(index,arms.left,arms.right);
-        dummy.position.set(fan.x,fan.floor,fan.z);
-        dummy.rotation.set(0,fan.yaw,reducedMotion ? 0 : Math.sin(age.current*.7+fan.phase)*.012);
-        dummy.scale.set(fan.width,fan.height,fan.width); dummy.updateMatrix(); mesh.setMatrixAt(index,dummy.matrix);
-        if(fan.prop < .22) {
+    // OPTIMIZATION: Reset pre-allocated buffer instead of allocating new arrays every update frame
+    cursors.fill(0);
+    // OPTIMIZATION: Use indexed for loops instead of forEach callbacks to eliminate ~160 per-update closure allocations inside useFrame
+    const hypeRatio = model.hype / 100;
+    for (let variant = 0; variant < groups.length; variant++) {
+      const { fans, angles, anatomy } = groups[variant];
+      const mesh = instances.current.get(variant); if (!mesh) continue;
+      for (let index = 0; index < fans.length; index++) {
+        const fan = fans[index];
+        const arms = fanArmAngles(age.current, fan.phase, fan.activity, fan.prop, hypeRatio, reducedMotion);
+        angles.setXY(index, arms.left, arms.right);
+        dummy.position.set(fan.x, fan.floor, fan.z);
+        dummy.rotation.set(0, fan.yaw, reducedMotion ? 0 : Math.sin(age.current * .7 + fan.phase) * .012);
+        dummy.scale.set(fan.width, fan.height, fan.width); dummy.updateMatrix(); mesh.setMatrixAt(index, dummy.matrix);
+        if (fan.prop < .22) {
           const sign = fan.prop < .15; const slot = sign ? fan.message : 8; const propMesh = props.current.get(slot);
-          const armLength = anatomy.headY*.35;
-          propDummy.position.set(sign ? 0 : (anatomy.rightShoulder[0] ?? 0) + Math.sin(arms.right)*armLength,
-            (anatomy.rightShoulder[1] ?? 1.5) - Math.cos(sign ? 2.75 : arms.right)*armLength + (sign ? .17 : .025), .045);
-          propDummy.rotation.set(0,0,0); propDummy.scale.set(sign ? .85 : .026,sign ? .48 : .06,sign ? .026 : .026);
+          const armLength = anatomy.headY * .35;
+          propDummy.position.set(sign ? 0 : (anatomy.rightShoulder[0] ?? 0) + Math.sin(arms.right) * armLength,
+            (anatomy.rightShoulder[1] ?? 1.5) - Math.cos(sign ? 2.75 : arms.right) * armLength + (sign ? .17 : .025), .045);
+          propDummy.rotation.set(0, 0, 0); propDummy.scale.set(sign ? .85 : .026, sign ? .48 : .06, sign ? .026 : .026);
           propDummy.updateMatrix(); propDummy.matrix.premultiply(dummy.matrix);
-          propMesh?.setMatrixAt((cursors[slot] ?? 0),propDummy.matrix); cursors[slot] = (cursors[slot] ?? 0) + 1;
+          const cursor = cursors[slot];
+          propMesh?.setMatrixAt(cursor, propDummy.matrix);
+          cursors[slot] = cursor + 1;
         }
-      });
+      }
       mesh.instanceMatrix.needsUpdate = true; angles.needsUpdate = true;
-    });
-    props.current.forEach(mesh => {mesh.instanceMatrix.needsUpdate = true;});
+    }
+    for (const propMesh of props.current.values()) {
+      propMesh.instanceMatrix.needsUpdate = true;
+    }
   });
   const rows = Math.ceil(count/105);
   return <group name="living-crowd">
