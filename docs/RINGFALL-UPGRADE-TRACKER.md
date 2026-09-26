@@ -10,7 +10,7 @@ strong enough to claim completion.
 | --- | --- | --- | --- |
 | Repository / system ownership | React Three Fiber, Rapier, fixed-step `BodyWorksRuntime`, combat state machine, local input and Colyseus networking are present. | Partial | Audit every position/orientation writer and prove normal speed/contact behavior across physics and non-physics modes. |
 | Character rigs / proportions | `FighterModel`, `PhysicalPoseBinding`, `bodySchema`, and roster-specific visual profiles exist. | Unverified | Capture a representative roster review and measure sole, wrist, joint, and scale alignment. |
-| Locomotion / foot placement | `bodyDynamics.ts`, `FighterModel.tsx`, `gaitCycle.ts`, `physicsRuntime.ts`; tests cover speed, braking, backstep, analog/diagonal limits, and bounded gait amplitude. Footstep offsets now follow solved travel direction while body facing can remain locked on the opponent; a live Singles check confirms keyboard walk produces real rigid-body speed and settles after release. | Partial | Measure planted-foot drift and compare walk/run, turn, retreat, and strafe captures at normal and slow speed. |
+| Locomotion / foot placement | `bodyDynamics.ts`, `FighterModel.tsx`, `gaitCycle.ts`, `physicsRuntime.ts`; tests cover speed, braking, backstep, analog/diagonal limits, and bounded gait amplitude. Live Singles browser checks confirm keyboard walking produces physical speed and settles after release. The Physics Lab browser check confirms grounded jump height, walk displacement, and peak run speed at least 1.35× the walk peak. | Partial | Measure planted-foot drift and compare walk/run, turn, retreat, and strafe captures at normal and slow speed. |
 | Input / target selection | `playerController.ts`, action layer, device and mobile-control tests exist. | Partial | Verify simultaneous multitouch, cancellation/focus loss, buffer expiry, target hysteresis, and retained target on committed attacks. |
 | Strikes / contact | Move data, strike resolver, physical contact events, and combat tests exist. | Partial | Demonstrate swept active windows, one hit per target, miss/block/counter distinctions, and matching reactions at varied frame rates. |
 | Paired wrestling | Grapple state and physical grip tracking/cleanup are implemented in combat and `physicsRuntime.ts`. | Partial | Verify each named sequence end-to-end, paired phase clock, grip anchors, interruption, size differences, and cleanup. |
@@ -53,5 +53,5 @@ strong enough to claim completion.
 - Replaced the mobile target-switch pseudo-label with explicit desktop/mobile
   labels so only one target prompt is rendered at a time.
 - Movement is not fully signed off: the live check covers keyboard walking and
-  stopping, but does not yet verify run speed separation, foot-plant slip,
-  turns, directional transitions, or mobile/controller locomotion.
+  stopping plus a Physics Lab walk/run speed comparison, but does not yet verify
+  foot-plant slip, turns, directional transitions, or mobile/controller locomotion.
