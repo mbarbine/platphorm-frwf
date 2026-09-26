@@ -6,7 +6,7 @@ import {
   gripSensorGroups,
   propCollisionGroups,
 } from '../game/physics/collisionGroups';
-import { FIGHTER_SLOTS, type FighterSlot } from '../game/types/game';
+import { FIGHTER_SLOTS } from '../game/types/game';
 
 const getMembershipMask = (groups: number): number => (groups >> 16) & 0xffff;
 const getFilterMask = (groups: number): number => groups & 0xffff;

@@ -682,7 +682,8 @@ function StunningAssets() {
   </group>;
 }
 
-export function Arena({ crowdCount = 156, performanceMode = false }: { crowdCount?: number; performanceMode?: boolean }) {
+export function Arena({ crowdCount = 156, performanceMode = false, venue = 'dome' }: { crowdCount?: number; performanceMode?: boolean; venue?: 'dome' | 'turkey_dome' }) {
+  const turkeyBarn = venue === 'turkey_dome';
   const spotlight = useMatchStore((state) => state.model.chaosEvent?.type === 'SPOTLIGHT SHOWDOWN');
   const toyTest = useMatchStore((state) => state.model.toyTestMode);
   const lowFlash = useSettings(state => state.lowFlash);
@@ -696,11 +697,11 @@ export function Arena({ crowdCount = 156, performanceMode = false }: { crowdCoun
     return () => { unregisterRing(); unregisterFloor(); };
   }, []);
   return <>
-    <color attach="background" args={[spotlight ? '#020106' : '#070611']} />
-    <fog attach="fog" args={[new Color('#090715'), 20, 42]} />
-    <ambientLight intensity={spotlight ? .12 : .28} color="#d4cbbf" />
-    <hemisphereLight intensity={spotlight ? .15 : .5} color="#e6e4d9" groundColor="#25221e" />
-    <directionalLight castShadow position={[4, 12, 6]} intensity={spotlight ? .35 : 2.2} color="#f0f6ff" shadow-mapSize={[2048, 2048]} shadow-normalBias={.025} shadow-bias={-.00015} shadow-camera-left={-9} shadow-camera-right={9} shadow-camera-top={8} shadow-camera-bottom={-8} />
+    <color attach="background" args={[turkeyBarn ? '#768a58' : spotlight ? '#020106' : '#070611']} />
+    <fog attach="fog" args={[new Color(turkeyBarn ? '#b9ad7c' : '#090715'), 20, 42]} />
+    <ambientLight intensity={turkeyBarn ? .48 : spotlight ? .12 : .28} color={turkeyBarn ? '#f3e6c4' : '#d4cbbf'} />
+    <hemisphereLight intensity={turkeyBarn ? .85 : spotlight ? .15 : .5} color={turkeyBarn ? '#fff0c2' : '#e6e4d9'} groundColor={turkeyBarn ? '#655a37' : '#25221e'} />
+    <directionalLight castShadow position={[4, 12, 6]} intensity={turkeyBarn ? 2.5 : spotlight ? .35 : 2.2} color={turkeyBarn ? '#ffe7ae' : '#f0f6ff'} shadow-mapSize={[2048, 2048]} shadow-normalBias={.025} shadow-bias={-.00015} shadow-camera-left={-9} shadow-camera-right={9} shadow-camera-top={8} shadow-camera-bottom={-8} />
     <directionalLight position={[-6, 7, -5]} intensity={spotlight ? .2 : 1.35} color="#b8d7ed" />
     <directionalLight position={[6, 5, -2]} intensity={spotlight ? .1 : .55} color="#ffdab8" />
     <spotLight position={[-7, 11, -5]} intensity={spotlight ? 8 : 3} color="#dce9ff" angle={.42} penumbra={.65} castShadow />
@@ -717,9 +718,9 @@ export function Arena({ crowdCount = 156, performanceMode = false }: { crowdCoun
     </group>
     <Ropes /><Post x={-5.75} z={-4.25} /><Post x={5.75} z={-4.25} /><Post x={-5.75} z={4.25} /><Post x={5.75} z={4.25} />
     <SteelSteps />
-    <RigidBody ref={floorSurface} type="fixed" colliders="hull" position={[0, .2, 0]} collisionGroups={arenaCollisionGroups} solverGroups={arenaCollisionGroups} userData={{ surface: true, kind: 'floor' }}><mesh receiveShadow><cylinderGeometry args={[VOLT_DOME.floor.radius, VOLT_DOME.floor.radius, .4, 64]} /><meshStandardMaterial color="#100d1c" roughness={.8} /></mesh></RigidBody>
+    <RigidBody ref={floorSurface} type="fixed" colliders="hull" position={[0, .2, 0]} collisionGroups={arenaCollisionGroups} solverGroups={arenaCollisionGroups} userData={{ surface: true, kind: 'floor' }}><mesh receiveShadow><cylinderGeometry args={[VOLT_DOME.floor.radius, VOLT_DOME.floor.radius, .4, 64]} /><meshStandardMaterial color={turkeyBarn ? '#665333' : '#100d1c'} roughness={.92} /></mesh></RigidBody>
     <EntranceLane />{!toyTest && <EntranceFog />}<Barricades />{!performanceMode && spectacle && <ArenaRibbon />}{!toyTest && crowdCount > 0 && <Crowd count={crowdCount} />}<Props />
-    {!performanceMode && <><VoltDomeArchitecture />{spectacle && <StunningAssets />}<Jumbotron />{spectacle && <><DynamicSpotlights /><ApronLEDBanners /><RingLasers /></>}
+    {turkeyBarn ? <TurkeyBarnArchitecture /> : !performanceMode && <><VoltDomeArchitecture />{spectacle && <StunningAssets />}<Jumbotron />{spectacle && <><DynamicSpotlights /><ApronLEDBanners /><RingLasers /></>}
       <group position={[0, 8.7, 0]}>{[-7.2, 7.2].flatMap((x) => [-5.8, 5.8].map((z) => <group key={`${x}-${z}`} position={[x, 0, z]}><mesh><cylinderGeometry args={[.13, .2, .44, 8]} /><meshStandardMaterial color="#adb8c7" metalness={.8} roughness={.2} /></mesh><pointLight position={[0, -.3, 0]} intensity={1.25} distance={10} color={x * z > 0 ? '#ff3f8f' : '#48e7ff'} /></group>))}</group>
       <BroadcastSet />
       <group position={[-10.7, .7, -6.4]}><mesh><boxGeometry args={[4.6, 1.25, .18]} /><meshStandardMaterial color="#272334" emissive="#27105b" emissiveIntensity={.18} /></mesh></group>
