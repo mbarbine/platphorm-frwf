@@ -640,6 +640,10 @@ export function CameraRig() {
 
     if ('fov' in camera) {
       const perspective = camera as PerspectiveCamera;
+      if (!Number.isFinite(perspective.fov) || perspective.fov <= 0) perspective.fov = 48;
+      if (!Number.isFinite(perspective.near) || perspective.near <= 0) perspective.near = 0.1;
+      if (!Number.isFinite(perspective.far) || perspective.far <= perspective.near) perspective.far = 72;
+
       const baseFov = shot.current === 'replay'
         ? 39
         : shot.current === 'grapple'
