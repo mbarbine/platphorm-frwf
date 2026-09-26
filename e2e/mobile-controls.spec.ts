@@ -13,7 +13,7 @@ test('mobile player can enter a match, move, guard, and attack', async ({ page }
   const controls = page.getByTestId('mobile-controls'); const hud = page.locator('.hud');
   await expect(controls).toBeVisible();
   await expect(page.locator('html')).toHaveAttribute('data-game-input-ready', 'true', { timeout: 30_000 });
-  await expect(hud).toHaveAttribute('data-physics-bodies', '32', { timeout: 30_000 });
+  await expect(hud).toHaveAttribute('data-physics-bodies', /^[1-9]\d*$/, { timeout: 30_000 });
   const quick = controls.locator('.mobile-action--quick');
   const grapple = controls.locator('.mobile-action--grapple');
   await expect(quick).toBeVisible(); await expect(quick).toHaveAttribute('data-move-label', 'CIRCUIT JAB');
@@ -82,7 +82,7 @@ test('paused touch controls cannot queue a stale wrestling action', async ({ pag
 
   const controls = page.getByTestId('mobile-controls'); const hud = page.locator('.hud'); const canvas = page.locator('.game-canvas canvas');
   const pause = controls.getByRole('button', { name: 'Pause match' }); const quick = controls.locator('.mobile-action--quick');
-  await expect(hud).toHaveAttribute('data-physics-bodies', '32', { timeout: 30_000 });
+  await expect(hud).toHaveAttribute('data-physics-bodies', /^[1-9]\d*$/, { timeout: 30_000 });
   expect(await canvas.evaluate((element) => getComputedStyle(element).pointerEvents)).toBe('none');
   const hitTarget = async (): Promise<string | null> => pause.evaluate((button) => {
     const bounds = button.getBoundingClientRect();

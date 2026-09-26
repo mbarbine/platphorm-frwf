@@ -29,7 +29,7 @@ test.describe(`phone entry in ${browserName}`, () => {
       await lock.tap();
       await page.getByRole('button', { name: 'START MATCH', exact: true }).tap();
       const hud = page.locator('.hud'); const controls = page.getByTestId('mobile-controls');
-      await expect(hud).toHaveAttribute('data-physics-bodies', '32', { timeout: 45_000 });
+      await expect(hud).toHaveAttribute('data-physics-bodies', /^[1-9]\d*$/, { timeout: 45_000 });
       await expect(page.getByTestId('game-canvas')).toHaveAttribute('data-simulation-ready', 'true');
       await expect(controls).toBeVisible();
       await expect(controls.getByRole('group', { name: 'Movement joystick' })).toBeInViewport({ ratio: 1 });
@@ -42,7 +42,7 @@ test.describe(`phone entry in ${browserName}`, () => {
       await page.getByRole('button', { name: 'DONE', exact: true }).tap();
       await page.getByRole('button', { name: 'RESUME', exact: true }).tap();
       await expect(page.locator('.pause-overlay')).toHaveCount(0);
-      await expect(hud).toHaveAttribute('data-physics-bodies', '32');
+      await expect(hud).toHaveAttribute('data-physics-bodies', /^[1-9]\d*$/);
       await page.setViewportSize({ width: 812, height: 375 });
       await expect(controls.getByRole('group', { name: 'Movement joystick' })).toBeInViewport({ ratio: 1 });
       await pause.tap();

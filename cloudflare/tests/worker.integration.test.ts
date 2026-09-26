@@ -69,8 +69,8 @@ describe('real Worker / Durable Object / D1 / R2 integration', () => {
       const response = await post('/api/rooms', { ruleset: 'standard' }, true);
       const json = await response.json() as { data: { roomId: string; tickets: { role: string; ticket: string }[] } };
       const ticket = json.data.tickets[0]?.ticket;
-      expect(ticket).toBeDefined();
-      const ws = await connectWebSocket(json.data.roomId, ticket!);
+      if (!ticket) throw new Error('Player WebSocket ticket was not issued');
+      const ws = await connectWebSocket(json.data.roomId, ticket);
 
       const closePromise = new Promise<{ code: number; reason: string }>(resolve => {
         ws.addEventListener('close', (event: { code: number; reason: string }) => {
@@ -87,8 +87,8 @@ describe('real Worker / Durable Object / D1 / R2 integration', () => {
       const response = await post('/api/rooms', { ruleset: 'standard' }, true);
       const json = await response.json() as { data: { roomId: string; tickets: { role: string; ticket: string }[] } };
       const ticket = json.data.tickets[0]?.ticket;
-      expect(ticket).toBeDefined();
-      const ws = await connectWebSocket(json.data.roomId, ticket!);
+      if (!ticket) throw new Error('Player WebSocket ticket was not issued');
+      const ws = await connectWebSocket(json.data.roomId, ticket);
 
       const closePromise = new Promise<{ code: number; reason: string }>(resolve => {
         ws.addEventListener('close', (event: { code: number; reason: string }) => {
@@ -106,8 +106,8 @@ describe('real Worker / Durable Object / D1 / R2 integration', () => {
       const response = await post('/api/rooms', { ruleset: 'standard' }, true);
       const json = await response.json() as { data: { roomId: string; tickets: { role: string; ticket: string }[] } };
       const ticket = json.data.tickets[0]?.ticket;
-      expect(ticket).toBeDefined();
-      const ws = await connectWebSocket(json.data.roomId, ticket!);
+      if (!ticket) throw new Error('Player WebSocket ticket was not issued');
+      const ws = await connectWebSocket(json.data.roomId, ticket);
 
       const closePromise = new Promise<{ code: number; reason: string }>(resolve => {
         ws.addEventListener('close', (event: { code: number; reason: string }) => {
@@ -127,8 +127,8 @@ describe('real Worker / Durable Object / D1 / R2 integration', () => {
       const response = await post('/api/rooms', { ruleset: 'standard' }, true);
       const json = await response.json() as { data: { roomId: string; tickets: { role: string; ticket: string }[] } };
       const ticket = json.data.tickets[0]?.ticket;
-      expect(ticket).toBeDefined();
-      const ws = await connectWebSocket(json.data.roomId, ticket!);
+      if (!ticket) throw new Error('Player WebSocket ticket was not issued');
+      const ws = await connectWebSocket(json.data.roomId, ticket);
 
       const errorMessagePromise = new Promise<{ type: string; code: string }>(resolve => {
         ws.addEventListener('message', (event) => {

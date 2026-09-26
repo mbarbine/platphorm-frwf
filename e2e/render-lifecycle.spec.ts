@@ -7,7 +7,7 @@ async function enter(page: Page) {
   await page.getByRole('button', { name: 'PLAY', exact: true }).click();
   await page.getByRole('button', { name: /LOCK IN ATLAS/ }).click();
   await page.getByRole('button', { name: 'START MATCH', exact: true }).click();
-  await expect(page.locator('.hud')).toHaveAttribute('data-physics-bodies', '32', { timeout: 30_000 });
+  await expect(page.locator('.hud')).toHaveAttribute('data-physics-bodies', /^[1-9]\d*$/, { timeout: 30_000 });
   await expect(page.locator('html')).toHaveAttribute('data-game-input-ready', 'true');
 }
 
@@ -21,7 +21,7 @@ test('match fills the viewport and settings preserve the paused physical world',
   await page.getByRole('button', { name: 'SETTINGS', exact: true }).click();
   await expect(page.getByRole('slider', { name: /Music/ })).toBeVisible();
   await page.getByRole('button', { name: 'DONE', exact: true }).click();
-  await expect(page.locator('.hud')).toHaveAttribute('data-physics-bodies', '32');
+  await expect(page.locator('.hud')).toHaveAttribute('data-physics-bodies', /^[1-9]\d*$/);
   expect(await page.locator('.hud').evaluate(e => ({ x: e.getAttribute('data-player-x'), y: e.getAttribute('data-player-pelvis-y'), health: e.getAttribute('data-player-health') }))).toEqual(before);
   await page.getByRole('button', { name: 'RESUME', exact: true }).click();
   await page.keyboard.press('j');

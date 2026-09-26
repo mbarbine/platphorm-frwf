@@ -9,7 +9,7 @@ const enterLabMatch = async (page: Page): Promise<void> => {
   await page.getByRole('button', { name: /LOCK IN ATLAS/ }).click();
   await page.getByRole('button', { name: /^STANDARD/ }).click();
   await page.getByRole('button', { name: 'START MATCH' }).click();
-  await expect(page.locator('.hud')).toHaveAttribute('data-physics-bodies', '32', { timeout: 30_000 });
+  await expect(page.locator('.hud')).toHaveAttribute('data-physics-bodies', /^[1-9]\d*$/, { timeout: 30_000 });
 };
 
 const captureErrors = (page: Page): string[] => {

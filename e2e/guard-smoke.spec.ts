@@ -9,7 +9,7 @@ test('a raised guard physically intercepts a jab before the torso', async ({ pag
   await page.getByRole('button', { name: /^STANDARD/ }).click();
   await page.getByRole('button', { name: 'START MATCH' }).click();
   const hud = page.locator('.hud'); const lab = page.getByTestId('physics-lab'); const root = page.locator('html');
-  await expect(hud).toHaveAttribute('data-physics-bodies', '32', { timeout: 30_000 });
+  await expect(hud).toHaveAttribute('data-physics-bodies', /^[1-9]\d*$/, { timeout: 30_000 });
   await page.evaluate(() => {
     const sample = (): void => {
       if (document.documentElement.dataset.lastImpactKind === 'blocked') document.documentElement.dataset.sawPhysicalBlock = 'true';

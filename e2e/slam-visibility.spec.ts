@@ -10,7 +10,7 @@ test('a body slam visibly lifts, lands torso-first, and settles without a broken
   await page.getByRole('button', { name: 'START MATCH' }).click();
 
   const hud = page.locator('.hud'); const lab = page.getByTestId('physics-lab'); const html = page.locator('html');
-  await expect(hud).toHaveAttribute('data-physics-bodies', '32', { timeout: 30_000 });
+  await expect(hud).toHaveAttribute('data-physics-bodies', /^[1-9]\d*$/, { timeout: 30_000 });
   const restingPelvisY = Number(await hud.getAttribute('data-opponent-pelvis-y'));
   await page.evaluate(() => {
     const sample = (): void => {

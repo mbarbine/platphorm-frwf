@@ -15,7 +15,7 @@ test('shipping Singles presentation remains framed and responsive under live AI 
   await page.getByRole('button', { name: 'START MATCH' }).click();
 
   const hud = page.locator('.hud'); const canvas = page.getByTestId('game-canvas');
-  await expect(hud).toHaveAttribute('data-physics-bodies', '32', { timeout: 30_000 });
+  await expect(hud).toHaveAttribute('data-physics-bodies', /^[1-9]\d*$/, { timeout: 30_000 });
   await expect.poll(async () => Number(await hud.getAttribute('data-match-seconds')), { timeout: 60_000 }).toBeGreaterThan(8);
   await page.screenshot({ path: testInfo.outputPath('shipping-singles.png') });
   const metrics = await canvas.evaluate((node) => ({

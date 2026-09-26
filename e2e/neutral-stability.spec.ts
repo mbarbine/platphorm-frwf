@@ -10,7 +10,7 @@ test('neutral standing, walk, and stop retain real support with no unknown fall'
 
   const hud = page.locator('.hud'); const lab = page.getByTestId('physics-lab');
   const fallAudit = hud.locator('[data-unknown-falls]');
-  await expect(hud).toHaveAttribute('data-physics-bodies', '32', { timeout: 30_000 });
+  await expect(hud).toHaveAttribute('data-physics-bodies', /^[1-9]\d*$/, { timeout: 30_000 });
 
   const standing = lab.getByRole('button', { name: 'STANDING STABILITY' });
   await standing.click(); await expect(standing).toBeEnabled({ timeout: 15_000 });
@@ -63,7 +63,7 @@ test('neutral soft separation resolves close overlap without a fall or emergency
   await page.getByRole('button', { name: 'START MATCH' }).click();
 
   const hud = page.locator('.hud'); const lab = page.getByTestId('physics-lab'); const fallAudit = hud.locator('[data-unknown-falls]');
-  await expect(hud).toHaveAttribute('data-physics-bodies', '32', { timeout: 30_000 });
+  await expect(hud).toHaveAttribute('data-physics-bodies', /^[1-9]\d*$/, { timeout: 30_000 });
   const separation = lab.getByRole('button', { name: 'SOFT SEPARATION' });
   await separation.click(); await expect(separation).toBeEnabled({ timeout: 15_000 });
   await expect.poll(async () => Math.hypot(

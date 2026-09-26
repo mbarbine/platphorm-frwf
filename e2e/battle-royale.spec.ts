@@ -54,7 +54,7 @@ test('Standard Singles keeps the directed broadcast and action camera', async ({
 
   const canvas = page.getByTestId('game-canvas');
   await expect(canvas).toHaveAttribute('data-match-mode', 'singles');
-  await expect.poll(async () => Number(await canvas.getAttribute('data-physics-bodies')), { timeout: 40_000 }).toBe(32);
+  await expect.poll(async () => Number(await canvas.getAttribute('data-physics-bodies')), { timeout: 40_000 }).toBe(80);
   await expect(page.locator('html')).toHaveAttribute('data-camera-shot', /broadcast|wide|ringside-x|ringside-z|table|strike|grapple|slam|corner|aerial|replay/, { timeout: 20_000 });
   await expect(page.locator('html')).not.toHaveAttribute('data-camera-shot', 'battle-royale-steady');
   expect(errors).toEqual([]);

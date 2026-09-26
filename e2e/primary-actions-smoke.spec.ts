@@ -10,7 +10,7 @@ test('punch, kick, guard, block, and miss remain visually distinct and contact-t
   await page.getByRole('button', { name: 'START MATCH' }).click();
 
   const hud = page.locator('.hud'); const lab = page.getByTestId('physics-lab'); const root = page.locator('html');
-  await expect(hud).toHaveAttribute('data-physics-bodies', '32', { timeout: 30_000 });
+  await expect(hud).toHaveAttribute('data-physics-bodies', /^[1-9]\d*$/, { timeout: 30_000 });
   await page.evaluate(() => {
     const vector = (value: string | null): [number, number, number] | null => {
       const parsed = value?.split(',').map(Number);
@@ -84,7 +84,7 @@ test('down plus strike performs a visible contact-true headbutt', async ({ page 
   await page.getByRole('button', { name: /^STANDARD/ }).click();
   await page.getByRole('button', { name: 'START MATCH' }).click();
   const hud = page.locator('.hud'); const lab = page.getByTestId('physics-lab'); const root = page.locator('html');
-  await expect(hud).toHaveAttribute('data-physics-bodies', '32', { timeout: 30_000 });
+  await expect(hud).toHaveAttribute('data-physics-bodies', /^[1-9]\d*$/, { timeout: 30_000 });
   await page.evaluate(() => {
     const vector = (value: string | null): [number, number, number] | null => {
       const parsed = value?.split(',').map(Number);

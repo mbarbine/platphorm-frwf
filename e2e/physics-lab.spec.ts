@@ -10,7 +10,7 @@ test('Bodyworks lab exposes live Rapier diagnostics and drives real jump/walk in
   await page.getByRole('button', { name: /^STANDARD/ }).click();
   await page.getByRole('button', { name: 'START MATCH' }).click();
   const hud = page.locator('.hud'); const lab = page.getByTestId('physics-lab'); const deck = page.getByTestId('control-deck');
-  await expect(lab).toBeVisible(); await expect(hud).toHaveAttribute('data-physics-bodies', '32', { timeout: 30_000 }); await expect(hud).toHaveAttribute('data-physics-joints', '30');
+  await expect(lab).toBeVisible(); await expect(hud).toHaveAttribute('data-physics-bodies', '80', { timeout: 30_000 }); await expect(hud).toHaveAttribute('data-physics-joints', '75');
   await lab.getByRole('button', { name: '0.5×' }).click(); await expect(lab).toHaveAttribute('data-lab-rate', '0.5');
   await lab.getByRole('button', { name: 'COLLISION OVERLAY' }).click(); await expect(lab).toHaveAttribute('data-lab-debug', 'true');
   await lab.getByRole('button', { name: 'PAUSE', exact: true }).click(); await expect(lab.getByRole('button', { name: 'PLAY', exact: true })).toBeVisible();
@@ -137,7 +137,7 @@ test('Physics Lab exposes deterministic recovery orientations and a complete run
   await page.getByRole('button', { name: 'ENTER RINGFALL' }).click(); await page.getByRole('button', { name: 'PLAY', exact: true }).click();
   await page.getByRole('button', { name: /LOCK IN ATLAS/ }).click(); await page.getByRole('button', { name: /^STANDARD/ }).click(); await page.getByRole('button', { name: 'START MATCH' }).click();
   const hud = page.locator('.hud'); const lab = page.getByTestId('physics-lab'); const orientation = hud.locator('[data-player-recovery-orientation]');
-  await expect(hud).toHaveAttribute('data-physics-bodies', '32', { timeout: 30_000 });
+  await expect(hud).toHaveAttribute('data-physics-bodies', '80', { timeout: 30_000 });
   for (const [button, expected] of [['BACK GET-UP', 'back'], ['FRONT GET-UP', 'front'], ['SIDE GET-UP', 'left']] as const) {
     await lab.getByRole('button', { name: button }).click();
     await expect(orientation).toHaveAttribute('data-player-recovery-orientation', expected);
@@ -162,6 +162,6 @@ test('Physics Lab exposes deterministic recovery orientations and a complete run
   const runtimeBefore = await hud.getAttribute('data-runtime-id');
   await lab.getByRole('button', { name: 'COMPLETE RUNTIME RESET' }).click();
   await expect.poll(async () => await hud.getAttribute('data-runtime-id'), { timeout: 10_000, intervals: [100, 250] }).not.toBe(runtimeBefore);
-  await expect(hud).toHaveAttribute('data-physics-bodies', '32', { timeout: 20_000 }); await expect(hud).toHaveAttribute('data-physics-joints', '30');
+  await expect(hud).toHaveAttribute('data-physics-bodies', '80', { timeout: 20_000 }); await expect(hud).toHaveAttribute('data-physics-joints', '75');
   await expect(hud).toHaveAttribute('data-physics-emergency-resets', '0');
 });

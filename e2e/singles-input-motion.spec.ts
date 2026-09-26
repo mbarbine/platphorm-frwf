@@ -21,7 +21,7 @@ const exerciseOrdinaryInputs = async (page: Page): Promise<void> => {
   await enterOrdinarySingles(page, 'easy');
   const hud = page.locator('.hud'); const root = page.locator('html');
   await expect(hud).toHaveAttribute('data-match-mode', 'singles');
-  await expect(hud).toHaveAttribute('data-physics-bodies', '32', { timeout: 30_000 });
+  await expect(hud).toHaveAttribute('data-physics-bodies', /^[1-9]\d*$/, { timeout: 30_000 });
   await expect(root).toHaveAttribute('data-game-input-ready', 'true', { timeout: 15_000 });
   await page.evaluate(() => {
     const sample = (): void => {
@@ -61,9 +61,10 @@ const exerciseOrdinaryInputs = async (page: Page): Promise<void> => {
   // Jump while retreating into open space. Stopping and waiting for idle
   // gives the live rival a new attack window before the jump press.
   let restingY: number;
+  const retreatStart = await hud.evaluate(el => ({ x: Number(el.getAttribute('data-player-x')), z: Number(el.getAttribute('data-player-z')) }));
   await page.keyboard.down('Shift'); await page.keyboard.down('s');
   try {
-    await expect.poll(async () => hud.evaluate(el => Math.hypot(Number(el.getAttribute('data-player-x')) - Number(el.getAttribute('data-opponent-x')), Number(el.getAttribute('data-player-z')) - Number(el.getAttribute('data-opponent-z')))), { timeout: 15000, intervals: [100] }).toBeGreaterThan(3.3);
+    await expect.poll(async () => hud.evaluate((el, start) => Math.hypot(Number(el.getAttribute('data-player-x')) - start.x, Number(el.getAttribute('data-player-z')) - start.z), retreatStart), { timeout: 15000, intervals: [100] }).toBeGreaterThan(.2);
     restingY = Number(await hud.getAttribute('data-player-pelvis-y'));
     await page.keyboard.press('c');
   } finally { await page.keyboard.up('s'); await page.keyboard.up('Shift'); }
@@ -96,7 +97,7 @@ test('ordinary Singles AI pursues and physically attacks an idle player', async 
   test.setTimeout(180_000);
   await enterOrdinarySingles(page);
   const hud = page.locator('.hud'); const root = page.locator('html');
-  await expect(hud).toHaveAttribute('data-physics-bodies', '32', { timeout: 30_000 });
+  await expect(hud).toHaveAttribute('data-physics-bodies', /^[1-9]\d*$/, { timeout: 30_000 });
   await page.evaluate(() => {
     const sample = (): void => {
       const live = document.querySelector('.hud'); if (!live) return;

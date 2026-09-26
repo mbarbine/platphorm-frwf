@@ -4,6 +4,7 @@ import type { MutableRefObject } from 'react';
 import { AdditiveBlending, Vector3 } from 'three';
 import type { Group, Mesh, MeshBasicMaterial } from 'three';
 import { getPairedPose, getStrikePose, getStrikeReactionPose, getTauntPose } from '../animation/choreography';
+import { locomotionPose } from '../animation/locomotion';
 import { locomotionPresentation } from '../animation/locomotionPresentation';
 import { resolveCombatOrientation } from '../animation/combatOrientation';
 import { POSES } from '../animation/poses';
@@ -502,20 +503,21 @@ export function FighterModel({ runtime, counterpart, fighterId, preview = false,
     const t = elapsed.current;
     const movement = runtime ? locomotionPresentation(runtime) : null;
     const combatOrientation = runtime ? resolveCombatOrientation(runtime, counterpart) : null;
+    const gaitCycle = runtime ? safeNumber(runtime.body?.gaitPhase, t * 3) : t * 3;
     let key = animationFor(runtime, preview);
     if (movement?.state === 'braking') key = 'walk';
     let animatedPose = POSES[key];
     if (movement && ['walk', 'run'].includes(key)) {
-      const runningPose = movement.state === 'run';
-      const guardLift = (profile.guardHeight - 1) * .7;
-      animatedPose = {
-        ...POSES.combatIdle,
-        torso: [runningPose ? .18 : movement.state === 'backward' ? -.035 : .055, movement.lateral * -.055, movement.lateral * -.045],
-        leftArm: [runningPose ? -.28 : -.54 - guardLift, 0, -.32], rightArm: [runningPose ? -.28 : -.58 - guardLift, 0, .32],
-        leftForearm: [runningPose ? -.7 : -.94, 0, -.12], rightForearm: [runningPose ? -.7 : -1.02, 0, .12],
-        rootTilt: runningPose ? .14 : movement.state === 'braking' ? -.075 : movement.state === 'backward' ? -.035 : .035,
-        rootRoll: movement.lateral * -.055,
-      };
+      // Use the same travel-synchronized, fighter-specific gait that drives
+      // the physical pose. This keeps the visible shoulders, trunk and legs
+      // moving as one body instead of layering a second generic gait over it.
+      animatedPose = locomotionPose(
+        { x: runtime?.velocity.x ?? 0, z: runtime?.velocity.z ?? 0 },
+        runtime?.facing ?? 0,
+        gaitCycle,
+        true,
+        runtime?.definitionId,
+      );
     }
     if (runtime && (runtime.state === 'downed' || runtime.state === 'recovering')) animatedPose = recoveryPose(runtime.recoveryOrientation, runtime.state, runtime.stateElapsed);
     if (runtime?.moveId) {
@@ -547,9 +549,11 @@ export function FighterModel({ runtime, counterpart, fighterId, preview = false,
     const poseResponse = runtime?.attackPhase === 'active' ? 38 : runtime?.attackPhase === 'anticipation' ? 21 : runtime?.attackPhase === 'recovery' ? 11 : 14 * profile.motionTempo;
     const smooth = 1 - Math.exp(-clampedDelta * poseResponse);
     const idle = ['combatIdle', 'idle', 'taunt'].includes(key);
+    const walking = movement && (key === 'walk' || key === 'run');
     const groundedBob = idle
       ? Math.sin(t * 2.25 * tempo + phaseOffset) * .022 * profile.stepWeight
-      : Math.abs(Math.sin(t * 6.8 * tempo * speedScale + phaseOffset)) * .035 * profile.stepWeight;
+      : walking ? 0
+        : Math.abs(Math.sin(t * 6.8 * tempo * speedScale + phaseOffset)) * .035 * profile.stepWeight;
     const breath = Math.sin(t * 2.05 * tempo + phaseOffset) * (.012 + fatigue * .02);
     const personalityRoll = idle ? Math.sin(t * 1.4 * tempo + phaseOffset) * .018 * (id === 'vex' ? 1.5 : 1) : 0;
     const muscle = safeNumber(runtime?.body?.muscle, 1);
@@ -604,17 +608,16 @@ export function FighterModel({ runtime, counterpart, fighterId, preview = false,
       safeNumber(runtime?.body?.headSnap, 0) * .24,
     );
     const armDroop = idle ? fatigue * profile.fatigueDroop * .34 : 0;
-    const gaitCycle = runtime ? safeNumber(runtime.body?.gaitPhase, t * 3) : t * 3;
     const gaitStrength = movement ? safeNumber(movement.gaitStrength, 0) : 0;
     const gaitForward = movement ? safeNumber(movement.forward, 0) : 0;
-    const armSwing = movement && movement.state === 'run' ? Math.sin(gaitCycle) * gaitStrength * .68
-      : movement && gaitForward > .35 ? Math.sin(gaitCycle) * gaitStrength * .18 : 0;
+    const armSwing = walking ? 0 : movement && movement.state === 'run' ? Math.sin(gaitCycle) * gaitStrength * .5
+      : movement && gaitForward > .35 ? Math.sin(gaitCycle) * gaitStrength * .32 : 0;
     apply(leftArm.current, animatedPose.leftArm[0] + armSwing, animatedPose.leftArm[1], animatedPose.leftArm[2], armDroop);
     apply(rightArm.current, animatedPose.rightArm[0] - armSwing, animatedPose.rightArm[1], animatedPose.rightArm[2], armDroop);
     apply(leftForearm.current, animatedPose.leftForearm[0] + (1 - muscle) * .34, animatedPose.leftForearm[1], animatedPose.leftForearm[2]);
     apply(rightForearm.current, animatedPose.rightForearm[0] + (1 - muscle) * .34, animatedPose.rightForearm[1], animatedPose.rightForearm[2]);
 
-    const stride = safeNumber(runtime?.body?.stride, 0);
+    const stride = walking ? 0 : safeNumber(runtime?.body?.stride, 0);
     const gaitBoost = key === 'run' ? 1.15 : key === 'walk' ? .82 : 1;
     const forwardFactor = movement ? Math.abs(movement.forward) < .16 ? 0 : Math.sign(movement.forward) * Math.max(.35, Math.abs(movement.forward)) : 1;
     const lateralFactor = movement?.lateral ?? 0;

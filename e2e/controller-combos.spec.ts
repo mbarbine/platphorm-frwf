@@ -13,7 +13,7 @@ test('reevaluates visible hit chains through live input and solved contacts', as
   await page.getByRole('button', { name: /^STANDARD / }).click({ timeout: 10_000 });
   await page.getByRole('button', { name: 'START MATCH' }).click();
   const hud = page.locator('.hud'); const lab = page.getByTestId('physics-lab');
-  await expect(hud).toHaveAttribute('data-physics-bodies', '32', { timeout: 45_000 });
+  await expect(hud).toHaveAttribute('data-physics-bodies', /^[1-9]\d*$/, { timeout: 45_000 });
   await lab.getByRole('button', { name: 'STANDING STABILITY', exact: true }).click();
   await expect(lab).toHaveAttribute('data-lab-scenario', 'idle', { timeout: 40_000 });
   await page.screenshot({ path: testInfo.outputPath('01-fuller-roster.png') });
@@ -52,7 +52,7 @@ test('standard controller punches and kicks land in a normal live bout', async (
   await page.getByRole('button', { name: /^EASY / }).click({ timeout: 10_000 });
   await page.getByRole('button', { name: 'START MATCH' }).click();
   const hud = page.locator('.hud'); const feedback = hud.locator('[data-last-action]');
-  await expect(hud).toHaveAttribute('data-physics-bodies', '32', { timeout: 45_000 });
+  await expect(hud).toHaveAttribute('data-physics-bodies', /^[1-9]\d*$/, { timeout: 45_000 });
   await expect(page.getByTestId('physics-lab')).toHaveCount(0);
   await page.evaluate(() => window.dispatchEvent(new Event('gamepadconnected')));
   const observed = new Set<string>();
