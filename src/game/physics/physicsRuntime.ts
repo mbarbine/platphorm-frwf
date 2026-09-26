@@ -161,6 +161,7 @@ interface FighterRigRegistration {
   rotationallyDynamic: Set<BodySegmentId>;
   supportContacts: Set<BodySegmentId>;
   plantedFootAnchors: Record<'leftFoot' | 'rightFoot', { active: boolean; x: number; z: number }>;
+  footPlantMoving: boolean;
   jumpCooldown: number;
   ropeContact: { axis: 'x' | 'z'; side: -1 | 1; peakCompression: number; entrySpeed: number } | null;
   ringsideEstablished: boolean;
@@ -340,7 +341,7 @@ export class BodyWorksRuntime {
       const position = body.translation();
       restOffsets[segment] = { x: position.x - pelvisPosition.x, y: position.y - pelvisPosition.y, z: position.z - pelvisPosition.z };
     }
-    this.rigs.set(fighter, { bodies, bodyEntries, restOffsets, restPelvisY: pelvisPosition.y, rootStabilized: false, skeletonStabilized: false, rotationSignature: '', rotationallyDynamic: new Set<BodySegmentId>(), supportContacts: new Set<BodySegmentId>(), plantedFootAnchors: { leftFoot: { active: false, x: 0, z: 0 }, rightFoot: { active: false, x: 0, z: 0 } }, jumpCooldown: 0, ropeContact: null, ringsideEstablished: false, reboundTracking: false, cornerAnchor: null, apronAnchor: null, jointFaultFrames: 0, jointFaultReported: false, settlingFrames: 0, landingSupportFrames: 0, airborneSeconds: 0, recoveryOrientationCaptured: false, lastSafeCenter: { x: pelvisPosition.x, z: pelvisPosition.z }, neutralAnchor: { x: pelvisPosition.x, z: pelvisPosition.z } });
+    this.rigs.set(fighter, { bodies, bodyEntries, restOffsets, restPelvisY: pelvisPosition.y, rootStabilized: false, skeletonStabilized: false, rotationSignature: '', rotationallyDynamic: new Set<BodySegmentId>(), supportContacts: new Set<BodySegmentId>(), plantedFootAnchors: { leftFoot: { active: false, x: 0, z: 0 }, rightFoot: { active: false, x: 0, z: 0 } }, footPlantMoving: false, jumpCooldown: 0, ropeContact: null, ringsideEstablished: false, reboundTracking: false, cornerAnchor: null, apronAnchor: null, jointFaultFrames: 0, jointFaultReported: false, settlingFrames: 0, landingSupportFrames: 0, airborneSeconds: 0, recoveryOrientationCaptured: false, lastSafeCenter: { x: pelvisPosition.x, z: pelvisPosition.z }, neutralAnchor: { x: pelvisPosition.x, z: pelvisPosition.z } });
     this.applyLabAdditionalMass(fighter);
     this.recount(jointCount);
     const registeredGeneration = this.generation;
@@ -612,7 +613,7 @@ export class BodyWorksRuntime {
     this.metrics.lastStrikeDistance = 0; this.metrics.minimumStrikeDistance = 0; this.metrics.minimumStrikePlanarDistance = 0; this.metrics.minimumStrikeVerticalDistance = 0;
     this.metrics.maximumFootPlantDrift = 0;
     this.metrics.maximumNpcFootPlantDrift = 0;
-    for (const rig of this.rigs.values()) { rig.plantedFootAnchors.leftFoot.active = false; rig.plantedFootAnchors.rightFoot.active = false; }
+    for (const rig of this.rigs.values()) { rig.plantedFootAnchors.leftFoot.active = false; rig.plantedFootAnchors.rightFoot.active = false; rig.footPlantMoving = false; }
     this.metrics.gripCreateCount = 0; this.metrics.maximumGripError = 0; this.metrics.maximumGripLoad = 0; this.metrics.lastGripBreakReason = 'none';
     this.metrics.taskCount = 0; this.metrics.taskTimeoutCount = 0; this.metrics.lastTaskPhase = 'none'; this.lastStrikeMetricKey = '';
     this.placeFighter('player', player); this.placeFighter('opponent', opponent);
@@ -1312,6 +1313,14 @@ export class BodyWorksRuntime {
   private applyFootPlantDrive(rig: FighterRigRegistration, fighter: FighterRuntime, desiredVelocity: Vec2, inputLength: number): void {
     if (!['idle', 'locomotion', 'blocking', 'recovering'].includes(fighter.state)) return;
     const moving = fighter.state === 'locomotion' && inputLength > .08;
+    if (moving && !rig.footPlantMoving) {
+      // The neutral stance target belongs to the previous pose. Start each
+      // travel action with fresh anchors so the first boot-off never drags the
+      // wrestler back toward the pre-walk idle position.
+      rig.plantedFootAnchors.leftFoot.active = false;
+      rig.plantedFootAnchors.rightFoot.active = false;
+    }
+    rig.footPlantMoving = moving;
     if (moving) {
       for (const [id, phase] of [['leftFoot', fighter.body.gaitPhase], ['rightFoot', fighter.body.gaitPhase + Math.PI]] as const) {
         const foot = rig.bodies[id]; const cycle = gaitCycle(phase, gaitRunBlend(Math.hypot(fighter.velocity.x, fighter.velocity.z)));
