@@ -6,25 +6,43 @@ import type { AttackPhase, MoveDefinition } from '../types/game';
 interface MotionClip { duration: number; contact: number | null; frames: { time: number; pose: Pose }[] }
 const clips = data.clips as unknown as Record<string, MotionClip>;
 const clamp = (n: number, low = 0, high = 1) => Math.max(low, Math.min(high, n));
-const rotations = ['torso', 'leftArm', 'rightArm', 'leftLeg', 'rightLeg'] as const;
-const hinges = ['leftForearm', 'rightForearm', 'leftShin', 'rightShin'] as const;
-// OPTIMIZATION: Module-level static constants eliminate inline array allocations in hot frame loops.
-const ROOT_KEYS = ['rootX', 'rootY', 'rootZ', 'rootTilt', 'rootYaw', 'rootRoll'] as const;
+// OPTIMIZATION: Module-level static constant eliminates inline array allocations in hot frame loops.
 const SIDES = ['left', 'right'] as const;
 const qa = new Quaternion(); const qb = new Quaternion(); const ea = new Euler(); const eb = new Euler();
 
-/** Shortest-arc interpolation avoids Euler wrap snaps in imported shoulder motion. */
+/** OPTIMIZATION: Helper function for shortest-arc quaternion slerp on 3D Euler joints. */
+function slerpJoint(ak: readonly [number, number, number], bk: readonly [number, number, number], amount: number): [number, number, number] {
+  qa.setFromEuler(ea.set(ak[0], ak[1], ak[2]));
+  qb.setFromEuler(eb.set(bk[0], bk[1], bk[2]));
+  ea.setFromQuaternion(qa.slerp(qb, amount));
+  return [ea.x, ea.y, ea.z];
+}
+
+/** Shortest-arc interpolation avoids Euler wrap snaps in imported shoulder motion.
+ * OPTIMIZATION: Direct unrolled Pose property construction avoids `for...of` array iterations and redundant `{ ...a }` initial object shallow cloning.
+ */
 function blend(a: Pose, b: Pose, amount: number): Pose {
-  const p = { ...a };
-  for (const key of rotations) {
-    const ak = a[key]; const bk = b[key];
-    // OPTIMIZATION: Pass explicit tuple indices instead of array spread (...ak) to prevent dynamic array allocation per joint per frame.
-    qa.setFromEuler(ea.set(ak[0], ak[1], ak[2])); qb.setFromEuler(eb.set(bk[0], bk[1], bk[2]));
-    ea.setFromQuaternion(qa.slerp(qb, amount)); p[key] = [ea.x, ea.y, ea.z];
-  }
-  for (const key of hinges) p[key] = [a[key][0] + (b[key][0] - a[key][0]) * amount, 0, 0];
-  for (const key of ROOT_KEYS) p[key] = a[key] + (b[key] - a[key]) * amount;
-  return p;
+  const alf = a.leftForearm; const blf = b.leftForearm;
+  const arf = a.rightForearm; const brf = b.rightForearm;
+  const als = a.leftShin; const bls = b.leftShin;
+  const ars = a.rightShin; const brs = b.rightShin;
+  return {
+    torso: slerpJoint(a.torso, b.torso, amount),
+    leftArm: slerpJoint(a.leftArm, b.leftArm, amount),
+    rightArm: slerpJoint(a.rightArm, b.rightArm, amount),
+    leftForearm: [alf[0] + (blf[0] - alf[0]) * amount, 0, 0],
+    rightForearm: [arf[0] + (brf[0] - arf[0]) * amount, 0, 0],
+    leftLeg: slerpJoint(a.leftLeg, b.leftLeg, amount),
+    rightLeg: slerpJoint(a.rightLeg, b.rightLeg, amount),
+    leftShin: [als[0] + (bls[0] - als[0]) * amount, 0, 0],
+    rightShin: [ars[0] + (brs[0] - ars[0]) * amount, 0, 0],
+    rootX: a.rootX + (b.rootX - a.rootX) * amount,
+    rootY: a.rootY + (b.rootY - a.rootY) * amount,
+    rootZ: a.rootZ + (b.rootZ - a.rootZ) * amount,
+    rootTilt: a.rootTilt + (b.rootTilt - a.rootTilt) * amount,
+    rootYaw: a.rootYaw + (b.rootYaw - a.rootYaw) * amount,
+    rootRoll: a.rootRoll + (b.rootRoll - a.rootRoll) * amount,
+  };
 }
 
 export function sampleCombatMotion(id: string, seconds: number): Pose | null {
