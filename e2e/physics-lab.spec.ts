@@ -61,8 +61,29 @@ test('Bodyworks lab exposes live Rapier diagnostics and drives real jump/walk in
     };
     new MutationObserver(sample).observe(liveHud, { attributes: true }); sample();
   }, { x: initialX, z: initialZ });
+  await page.evaluate(() => {
+    const root = document.documentElement; const speed = document.querySelector('[data-player-physics-speed]');
+    if (!speed) return;
+    root.dataset.locomotionPeakSpeed = '0';
+    const sample = (): void => {
+      const value = Number(speed.getAttribute('data-player-physics-speed'));
+      root.dataset.locomotionPeakSpeed = String(Math.max(Number(root.dataset.locomotionPeakSpeed ?? 0), value));
+    };
+    new MutationObserver(sample).observe(speed, { attributes: true, attributeFilter: ['data-player-physics-speed'] }); sample();
+  });
   await lab.getByRole('button', { name: 'WALK + STOP' }).click();
+  await expect(lab).toHaveAttribute('data-lab-scenario', 'walk');
   await page.waitForFunction(() => Number(document.documentElement.dataset.maxLabDisplacement) > .85, null, { timeout: 8_000 });
+  await expect(lab).toHaveAttribute('data-lab-scenario', 'idle', { timeout: 8_000 });
+  const walkingPeak = Number(await page.locator('html').getAttribute('data-locomotion-peak-speed'));
+  expect(walkingPeak).toBeGreaterThan(.5);
+  await page.locator('html').evaluate(element => { (element as HTMLElement).dataset.locomotionPeakSpeed = '0'; });
+  await lab.getByRole('button', { name: 'RUN + MOMENTUM' }).click();
+  await expect(lab).toHaveAttribute('data-lab-scenario', 'run');
+  await page.waitForFunction((walkingSpeed) => Number(document.documentElement.dataset.locomotionPeakSpeed) > walkingSpeed * 1.35, walkingPeak, { timeout: 5_000 });
+  await expect(lab).toHaveAttribute('data-lab-scenario', 'idle', { timeout: 8_000 });
+  const runningPeak = Number(await page.locator('html').getAttribute('data-locomotion-peak-speed'));
+  expect(runningPeak).toBeGreaterThan(walkingPeak * 1.35);
   await expect(page.locator('html')).toHaveAttribute('data-saw-locomotion-control', 'true');
   expect(await page.locator('html').getAttribute('data-saw-locomotion-quick-label')).toMatch(/SKYLINE CROSS|CIRCUIT LOW KICK|NEON ONE-TWO/);
   expect(await page.locator('html').getAttribute('data-saw-locomotion-heavy-label')).toMatch(/VOLTAGE UPPERCUT|PISTON BOOT|ARC ROUNDHOUSE|HALO HIGH KICK|RAILWAY STIFF-ARM|(?:LEFT|RIGHT) ARM STIFF-ARM/);

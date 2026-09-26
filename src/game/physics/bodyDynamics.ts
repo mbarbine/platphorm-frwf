@@ -22,6 +22,16 @@ export interface ImpactCalculation {
 
 export interface LocomotionProfile { walkSpeed: number; runSpeed: number; acceleration: number; runAcceleration: number; braking: number; turnRate: number; sprintTurnRate: number }
 
+const LOCOMOTION_INPUT_DEADZONE = .08;
+const LOCOMOTION_STOP_SPEED = .08;
+
+/** Keep the moving gait active through braking; idle begins once travel has actually settled. */
+export const locomotionStateFor = (move: Vec2, velocity: Vec2): 'idle' | 'locomotion' => {
+  const hasMoveIntent = move.x * move.x + move.z * move.z > LOCOMOTION_INPUT_DEADZONE ** 2;
+  const stillTravelling = velocity.x * velocity.x + velocity.z * velocity.z > LOCOMOTION_STOP_SPEED ** 2;
+  return hasMoveIntent || stillTravelling ? 'locomotion' : 'idle';
+};
+
 /** Fighter-specific feel values shared by deterministic intent and Rapier drive. */
 export const locomotionProfile = (definition: FighterDefinition): LocomotionProfile => {
   const agility = definition.stats.speed / 100; const massPenalty = clamp((definition.physics.massKg - 78) / 48, 0, 1);
@@ -80,7 +90,12 @@ const updateFoot = (fighter: FighterRuntime, foot: BodyDynamicsRuntime['leftFoot
   foot.planted = cycle.planted;
   foot.lift = cycle.lift * (.08 + stride * .11);
   const forward = cycle.travel * stride * .34;
-  const forwardVector = { x: Math.sin(fighter.facing), z: Math.cos(fighter.facing) };
+  // Step along solved travel, not combat facing. This keeps backpedals and
+  // lateral escapes from sliding their boots through a forward-only cycle.
+  const speed = length(fighter.velocity);
+  const forwardVector = speed > .08
+    ? { x: fighter.velocity.x / speed, z: fighter.velocity.z / speed }
+    : { x: Math.sin(fighter.facing), z: Math.cos(fighter.facing) };
   const rightVector = { x: Math.cos(fighter.facing), z: -Math.sin(fighter.facing) };
   foot.offset = { x: forwardVector.x * forward + rightVector.x * side, z: forwardVector.z * forward + rightVector.z * side };
 };

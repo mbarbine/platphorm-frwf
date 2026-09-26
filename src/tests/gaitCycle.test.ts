@@ -36,4 +36,19 @@ describe('grounded walking and running', () => {
     expect(gaitRunBlend(2.2)).toBe(0);
     expect(gaitRunBlend(4.8)).toBe(1);
   });
+
+  it('keeps the live walk readable without exaggerating the limb swing', () => {
+    const poses = Array.from({ length: 120 }, (_, i) =>
+      locomotionPose({ x: 0, z: 2.1 }, 0, i / 120 * Math.PI * 2, true, 'atlas'));
+    const peak = (selector: (pose: (typeof poses)[number]) => number) =>
+      Math.max(...poses.map((pose) => Math.abs(selector(pose))));
+
+    expect(peak((pose) => pose.leftLeg[0])).toBeGreaterThan(.3);
+    expect(peak((pose) => pose.leftLeg[0])).toBeLessThan(.4);
+    expect(peak((pose) => pose.leftShin[0])).toBeGreaterThan(.2);
+    expect(peak((pose) => pose.leftShin[0])).toBeLessThan(.31);
+    expect(peak((pose) => pose.leftArm[0] - pose.rightArm[0])).toBeGreaterThan(.2);
+    expect(peak((pose) => pose.leftArm[0] - pose.rightArm[0])).toBeLessThan(.3);
+    expect(poses.some((pose) => pose.leftLeg[0] * pose.rightLeg[0] < 0)).toBe(true);
+  });
 });

@@ -19,7 +19,7 @@ interface LabScenario { id: string; label: string; steps: readonly KeyStep[]; du
 // deterministic settle window before injecting input so a test measures the
 // requested action, not the one-frame registration pose.
 const SCENARIO_SETTLE_MS = 360;
-type BaselineSample = { time: number; state: string; move: string | null; speed: number; supportFeet: number; upright: number; leftFootY: number; rightFootY: number; damage: number; hits: number; chain: string; combo: string | null }; 
+type BaselineSample = { time: number; state: string; move: string | null; speed: number; supportFeet: number; upright: number; leftFootY: number; rightFootY: number; damage: number; hits: number; chain: string; combo: string | null };
 
 const tap = (code: string, at = 0, duration = 90): readonly KeyStep[] => [{ at, code, down: true }, { at: at + duration, code, down: false }];
 const hold = (code: string, at: number, duration: number): readonly KeyStep[] => [{ at, code, down: true }, { at: at + duration, code, down: false }];

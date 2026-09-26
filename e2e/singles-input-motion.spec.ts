@@ -83,6 +83,27 @@ const exerciseOrdinaryInputs = async (page: Page): Promise<void> => {
   await expect(hud).toHaveAttribute('data-physics-emergency-resets', '0');
 };
 
+test('keyboard travel starts on intent and releases to a grounded stop', async ({ page }) => {
+  test.setTimeout(90_000);
+  await enterOrdinarySingles(page, 'easy');
+  const hud = page.locator('.hud');
+  await expect(page.locator('html')).toHaveAttribute('data-game-input-ready', 'true');
+  await expect(hud).toHaveAttribute('data-physics-authority', 'true');
+  const start = await hud.evaluate(el => ({ x: Number(el.getAttribute('data-player-x')), z: Number(el.getAttribute('data-player-z')) }));
+  await page.keyboard.down('w');
+  try {
+    await expect.poll(async () => hud.getAttribute('data-player-state'), { timeout: 8_000, intervals: [50, 100] }).toBe('locomotion');
+    await expect.poll(async () => hud.evaluate((el, origin) => Math.hypot(Number(el.getAttribute('data-player-x')) - origin.x, Number(el.getAttribute('data-player-z')) - origin.z), start), { timeout: 8_000, intervals: [50, 100] }).toBeGreaterThan(.12);
+    const physical = hud.locator('[data-player-physics-speed]');
+    await expect.poll(async () => Number(await physical.getAttribute('data-player-physics-speed')), { timeout: 3_000, intervals: [50, 100] }).toBeGreaterThan(.15);
+  } finally { await page.keyboard.up('w'); }
+  await expect.poll(async () => hud.getAttribute('data-player-state'), { timeout: 8_000, intervals: [50, 100, 200] }).toBe('idle');
+  const stopped = await hud.evaluate(el => ({ x: Number(el.getAttribute('data-player-x')), z: Number(el.getAttribute('data-player-z')) }));
+  await page.waitForTimeout(400);
+  const driftAfterStop = await hud.evaluate((el, origin) => Math.hypot(Number(el.getAttribute('data-player-x')) - origin.x, Number(el.getAttribute('data-player-z')) - origin.z), stopped);
+  expect(driftAfterStop).toBeLessThan(.08);
+});
+
 for (const layout of [
   { name: 'desktop', viewport: { width: 1280, height: 720 } },
   { name: 'phone layout', viewport: { width: 390, height: 844 } },

@@ -6,7 +6,7 @@ import { FIGHTERS, fighterById } from '../data/fighters';
 import { getMove } from '../data/moves';
 import { BALANCE } from '../data/balance';
 import { chooseAiDecision, isActionLegal } from '../ai/utilityAI';
-import { applyLocalizedImpact, calculateImpact, createBodyDynamics, integrateLocomotion, stepBodyDynamics } from '../physics/bodyDynamics';
+import { applyLocalizedImpact, calculateImpact, createBodyDynamics, integrateLocomotion, locomotionStateFor, stepBodyDynamics } from '../physics/bodyDynamics';
 import { createGrappleRuntime, releaseGrapple, retargetGrapple, stepGrappleDynamics } from '../physics/grappleDynamics';
 import { clamp, distance, normalize, scale, seededRandom } from '../utils/math';
 import { AI_FIGHTER_SLOTS, FIGHTER_SLOTS, SINGLES_FIGHTER_SLOTS } from '../types/game';
@@ -960,7 +960,7 @@ const updateFighter = (model: MatchModel, actorKey: FighterSlot, dt: number, mov
         ? Math.atan2(target.position.x - actor.position.x, target.position.z - actor.position.z)
         : undefined;
     integrateLocomotion(actor, definition, movement, running, dt, facingTarget);
-    actor.state = inputLength > .08 ? 'locomotion' : 'idle';
+    actor.state = locomotionStateFor(movement, actor.velocity);
     if (running) actor.stamina = clamp(actor.stamina - dt * 8, 0, actor.staminaCap);
     else actor.stamina = clamp(actor.stamina + dt * (inputLength > .08 ? 8 : 13), 0, actor.staminaCap);
   } else {

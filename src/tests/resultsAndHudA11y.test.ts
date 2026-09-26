@@ -28,6 +28,8 @@ describe('HUD and Results Accessibility', () => {
 
     const targetBtn = screen.getByRole('button', { name: /Switch target wrestler, currently targeting/i });
     expect(targetBtn).toBeTruthy();
+    expect(targetBtn.querySelector('.target-switch__label--desktop')?.textContent).toBe('SWITCH TARGET');
+    expect(targetBtn.querySelector('.target-switch__label--mobile')?.textContent).toBe('TARGET ›');
   });
 
   it('renders instant replay skip button with descriptive ARIA label when replay is active', () => {
