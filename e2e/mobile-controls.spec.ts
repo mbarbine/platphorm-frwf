@@ -5,7 +5,7 @@ test.use({ hasTouch: true, viewport: { width: 390, height: 844 } });
 test('mobile player can enter a match, move, guard, and attack', async ({ page }) => {
   test.setTimeout(300_000);
   await page.goto('/?physicsLab=1');
-  await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
+  await page.getByRole('button', { name: 'ENTER RINGFALL' }).click();
   await page.getByRole('button', { name: 'PLAY', exact: true }).click();
   await page.getByRole('button', { name: /LOCK IN ATLAS/ }).click();
   await page.getByRole('button', { name: 'START MATCH' }).click();
@@ -75,7 +75,7 @@ test('mobile player can enter a match, move, guard, and attack', async ({ page }
 test('paused touch controls cannot queue a stale wrestling action', async ({ page }) => {
   test.setTimeout(150_000);
   await page.goto('/?physicsLab=1');
-  await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
+  await page.getByRole('button', { name: 'ENTER RINGFALL' }).click();
   await page.getByRole('button', { name: 'PLAY', exact: true }).click();
   await page.getByRole('button', { name: /LOCK IN ATLAS/ }).click();
   await page.getByRole('button', { name: 'START MATCH' }).click();

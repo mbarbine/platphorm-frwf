@@ -6,7 +6,7 @@ test.use({ video: 'on' });
 
 const enterOrdinarySingles = async (page: Page, difficulty: 'easy' | 'normal' = 'normal'): Promise<void> => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
+  await page.getByRole('button', { name: 'ENTER RINGFALL' }).click();
   await page.getByRole('button', { name: 'PLAY', exact: true }).click();
   await page.getByRole('button', { name: /LOCK IN ATLAS/ }).click();
   await page.getByRole('button', { name: /^SINGLES/ }).click();

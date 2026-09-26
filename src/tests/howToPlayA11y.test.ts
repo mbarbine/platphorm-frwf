@@ -25,8 +25,8 @@ describe('How to Play screen Accessibility & Keyboard Navigation', () => {
 
     render(React.createElement(App));
 
-    // First enter the main menu screen by clicking "ENTER THE VOLT DOME"
-    const enterButton = screen.getByRole('button', { name: /ENTER THE VOLT DOME/i });
+    // First enter the main menu screen.
+    const enterButton = screen.getByRole('button', { name: /ENTER RINGFALL/i });
     fireEvent.click(enterButton);
 
     // Open How to Play screen

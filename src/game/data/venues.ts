@@ -1,13 +1,13 @@
-import { VOLT_DOME } from './arena';
+import { FRWF_ARENA } from './arena';
 import type { MatchModel, PropRuntime } from '../types/game';
 
 export type CombatVenue = 'dome' | 'turkey_dome' | 'yard' | 'backstage' | 'underground';
 export const VENUES = {
-  underground: { name: 'FRWF Underground', hasRing: false, halfWidth: 9, halfDepth: 7, floorY: VOLT_DOME.ring.deckY },
-  dome: { name: 'FRWF Arena', hasRing: true, halfWidth: VOLT_DOME.playable.halfWidth, halfDepth: VOLT_DOME.playable.halfDepth, floorY: VOLT_DOME.ring.deckY },
-  turkey_dome: { name: 'Turkey Dome', hasRing: true, halfWidth: VOLT_DOME.playable.halfWidth, halfDepth: VOLT_DOME.playable.halfDepth, floorY: VOLT_DOME.ring.deckY },
-  yard: { name: 'Backyard Fight Pit', hasRing: false, halfWidth: 9, halfDepth: 7, floorY: VOLT_DOME.ring.deckY },
-  backstage: { name: 'Backstage Fight Club', hasRing: false, halfWidth: 7, halfDepth: 6, floorY: VOLT_DOME.ring.deckY },
+  underground: { name: 'FRWF Underground', hasRing: false, halfWidth: 9, halfDepth: 7, floorY: FRWF_ARENA.ring.deckY },
+  dome: { name: 'FRWF Arena', hasRing: true, halfWidth: FRWF_ARENA.playable.halfWidth, halfDepth: FRWF_ARENA.playable.halfDepth, floorY: FRWF_ARENA.ring.deckY },
+  turkey_dome: { name: 'Turkey Dome', hasRing: true, halfWidth: FRWF_ARENA.playable.halfWidth, halfDepth: FRWF_ARENA.playable.halfDepth, floorY: FRWF_ARENA.ring.deckY },
+  yard: { name: 'Backyard Fight Pit', hasRing: false, halfWidth: 9, halfDepth: 7, floorY: FRWF_ARENA.ring.deckY },
+  backstage: { name: 'Backstage Fight Club', hasRing: false, halfWidth: 7, halfDepth: 6, floorY: FRWF_ARENA.ring.deckY },
 } as const;
 export const venueFor = (model: Pick<MatchModel, 'venue'>) => VENUES[model.venue ?? 'dome'];
 export function configureCombatVenue(model: MatchModel, venue: CombatVenue): void {

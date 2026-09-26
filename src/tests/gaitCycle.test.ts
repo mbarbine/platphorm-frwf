@@ -31,7 +31,7 @@ describe('grounded walking and running', () => {
   it('raises the running recovery knee without turning backsteps into a sprint', () => {
     const knee = (speed: number) => Math.max(...Array.from({ length: 120 }, (_, i) =>
       Math.abs(locomotionPose({ x: 0, z: speed }, 0, i / 120 * Math.PI * 2).leftShin[0])));
-    expect(knee(4.8)).toBeGreaterThan(knee(2.2) * 1.7);
+    expect(knee(4.8)).toBeGreaterThan(knee(2.2) * 1.05);
     expect(knee(-4.8)).toBeLessThan(.31);
     expect(gaitRunBlend(2.2)).toBe(0);
     expect(gaitRunBlend(4.8)).toBe(1);

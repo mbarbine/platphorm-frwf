@@ -12,7 +12,7 @@ import { clamp, distance, normalize, scale, seededRandom } from '../utils/math';
 import { AI_FIGHTER_SLOTS, FIGHTER_SLOTS, SINGLES_FIGHTER_SLOTS } from '../types/game';
 import type { Difficulty, FighterId, FighterRuntime, FighterSlot, GameCommand, HighlightMoment, ImpactEvent, MatchHighlights, MatchMode, MatchModel, MatchResult, MatchStats, MoveDefinition, PropRuntime, ReplayFighterFrame, Ruleset, Vec2 } from '../types/game';
 import type { BodyWorksContact } from '../physics/physicsRuntime';
-import { VOLT_DOME } from '../data/arena';
+import { FRWF_ARENA } from '../data/arena';
 import { actionDirectionToVec2, actionToGameCommand, createActionEvent, gameCommandToAction } from '../input/actionLayer';
 import { auditFallState, beginFall } from './falls';
 import { FALL_REASONS } from '../types/game';
@@ -73,8 +73,8 @@ const initialProps = (enabled: boolean): PropRuntime[] => enabled ? [
   { id: 'sign-1', kind: 'sign', position: { x: 7, z: -2.4 }, durability: 2, stress: 0, failureStage: 'intact', heldBy: null, broken: false },
   { id: 'trash-1', kind: 'trash', position: { x: 8.35, z: 5.5 }, durability: 4, stress: 0, failureStage: 'intact', heldBy: null, broken: false },
   { id: 'bell-1', kind: 'bell', position: { x: 4.9, z: -5.25 }, durability: 2, stress: 0, failureStage: 'intact', heldBy: null, broken: false },
-  { id: 'table-1', kind: 'table', position: { x: VOLT_DOME.commentaryTable.x, z: VOLT_DOME.commentaryTable.z }, durability: 1, stress: 0, failureStage: 'intact', heldBy: null, broken: false },
-] : [{ id: 'table-1', kind: 'table', position: { x: VOLT_DOME.commentaryTable.x, z: VOLT_DOME.commentaryTable.z }, durability: 1, stress: 0, failureStage: 'intact', heldBy: null, broken: false }];
+  { id: 'table-1', kind: 'table', position: { x: FRWF_ARENA.commentaryTable.x, z: FRWF_ARENA.commentaryTable.z }, durability: 1, stress: 0, failureStage: 'intact', heldBy: null, broken: false },
+] : [{ id: 'table-1', kind: 'table', position: { x: FRWF_ARENA.commentaryTable.x, z: FRWF_ARENA.commentaryTable.z }, durability: 1, stress: 0, failureStage: 'intact', heldBy: null, broken: false }];
 
 export const createMatch = (playerId: FighterId, opponentId: FighterId, ruleset: Ruleset, difficulty: Difficulty, seed = 1337, playerBeers = 0, opponentBeers = 0, matchMode: MatchMode = 'singles'): MatchModel => {
   const resolvedOpponentId = matchMode === 'battle_royale' && opponentId === playerId ? FIGHTERS.find(({ id }) => id !== playerId)?.id ?? opponentId : opponentId;

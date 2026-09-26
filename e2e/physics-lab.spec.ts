@@ -4,7 +4,7 @@ test('Bodyworks lab exposes live Rapier diagnostics and drives real jump/walk in
   test.setTimeout(480_000);
   const errors: string[] = []; page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()); }); page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('/?physicsLab=1');
-  await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
+  await page.getByRole('button', { name: 'ENTER RINGFALL' }).click();
   await page.getByRole('button', { name: 'PLAY', exact: true }).click();
   await page.getByRole('button', { name: /LOCK IN ATLAS/ }).click();
   await page.getByRole('button', { name: /^STANDARD/ }).click();
@@ -134,7 +134,7 @@ test('Bodyworks lab exposes live Rapier diagnostics and drives real jump/walk in
 test('Physics Lab exposes deterministic recovery orientations and a complete runtime reset', async ({ page }) => {
   test.setTimeout(300_000);
   await page.goto('/?physicsLab=1');
-  await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click(); await page.getByRole('button', { name: 'PLAY', exact: true }).click();
+  await page.getByRole('button', { name: 'ENTER RINGFALL' }).click(); await page.getByRole('button', { name: 'PLAY', exact: true }).click();
   await page.getByRole('button', { name: /LOCK IN ATLAS/ }).click(); await page.getByRole('button', { name: /^STANDARD/ }).click(); await page.getByRole('button', { name: 'START MATCH' }).click();
   const hud = page.locator('.hud'); const lab = page.getByTestId('physics-lab'); const orientation = hud.locator('[data-player-recovery-orientation]');
   await expect(hud).toHaveAttribute('data-physics-bodies', '32', { timeout: 30_000 });

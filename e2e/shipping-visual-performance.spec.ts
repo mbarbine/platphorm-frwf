@@ -7,7 +7,7 @@ test('shipping Singles presentation remains framed and responsive under live AI 
   page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()); });
   await page.setViewportSize({ width: 1600, height: 900 });
   await page.goto('/');
-  await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
+  await page.getByRole('button', { name: 'ENTER RINGFALL' }).click();
   await page.getByRole('button', { name: 'PLAY', exact: true }).click();
   await page.getByRole('button', { name: /LOCK IN ATLAS/ }).click();
   await page.getByRole('button', { name: /^SINGLES/ }).click();

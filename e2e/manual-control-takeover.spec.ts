@@ -4,7 +4,7 @@ test.use({ video: 'on', trace: 'off', actionTimeout: 15000 });
 
 test('keeps the wrestler visible in collision view and yields scripted movement to the player', async ({ page }) => {
   await page.goto('/?physicsLab=1');
-  await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
+  await page.getByRole('button', { name: 'ENTER RINGFALL' }).click();
   await page.getByRole('button', { name: 'PLAY', exact: true }).click();
   await page.getByRole('button', { name: /LOCK IN ATLAS/ }).click();
   await page.getByRole('button', { name: 'START MATCH' }).click();

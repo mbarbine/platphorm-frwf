@@ -131,7 +131,7 @@ describe('real Worker / Durable Object / D1 / R2 integration', () => {
       const ws = await connectWebSocket(json.data.roomId, ticket!);
 
       const errorMessagePromise = new Promise<{ type: string; code: string }>(resolve => {
-        ws.addEventListener('message', (event: { data: string | ArrayBuffer }) => {
+        ws.addEventListener('message', (event) => {
           if (typeof event.data === 'string') {
             try {
               const msg = JSON.parse(event.data);

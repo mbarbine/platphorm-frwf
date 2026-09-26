@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { PROTOCOL_VERSION } from '../../packages/game-protocol/src/version';
-import { VOLT_DOME } from '../../src/game/data/arena';
+import { FRWF_ARENA } from '../../src/game/data/arena';
 
 export const fighterId = z.enum(['atlas', 'vex', 'nova', 'brick', 'chad']);
 export const roomOptions = z.object({ ruleset: z.enum(['standard', 'chaos']).default('standard') }).strict();
@@ -29,8 +29,8 @@ export const gameInfo = {
 } as const;
 
 export const bundledMap = {
-  id: 'volt-dome', version: '2.0.0', compatibilityVersion: 1, title: 'The Volt Dome',
-  geometry: VOLT_DOME,
+  id: 'volt-dome', version: '2.0.0', compatibilityVersion: 1, title: 'FRWF Arena',
+  geometry: FRWF_ARENA,
   spawns: [{ x: -3.25, z: 0 }, { x: 3.25, z: 0 }, { x: 0, z: -2.45 }, { x: -1.85, z: 2.35 }, { x: 1.85, z: 2.35 }],
   modes: ['singles', 'battle_royale'], author: 'PlatPhormNews',
   collisionAuthority: ['ring', 'floor', 'ropes', 'posts', 'steps', 'barricades', 'props'],

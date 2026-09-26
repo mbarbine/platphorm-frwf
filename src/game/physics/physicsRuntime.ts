@@ -30,7 +30,7 @@ import type { QuaternionValue, Vector3Value } from './motorController';
 import { apronTransitionTarget, isRingside, RING_HARD_LIMIT, ROPE_REBOUND_ENTRY_SPEED, shouldReleaseRopeRebound, solveRopeReleaseDirection, solveRopeResponse } from './ringDynamics';
 import { computeStrikeForce, guardInterceptDriveProfile, guardInterceptSurfaceTarget, strikeDriveProfile, strikePelvisAcceleration } from './strikeDynamics';
 import { locomotionIntent, locomotionProfile } from './bodyDynamics';
-import { VOLT_DOME } from '../data/arena';
+import { FRWF_ARENA } from '../data/arena';
 import { BODYWORKS_FLAGS } from './bodyWorksFlags';
 import { MOTOR_PROFILES, motorStrengthFor, selectMotorProfile } from './motorProfiles';
 import type { MotorProfile, MotorProfileId } from './motorProfiles';
@@ -701,7 +701,7 @@ export class BodyWorksRuntime {
 
   private absorbCompletedLanding(defender: FighterKey, surface: string | null): void {
     const rig = this.rigs.get(defender); if (!rig) return;
-    const surfaceY = surface === 'ring' ? VOLT_DOME.ring.deckY : surface === 'floor' ? (VENUES[this.venue].hasRing ? .4 : VENUES[this.venue].floorY) : null;
+    const surfaceY = surface === 'ring' ? FRWF_ARENA.ring.deckY : surface === 'floor' ? (VENUES[this.venue].hasRing ? .4 : VENUES[this.venue].floorY) : null;
     const core = (['pelvis', 'abdomen', 'chest', 'head'] as const).map((segment) => rig.bodies[segment]).filter((body): body is RapierRigidBody => Boolean(body?.isValid()));
     const lowestCore = core.reduce((lowest, body) => Math.min(lowest, body.translation().y), Number.POSITIVE_INFINITY);
     // The correction is coherent across the articulated tree and runs only
@@ -971,15 +971,15 @@ export class BodyWorksRuntime {
       const position = pelvis.translation();
       const exitingAcrossX = Math.abs(anchor.target.x) > RING_HARD_LIMIT.x;
       const clearedDeck = exitingAcrossX
-        ? Math.abs(position.x) > VOLT_DOME.ring.halfWidth + .48
-        : Math.abs(position.z) > VOLT_DOME.ring.halfDepth + .48;
-      const crossingEdge = anchor.inside && (Math.abs(position.x) > VOLT_DOME.ring.halfWidth - .3 || Math.abs(position.z) > VOLT_DOME.ring.halfDepth - .3);
+        ? Math.abs(position.x) > FRWF_ARENA.ring.halfWidth + .48
+        : Math.abs(position.z) > FRWF_ARENA.ring.halfDepth + .48;
+      const crossingEdge = anchor.inside && (Math.abs(position.x) > FRWF_ARENA.ring.halfWidth - .3 || Math.abs(position.z) > FRWF_ARENA.ring.halfDepth - .3);
       const targetY = crossingEdge ? ringPelvisY + .42 : anchor.inside || !clearedDeck ? ringPelvisY + .04 : ringPelvisY - 1.46;
       const transitionVelocity = pelvis.linvel(); const dx = anchor.target.x - position.x; const dz = anchor.target.z - position.z;
       const feetY = Math.min(rig.bodies.leftFoot?.translation().y ?? 0, rig.bodies.rightFoot?.translation().y ?? 0);
       // Lift clear of the solid apron before pulling inward. Horizontal force
       // against its face pins low feet and prevents the tree from climbing.
-      const entryReady = !crossingEdge || feetY >= VOLT_DOME.ring.deckY + .13;
+      const entryReady = !crossingEdge || feetY >= FRWF_ARENA.ring.deckY + .13;
       // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt for ~8x speedups.
       const planarDistance = Math.sqrt(dx * dx + dz * dz);
       this.applyRigAcceleration(rig, {
@@ -1192,7 +1192,7 @@ export class BodyWorksRuntime {
     const defender = this.rigs.get(cover.defender)?.bodies.chest;
     if (!actor || !defender) { cover.established = false; return; }
     const a = actor.translation(); const b = defender.translation(); const q = defender.rotation();
-    const floor = this.isRingside(model[cover.defender].position) ? .4 : VOLT_DOME.ring.deckY;
+    const floor = this.isRingside(model[cover.defender].position) ? .4 : FRWF_ARENA.ring.deckY;
     // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt for ~8x speedup on high-frequency cover pin checks
     const dxCover = a.x - b.x;
     const dzCover = a.z - b.z;
@@ -1821,7 +1821,7 @@ export class BodyWorksRuntime {
     const preLiftPhase = ['reach', 'acquire', 'clinch', 'load'].includes(grapple.phase);
     const groundedLock = (fighter: FighterRuntime, pelvis: RapierRigidBody | undefined): boolean => {
       if (!pelvis?.isValid()) return false;
-      const surfaceY = this.isRingside(fighter.position) ? .4 : VOLT_DOME.ring.deckY;
+      const surfaceY = this.isRingside(fighter.position) ? .4 : FRWF_ARENA.ring.deckY;
       return pelvis.translation().y <= surfaceY + .78 && uprightFromRotation(pelvis.rotation()) < .58;
     };
     const attackerGroundLocked = groundedLock(attacker, attackerPelvisAtStart);
@@ -2408,7 +2408,7 @@ export class BodyWorksRuntime {
       const bodyMass = body.mass(); mass += bodyMass; weightedVerticalVelocity += body.linvel().y * bodyMass;
       lowestCenterY = Math.min(lowestCenterY, body.translation().y);
     }
-    const surfaceY = this.isRingside(fighter.position) ? .4 : VOLT_DOME.ring.deckY;
+    const surfaceY = this.isRingside(fighter.position) ? .4 : FRWF_ARENA.ring.deckY;
     const nearGround = lowestCenterY <= surfaceY + .44;
     const settledVertically = mass > 0 && Math.abs(weightedVerticalVelocity / mass) <= 1.05;
     rig.landingSupportFrames = fighter.stateElapsed >= .2 && this.hasExternalSupport(rig) && nearGround && settledVertically ? rig.landingSupportFrames + 1 : 0;
@@ -2573,7 +2573,7 @@ export class BodyWorksRuntime {
     const fighter = model[key];
     if (!['airborne', 'downed', 'recovering', 'pinned', 'defeated'].includes(fighter.state)) return;
     const rig = this.rigs.get(key); if (!rig) return;
-    const surfaceY = this.isRingside(fighter.position) ? .4 : VOLT_DOME.ring.deckY;
+    const surfaceY = this.isRingside(fighter.position) ? .4 : FRWF_ARENA.ring.deckY;
     const coreRadii = { pelvis: .22, abdomen: .21, chest: .27, head: HEAD_COLLIDER_RADIUS } as const;
     const lowestCoreClearance = (Object.keys(coreRadii) as (keyof typeof coreRadii)[]).reduce((lowest, segment) => {
       const body = rig.bodies[segment];

@@ -3,7 +3,7 @@ import type { Page } from '@playwright/test';
 
 async function enter(page: Page) {
   await page.goto('/');
-  await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
+  await page.getByRole('button', { name: 'ENTER RINGFALL' }).click();
   await page.getByRole('button', { name: 'PLAY', exact: true }).click();
   await page.getByRole('button', { name: /LOCK IN ATLAS/ }).click();
   await page.getByRole('button', { name: 'START MATCH', exact: true }).click();

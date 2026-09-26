@@ -3,7 +3,7 @@ import type { Page } from '@playwright/test';
 
 const enterBattleRoyale = async (page: Page): Promise<void> => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
+  await page.getByRole('button', { name: 'ENTER RINGFALL' }).click();
   await page.getByRole('button', { name: 'PLAY', exact: true }).click();
   await page.getByRole('button', { name: /LOCK IN ATLAS/ }).click();
   const battleMode = page.getByTestId('battle-royale-mode');
@@ -45,7 +45,7 @@ test('Standard Singles keeps the directed broadcast and action camera', async ({
   page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()); });
 
   await page.goto('/');
-  await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
+  await page.getByRole('button', { name: 'ENTER RINGFALL' }).click();
   await page.getByRole('button', { name: 'PLAY', exact: true }).click();
   await page.getByRole('button', { name: /LOCK IN ATLAS/ }).click();
   await page.getByRole('button', { name: /^SINGLES/ }).click();

@@ -6,7 +6,7 @@ test('reevaluates visible hit chains through live input and solved contacts', as
   await page.setViewportSize({ width: 1600, height: 1000 });
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto('/?physicsLab=1');
-  await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
+  await page.getByRole('button', { name: 'ENTER RINGFALL' }).click();
   await page.getByRole('button', { name: 'PLAY', exact: true }).click();
   await page.getByRole('button', { name: /LOCK IN ATLAS/ }).click();
   await page.getByRole('button', { name: /^SINGLES / }).click({ timeout: 10_000 });
@@ -45,7 +45,7 @@ test('standard controller punches and kicks land in a normal live bout', async (
     (window as Window & { testPad?: typeof pad }).testPad = pad;
   });
   await page.goto('/');
-  await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
+  await page.getByRole('button', { name: 'ENTER RINGFALL' }).click();
   await page.getByRole('button', { name: 'PLAY', exact: true }).click();
   await page.getByRole('button', { name: /LOCK IN ATLAS/ }).click();
   await page.getByRole('button', { name: /^SINGLES / }).click({ timeout: 10_000 });

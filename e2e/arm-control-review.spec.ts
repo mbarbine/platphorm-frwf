@@ -7,7 +7,7 @@ test('records idle, directional movement, guard and punches through player contr
   // Disable opponent decisions for this isolated motion recording. The
   // wrestling-polish journey separately exercises the live AI exchange.
   await page.goto('/?physicsLab=1');
-  await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
+  await page.getByRole('button', { name: 'ENTER RINGFALL' }).click();
   await page.getByRole('button', { name: 'PLAY', exact: true }).click();
   await page.getByRole('button', { name: /LOCK IN ATLAS/ }).click();
   await page.getByRole('button', { name: /^EASY/ }).click();

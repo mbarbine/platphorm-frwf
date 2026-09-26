@@ -9,7 +9,7 @@ test.describe(`phone entry in ${browserName}`, () => {
       const errors: string[] = [];
       page.on('pageerror', error => errors.push(error.message));
       await page.goto('/');
-      await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).tap();
+      await page.getByRole('button', { name: 'ENTER RINGFALL' }).tap();
       await page.getByRole('button', { name: 'PLAY', exact: true }).tap();
       await page.getByRole('button', { name: /^CHAD “THE CLAW” KINSEY/ }).tap();
       const selectedCard = await page.getByRole('button', { name: /^CHAD “THE CLAW” KINSEY/ }).boundingBox();

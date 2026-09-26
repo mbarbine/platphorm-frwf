@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 test('punch, kick, guard, block, and miss remain visually distinct and contact-true', async ({ page }) => {
   test.setTimeout(360_000);
   await page.goto('/?physicsLab=1');
-  await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
+  await page.getByRole('button', { name: 'ENTER RINGFALL' }).click();
   await page.getByRole('button', { name: 'PLAY', exact: true }).click();
   await page.getByRole('button', { name: /LOCK IN ATLAS/ }).click();
   await page.getByRole('button', { name: /^STANDARD/ }).click();
@@ -78,7 +78,7 @@ test('punch, kick, guard, block, and miss remain visually distinct and contact-t
 test('down plus strike performs a visible contact-true headbutt', async ({ page }) => {
   test.setTimeout(180_000);
   await page.goto('/?physicsLab=1');
-  await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
+  await page.getByRole('button', { name: 'ENTER RINGFALL' }).click();
   await page.getByRole('button', { name: 'PLAY', exact: true }).click();
   await page.getByRole('button', { name: /LOCK IN ATLAS/ }).click();
   await page.getByRole('button', { name: /^STANDARD/ }).click();

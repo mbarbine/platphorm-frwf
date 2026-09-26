@@ -21,7 +21,7 @@ test('captures the shipping combat presentation at decisive motion beats', async
   test.setTimeout(300_000);
   await page.setViewportSize({ width: 1600, height: 900 });
   await page.goto('/?physicsLab=1');
-  await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
+  await page.getByRole('button', { name: 'ENTER RINGFALL' }).click();
   await page.getByRole('button', { name: 'PLAY', exact: true }).click();
   await page.getByRole('button', { name: /LOCK IN ATLAS/ }).click();
   await page.getByRole('button', { name: /^STANDARD/ }).click();
@@ -55,7 +55,7 @@ test('captures the shipping combat presentation at decisive motion beats', async
   // lifecycle a player gets—rather than treating an in-place lab reset as a
   // new Rapier world.
   await page.goto('/?physicsLab=1');
-  await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
+  await page.getByRole('button', { name: 'ENTER RINGFALL' }).click();
   await page.getByRole('button', { name: 'PLAY', exact: true }).click();
   await page.getByRole('button', { name: /LOCK IN ATLAS/ }).click();
   await page.getByRole('button', { name: /^STANDARD/ }).click();

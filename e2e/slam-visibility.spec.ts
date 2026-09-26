@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 test('a body slam visibly lifts, lands torso-first, and settles without a broken body tree', async ({ page }) => {
   test.setTimeout(300_000);
   await page.goto('/?physicsLab=1');
-  await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
+  await page.getByRole('button', { name: 'ENTER RINGFALL' }).click();
   await page.getByRole('button', { name: 'PLAY', exact: true }).click();
   await page.getByRole('button', { name: /LOCK IN ATLAS/ }).click();
   await page.getByRole('button', { name: /^STANDARD/ }).click();

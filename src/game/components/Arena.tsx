@@ -15,7 +15,7 @@ import { EntranceFog } from './EntranceFog';
 import { VenueAsset, venueAssets } from './VenueAsset';
 import { WrestlingMat } from './WrestlingMat';
 import { useSettings } from '../state/settings';
-import { VOLT_DOME } from '../data/arena';
+import { FRWF_ARENA } from '../data/arena';
 
 function ArenaRibbon() {
   const cyan = useRef<MeshStandardMaterial>(null); const pink = useRef<MeshStandardMaterial>(null); const elapsed = useRef(0);
@@ -25,12 +25,12 @@ function ArenaRibbon() {
     if (cyan.current) cyan.current.emissiveIntensity = energy;
     if (pink.current) pink.current.emissiveIntensity = energy;
   });
-  const horizontal = VOLT_DOME.barricade.halfWidth * 2; const vertical = VOLT_DOME.barricade.halfDepth * 2;
+  const horizontal = FRWF_ARENA.barricade.halfWidth * 2; const vertical = FRWF_ARENA.barricade.halfDepth * 2;
   return <group position={[0, 1.55, 0]}>
-    <mesh position={[0, 0, -VOLT_DOME.barricade.halfDepth + .18]}><boxGeometry args={[horizontal, .12, .06]} /><meshStandardMaterial ref={cyan} color="#6cf7ff" emissive="#23dff7" emissiveIntensity={1} metalness={.55} roughness={.22} /></mesh>
-    <mesh position={[0, 0, VOLT_DOME.barricade.halfDepth - .18]}><boxGeometry args={[horizontal, .12, .06]} /><meshStandardMaterial ref={pink} color="#ff56a7" emissive="#ff278d" emissiveIntensity={1} metalness={.55} roughness={.22} /></mesh>
-    <mesh position={[-VOLT_DOME.barricade.halfWidth + .18, 0, 0]}><boxGeometry args={[.06, .12, vertical]} /><meshStandardMaterial color="#d7ff45" emissive="#a7e92f" emissiveIntensity={1.35} /></mesh>
-    <mesh position={[VOLT_DOME.barricade.halfWidth - .18, 0, 0]}><boxGeometry args={[.06, .12, vertical]} /><meshStandardMaterial color="#ff713a" emissive="#ff4e2d" emissiveIntensity={1.35} /></mesh>
+    <mesh position={[0, 0, -FRWF_ARENA.barricade.halfDepth + .18]}><boxGeometry args={[horizontal, .12, .06]} /><meshStandardMaterial ref={cyan} color="#6cf7ff" emissive="#23dff7" emissiveIntensity={1} metalness={.55} roughness={.22} /></mesh>
+    <mesh position={[0, 0, FRWF_ARENA.barricade.halfDepth - .18]}><boxGeometry args={[horizontal, .12, .06]} /><meshStandardMaterial ref={pink} color="#ff56a7" emissive="#ff278d" emissiveIntensity={1} metalness={.55} roughness={.22} /></mesh>
+    <mesh position={[-FRWF_ARENA.barricade.halfWidth + .18, 0, 0]}><boxGeometry args={[.06, .12, vertical]} /><meshStandardMaterial color="#d7ff45" emissive="#a7e92f" emissiveIntensity={1.35} /></mesh>
+    <mesh position={[FRWF_ARENA.barricade.halfWidth - .18, 0, 0]}><boxGeometry args={[.06, .12, vertical]} /><meshStandardMaterial color="#ff713a" emissive="#ff4e2d" emissiveIntensity={1.35} /></mesh>
   </group>;
 }
 
@@ -278,7 +278,7 @@ function BrokenTable({ x, z }: { x: number; z: number }) {
 }
 
 function SteelSteps() {
-  const { x, z } = VOLT_DOME.steelSteps;
+  const { x, z } = FRWF_ARENA.steelSteps;
   const steps = [
     { x: 0, y: .12, z: .22, width: 1.35, height: .12, depth: .72 },
     { x: -.16, y: .34, z: .04, width: 1.18, height: .12, depth: .56 },
@@ -294,7 +294,7 @@ function SteelSteps() {
 }
 
 function EntranceLane() {
-  const { x, z, width, depth } = VOLT_DOME.entrance;
+  const { x, z, width, depth } = FRWF_ARENA.entrance;
   const mats = useRef<(MeshStandardMaterial | null)[]>([]);
   const elapsed = useRef(0);
 
@@ -359,14 +359,14 @@ function Barricades() {
     </group>;
   });
   return <>
-    <RigidBody type="fixed" colliders={false} position={[0, .65, -VOLT_DOME.barricade.halfDepth]} collisionGroups={arenaCollisionGroups} solverGroups={arenaCollisionGroups} userData={{ surface: true, kind: 'barricade' }}><CuboidCollider args={[VOLT_DOME.barricade.halfWidth, .65, .12]} />{rails(VOLT_DOME.barricade.halfWidth * 2, 16, 'x')}</RigidBody>
-    <RigidBody type="fixed" colliders={false} position={[0, .65, VOLT_DOME.barricade.halfDepth]} collisionGroups={arenaCollisionGroups} solverGroups={arenaCollisionGroups} userData={{ surface: true, kind: 'barricade' }}><CuboidCollider args={[VOLT_DOME.barricade.halfWidth, .65, .12]} />{rails(VOLT_DOME.barricade.halfWidth * 2, 16, 'x')}</RigidBody>
-    <RigidBody type="fixed" colliders={false} position={[-VOLT_DOME.barricade.halfWidth, .65, 0]} collisionGroups={arenaCollisionGroups} solverGroups={arenaCollisionGroups} userData={{ surface: true, kind: 'barricade' }}><CuboidCollider args={[.12, .65, VOLT_DOME.barricade.halfDepth - .15]} />{rails(VOLT_DOME.barricade.halfDepth * 2, 14, 'z')}</RigidBody>
-    <RigidBody type="fixed" colliders={false} position={[VOLT_DOME.barricade.halfWidth, .65, 0]} collisionGroups={arenaCollisionGroups} solverGroups={arenaCollisionGroups} userData={{ surface: true, kind: 'barricade' }}><CuboidCollider args={[.12, .65, VOLT_DOME.barricade.halfDepth - .15]} />{rails(VOLT_DOME.barricade.halfDepth * 2, 14, 'z')}</RigidBody>
-    <FlexBarricadePanel axis="x" position={[0, .65, -VOLT_DOME.barricade.halfDepth + .28]} length={5.2} accent="#4beaff" />
-    <FlexBarricadePanel axis="x" position={[0, .65, VOLT_DOME.barricade.halfDepth - .28]} length={5.2} accent="#ff3f91" />
-    <FlexBarricadePanel axis="z" position={[-VOLT_DOME.barricade.halfWidth + .28, .65, 0]} length={4.8} accent="#dfff45" />
-    <FlexBarricadePanel axis="z" position={[VOLT_DOME.barricade.halfWidth - .28, .65, 0]} length={4.8} accent="#ff7438" />
+    <RigidBody type="fixed" colliders={false} position={[0, .65, -FRWF_ARENA.barricade.halfDepth]} collisionGroups={arenaCollisionGroups} solverGroups={arenaCollisionGroups} userData={{ surface: true, kind: 'barricade' }}><CuboidCollider args={[FRWF_ARENA.barricade.halfWidth, .65, .12]} />{rails(FRWF_ARENA.barricade.halfWidth * 2, 16, 'x')}</RigidBody>
+    <RigidBody type="fixed" colliders={false} position={[0, .65, FRWF_ARENA.barricade.halfDepth]} collisionGroups={arenaCollisionGroups} solverGroups={arenaCollisionGroups} userData={{ surface: true, kind: 'barricade' }}><CuboidCollider args={[FRWF_ARENA.barricade.halfWidth, .65, .12]} />{rails(FRWF_ARENA.barricade.halfWidth * 2, 16, 'x')}</RigidBody>
+    <RigidBody type="fixed" colliders={false} position={[-FRWF_ARENA.barricade.halfWidth, .65, 0]} collisionGroups={arenaCollisionGroups} solverGroups={arenaCollisionGroups} userData={{ surface: true, kind: 'barricade' }}><CuboidCollider args={[.12, .65, FRWF_ARENA.barricade.halfDepth - .15]} />{rails(FRWF_ARENA.barricade.halfDepth * 2, 14, 'z')}</RigidBody>
+    <RigidBody type="fixed" colliders={false} position={[FRWF_ARENA.barricade.halfWidth, .65, 0]} collisionGroups={arenaCollisionGroups} solverGroups={arenaCollisionGroups} userData={{ surface: true, kind: 'barricade' }}><CuboidCollider args={[.12, .65, FRWF_ARENA.barricade.halfDepth - .15]} />{rails(FRWF_ARENA.barricade.halfDepth * 2, 14, 'z')}</RigidBody>
+    <FlexBarricadePanel axis="x" position={[0, .65, -FRWF_ARENA.barricade.halfDepth + .28]} length={5.2} accent="#4beaff" />
+    <FlexBarricadePanel axis="x" position={[0, .65, FRWF_ARENA.barricade.halfDepth - .28]} length={5.2} accent="#ff3f91" />
+    <FlexBarricadePanel axis="z" position={[-FRWF_ARENA.barricade.halfWidth + .28, .65, 0]} length={4.8} accent="#dfff45" />
+    <FlexBarricadePanel axis="z" position={[FRWF_ARENA.barricade.halfWidth - .28, .65, 0]} length={4.8} accent="#ff7438" />
   </>;
 }
 
@@ -711,11 +711,11 @@ function TurkeyBarnArchitecture() {
     <mesh position={[13.1, 5.2, 0]} receiveShadow><boxGeometry args={[.48, 10.4, 27]} /><meshStandardMaterial color="#693b2b" roughness={.96} /></mesh>
     <mesh position={[-6.85, 11.05, 0]} rotation={[0, 0, .2]}><boxGeometry args={[14.7, .32, 27]} /><meshStandardMaterial color="#737772" metalness={.42} roughness={.78} side={DoubleSide} /></mesh>
     <mesh position={[6.85, 11.05, 0]} rotation={[0, 0, -.2]}><boxGeometry args={[14.7, .32, 27]} /><meshStandardMaterial color="#686d69" metalness={.42} roughness={.78} side={DoubleSide} /></mesh>
-    {[-11, -8, -5, -2, 2, 5, 8, 11].map(x => <group key={x} position={[x, 0, 0]}>
-      <mesh position={[0, 5.5, 0]} rotation={[0, 0, .36]}><boxGeometry args={[.22, 11.2, .24]} /><meshStandardMaterial color="#4a3023" roughness={.9} /></mesh>
-      <mesh position={[0, 9.4, 0]} rotation={[0, 0, -.35]}><boxGeometry args={[.16, 4.7, .2]} /><meshStandardMaterial color="#81553a" roughness={.9} /></mesh>
-    </group>)}
-    {[-10, -6, -2, 2, 6, 10].map(x => <mesh key={x} position={[x, 7.75, 0]}><boxGeometry args={[.16, .18, 25]} /><meshStandardMaterial color="#c2a477" roughness={.82} /></mesh>)}
+    {[-11, -7, -3, 3, 7, 11].flatMap(z => [-12.65, 12.65].map(x => <group key={`${x}-${z}`} position={[x, 0, z]}>
+      <mesh position={[0, 4.9, 0]} castShadow><boxGeometry args={[.34, 9.8, .42]} /><meshStandardMaterial color="#4a3023" roughness={.9} /></mesh>
+      <mesh position={[-Math.sign(x) * .42, 8.4, 0]} rotation={[0, 0, -Math.sign(x) * .58]}><boxGeometry args={[.2, 3.4, .26]} /><meshStandardMaterial color="#81553a" roughness={.9} /></mesh>
+    </group>))}
+    {[-10, -6, -2, 2, 6, 10].map(z => <mesh key={z} position={[0, 9.55, z]}><boxGeometry args={[25, .18, .24]} /><meshStandardMaterial color="#c2a477" roughness={.82} /></mesh>)}
     <group position={[0, 3.4, -12.82]}>
       <mesh><boxGeometry args={[8.4, 6.8, .16]} /><meshStandardMaterial color="#3e211a" roughness={.95} /></mesh>
       <mesh position={[0, -.25, -.1]}><boxGeometry args={[7.6, 5.9, .12]} /><meshStandardMaterial color="#9b3f2b" roughness={.9} /></mesh>
@@ -773,7 +773,7 @@ export function Arena({ crowdCount = 156, performanceMode = false, venue = 'dome
     </group>
     <Ropes /><Post x={-5.75} z={-4.25} /><Post x={5.75} z={-4.25} /><Post x={-5.75} z={4.25} /><Post x={5.75} z={4.25} />
     <SteelSteps />
-    <RigidBody ref={floorSurface} type="fixed" colliders="hull" position={[0, .2, 0]} collisionGroups={arenaCollisionGroups} solverGroups={arenaCollisionGroups} userData={{ surface: true, kind: 'floor' }}><mesh receiveShadow><cylinderGeometry args={[VOLT_DOME.floor.radius, VOLT_DOME.floor.radius, .4, 64]} /><meshStandardMaterial color={turkeyBarn ? '#665333' : '#100d1c'} roughness={.92} /></mesh></RigidBody>
+    <RigidBody ref={floorSurface} type="fixed" colliders="hull" position={[0, .2, 0]} collisionGroups={arenaCollisionGroups} solverGroups={arenaCollisionGroups} userData={{ surface: true, kind: 'floor' }}><mesh receiveShadow><cylinderGeometry args={[FRWF_ARENA.floor.radius, FRWF_ARENA.floor.radius, .4, 64]} /><meshStandardMaterial color={turkeyBarn ? '#665333' : '#100d1c'} roughness={.92} /></mesh></RigidBody>
     <EntranceLane />{!toyTest && <EntranceFog />}<Barricades />{!performanceMode && spectacle && <ArenaRibbon />}{!toyTest && crowdCount > 0 && <Crowd count={crowdCount} />}<Props />
     {turkeyBarn ? <TurkeyBarnArchitecture /> : !performanceMode && <><VoltDomeArchitecture />{spectacle && <StunningAssets />}<Jumbotron />{spectacle && <><DynamicSpotlights /><ApronLEDBanners /><RingLasers /></>}
       <group position={[0, 8.7, 0]}>{[-7.2, 7.2].flatMap((x) => [-5.8, 5.8].map((z) => <group key={`${x}-${z}`} position={[x, 0, z]}><mesh><cylinderGeometry args={[.13, .2, .44, 8]} /><meshStandardMaterial color="#adb8c7" metalness={.8} roughness={.2} /></mesh><pointLight position={[0, -.3, 0]} intensity={1.25} distance={10} color={x * z > 0 ? '#ff3f8f' : '#48e7ff'} /></group>))}</group>
