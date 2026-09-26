@@ -1484,7 +1484,7 @@ Stream optional:
 ===============================================================================
 27. ARENA AND VISUAL QUALITY
 
-Upgrade The Volt Dome using:
+Upgrade FRWF Arena using:
 
 * improved ring materials
 * apron

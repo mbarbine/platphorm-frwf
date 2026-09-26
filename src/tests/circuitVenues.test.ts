@@ -11,6 +11,15 @@ import { WORLD_ENCOUNTERS, canStandAt, encounterForFighter } from '../game/world
 const result = (patch: Partial<MatchResult> = {}): MatchResult => ({ winner: 'player', method: 'PINFALL', duration: 60, hype: 70, grade: 'A', playerStats: { damageDealt: 90, counters: 1, grapples: 2, finishers: 0, nearFalls: 1, propImpacts: 0 }, highlights: { bestSpot: null, bestSlam: null, mostBrutalImpact: null, mostUnexpectedReversal: null }, ...patch });
 afterEach(() => vi.unstubAllGlobals());
 describe('location-specific physical wrestling rules', () => {
+  it('offers Turkey Dome as its own playable ring venue while preserving the classic FRWF arena', () => {
+    const turkey = createMatch('atlas', 'nova', 'chaos', 'normal');
+    configureCombatVenue(turkey, 'turkey_dome');
+    const arena = createMatch('atlas', 'nova', 'standard', 'normal');
+    configureCombatVenue(arena, 'dome');
+    expect(venueFor(turkey)).toMatchObject({ name: 'Turkey Dome', hasRing: true });
+    expect(venueFor(arena)).toMatchObject({ name: 'FRWF Arena', hasRing: true });
+    expect(turkey.venue).not.toBe(arena.venue);
+  });
   it.each(['yard', 'backstage'] as const)('rematches in %s with fresh usable props and the same bounds', venue => {
     const model = createMatch('atlas', 'nova', 'chaos', 'normal'); configureCombatVenue(model, venue);
     const table = model.props[0]; if (!table) throw new Error('Table missing'); table.broken = true;

@@ -1,4 +1,4 @@
-import { HttpError, bundledMap, digest, gameInfo, mapPublication, readJson, roomOptions } from './contracts';
+import { HttpError, bundledMap, bundledMaps, turkeyDomeMap, digest, gameInfo, mapPublication, readJson, roomOptions } from './contracts';
 import type { Env } from './env';
 export { MatchRoom } from './room';
 
@@ -75,7 +75,7 @@ async function rpc(input: unknown, env: Env): Promise<unknown | null> {
     case 'tools/call': {
       const call = params as { name?: string; arguments?: unknown } | undefined;
       if (!call || !tools.some(tool => tool.name === call.name) || (call.arguments !== undefined && (!call.arguments || typeof call.arguments !== 'object' || Array.isArray(call.arguments) || Object.keys(call.arguments).length))) return hasId ? error(-32602, 'Invalid tool or arguments') : null;
-      const value = call.name === 'get_game_info' ? gameInfo : call.name === 'list_maps' ? [bundledMap] : await health(env);
+      const value = call.name === 'get_game_info' ? gameInfo : call.name === 'list_maps' ? bundledMaps : await health(env);
       result = { content: [{ type: 'text', text: JSON.stringify(value) }] }; break;
     }
     default: return hasId ? error(-32601, 'Method not found') : null;
@@ -126,8 +126,9 @@ async function route(request: Request, env: Env): Promise<Response> {
   if (request.method !== 'GET') return fail('method_not_allowed', 405);
   if (path === '/api/health' || path === '/api/v1/health' || path === '/api/status') return ok(await health(env));
   if (path === '/api/game' || path === '/.well-known/platphorm.json') return ok(gameInfo);
-  if (path === '/api/maps') return ok({ maps: [bundledMap] });
+  if (path === '/api/maps') return ok({ maps: bundledMaps });
   if (path === '/api/maps/volt-dome') return ok(bundledMap);
+  if (path === '/api/maps/turkey-dome') return ok(turkeyDomeMap);
   if (path === '/api/modes') return ok({ local: gameInfo.local.modes, online: gameInfo.online.modes });
   if (path === '/api/release') return ok({ release: env.RELEASE, gitSha: env.SOURCE_SHA ?? 'unknown', environment: env.ENVIRONMENT });
   if (path === '/api/leaderboards') {
@@ -166,6 +167,8 @@ export default {
     const headers = new Headers(response.headers);
     headers.set('X-Content-Type-Options', 'nosniff'); headers.set('Referrer-Policy', 'no-referrer');
     headers.set('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'");
+    headers.set('X-Frame-Options', 'DENY');
+    headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
     if (!headers.has('Cache-Control')) headers.set('Cache-Control', 'no-store');
     const incoming = request.headers.get('traceparent') ?? '';
     const match = /^00-([a-f0-9]{32})-([a-f0-9]{16})-([a-f0-9]{2})$/.exec(incoming);

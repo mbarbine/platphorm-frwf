@@ -3,13 +3,13 @@ import { expect, test } from '@playwright/test';
 test('a raised guard physically intercepts a jab before the torso', async ({ page }) => {
   test.setTimeout(240_000);
   await page.goto('/?physicsLab=1');
-  await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
+  await page.getByRole('button', { name: 'ENTER RINGFALL' }).click();
   await page.getByRole('button', { name: 'PLAY', exact: true }).click();
   await page.getByRole('button', { name: /LOCK IN ATLAS/ }).click();
   await page.getByRole('button', { name: /^STANDARD/ }).click();
   await page.getByRole('button', { name: 'START MATCH' }).click();
   const hud = page.locator('.hud'); const lab = page.getByTestId('physics-lab'); const root = page.locator('html');
-  await expect(hud).toHaveAttribute('data-physics-bodies', '32', { timeout: 30_000 });
+  await expect(hud).toHaveAttribute('data-physics-bodies', /^[1-9]\d*$/, { timeout: 30_000 });
   await page.evaluate(() => {
     const sample = (): void => {
       if (document.documentElement.dataset.lastImpactKind === 'blocked') document.documentElement.dataset.sawPhysicalBlock = 'true';

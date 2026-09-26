@@ -5,6 +5,7 @@ export type FighterSlot = 'player' | 'opponent' | 'rival1' | 'rival2' | 'rival3'
 export type AiFighterSlot = Exclude<FighterSlot, 'player'>;
 export const FIGHTER_SLOTS: readonly FighterSlot[] = ['player', 'opponent', 'rival1', 'rival2', 'rival3'];
 export const AI_FIGHTER_SLOTS: readonly AiFighterSlot[] = ['opponent', 'rival1', 'rival2', 'rival3'];
+export const SINGLES_FIGHTER_SLOTS: readonly FighterSlot[] = ['player', 'opponent'];
 export type FighterState =
   | 'idle' | 'locomotion' | 'jumping' | 'attacking' | 'grappling' | 'grabbed' | 'airborne'
   | 'blocking' | 'climbing' | 'staggered' | 'downed' | 'recovering' | 'pinning' | 'pinned' | 'victorious' | 'defeated';

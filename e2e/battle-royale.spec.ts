@@ -3,7 +3,7 @@ import type { Page } from '@playwright/test';
 
 const enterBattleRoyale = async (page: Page): Promise<void> => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
+  await page.getByRole('button', { name: 'ENTER RINGFALL' }).click();
   await page.getByRole('button', { name: 'PLAY', exact: true }).click();
   await page.getByRole('button', { name: /LOCK IN ATLAS/ }).click();
   const battleMode = page.getByTestId('battle-royale-mode');
@@ -45,7 +45,7 @@ test('Standard Singles keeps the directed broadcast and action camera', async ({
   page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()); });
 
   await page.goto('/');
-  await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
+  await page.getByRole('button', { name: 'ENTER RINGFALL' }).click();
   await page.getByRole('button', { name: 'PLAY', exact: true }).click();
   await page.getByRole('button', { name: /LOCK IN ATLAS/ }).click();
   await page.getByRole('button', { name: /^SINGLES/ }).click();
@@ -54,7 +54,7 @@ test('Standard Singles keeps the directed broadcast and action camera', async ({
 
   const canvas = page.getByTestId('game-canvas');
   await expect(canvas).toHaveAttribute('data-match-mode', 'singles');
-  await expect.poll(async () => Number(await canvas.getAttribute('data-physics-bodies')), { timeout: 40_000 }).toBe(32);
+  await expect.poll(async () => Number(await canvas.getAttribute('data-physics-bodies')), { timeout: 40_000 }).toBe(80);
   await expect(page.locator('html')).toHaveAttribute('data-camera-shot', /broadcast|wide|ringside-x|ringside-z|table|strike|grapple|slam|corner|aerial|replay/, { timeout: 20_000 });
   await expect(page.locator('html')).not.toHaveAttribute('data-camera-shot', 'battle-royale-steady');
   expect(errors).toEqual([]);

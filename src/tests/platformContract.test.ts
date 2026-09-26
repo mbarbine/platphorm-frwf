@@ -28,7 +28,7 @@ describe('PlatPhorm static game contract', () => {
     expect(index.data.capabilities).toEqual(expect.arrayContaining(['singles_match', 'five_wrestler_battle_royale', 'battle_royale_target_cycle', 'battle_royale_spectator_controls', 'physical_grapple_and_slam', 'rope_rebound_and_ring_traversal', 'turnbuckle_aerials', 'webxr_arena_mode', 'spatial_audio']));
     const health = JSON.parse(read('public/api/health')) as { data: Record<string, unknown> };
     expect(health.data).toMatchObject({ status: 'unknown', routeComplianceScore: null, traceEnabled: false, vercelMetadataCaptured: false });
-    expect(health.data.releaseIdentity).toMatchObject({ fighterCount: 5, moveCount: 39, criticalAssetCount: 1 });
+    expect(health.data.releaseIdentity).toMatchObject({ fighterCount: 19, moveCount: 59, criticalAssetCount: 1 });
     expect(health.data.observabilityComplianceScore).toBeNull();
   });
 
@@ -48,6 +48,7 @@ it('keeps public circuit discovery aligned with shipped encounters and venues', 
   const index = JSON.parse(read('public/llms-index.json'));
   expect(index.data.world.encounters).toBe(WORLD_ENCOUNTERS.length);
   expect([...index.data.world.venues].sort()).toEqual(Object.keys(VENUES).sort());
+  expect(index.data.world.venues).toContain('turkey_dome');
   expect(index.data.world.combat).toContain('separate scenes');
   expect(index.data.world.persistence).toContain('No cloud save or trusted leaderboard');
 });

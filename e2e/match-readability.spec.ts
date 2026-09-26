@@ -5,7 +5,7 @@ test.use({ video: 'on', trace: 'retain-on-failure' });
 test('shows the real match condition while backstepping and changing playing cameras', async ({ page }) => {
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto('/?physicsLab=1');
-  await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
+  await page.getByRole('button', { name: 'ENTER RINGFALL' }).click();
   await page.getByRole('button', { name: 'PLAY', exact: true }).click();
   await page.locator('[data-fighter-select-id="dale"]').click();
   await page.getByRole('button', { name: /LOCK IN DALE/ }).click();

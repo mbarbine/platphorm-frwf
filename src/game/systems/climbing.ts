@@ -1,4 +1,4 @@
-import { VOLT_DOME } from '../data/arena';
+import { FRWF_ARENA } from '../data/arena';
 import { venueFor } from '../data/venues';
 import type { FighterRuntime, MatchModel } from '../types/game';
 
@@ -11,7 +11,7 @@ export function cornerClimbAvailable(actor: FighterRuntime): boolean {
 export function objectClimbTarget(model: MatchModel, id: string) {
   const prop = model.propsById[id];
   if (!prop || prop.kind !== 'table' || prop.broken) return null;
-  const topY = venueFor(model).hasRing ? VOLT_DOME.commentaryTable.topY : venueFor(model).floorY + .965;
+  const topY = venueFor(model).hasRing ? FRWF_ARENA.commentaryTable.topY : venueFor(model).floorY + .965;
   return { x: prop.position.x, z: prop.position.z, topY };
 }
 

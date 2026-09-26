@@ -85,3 +85,8 @@ The default `CORS_ORIGIN` now restricts to the standard frontend port (`http://l
 **Vulnerability:** The Express application security middleware in `server/src/index.ts` was not returning a `Strict-Transport-Security` (HSTS) header. This left clients vulnerable to protocol downgrade attacks, cookie hijacking, and man-in-the-middle (MITM) attacks (CWE-523).
 **Learning:** Defense-in-depth security hardening requires forcing HTTPS transport layer security at the application middleware layer, supplementing CDN/reverse-proxy configurations.
 **Prevention:** Set `Strict-Transport-Security: max-age=31536000; includeSubDomains` in Express security middleware for all outgoing HTTP responses.
+
+## 2026-07-26 - [Missing Clickjacking and HSTS Security Headers on Cloudflare Worker Edge Backend]
+**Vulnerability:** The Cloudflare Worker edge API handler in `cloudflare/src/index.ts` was missing `X-Frame-Options` and `Strict-Transport-Security` headers on outgoing HTTP responses, leaving edge endpoints exposed to UI redressing / clickjacking attacks and protocol downgrade risks (CWE-1021 / CWE-523).
+**Learning:** Serverless edge runtimes must enforce defense-in-depth security headers uniformly alongside Express application servers and static asset host configurations.
+**Prevention:** Always include `X-Frame-Options: DENY` and `Strict-Transport-Security: max-age=31536000; includeSubDomains` when setting default security headers on edge worker responses.

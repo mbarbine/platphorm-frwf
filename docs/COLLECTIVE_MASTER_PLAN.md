@@ -18,7 +18,7 @@ FRWF is to become an **open-world style wrestling game**: inhabit a wrestler, ex
 
 The desired loop is **explore → discover a person or opportunity → choose a confrontation → wrestle with readable control → earn a meaningful result → continue exploring**. Match victory must not force the entire world to be rebuilt. Exploration should have breathing room; every nearby character should not instantly attack.
 
-Working content direction, to be implemented and playtested: connect the Volt Dome to backstage/training space and an outdoor FRWF showground inspired by the supplied footage. Extend later into parking-lot and neighborhood venues only after the initial connected area is enjoyable. These locations are proposed content, not currently available maps.
+Working content direction, to be implemented and playtested: connect the FRWF Arena to backstage/training space and an outdoor FRWF showground inspired by the supplied footage. Extend later into parking-lot and neighborhood venues only after the initial connected area is enjoyable. These locations are proposed content, not currently available maps.
 
 The user's real wrestler photographs guide Chad's physique, attire and identity. Supplied videos are references for timing, weight, crowd response and future paired-animation work. The converted background clips and crowd/music assets are useful atmosphere; they do not constitute mocap or solve the wrestling controller.
 
@@ -27,7 +27,7 @@ The user's real wrestler photographs guide Chad's physique, attire and identity.
 | Area | Current implementation and consequence | Next action |
 | --- | --- | --- |
 | Product shell | Vite/React menus lead to a match. Fresh setup is Singles. Online lobby is separate. | Add world entry and quick play as distinct flows once world state exists. |
-| World/arena | One Volt Dome geometry contract, hard playable bounds, ring traversal and ringside props. No connected world. | Separate world/session state from encounter state; introduce connected authored regions and actual traversable entrances. |
+| World/arena | One FRWF Arena geometry contract, hard playable bounds, ring traversal and ringside props. No connected world. | Separate world/session state from encounter state; introduce connected authored regions and actual traversable entrances. |
 | Movement/input | Camera-relative movement, automatic facing, Arcade approach assist, Technical directional moves, short command buffer. | Add exploration locomotion and explicit combat focus; preserve direction through camera changes. Fix recovery input before expanding controls. |
 | Physics | Sixteen-body active ragdoll per wrestler; large runtime owns motors, grips, locomotion and recovery. React previously reapplied spawn/body options. | Preserve ownership; isolate support/recovery and paired throws behind independently verifiable controllers. |
 | Combat | Thirty-nine authored moves, contact-driven local damage, throws, pinning, props and AI. Definition existence is not move certification. | Certify walk/stop/turn, jab, kick, clinch, body slam, get-up and pin first through ordinary controls. |
@@ -135,7 +135,7 @@ Read-only canonical probes with `RUN_LIVE_INTEGRATION_TESTS=true` returned HTTP 
 
 FRWF's first explorable world slice now connects the outdoor yard, backstage Corner School and ringside Main Event. `WorldSession` owns a separate, versioned device-local save (position, selected wrestler, visited areas and completed encounter records). Corrupt, incompatible and obstructed saves recover to a valid start; denied browser storage keeps the visit playable with an explicit unsaved status. These records are editable local progress, never a trusted leaderboard.
 
-Walk to one of three hosts with keyboard, left stick or the phone joystick, inspect the nearby offer and start a bout. Combat currently transitions to the existing Volt Dome arena; returning restores the exploration position. Abandoning a bout awards no completion or win. Real match results update the local encounter record once. This is a connected exploration slice with instanced bouts, not seamless outdoor wrestling or a finished open-world game.
+Walk to one of three hosts with keyboard, left stick or the phone joystick, inspect the nearby offer and start a bout. Combat currently transitions to the existing FRWF Arena arena; returning restores the exploration position. Abandoning a bout awards no completion or win. Real match results update the local encounter record once. This is a connected exploration slice with instanced bouts, not seamless outdoor wrestling or a finished open-world game.
 
 The yard adds textured grass, paths, picnic tables, a food truck, lockers, fencing, trees, ring ropes, signage and string lights. World geometry and the bounded wall-sliding movement solver share obstacle definitions. The distance-driven exploration gait uses the existing skinned wrestlers with lowered resting arms; arena combat retains the physical rig. This remains procedural animation and environment art, with substantial anatomy, animation and authored detail work ahead.
 
@@ -157,7 +157,7 @@ The next structural milestone is sharing the world scene and physical simulation
 
 This pass addresses action/visual disagreement directly: the defender's authored half of paired grapples now reaches the physical motor controller; release profiles distinguish slams, backward suplexes, lateral throws and power drops; eight-way movement follows solved travel relative to facing; and a brief secured-clinch decision beat precedes the player lift. Release prompts use the actual physical phase. Contact effects preserve the 3D collision point instead of inventing a height.
 
-The Volt Dome now has a continuous woven/scuffed branded canvas, padded corners, restrained rope lighting and articulated instanced crowd silhouettes. This is procedural physical animation and art; character fidelity, hand-placement tolerance, physical device acceptance and seamless world combat remain open. Validation and deployment evidence belong in `WRESTLING_POLISH_RELEASE.md`.
+FRWF Arena now has a continuous woven/scuffed branded canvas, padded corners, restrained rope lighting and articulated instanced crowd silhouettes. This is procedural physical animation and art; character fidelity, hand-placement tolerance, physical device acceptance and seamless world combat remain open. Validation and deployment evidence belong in `WRESTLING_POLISH_RELEASE.md`.
 
 ## Physical contact and Combat source integration — September 8, 2026
 

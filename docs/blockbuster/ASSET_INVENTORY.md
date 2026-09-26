@@ -36,7 +36,7 @@ There are no hidden model, texture, animation, font, or audio files. Every curre
 | --- | --- | --- | --- | --- | --- |
 | Fighter presentation | Procedural Three geometry/materials | Player-facing wrestlers; currently primitive fallback-quality | `FighterModel.tsx` / selection and match | critical / physical debug rig | wired, visually insufficient |
 | Physical fighter rig | Rapier bodies/colliders/joints plus optional debug meshes | Authoritative contact, balance, grips, landing | `PhysicalFighterRig.tsx` / match | critical / no substitute | wired and preserved |
-| Volt Dome | Procedural Three geometry/materials | Ring, ropes, posts, floor, crowd, table, props, background | `Arena.tsx` / match | critical / simplified quality tier | wired, presentation upgrade required |
+| FRWF Arena | Procedural Three geometry/materials | Ring, ropes, posts, floor, crowd, table, props, background | `Arena.tsx` / match | critical / simplified quality tier | wired, presentation upgrade required |
 | Impact effects | Pooled procedural meshes/materials | Contact feedback | `ImpactEffects.tsx` / combat | important / no particle | wired, move-specific certification pending |
 | Replay presentation | In-memory bounded transforms | Major-impact replay | `ReplayFighter.tsx` / conditional | optional / continue live camera | wired and bounded |
 | Procedural audio | Web Audio oscillators/noise/panners | UI, movement, strikes, ropes, props, crowd | `audioEngine.ts` / on demand | important / silent gameplay plus text cues | wired; transient nodes now explicitly disconnected |

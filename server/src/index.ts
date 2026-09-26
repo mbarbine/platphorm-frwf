@@ -18,12 +18,12 @@ import { WrestlingRoom } from './rooms/WrestlingRoom';
 // This server requires persistent WebSocket support.
 // ──────────────────────────────────────────────────────────────────────────────
 
-async function bootstrap(): Promise<void> {
+export function createApp(): express.Express {
   const app = express();
 
   // ── Defensive Security Hardening ──────────────────────────────────────────
 
-  app.disable('x-powered-by'); // Avoid disclosing server technology stack
+  app.disable('x-powered-by'); // Avoid disclosing server technology stack (prevents X-Powered-By header leakage)
   app.use(rateLimiter); // Protect Express endpoints from brute-force/DoS attacks (CWE-307)
 
   app.use((_req, res, next) => {
@@ -47,6 +47,27 @@ async function bootstrap(): Promise<void> {
   app.use(cors({ origin: SERVER_CONFIG.CORS_ORIGIN }));
   app.use(express.json({ limit: '64kb' }));
 
+  // ── Operational endpoints ──────────────────────────────────────────────────
+  app.get('/health', (_req, res) => res.json({ ok: true, version: SERVER_CONFIG.PROTOCOL_VERSION, uptime: process.uptime() }));
+  app.get('/ready', (_req, res) => res.json({ ok: true }));
+  app.get('/version', (_req, res) => res.json({ version: SERVER_CONFIG.PROTOCOL_VERSION, nodeEnv: SERVER_CONFIG.NODE_ENV }));
+
+  // ── Development monitor ────────────────────────────────────────────────────
+  if (SERVER_CONFIG.MONITOR_ENABLED) {
+    app.use('/colyseus', monitor());
+    console.log(`🔍 Colyseus monitor: http://localhost:${SERVER_CONFIG.PORT}/colyseus`);
+  }
+
+  // ── Secure Error Handling Middleware ───────────────────────────────────────
+  // Custom error handling middleware to catch any unhandled errors and return a standardized secure JSON response, preventing stack trace disclosure (CWE-209).
+  app.use(secureErrorHandler);
+
+  return app;
+}
+
+async function bootstrap(): Promise<void> {
+  const app = createApp();
+
   const httpServer = http.createServer(app);
 
   const gameServer = new Server({
@@ -64,21 +85,6 @@ async function bootstrap(): Promise<void> {
     .enableRealtimeListing();
 
   gameServer.define('practice', WrestlingRoom, { ruleset: 'standard', difficulty: 'normal', private: true });
-
-  // ── Operational endpoints ──────────────────────────────────────────────────
-  app.get('/health', (_req, res) => res.json({ ok: true, version: SERVER_CONFIG.PROTOCOL_VERSION, uptime: process.uptime() }));
-  app.get('/ready', (_req, res) => res.json({ ok: true }));
-  app.get('/version', (_req, res) => res.json({ version: SERVER_CONFIG.PROTOCOL_VERSION, nodeEnv: SERVER_CONFIG.NODE_ENV }));
-
-  // ── Development monitor ────────────────────────────────────────────────────
-  if (SERVER_CONFIG.MONITOR_ENABLED) {
-    app.use('/colyseus', monitor());
-    console.log(`🔍 Colyseus monitor: http://localhost:${SERVER_CONFIG.PORT}/colyseus`);
-  }
-
-  // ── Secure Error Handling Middleware ───────────────────────────────────────
-  // Custom error handling middleware to catch any unhandled errors and return a standardized secure JSON response, preventing stack trace disclosure (CWE-209).
-  app.use(secureErrorHandler);
 
   // ── Graceful shutdown ──────────────────────────────────────────────────────
   const shutdown = async (signal: string): Promise<void> => {
