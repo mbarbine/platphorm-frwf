@@ -51,3 +51,7 @@
 ## 2025-03-04 - Accessible Escape Key Navigation and Screen Reader Announcements for Guide Overlays
 **Learning:** Top-level guide panels (such as the 'How to Play' guide) can trap keyboard users if they do not listen to standard dismissal keys like 'Escape'. Furthermore, screen reader users entering guide panels benefit from an `aria-label` section landmark and a visually hidden `aria-live="polite"` status region announcing the active guide and dismissal instructions.
 **Action:** Always pair panel overlays with `Escape` keydown listeners, section landmark labels, and polite `aria-live` announcements.
+
+## 2025-03-05 - Accessible Instant Replay Overlays and Single-Key Dismissal
+**Learning:** Automatic instant replay overlays that trigger on major impacts interrupt active match play and can disorient screen reader and keyboard users if rendered without status ARIA attributes or a single-key dismissal shortcut. Providing a visually hidden `role="status"` `aria-live="polite"` region alongside keydown listeners for `Escape` and `Space` ensures screen reader users understand the playback context immediately while keyboard users can skip replays effortlessly without leaving combat controls.
+**Action:** Always pair auto-triggering replay overlays with polite `aria-live` announcements and standard single-key dismissal shortcuts (`Escape`/`Space`).

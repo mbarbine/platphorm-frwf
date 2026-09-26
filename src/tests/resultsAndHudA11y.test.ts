@@ -1,8 +1,9 @@
 import { describe, expect, it, afterEach } from 'vitest';
 import React from 'react';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import { HUD } from '../ui/HUD';
 import { ComboReadout } from '../ui/ComboReadout';
+import { ReplayOverlay } from '../app/App';
 import { useMatchStore } from '../game/state/matchStore';
 import { useSettings } from '../game/state/settings';
 
@@ -32,20 +33,20 @@ describe('HUD and Results Accessibility', () => {
     expect(targetBtn.querySelector('.target-switch__label--mobile')?.textContent).toBe('TARGET ›');
   });
 
-  it('renders instant replay skip button with descriptive ARIA label when replay is active', () => {
+  it('renders ReplayOverlay with polite status announcement, shortcut key ARIA label, and Escape key dismissal', () => {
     useMatchStore.setState({ replayActive: true });
-    render(React.createElement('div', { className: 'replay-overlay' },
-      React.createElement('span', null, 'FRWF INSTANT REPLAY'),
-      React.createElement('b', null, 'PHYSICAL IMPACT REVIEW'),
-      React.createElement('button', {
-        type: 'button',
-        'aria-label': 'Skip instant replay',
-        onClick: () => useMatchStore.getState().stopReplay(),
-      }, 'SKIP REPLAY')
-    ));
+    render(React.createElement(ReplayOverlay));
 
-    const skipBtn = screen.getByRole('button', { name: 'Skip instant replay' });
+    const skipBtn = screen.getByRole('button', { name: 'Skip instant replay (Escape key)' });
     expect(skipBtn).toBeTruthy();
+
+    const statusEl = screen.getByRole('status');
+    expect(statusEl).toBeTruthy();
+    expect(statusEl.getAttribute('aria-live')).toBe('polite');
+    expect(statusEl.textContent).toContain('Instant replay playing: physical impact review. Press Escape or activate button to skip.');
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(useMatchStore.getState().replayActive).toBe(false);
   });
 
   it('renders control keys wrapped in kbd elements on the How to Play guide', () => {
