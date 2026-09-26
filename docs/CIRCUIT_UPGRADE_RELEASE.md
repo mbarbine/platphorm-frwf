@@ -4,7 +4,7 @@ Site purpose: an open-world style wrestling game with explorable grounds, physic
 
 ## What changed
 
-- Backyard Fight Pit and Backstage Fight Club are playable physical venues, alongside Volt Dome. Each has its own environment, floor, boundaries, table and spectators. Backyard adds grass, trees, canopy and string lights; backstage adds lockers and practical lighting. Crowd animation uses three instanced meshes.
+- Backyard Fight Pit and Backstage Fight Club are playable physical venues, alongside FRWF Arena. Each has its own environment, floor, boundaries, table and spectators. Backyard adds grass, trees, canopy and string lights; backstage adds lockers and practical lighting. Crowd animation uses three instanced meshes.
 - Ring-only physics, floor-height changes, rope traversal, corner prompts, AI apron logic, camera height and player ground markers respect the selected venue. Outdoor matches retain pinfalls, physical grapples and contact-driven damage.
 - Wooden tables register as landing surfaces, react to accumulated stress and break into physical fragments. Chaos bouts add usable chairs and trash cans. Calling a table spot selects a slam rather than a corner move.
 - Six encounter hosts: backyard warm-up, backstage fight club, The Claw's open challenge, Tables & trouble, The reversal test and Showground championship. The original three remain accessible. Two distinct wins unlock the two harder yard encounters; three unlock the championship.

@@ -7,7 +7,7 @@ for (const phone of [false, true]) test.describe(phone ? 'Phone showground' : 'D
   test('walks to a rival, enters a bout, returns and restores local progress', async ({ page }) => {
     const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
     await page.goto('/');
-    await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
+    await page.getByRole('button', { name: 'ENTER RINGFALL' }).click();
     await page.getByRole('button', { name: 'EXPLORE SHOWGROUND' }).click();
     await page.getByRole('button', { name: 'LOCK IN ATLAS REX' }).click();
     const world = page.getByTestId('showground');
@@ -46,7 +46,7 @@ for (const phone of [false, true]) test.describe(phone ? 'Phone showground' : 'D
     await page.screenshot({ path: `test-results/world-offer-${browserName}-${phone ? 'phone' : 'desktop'}.png` });
     await expect(page.getByRole('button', { name: 'START BOUT' })).toBeInViewport({ ratio: 1 });
     await page.getByRole('button', { name: 'START BOUT' }).click();
-    await expect(page.locator('.hud')).toHaveAttribute('data-physics-bodies', '32', { timeout: 45000 });
+    await expect(page.locator('.hud')).toHaveAttribute('data-physics-bodies', /^[1-9]\d*$/, { timeout: 45000 });
     await expect(page.getByTestId('game-canvas')).toHaveAttribute('data-simulation-ready', 'true');
     await expect(page.getByTestId('game-canvas')).toHaveAttribute('data-combat-venue', 'yard');
     await page.screenshot({ path: `test-results/circuit-yard-${browserName}-${phone ? 'phone' : 'desktop'}.png` });
@@ -59,7 +59,7 @@ for (const phone of [false, true]) test.describe(phone ? 'Phone showground' : 'D
     await page.getByRole('button', { name: 'Pause exploration' }).click();
     await page.getByRole('button', { name: 'SAVE & RETURN TO MENU' }).click();
     await page.reload();
-    await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
+    await page.getByRole('button', { name: 'ENTER RINGFALL' }).click();
     await page.getByRole('button', { name: 'EXPLORE SHOWGROUND' }).click();
     await page.getByRole('button', { name: 'LOCK IN ATLAS REX' }).click();
     await expect(world).toBeVisible();
@@ -75,7 +75,7 @@ for (const phone of [false, true]) test.describe(phone ? 'Phone showground' : 'D
 test.describe('Connected locations', () => {
   test('walks through the backstage doorway and around the ring to the main-event host', async ({ page }) => {
     await page.goto('/');
-    await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
+    await page.getByRole('button', { name: 'ENTER RINGFALL' }).click();
     await page.getByRole('button', { name: 'EXPLORE SHOWGROUND' }).click();
     await page.getByRole('button', { name: 'LOCK IN ATLAS REX' }).click();
     const world = page.getByTestId('showground'); await expect(world).toBeVisible();

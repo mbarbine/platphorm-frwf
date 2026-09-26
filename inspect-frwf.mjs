@@ -4,7 +4,7 @@ const browser = await chromium.launch({ headless: true });
 const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
 await page.goto('http://127.0.0.1:4173', { waitUntil: 'domcontentloaded' });
 console.log('url', page.url());
-await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
+await page.getByRole('button', { name: 'ENTER RINGFALL' }).click();
 await page.getByRole('button', { name: 'PLAY', exact: true }).click();
 await page.getByRole('button', { name: /LOCK IN ATLAS/ }).click();
 await page.getByRole('button', { name: /^SINGLES/ }).click();

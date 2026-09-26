@@ -5,7 +5,7 @@ test.use({ video: 'on', trace: 'off', actionTimeout: 15000 });
 test('records a connected source punch and kick through ordinary attack keys', async ({ page }) => {
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto('/?physicsLab=1');
-  await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
+  await page.getByRole('button', { name: 'ENTER RINGFALL' }).click();
   await page.getByRole('button', { name: 'PLAY', exact: true }).click();
   await page.getByRole('button', { name: /LOCK IN ATLAS/ }).click();
   await page.getByRole('button', { name: /^SINGLES/ }).click();

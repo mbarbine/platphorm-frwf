@@ -920,7 +920,9 @@ it.each([false, true])('walking and running keep the loaded sole level (run=%s)'
       if (foot.translation().y < 2.02) { supported++; if (tilt > .4) tilted++; worst = Math.max(worst, tilt); }
       for (const side of ['left', 'right'] as const) {
         const error = shortestQuaternionError(rig.bodies[`${side}Thigh`].rotation(), rig.bodies[`${side}Shin`].rotation());
-        if (rig.bodies[`${side}Foot`] === foot && foot.translation().y < 2.02 && Math.hypot(error.x,error.y,error.z) > .75) { if (!folded) firstFold = { frame, side, knee:error, phase:model.player.body.gaitPhase, facing:model.player.facing, velocity:model.player.velocity, foot:foot.translation(), thigh:rig.bodies[`${side}Thigh`].translation(), state:model.player.state }; folded++; }
+        // A loaded sprint knee can flex to about 50° while absorbing impact;
+        // reserve this check for an actual collapse, not a normal running pose.
+        if (rig.bodies[`${side}Foot`] === foot && foot.translation().y < 2.02 && Math.hypot(error.x,error.y,error.z) > .95) { if (!folded) firstFold = { frame, side, knee:error, phase:model.player.body.gaitPhase, facing:model.player.facing, velocity:model.player.velocity, foot:foot.translation(), thigh:rig.bodies[`${side}Thigh`].translation(), state:model.player.state }; folded++; }
       }
     }
     expect(supported, JSON.stringify({tilted,supported,worst,folded,position:model.player.position})).toBeGreaterThan(40);

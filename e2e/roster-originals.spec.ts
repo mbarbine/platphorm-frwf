@@ -7,7 +7,7 @@ for (const viewport of [{width:1440,height:900},{width:390,height:844},{width:84
     await page.setViewportSize(viewport);
     const errors: string[] = []; page.on('pageerror',error => errors.push(error.message));
     await page.goto('/');
-    await page.getByRole('button',{name:'ENTER THE VOLT DOME'}).click();
+    await page.getByRole('button',{name:'ENTER RINGFALL'}).click();
     await page.getByRole('button',{name:'PLAY',exact:true}).click();
     await expect(page.locator('[data-fighter-select-id]')).toHaveCount(FIGHTERS.length);
     for (const fighter of FIGHTERS) {

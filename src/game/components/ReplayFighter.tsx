@@ -23,7 +23,7 @@ function RecordedPhysicalFighter({ frameRef, side, fighterId }: { frameRef: Reac
     const transforms = frameRef.current?.fighters[side]; if (!transforms) return;
     // OPTIMIZATION: Use indexed for loop over pre-memoized segment IDs to avoid iterator allocation and property lookup overhead in useFrame
     for (let i = 0; i < segmentIds.length; i++) {
-      const id = segmentIds[i];
+      const id = segmentIds[i]; if (!id) continue;
       const group = bodies.current[id]; const transform = transforms[id]; if (!group || !transform) continue;
       group.position.set(transform.position.x, transform.position.y, transform.position.z);
       group.quaternion.set(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);
@@ -41,7 +41,7 @@ function RecordedProps({ frameRef }: { frameRef: React.RefObject<PhysicsReplayFr
     const transforms = frameRef.current?.props; if (!transforms) return;
     // OPTIMIZATION: Use indexed for loop over pre-memoized prop IDs to avoid iterator allocations inside useFrame
     for (let i = 0; i < propIds.length; i++) {
-      const id = propIds[i];
+      const id = propIds[i]; if (!id) continue;
       const group = bodies.current[id]; const transform = transforms[id]; if (!group || !transform) continue;
       group.position.set(transform.position.x, transform.position.y, transform.position.z);
       group.quaternion.set(transform.rotation.x, transform.rotation.y, transform.rotation.z, transform.rotation.w);

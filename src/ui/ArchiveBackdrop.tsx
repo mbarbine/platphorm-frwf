@@ -30,5 +30,5 @@ export function ArchiveBackdrop({ active = true }: { active?: boolean }) {
 }
 
 export function ArenaLoading() {
-  return <div className="arena-loading"><ArchiveBackdrop /><div className="arena-loading__copy" role="status"><b>THE VOLT DOME IS POWERING UP</b><span>Getting the ring ready…</span></div></div>;
+  return <div className="arena-loading"><ArchiveBackdrop /><div className="arena-loading__copy" role="status"><b>THE FRWF ARENA IS POWERING UP</b><span>Getting the ring ready…</span></div></div>;
 }

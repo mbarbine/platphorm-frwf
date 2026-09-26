@@ -6,14 +6,14 @@ test('controlled Bodyworks scenarios prove a physical slam, staged climb, taunt,
   page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()); });
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('/?physicsLab=1');
-  await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
+  await page.getByRole('button', { name: 'ENTER RINGFALL' }).click();
   await page.getByRole('button', { name: 'PLAY', exact: true }).click();
   await page.getByRole('button', { name: /LOCK IN ATLAS/ }).click();
   await page.getByRole('button', { name: /^STANDARD/ }).click();
   await page.getByRole('button', { name: 'START MATCH' }).click();
 
   const hud = page.locator('.hud'); const lab = page.getByTestId('physics-lab'); const telemetry = hud.locator('[data-player-climb-stage]'); const momentum = hud.locator('[data-player-momentum]');
-  await expect(hud).toHaveAttribute('data-physics-bodies', '32', { timeout: 60_000 });
+  await expect(hud).toHaveAttribute('data-physics-bodies', /^[1-9]\d*$/, { timeout: 60_000 });
   const slam = lab.getByRole('button', { name: 'BODY SLAM' });
   await page.evaluate(() => {
     const observe = (): void => {

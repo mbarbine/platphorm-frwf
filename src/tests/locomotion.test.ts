@@ -27,6 +27,56 @@ describe('arcade locomotion feel', () => {
     expect(Math.hypot(run.velocity.x, run.velocity.z)).toBeGreaterThan(Math.hypot(walk.velocity.x, walk.velocity.z) * 1.35);
   });
 
+  it('caps diagonal travel at the cardinal speed and preserves analog speed control', () => {
+    const definition = fighterById('vex');
+    const cardinal = createMatch('vex', 'atlas', 'standard', 'normal').player;
+    const diagonal = createMatch('vex', 'atlas', 'standard', 'normal').player;
+    const analog = createMatch('vex', 'atlas', 'standard', 'normal').player;
+    for (let frame = 0; frame < 60; frame += 1) {
+      integrateLocomotion(cardinal, definition, { x: 1, z: 0 }, false, STEP);
+      integrateLocomotion(diagonal, definition, { x: Math.SQRT1_2, z: Math.SQRT1_2 }, false, STEP);
+      integrateLocomotion(analog, definition, { x: .45, z: 0 }, false, STEP);
+    }
+    const cardinalSpeed = Math.hypot(cardinal.velocity.x, cardinal.velocity.z);
+    const diagonalSpeed = Math.hypot(diagonal.velocity.x, diagonal.velocity.z);
+    const analogSpeed = Math.hypot(analog.velocity.x, analog.velocity.z);
+
+    expect(diagonalSpeed).toBeCloseTo(cardinalSpeed, 5);
+    expect(analogSpeed).toBeCloseTo(cardinalSpeed * .45, 5);
+  });
+
+  it('mirrors the step path when travel reverses behind a combat-facing target', () => {
+    const definition = fighterById('atlas');
+    const travel = (move: { x: number; z: number }) => {
+      const fighter = createMatch('atlas', 'vex', 'standard', 'normal').player;
+      for (let frame = 0; frame < 24; frame += 1) integrateLocomotion(fighter, definition, move, false, STEP, 0);
+      return fighter;
+    };
+    const forward = travel({ x: 0, z: 1 }); const backward = travel({ x: 0, z: -1 });
+    const strafeLeft = travel({ x: -1, z: 0 }); const strafeRight = travel({ x: 1, z: 0 });
+
+    expect(forward.facing).toBeCloseTo(0);
+    expect(backward.facing).toBeCloseTo(0);
+    expect(forward.body.leftFoot.offset.z).toBeCloseTo(-backward.body.leftFoot.offset.z, 5);
+    expect(forward.body.rightFoot.offset.z).toBeCloseTo(-backward.body.rightFoot.offset.z, 5);
+    expect((strafeLeft.body.leftFoot.offset.x + strafeRight.body.leftFoot.offset.x) / 2).toBeCloseTo(-.16 * definition.proportions.width, 5);
+    expect((strafeLeft.body.rightFoot.offset.x + strafeRight.body.rightFoot.offset.x) / 2).toBeCloseTo(.16 * definition.proportions.width, 5);
+  });
+
+  it('keeps the travel gait through braking and only returns to idle after settling', () => {
+    const model = createMatch('atlas', 'vex', 'standard', 'easy');
+    model.labMode = true;
+    for (let frame = 0; frame < 18; frame += 1) advanceMatch(model, STEP, { move: { x: 0, z: 1 }, run: false, block: false, commands: [] });
+    expect(model.player.state).toBe('locomotion');
+
+    advanceMatch(model, STEP, { move: { x: 0, z: 0 }, run: false, block: false, commands: [] });
+    expect(model.player.state).toBe('locomotion');
+
+    for (let frame = 0; frame < 30; frame += 1) advanceMatch(model, STEP, { move: { x: 0, z: 0 }, run: false, block: false, commands: [] });
+    expect(Math.hypot(model.player.velocity.x, model.player.velocity.z)).toBeLessThan(.08);
+    expect(model.player.state).toBe('idle');
+  });
+
   it('gives agile fighters faster acceleration and turning than heavy fighters', () => {
     const atlas = locomotionProfile(fighterById('atlas')); const vex = locomotionProfile(fighterById('vex'));
     expect(vex.acceleration).toBeGreaterThan(atlas.acceleration); expect(vex.turnRate).toBeGreaterThan(atlas.turnRate); expect(vex.walkSpeed).toBeGreaterThan(atlas.walkSpeed);

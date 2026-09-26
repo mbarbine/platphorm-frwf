@@ -7,7 +7,7 @@ test('records idle, directional movement, guard and punches through player contr
   // Disable opponent decisions for this isolated motion recording. The
   // wrestling-polish journey separately exercises the live AI exchange.
   await page.goto('/?physicsLab=1');
-  await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
+  await page.getByRole('button', { name: 'ENTER RINGFALL' }).click();
   await page.getByRole('button', { name: 'PLAY', exact: true }).click();
   await page.getByRole('button', { name: /LOCK IN ATLAS/ }).click();
   await page.getByRole('button', { name: /^EASY/ }).click();
@@ -17,8 +17,10 @@ test('records idle, directional movement, guard and punches through player contr
   if (await tutorial.isVisible()) {
     // The nonmodal coach dismisses itself. Never wait a whole match for a
     // button that disappeared between the visibility read and the click.
-    try { await tutorial.click({ timeout: 1500 }); }
-    catch (error) { if (await tutorial.isVisible()) throw error; }
+    // It fades while the WebGL scene initializes, so a normal actionability
+    // wait can outlive the control between the visibility check and click.
+    try { await tutorial.click({ force: true, timeout: 750 }); }
+    catch { /* the coach may have dismissed itself */ }
   }
   await page.getByRole('button', { name: 'MINIMIZE PHYSICS LAB' }).click();
   // These holds record the visible motion, rather than skipping to a pose.

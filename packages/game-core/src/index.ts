@@ -10,7 +10,10 @@
  * ✅ types/         — fully mirrored to game-protocol
  * ✅ utils/math     — pure, no dependencies
  * ✅ data/balance   — pure data
- * ✅ onlineSim      — deterministic server authority (onlineSimulation)
+ * ✅ combat/        — combat simulation API
+ * 🔄 ai/            — extraction in progress
+ * 🔄 physics/grapple — extraction in progress
+ * 🔄 physics/body   — extraction in progress
  *
  * ── USAGE ──────────────────────────────────────────────────────────────────
  * import { createOnlineMatch, stepOnlineMatch, applyOnlineAction } from '@frwf/game-core';
@@ -32,3 +35,7 @@ export { BALANCE } from './data/balance.js';
 // Deterministic server authority for online movement, attack windows, swept
 // collider contact, resources, grapples, and match resolution.
 export * from './onlineSimulation.js';
+
+// Simulation API — the primary integration surface for both client and server
+export { createMatch, createFighterRuntime, advanceMatch, requestCommand } from './combat/combat.js';
+export type { FrameInput, MatchModel, FighterRuntime } from './combat/types.js';
