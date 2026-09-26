@@ -348,9 +348,29 @@ export function App() {
       </div>
     </section>}
     {screen === 'world' && <Suspense fallback={<ArenaLoading />}><WorldScene onEncounter={enterWorldBout} onExit={() => confirm('main')} /></Suspense>}
-    {screen === 'match' && <section className="match-screen"><Suspense fallback={<ArenaLoading />}><GameScene onPause={togglePause} onDevice={setDevice} onFinished={finish} onlineRole={useMatchStore.getState().model.networkAuthority ? multiplayerMyRole : null} /></Suspense>{!toyTest && <><HUD device={device} paused={paused} />{settings.controlDeckMode !== 'hidden' && <Tutorial device={device} />}<MobileControls onPause={togglePause} paused={paused || replayActive} /><SpectatorControls /></>}{physicsLab && <Suspense fallback={null}><PhysicsLab /></Suspense>}{replayActive && <div className="replay-overlay"><span>FRWF INSTANT REPLAY</span><b>PHYSICAL IMPACT REVIEW</b><button type="button" aria-label="Skip instant replay" onClick={() => useMatchStore.getState().stopReplay()}>SKIP REPLAY</button></div>}{paused && matchSettings && <div className="pause-overlay pause-overlay--settings"><Suspense fallback={null}><SettingsPanel onBack={() => setMatchSettings(false)} /></Suspense></div>}{paused && !matchSettings && <div className="pause-overlay"><Logo compact /><span>MATCH PAUSED</span><button className="button button--hero" onClick={togglePause}>RESUME</button><button className="button button--quiet" onClick={() => { setMatchSettings(true); }}>SETTINGS</button><button className="button button--quiet" onClick={() => { useMatchStore.getState().pause(false); useMatchStore.getState().setNetworkAuthority(false); void useMultiplayerStore.getState().disconnect(); setPaused(false); if (worldEncounter) returnToWorld(); else setScreen('main'); }}>{worldEncounter ? 'RETURN TO SHOWGROUND' : 'QUIT TO MENU'}</button></div>}</section>}
+    {screen === 'match' && <section className="match-screen"><Suspense fallback={<ArenaLoading />}><GameScene onPause={togglePause} onDevice={setDevice} onFinished={finish} onlineRole={useMatchStore.getState().model.networkAuthority ? multiplayerMyRole : null} /></Suspense>{!toyTest && <><HUD device={device} paused={paused} />{settings.controlDeckMode !== 'hidden' && <Tutorial device={device} />}<MobileControls onPause={togglePause} paused={paused || replayActive} /><SpectatorControls /></>}{physicsLab && <Suspense fallback={null}><PhysicsLab /></Suspense>}{replayActive && <ReplayOverlay />}{paused && matchSettings && <div className="pause-overlay pause-overlay--settings"><Suspense fallback={null}><SettingsPanel onBack={() => setMatchSettings(false)} /></Suspense></div>}{paused && !matchSettings && <div className="pause-overlay"><Logo compact /><span>MATCH PAUSED</span><button className="button button--hero" onClick={togglePause}>RESUME</button><button className="button button--quiet" onClick={() => { setMatchSettings(true); }}>SETTINGS</button><button className="button button--quiet" onClick={() => { useMatchStore.getState().pause(false); useMatchStore.getState().setNetworkAuthority(false); void useMultiplayerStore.getState().disconnect(); setPaused(false); if (worldEncounter) returnToWorld(); else setScreen('main'); }}>{worldEncounter ? 'RETURN TO SHOWGROUND' : 'QUIT TO MENU'}</button></div>}</section>}
     {screen === 'results' && result && <Results result={result} winnerName={fighterById(useMatchStore.getState().model[result.winner].definitionId).name} onWorld={worldEncounter ? returnToWorld : undefined} onRematch={doRematch} onChange={() => { setWorldEncounter(null); setSelectionTarget('match'); confirm('select'); }} onMenu={() => { setWorldEncounter(null); confirm('main'); }} />}
   </main>;
+}
+
+export function ReplayOverlay() {
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' || event.key === ' ') {
+        event.preventDefault();
+        useMatchStore.getState().stopReplay();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  return <div className="replay-overlay">
+    <div className="sr-only" role="status" aria-live="polite">Instant replay playing: physical impact review. Press Escape or activate button to skip.</div>
+    <span>FRWF INSTANT REPLAY</span>
+    <b>PHYSICAL IMPACT REVIEW</b>
+    <button type="button" aria-label="Skip instant replay (Escape key)" onClick={() => useMatchStore.getState().stopReplay()}>SKIP REPLAY</button>
+  </div>;
 }
 
 export function BeerLocker({ fighterId, beers, onChange }: { fighterId: FighterId; beers: number; onChange: (value: number) => void }) {

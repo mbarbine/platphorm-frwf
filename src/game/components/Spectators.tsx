@@ -87,10 +87,13 @@ function CrowdPopulation({ count }: { count: number }) {
     // OPTIMIZATION: Use indexed for loops instead of forEach callbacks to eliminate ~160 per-update closure allocations inside useFrame
     const hypeRatio = model.hype / 100;
     for (let variant = 0; variant < groups.length; variant++) {
-      const { fans, angles, anatomy } = groups[variant];
+      const group = groups[variant];
+      if (!group) continue;
+      const { fans, angles, anatomy } = group;
       const mesh = instances.current.get(variant); if (!mesh) continue;
       for (let index = 0; index < fans.length; index++) {
         const fan = fans[index];
+        if (!fan) continue;
         const arms = fanArmAngles(age.current, fan.phase, fan.activity, fan.prop, hypeRatio, reducedMotion);
         angles.setXY(index, arms.left, arms.right);
         dummy.position.set(fan.x, fan.floor, fan.z);
@@ -103,7 +106,7 @@ function CrowdPopulation({ count }: { count: number }) {
             (anatomy.rightShoulder[1] ?? 1.5) - Math.cos(sign ? 2.75 : arms.right) * armLength + (sign ? .17 : .025), .045);
           propDummy.rotation.set(0, 0, 0); propDummy.scale.set(sign ? .85 : .026, sign ? .48 : .06, sign ? .026 : .026);
           propDummy.updateMatrix(); propDummy.matrix.premultiply(dummy.matrix);
-          const cursor = cursors[slot];
+          const cursor = cursors[slot] ?? 0;
           propMesh?.setMatrixAt(cursor, propDummy.matrix);
           cursors[slot] = cursor + 1;
         }
