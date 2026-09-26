@@ -6,12 +6,6 @@
  * APIs, or browser storage. Both the browser client and the authoritative
  * Colyseus server import from here.
  *
- * ── CURRENT STATE ──────────────────────────────────────────────────────────
- * The game rules currently live in src/game/systems/combat.ts in the frontend
- * workspace. They are being extracted here incrementally. The single blocker
- * is the `BodyWorksContact` import from physicsRuntime — that type has been
- * replaced by `PhysicalContact` in game-protocol, allowing full extraction.
- *
  * ── EXTRACTION STATUS ──────────────────────────────────────────────────────
  * ✅ types/         — fully mirrored to game-protocol
  * ✅ utils/math     — pure, no dependencies
@@ -22,8 +16,8 @@
  * 🔄 physics/body   — extraction in progress
  *
  * ── USAGE ──────────────────────────────────────────────────────────────────
- * import { createMatch, advanceMatch, requestCommand } from '@frwf/game-core';
- * import type { MatchModel, FighterRuntime } from '@frwf/game-core';
+ * import { createOnlineMatch, stepOnlineMatch, applyOnlineAction } from '@frwf/game-core';
+ * import type { OnlineMatchState, OnlineFighterState } from '@frwf/game-core';
  */
 
 // Re-export the protocol types that the rules layer operates on
