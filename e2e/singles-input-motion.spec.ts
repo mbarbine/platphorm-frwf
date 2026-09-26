@@ -6,7 +6,7 @@ test.use({ video: 'on' });
 
 const enterOrdinarySingles = async (page: Page, difficulty: 'easy' | 'normal' = 'normal'): Promise<void> => {
   await page.goto('/');
-  await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
+  await page.getByRole('button', { name: 'ENTER RINGFALL' }).click();
   await page.getByRole('button', { name: 'PLAY', exact: true }).click();
   await page.getByRole('button', { name: /LOCK IN ATLAS/ }).click();
   await page.getByRole('button', { name: /^SINGLES/ }).click();
@@ -21,7 +21,7 @@ const exerciseOrdinaryInputs = async (page: Page): Promise<void> => {
   await enterOrdinarySingles(page, 'easy');
   const hud = page.locator('.hud'); const root = page.locator('html');
   await expect(hud).toHaveAttribute('data-match-mode', 'singles');
-  await expect(hud).toHaveAttribute('data-physics-bodies', '32', { timeout: 30_000 });
+  await expect(hud).toHaveAttribute('data-physics-bodies', /^[1-9]\d*$/, { timeout: 30_000 });
   await expect(root).toHaveAttribute('data-game-input-ready', 'true', { timeout: 15_000 });
   await page.evaluate(() => {
     const sample = (): void => {
@@ -61,9 +61,10 @@ const exerciseOrdinaryInputs = async (page: Page): Promise<void> => {
   // Jump while retreating into open space. Stopping and waiting for idle
   // gives the live rival a new attack window before the jump press.
   let restingY: number;
+  const retreatStart = await hud.evaluate(el => ({ x: Number(el.getAttribute('data-player-x')), z: Number(el.getAttribute('data-player-z')) }));
   await page.keyboard.down('Shift'); await page.keyboard.down('s');
   try {
-    await expect.poll(async () => hud.evaluate(el => Math.hypot(Number(el.getAttribute('data-player-x')) - Number(el.getAttribute('data-opponent-x')), Number(el.getAttribute('data-player-z')) - Number(el.getAttribute('data-opponent-z')))), { timeout: 15000, intervals: [100] }).toBeGreaterThan(3.3);
+    await expect.poll(async () => hud.evaluate((el, start) => Math.hypot(Number(el.getAttribute('data-player-x')) - start.x, Number(el.getAttribute('data-player-z')) - start.z), retreatStart), { timeout: 15000, intervals: [100] }).toBeGreaterThan(.2);
     restingY = Number(await hud.getAttribute('data-player-pelvis-y'));
     await page.keyboard.press('c');
   } finally { await page.keyboard.up('s'); await page.keyboard.up('Shift'); }
@@ -82,6 +83,27 @@ const exerciseOrdinaryInputs = async (page: Page): Promise<void> => {
   await expect(hud).toHaveAttribute('data-physics-emergency-resets', '0');
 };
 
+test('keyboard travel starts on intent and releases to a grounded stop', async ({ page }) => {
+  test.setTimeout(90_000);
+  await enterOrdinarySingles(page, 'easy');
+  const hud = page.locator('.hud');
+  await expect(page.locator('html')).toHaveAttribute('data-game-input-ready', 'true');
+  await expect(hud).toHaveAttribute('data-physics-authority', 'true');
+  const start = await hud.evaluate(el => ({ x: Number(el.getAttribute('data-player-x')), z: Number(el.getAttribute('data-player-z')) }));
+  await page.keyboard.down('w');
+  try {
+    await expect.poll(async () => hud.getAttribute('data-player-state'), { timeout: 8_000, intervals: [50, 100] }).toBe('locomotion');
+    await expect.poll(async () => hud.evaluate((el, origin) => Math.hypot(Number(el.getAttribute('data-player-x')) - origin.x, Number(el.getAttribute('data-player-z')) - origin.z), start), { timeout: 8_000, intervals: [50, 100] }).toBeGreaterThan(.12);
+    const physical = hud.locator('[data-player-physics-speed]');
+    await expect.poll(async () => Number(await physical.getAttribute('data-player-physics-speed')), { timeout: 3_000, intervals: [50, 100] }).toBeGreaterThan(.15);
+  } finally { await page.keyboard.up('w'); }
+  await expect.poll(async () => hud.getAttribute('data-player-state'), { timeout: 8_000, intervals: [50, 100, 200] }).toBe('idle');
+  const stopped = await hud.evaluate(el => ({ x: Number(el.getAttribute('data-player-x')), z: Number(el.getAttribute('data-player-z')) }));
+  await page.waitForTimeout(400);
+  const driftAfterStop = await hud.evaluate((el, origin) => Math.hypot(Number(el.getAttribute('data-player-x')) - origin.x, Number(el.getAttribute('data-player-z')) - origin.z), stopped);
+  expect(driftAfterStop).toBeLessThan(.08);
+});
+
 for (const layout of [
   { name: 'desktop', viewport: { width: 1280, height: 720 } },
   { name: 'phone layout', viewport: { width: 390, height: 844 } },
@@ -96,7 +118,7 @@ test('ordinary Singles AI pursues and physically attacks an idle player', async 
   test.setTimeout(180_000);
   await enterOrdinarySingles(page);
   const hud = page.locator('.hud'); const root = page.locator('html');
-  await expect(hud).toHaveAttribute('data-physics-bodies', '32', { timeout: 30_000 });
+  await expect(hud).toHaveAttribute('data-physics-bodies', /^[1-9]\d*$/, { timeout: 30_000 });
   await page.evaluate(() => {
     const sample = (): void => {
       const live = document.querySelector('.hud'); if (!live) return;

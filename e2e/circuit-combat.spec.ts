@@ -4,7 +4,7 @@ test('plays an outdoor bout with real inputs and records only earned circuit pro
   test.setTimeout(240000);
   const errors: string[] = []; page.on('pageerror', e => errors.push(e.message));
   await page.goto('/');
-  await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
+  await page.getByRole('button', { name: 'ENTER RINGFALL' }).click();
   await page.getByRole('button', { name: 'EXPLORE SHOWGROUND' }).click();
   await page.getByRole('button', { name: 'LOCK IN ATLAS REX' }).click();
   const world = page.getByTestId('showground');

@@ -70,11 +70,12 @@
         "backstage",
         "ringside"
       ],
-      "combat": "Instanced backyard, backstage and Volt Dome bouts; exploration and combat still use separate scenes",
+      "combat": "Instanced backyard, backstage, FRWF Arena and Turkey Dome barn bouts; exploration and combat still use separate scenes",
       "persistence": "Device-local position, visited areas, completed bout records and objective medals; reputation and unlocks derived from local results. No cloud save or trusted leaderboard.",
       "encounters": 11,
       "venues": [
         "dome",
+        "turkey_dome",
         "yard",
         "backstage",
         "underground"

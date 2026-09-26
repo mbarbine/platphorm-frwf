@@ -370,7 +370,9 @@ export function GameScene(props: Props) {
             numInternalPgsIterations={2}
             maxCcdSubsteps={2}
           >
-            {diagnosticModel.venue && diagnosticModel.venue !== 'dome' ? <FightVenue venue={diagnosticModel.venue} /> : <Arena crowdCount={quality.crowdCount} performanceMode={quality.tier === 'performance'} />}
+            {diagnosticModel.venue === 'dome' || diagnosticModel.venue === 'turkey_dome' || !diagnosticModel.venue
+              ? <Arena crowdCount={quality.crowdCount} performanceMode={quality.tier === 'performance'} venue={diagnosticModel.venue === 'turkey_dome' ? 'turkey_dome' : 'dome'} />
+              : <FightVenue venue={diagnosticModel.venue} />}
             <ArenaPhysicsClock labEnabled={lab} />
             <Fighters detail={fighterDetail} />
             <ReplayDirector />

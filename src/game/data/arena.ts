@@ -1,4 +1,4 @@
-export const VOLT_DOME = {
+export const FRWF_ARENA = {
   ring: { halfWidth: 5.75, halfDepth: 4.25, deckY: 1.845 },
   floor: { radius: 18 },
   barricade: { halfWidth: 12.4, halfDepth: 10.6 },

@@ -2,7 +2,7 @@
 
 ## Connected local world
 
-Preserve instant quick play. Grow the existing encounter-based showground into connected Volt Dome, training/backstage and outdoor FRWF spaces. Introduce exploration/combat focus without making every nearby person attack. Doors, gates, stairs and transitions must carry player state and resolve collisions. A won or lost fight returns to exploration without reconstructing the entire session.
+Preserve instant quick play. Grow the existing encounter-based showground into connected FRWF Arena, training/backstage and outdoor FRWF spaces. Introduce exploration/combat focus without making every nearby person attack. Doors, gates, stairs and transitions must carry player state and resolve collisions. A won or lost fight returns to exploration without reconstructing the entire session.
 
 World saves need schema/version, checkpoint, position validity, encounter results, earned progression, corruption recovery and migration tests. Start local/offline; optional accounts must not prevent playing. Rivalries, encounter choice, training and meaningful unlocks precede a large empty map. Parking-lot/neighborhood expansion follows the first enjoyable connected route. Treat optional championships, tags, submissions, cage/ladder and other guide modes as separate rules projects with refereeing/elimination/interaction contracts; the FAQ is not an automatic commitment to clone all content.
 

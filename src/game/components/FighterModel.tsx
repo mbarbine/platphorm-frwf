@@ -604,9 +604,9 @@ export function FighterModel({ runtime, counterpart, fighterId, preview = false,
       safeNumber(runtime?.body?.headSnap, 0) * .24,
     );
     const armDroop = idle ? fatigue * profile.fatigueDroop * .34 : 0;
-    const gaitCycle = runtime ? safeNumber(runtime.body?.gaitPhase, t * 3) : t * 3;
     const gaitStrength = movement ? safeNumber(movement.gaitStrength, 0) : 0;
     const gaitForward = movement ? safeNumber(movement.forward, 0) : 0;
+    const gaitCycle = runtime ? safeNumber(runtime.body?.gaitPhase, t * 3) : t * 3;
     const armSwing = movement && movement.state === 'run' ? Math.sin(gaitCycle) * gaitStrength * .68
       : movement && gaitForward > .35 ? Math.sin(gaitCycle) * gaitStrength * .18 : 0;
     apply(leftArm.current, animatedPose.leftArm[0] + armSwing, animatedPose.leftArm[1], animatedPose.leftArm[2], armDroop);

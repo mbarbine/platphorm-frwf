@@ -22,4 +22,4 @@ Site purpose: FRWF browser wrestling, progressing toward an explorable open worl
 
 ## Limits and follow-up
 
-Bouts are instanced in Volt Dome; outdoor wrestling, mocap and cloud saves are not delivered. Device-local results are not trusted online rankings. New world artwork and animation remain an early slice below the final realism target. Phone emulation is not physical iPhone acceptance. Existing trace/auth boundaries remain; no new cross-site service is certified. Cloudflare production bindings and browser integration require a separate verified cutover. The other platform sites were not audited or modified by this pass.
+Bouts are instanced in FRWF Arena; outdoor wrestling, mocap and cloud saves are not delivered. Device-local results are not trusted online rankings. New world artwork and animation remain an early slice below the final realism target. Phone emulation is not physical iPhone acceptance. Existing trace/auth boundaries remain; no new cross-site service is certified. Cloudflare production bindings and browser integration require a separate verified cutover. The other platform sites were not audited or modified by this pass.

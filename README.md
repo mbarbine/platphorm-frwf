@@ -4,7 +4,7 @@
 
 An original, local-first 3D wrestling game with connected showground exploration and instanced arena bouts, built with React, TypeScript, Vite, Three.js, React Three Fiber, Rapier, Zustand, and Vitest.
 
-Five original fighters compete in **The Volt Dome** in Singles and five-wrestler Battle Royale. Combat rules are deterministic and phase-based. A 16-body articulated Rapier contact rig per fighter owns locomotion, hand contact, two-hand grips, lift weight, knockback, and measured landings, while a richer hierarchical wrestler model mirrors that authoritative state to keep the player-facing silhouette stable and expressive.
+Five original fighters compete in **FRWF Arena** in Singles and five-wrestler Battle Royale. Combat rules are deterministic and phase-based. A 16-body articulated Rapier contact rig per fighter owns locomotion, hand contact, two-hand grips, lift weight, knockback, and measured landings, while a richer hierarchical wrestler model mirrors that authoritative state to keep the player-facing silhouette stable and expressive.
 
 ## Run locally
 
@@ -64,7 +64,7 @@ Grapples are paired two-fighter sequences. The attacker owns the victim through 
 
 The core body slam is deliberately staged: reach, two-hand grip, pull, visible resistance, foot adjustment, lowered hips, lift, peak, drive, shoulder/back landing, impact pause, and recovery. The ring deck flexes in a bounded wave whose strength follows the same presentation hierarchy as the camera and audio. Healthy, hurt, exhausted, and high-momentum fighters carry different posture even before the HUD is read.
 
-### The Volt Dome level and camera director
+### FRWF Arena level and camera director
 
 The playable floor extends beyond every apron into a larger barricaded ringside map. The commentary desk, physical three-tier steel steps, entrance lane, reactive perimeter ribbons, expanded crowd bowl, lighting truss, stage wall, and tunnel create readable destinations instead of a dark void around the ring. Chairs, signs, and a metal trash can are real grippable/throwable bodies. Damped barricade panels visibly give on impact while fixed outer rails preserve the safety boundary. The ring, floor, desk, steps, ropes, posts, props, and barricades have collision authority; decorative architecture stays out of gameplay physics.
 

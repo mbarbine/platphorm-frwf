@@ -57,6 +57,47 @@ describe('Settings Store', () => {
     expect(state.masterVolume).toBe(0.72);
   });
 
+  it('returns DEFAULTS when parsed data is a JSON array', async () => {
+    const { state } = await setupTest('[1, 2, 3]');
+    expect(state.masterVolume).toBe(0.72);
+    expect(state.graphicsQuality).toBe('quality');
+  });
+
+  it('falls back to default volume when stored numeric settings contain NaN or non-finite numbers', async () => {
+    const { state } = await setupTest(JSON.stringify({
+      masterVolume: NaN,
+      effectsVolume: Infinity,
+      musicVolume: -Infinity,
+      uiScale: 'not_a_number'
+    }));
+    expect(state.masterVolume).toBe(0.72);
+    expect(state.effectsVolume).toBe(0.86);
+    expect(state.musicVolume).toBe(0.28);
+    expect(state.uiScale).toBe(1);
+  });
+
+  it('handles matchMedia exceptions gracefully when parsing fails or is missing', async () => {
+    globalThis.window = {
+      matchMedia: vi.fn().mockImplementation(() => {
+        throw new Error('matchMedia not supported');
+      }),
+    } as unknown as Window & typeof globalThis;
+
+    globalThis.localStorage = {
+      getItem: vi.fn().mockReturnValue(null),
+      setItem: vi.fn(),
+      clear: vi.fn(),
+      removeItem: vi.fn(),
+      length: 0,
+      key: vi.fn(),
+    };
+
+    const { useSettings } = await import('../game/state/settings');
+    const state = useSettings.getState();
+    expect(state.masterVolume).toBe(0.72);
+    expect(state.reducedMotion).toBe(false);
+  });
+
   it('merges valid loaded settings with DEFAULTS for missing properties', async () => {
     const { state } = await setupTest(JSON.stringify({
       masterVolume: 0.5,
@@ -100,5 +141,37 @@ describe('Settings Store', () => {
       'ringfall-settings-v2',
       expect.stringContaining('"masterVolume":0.72')
     );
+  });
+
+  it('returns DEFAULTS when localStorage.getItem throws an error', async () => {
+    globalThis.window = { matchMedia: vi.fn().mockReturnValue({ matches: false }) } as unknown as Window & typeof globalThis;
+    globalThis.localStorage = {
+      getItem: vi.fn().mockImplementation(() => {
+        throw new Error('SecurityError: Access is denied');
+      }),
+      setItem: vi.fn(),
+      clear: vi.fn(),
+      removeItem: vi.fn(),
+      length: 0,
+      key: vi.fn(),
+    };
+
+    const { useSettings } = await import('../game/state/settings');
+    const state = useSettings.getState();
+    expect(state.masterVolume).toBe(0.72);
+    expect(state.graphicsQuality).toBe('quality');
+  });
+
+  it('handles errors gracefully when localStorage.setItem throws during update or reset', async () => {
+    const { useSettings } = await setupTest('{}');
+    (globalThis.localStorage.setItem as ReturnType<typeof vi.fn>).mockImplementation(() => {
+      throw new Error('QuotaExceededError');
+    });
+
+    expect(() => useSettings.getState().update({ masterVolume: 0.3 })).not.toThrow();
+    expect(useSettings.getState().masterVolume).toBe(0.3);
+
+    expect(() => useSettings.getState().reset()).not.toThrow();
+    expect(useSettings.getState().masterVolume).toBe(0.72);
   });
 });

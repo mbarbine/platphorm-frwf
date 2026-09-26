@@ -1,11 +1,11 @@
-import { useFrame } from '@react-three/fiber';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Object3D, type InstancedMesh, type Mesh, type MeshBasicMaterial } from 'three';
-import { useMatchStore } from '../state/matchStore';
-import { useSettings } from '../state/settings';
-import { venueFor } from '../data/venues';
-import { bodyWorksRuntime } from '../physics/physicsRuntime';
-import { impactPresentation, type ImpactPresentation } from '../presentation/impactPresentation';
+import { useFrame } from "@react-three/fiber";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Object3D, type InstancedMesh, type Mesh, type MeshBasicMaterial } from "three";
+import { useMatchStore } from "../state/matchStore";
+import { useSettings } from "../state/settings";
+import { venueFor } from "../data/venues";
+import { bodyWorksRuntime } from "../physics/physicsRuntime";
+import { impactPresentation, type ImpactPresentation } from "../presentation/impactPresentation";
 
 interface Burst { id: number; presentation: ImpactPresentation }
 
@@ -32,13 +32,13 @@ export function ImpactEffects() {
     {bursts.map(burst => <ContactBurst key={burst.id} burst={burst} expire={expire} reducedMotion={reducedMotion} lowFlash={lowFlash} />)}
     {player.counterWindow > 0 && <DefenseCue fighter="player" counter reducedMotion={reducedMotion} />}
     {opponent.counterWindow > 0 && <DefenseCue fighter="opponent" counter reducedMotion={reducedMotion} />}
-    {player.state === 'blocking' && <DefenseCue fighter="player" reducedMotion={reducedMotion} />}
-    {opponent.state === 'blocking' && <DefenseCue fighter="opponent" reducedMotion={reducedMotion} />}
+    {player.state === "blocking" && <DefenseCue fighter="player" reducedMotion={reducedMotion} />}
+    {opponent.state === "blocking" && <DefenseCue fighter="opponent" reducedMotion={reducedMotion} />}
   </>;
 }
 
 function ContactBurst({ burst, expire, reducedMotion, lowFlash }: { burst: Burst; expire: (id: number) => void; reducedMotion: boolean; lowFlash: boolean }) {
-  const particles = useRef<InstancedMesh>(null); const ring = useRef<Mesh>(null);
+  const particles = useRef<InstancedMesh>(null); const ring = useRef<Mesh>(null); const ring2 = useRef<Mesh>(null);
   const age = useRef(0); const expired = useRef(false);
   const dummy = useMemo(() => new Object3D(), []); const p = burst.presentation;
 
@@ -51,8 +51,8 @@ function ContactBurst({ burst, expire, reducedMotion, lowFlash }: { burst: Burst
         angle,
         cosAngle: Math.cos(angle),
         sinAngle: Math.sin(angle),
-        speed: .8 + (i % 5) * .22,
-        liftFactor: .5 + (i % 3) * .2,
+        speed: .8 + (i % 5) * .28,
+        liftFactor: .6 + (i % 3) * .25,
       });
     }
     return layout;
@@ -65,8 +65,14 @@ function ContactBurst({ burst, expire, reducedMotion, lowFlash }: { burst: Burst
     if (progress >= 1) { expired.current = true; expire(burst.id); return; }
     if (ring.current) {
       if (!p.ground) ring.current.quaternion.copy(camera.quaternion);
-      ring.current.scale.setScalar(reducedMotion ? 1 : 1 + progress * (p.ground ? 2.5 : 1));
-      (ring.current.material as MeshBasicMaterial).opacity = (1 - progress) * (lowFlash ? .16 : .38);
+      ring.current.scale.setScalar(reducedMotion ? 1 : 1 + progress * (p.ground ? 2.8 : 1.4));
+      (ring.current.material as MeshBasicMaterial).opacity = (1 - progress) * (lowFlash ? .18 : .48);
+    }
+    if (ring2.current) {
+      if (!p.ground) ring2.current.quaternion.copy(camera.quaternion);
+      const delayProgress = Math.max(0, progress - 0.12) / 0.88;
+      ring2.current.scale.setScalar(reducedMotion ? 1 : 1 + delayProgress * (p.ground ? 3.8 : 2.0));
+      (ring2.current.material as MeshBasicMaterial).opacity = (1 - delayProgress) * (lowFlash ? .12 : .32);
     }
     if (!particles.current) return;
     for (let i = 0; i < p.particles; i++) {
@@ -74,26 +80,29 @@ function ContactBurst({ burst, expire, reducedMotion, lowFlash }: { burst: Burst
       if (!item) continue;
       const travel = reducedMotion ? 0 : age.current * item.speed;
       dummy.position.set(item.cosAngle * travel, Math.max(-.04, travel * item.liftFactor - 2.6 * age.current ** 2), item.sinAngle * travel);
-      dummy.rotation.set(0, item.angle, 0); dummy.scale.setScalar((p.ground ? .032 : .018) * (1 - progress));
+      dummy.rotation.set(0, item.angle, 0); dummy.scale.setScalar((p.ground ? .038 : .022) * (1 - progress));
       dummy.updateMatrix(); particles.current.setMatrixAt(i, dummy.matrix);
     }
     particles.current.instanceMatrix.needsUpdate = true;
-    (particles.current.material as MeshBasicMaterial).opacity = (1 - progress) * .65;
+    (particles.current.material as MeshBasicMaterial).opacity = (1 - progress) * .75;
   });
   return <group position={p.position}>
     <mesh ref={ring} rotation={p.ground ? [-Math.PI / 2, 0, 0] : [0, 0, 0]}>
-      <ringGeometry args={[p.radius * .8, p.radius, 24]} /><meshBasicMaterial color={p.color} transparent opacity={.35} depthWrite={false} side={2} />
+      <ringGeometry args={[p.radius * .75, p.radius, 28]} /><meshBasicMaterial color={p.color} transparent opacity={.45} depthWrite={false} side={2} />
+    </mesh>
+    <mesh ref={ring2} rotation={p.ground ? [-Math.PI / 2, 0, 0] : [0, 0, 0]}>
+      <ringGeometry args={[p.radius * .4, p.radius * .65, 28]} /><meshBasicMaterial color="#ffffff" transparent opacity={.35} depthWrite={false} side={2} />
     </mesh>
     {p.particles > 0 && <instancedMesh ref={particles} args={[undefined, undefined, p.particles]} frustumCulled={false}>
-      <sphereGeometry args={[1, 5, 4]} /><meshBasicMaterial color={p.color} transparent opacity={0} depthWrite={false} />
+      <sphereGeometry args={[1, 6, 4]} /><meshBasicMaterial color={p.color} transparent opacity={0} depthWrite={false} />
     </instancedMesh>}
   </group>;
 }
 
-function DefenseCue({ fighter, counter = false, reducedMotion }: { fighter: 'player' | 'opponent'; counter?: boolean; reducedMotion: boolean }) {
+function DefenseCue({ fighter, counter = false, reducedMotion }: { fighter: "player" | "opponent"; counter?: boolean; reducedMotion: boolean }) {
   const ref = useRef<Mesh>(null); const age = useRef(0);
   useFrame((_, dt) => {
-    const body = bodyWorksRuntime.segmentSnapshot(fighter, counter ? 'pelvis' : 'chest');
+    const body = bodyWorksRuntime.segmentSnapshot(fighter, counter ? "pelvis" : "chest");
     if (!ref.current || !body) return;
     const model = useMatchStore.getState().model; const actor = model[fighter];
     if (!model.paused) age.current += dt;
@@ -104,6 +113,6 @@ function DefenseCue({ fighter, counter = false, reducedMotion }: { fighter: 'pla
   });
   return <mesh ref={ref}>
     <ringGeometry args={counter ? [.34, .39, 4] : [.34, .36, 32, 1, .3, Math.PI * .8]} />
-    <meshBasicMaterial color={fighter === 'player' ? '#68e2ed' : '#f2a273'} transparent opacity={counter ? .72 : .35} depthWrite={false} side={2} />
+    <meshBasicMaterial color={fighter === "player" ? "#68e2ed" : "#f2a273"} transparent opacity={counter ? .72 : .35} depthWrite={false} side={2} />
   </mesh>;
 }
