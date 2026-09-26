@@ -130,15 +130,16 @@ export function PhysicsLab() {
       return;
     }
     if (model.matchMode !== 'singles') useMatchStore.getState().configureLab(playerId, opponentId, seed, playerStamina, opponentStamina, playerMass, opponentMass, venue, ruleset);
-    if (['walk', 'run', 'backstep', 'strafe', 'brake', 'turn'].includes(scenario.id)) {
+    const movementScenario = ['walk', 'run', 'backstep', 'strafe', 'brake', 'turn'].includes(scenario.id);
+    const closeRange = ['strikeChain', 'mixedChain', 'signature', 'inputRange', 'jab', 'headbutt', 'blockedJab', 'hook', 'frontKick', 'guard', 'kick', 'lock', 'slam', 'failedLift', 'gripBreak', 'suplex', 'german', 'powerbomb', 'clothesline', 'spear', 'soakRound'].includes(scenario.id);
+    const recoveryOrientation: RecoveryOrientation | null = scenario.id === 'recoveryFront' ? 'front' : scenario.id === 'recoverySide' ? 'left' : scenario.id === 'recoveryBack' ? 'back' : null;
+    if (movementScenario) {
       useMatchStore.getState().prepareLabScenario({ x: 0, z: 0 }, { x: 4, z: 2.4 });
       const current = useMatchStore.getState().model;
       current.opponent.state = 'downed'; current.opponent.downTimer = 90;
       bodyWorksRuntime.prepareLabFall('opponent', 'back', current.opponent.facing);
     }
-    const closeRange = ['strikeChain', 'mixedChain', 'signature', 'inputRange', 'jab', 'headbutt', 'blockedJab', 'hook', 'frontKick', 'guard', 'kick', 'lock', 'slam', 'failedLift', 'gripBreak', 'suplex', 'german', 'powerbomb', 'clothesline', 'spear', 'soakRound'].includes(scenario.id);
-    const recoveryOrientation: RecoveryOrientation | null = scenario.id === 'recoveryFront' ? 'front' : scenario.id === 'recoverySide' ? 'left' : scenario.id === 'recoveryBack' ? 'back' : null;
-    if (scenario.id === 'propDrop' || scenario.id === 'propThrow') { const chair = useMatchStore.getState().model.props.find(prop => prop.kind === 'chair' && !prop.broken); if (!chair) { clearTimers(); setActive(null); return; } useMatchStore.getState().prepareLabScenario({ x: chair.position.x, z: chair.position.z + .8 }, { x: 2, z: 3 }); }
+    else if (scenario.id === 'propDrop' || scenario.id === 'propThrow') { const chair = useMatchStore.getState().model.props.find(prop => prop.kind === 'chair' && !prop.broken); if (!chair) { clearTimers(); setActive(null); return; } useMatchStore.getState().prepareLabScenario({ x: chair.position.x, z: chair.position.z + .8 }, { x: 2, z: 3 }); }
     else if (scenario.id === 'ringExit') useMatchStore.getState().prepareLabScenario({ x: 4.95, z: 0 }, { x: 0, z: 0 });
     else if (scenario.id === 'tableClimb') useMatchStore.getState().prepareLabScenario({ x: 0, z: -2.3 }, { x: 4, z: 2 });
     else if (scenario.id === 'signature') { useMatchStore.getState().prepareLabScenario({ x: 0, z: -.55 }, { x: 0, z: .55 }); const current = useMatchStore.getState().model; current.player.momentum = 100; current.opponent.state = 'staggered'; current.opponent.stateElapsed = -3; }
