@@ -754,8 +754,8 @@ export function Arena({ crowdCount = 156, performanceMode = false, venue = 'dome
   return <>
     <color attach="background" args={[turkeyBarn ? '#768a58' : spotlight ? '#020106' : '#070611']} />
     <fog attach="fog" args={[new Color(turkeyBarn ? '#b9ad7c' : '#090715'), 20, 42]} />
-    <ambientLight intensity={turkeyBarn ? .48 : spotlight ? .12 : .28} color={turkeyBarn ? '#f3e6c4' : '#d4cbbf'} />
-    <hemisphereLight intensity={turkeyBarn ? .85 : spotlight ? .15 : .5} color={turkeyBarn ? '#fff0c2' : '#e6e4d9'} groundColor={turkeyBarn ? '#655a37' : '#25221e'} />
+    <ambientLight intensity={turkeyBarn ? .52 : spotlight ? .22 : .38} color={turkeyBarn ? '#f3e6c4' : '#d4cbbf'} />
+    <hemisphereLight intensity={turkeyBarn ? .90 : spotlight ? .25 : .62} color={turkeyBarn ? '#fff0c2' : '#e6e4d9'} groundColor={turkeyBarn ? '#655a37' : '#25221e'} />
     <directionalLight castShadow position={[4, 12, 6]} intensity={turkeyBarn ? 2.5 : spotlight ? .35 : 2.2} color={turkeyBarn ? '#ffe7ae' : '#f0f6ff'} shadow-mapSize={[2048, 2048]} shadow-normalBias={.025} shadow-bias={-.00015} shadow-camera-left={-9} shadow-camera-right={9} shadow-camera-top={8} shadow-camera-bottom={-8} />
     <directionalLight position={[-6, 7, -5]} intensity={spotlight ? .2 : 1.35} color="#b8d7ed" />
     <directionalLight position={[6, 5, -2]} intensity={spotlight ? .1 : .55} color="#ffdab8" />
