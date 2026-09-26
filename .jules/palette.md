@@ -25,3 +25,29 @@
 ## 2025-02-24 - Accessible Spectator Mode Control Shortcuts and Announcements
 **Learning:** When users spectate matches (e.g., following elimination in Battle Royale), control buttons that map to single-key shortcuts (like 1, 2, 3, or Tab) lack accessibility clarity if they rely solely on `<kbd>` elements for visually displayed text. Adding explicit `aria-label` descriptions that mention the shortcut key and implementing a context-prefixed `aria-live="polite"` region (e.g., 'Spectating wrestler: {name}, {mode} camera') provides screen reader users with immediate feedback and effortless navigation.
 **Action:** Always complement icon/keyboard-shortcut buttons with explicit `aria-label` attributes and provide context-prefixed live regions for dynamic camera/target shifts.
+
+## 2025-02-28 - Standardized Progressbar ARIA Semantics on HUD Meters
+**Learning:** Status indicators and gauges (such as health, stamina, balance, and momentum meters) that display numerical values visually can be difficult for screen readers to convey as quantifiable progress bars unless explicitly annotated with progressbar ARIA semantics. Adding `role="progressbar"`, `aria-label`, `aria-valuenow`, `aria-valuemin`, and `aria-valuemax` attributes ensures assistive technologies announce current values and ranges cleanly.
+**Action:** Always annotate custom graphical meters/bars with `role="progressbar"` and appropriate `aria-value*` attributes.
+## 2025-02-25 - Action-Prefixed ARIA Labels for Dynamic Mobile Action Controls
+**Learning:** In dynamic mobile action overlays, buttons displaying dynamic move names (such as 'CIRCUIT JAB' or 'VOLTAGE SLAM') can be ambiguous for screen reader users if announced without action category context. Prefixing `aria-label` attributes with the explicit control category (e.g. 'Quick strike: CIRCUIT JAB' or 'Prop action: PICK UP CHAIR') provides screen reader users with immediate clarity on both the action category and the dynamic move intent.
+**Action:** Always prefix dynamic move or contextual action labels with explicit action category names in ARIA labels on touch and mobile control buttons.
+## 2025-02-25 - Standard ARIA Progressbar Semantics on Custom Meter Tracks
+**Learning:** Custom visual meter bars (like Health, Stamina, Balance, and Momentum) need explicit `role="progressbar"` along with `aria-label`, `aria-valuenow`, `aria-valuemin`, and `aria-valuemax` attributes so screen readers accurately announce progress meter values and state updates.
+**Action:** Always attach `role="progressbar"` and numeric ARIA range attributes (`aria-valuenow`, `aria-valuemin`, `aria-valuemax`) to custom meter components.
+
+## 2025-03-01 - Dynamic Context-Aware ARIA Labels for Multi-Target Controls
+**Learning:** Interactive target switching buttons in multi-opponent game modes (like Battle Royale) can be confusing for screen reader users if the button label only states 'Switch target wrestler'. Incorporating the current target wrestler's name dynamically into the ARIA label (e.g. `Switch target wrestler, currently targeting {name}`) gives screen reader users immediate awareness of their current target state before activating the button.
+**Action:** Always include current active target context inside ARIA labels for dynamic cycling or switching controls.
+
+## 2025-03-02 - Accessible Double-Confirmation Announcements for Destructive Actions
+**Learning:** Two-step double-confirmation button flows that rely on visual text swaps (such as changing 'RESET SAVED SETTINGS' to 'CONFIRM RESET?') do not automatically trigger screen reader announcements on button state changes. Providing a context-prefixed `aria-live="polite"` region that announces confirmation requirements ('Settings reset confirmation required: press again to confirm reset of all settings to defaults.') and successful completion ('All saved settings have been reset to defaults.') gives screen reader users immediate, unambiguous auditory feedback without altering visual layout.
+**Action:** Always pair double-confirmation button flows with a context-prefixed `aria-live="polite"` region announcing state requirements and completion status.
+
+## 2025-03-03 - Polite ARIA Live Regions for Real-Time Combat Combo Readouts
+**Learning:** Fast-paced combat UI elements that appear conditionally during action sequences (such as hit combo displays) are easily missed by screen reader users if rendered without status ARIA attributes. Decorating the combo container with `role="status"`, `aria-live="polite"`, and a context-prefixed `aria-label` (e.g. `Combo: {count} {name}`) ensures assistive technologies politely announce landed strike combos and named finisher chains as they occur in real time.
+**Action:** Always annotate transient combat overlays with `role="status"`, `aria-live="polite"`, and context-prefixed `aria-label` descriptions.
+
+## 2025-03-04 - Accessible Escape Key Navigation and Screen Reader Announcements for Guide Overlays
+**Learning:** Top-level guide panels (such as the 'How to Play' guide) can trap keyboard users if they do not listen to standard dismissal keys like 'Escape'. Furthermore, screen reader users entering guide panels benefit from an `aria-label` section landmark and a visually hidden `aria-live="polite"` status region announcing the active guide and dismissal instructions.
+**Action:** Always pair panel overlays with `Escape` keydown listeners, section landmark labels, and polite `aria-live` announcements.

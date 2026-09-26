@@ -1,0 +1,163 @@
+{
+  "status": "inspected-not-integrated",
+  "sourceArchive": "frwf_underground_venue_living_v4.zip",
+  "archiveSha256": "d7130bf69773fe5e35c1a5440469d6c641894aed6a719e5851f95db3d9af0c0f",
+  "uncompressedBytes": 79182091,
+  "zipCrcError": null,
+  "scenes": [
+    {
+      "file": "scene/frwf_underground_living_venue_v4.glb",
+      "sha256": "6353ca8365bc080da57390de9b8ddf15e6aa6497539a370e4b18f4c20c31065d",
+      "bytes": 4719080,
+      "nodes": 133,
+      "meshes": 132,
+      "triangles": 5984,
+      "images": 3,
+      "animations": 0,
+      "externalUris": []
+    },
+    {
+      "file": "collision/living_venue_collision.glb",
+      "sha256": "01fcdf53324abcf96c20b763171a1d61d9db28eaf47cfe70b4a9427f12b3ca5d",
+      "bytes": 2852,
+      "nodes": 6,
+      "meshes": 5,
+      "triangles": 60,
+      "images": 0,
+      "animations": 0,
+      "externalUris": [],
+      "colliders": [
+        {
+          "name": "Floor",
+          "primitiveBounds": [
+            {
+              "min": [
+                -7.0,
+                -0.18000000715255737,
+                -6.0
+              ],
+              "max": [
+                7.0,
+                0.0,
+                6.0
+              ]
+            }
+          ],
+          "transform": {}
+        },
+        {
+          "name": "NorthWall",
+          "primitiveBounds": [
+            {
+              "min": [
+                -7.0,
+                0.0,
+                -6.110000133514404
+              ],
+              "max": [
+                7.0,
+                4.0,
+                -5.889999866485596
+              ]
+            }
+          ],
+          "transform": {}
+        },
+        {
+          "name": "WestWall",
+          "primitiveBounds": [
+            {
+              "min": [
+                -7.110000133514404,
+                0.0,
+                -6.0
+              ],
+              "max": [
+                -6.889999866485596,
+                4.0,
+                6.0
+              ]
+            }
+          ],
+          "transform": {}
+        },
+        {
+          "name": "EastWall",
+          "primitiveBounds": [
+            {
+              "min": [
+                6.889999866485596,
+                0.0,
+                -6.0
+              ],
+              "max": [
+                7.110000133514404,
+                4.0,
+                6.0
+              ]
+            }
+          ],
+          "transform": {}
+        },
+        {
+          "name": "Ring",
+          "primitiveBounds": [
+            {
+              "min": [
+                -2.799999952316284,
+                -0.004999999888241291,
+                -2.700000047683716
+              ],
+              "max": [
+                2.799999952316284,
+                0.8450000286102295,
+                2.9000000953674316
+              ]
+            }
+          ],
+          "transform": {}
+        }
+      ]
+    },
+    {
+      "file": "lod/venue_LOD0.glb",
+      "sha256": "32d441be7e81fc3a9c0be1c41def40a0cfbde3a6a4da6c3e4613a2d1e3882ea2",
+      "bytes": 8457904,
+      "nodes": 117,
+      "meshes": 116,
+      "triangles": 2380,
+      "images": 5,
+      "animations": 0,
+      "externalUris": []
+    },
+    {
+      "file": "lod/venue_LOD1.glb",
+      "sha256": "bca703163c02959eb60289874596db112ade355b3a116997021bbd6668c4e67a",
+      "bytes": 8441724,
+      "nodes": 93,
+      "meshes": 92,
+      "triangles": 1980,
+      "images": 5,
+      "animations": 0,
+      "externalUris": []
+    },
+    {
+      "file": "lod/venue_LOD2.glb",
+      "sha256": "055a3fe9e764fe13e5dad05815df4e5a4eadf0265e1a68390651170c1337684e",
+      "bytes": 8414880,
+      "nodes": 53,
+      "meshes": 52,
+      "triangles": 1248,
+      "images": 5,
+      "animations": 0,
+      "externalUris": []
+    }
+  ],
+  "limitations": [
+    "No in-engine visual acceptance yet.",
+    "Collision asset only contains Floor, NorthWall, WestWall, EastWall and Ring.",
+    "LOD variants are separate scene exports; living-v4 feature parity must be checked before runtime substitution.",
+    "Lighting and state JSON files are presets, not implemented event-driven systems.",
+    "No animation clips in inspected scenes."
+  ]
+}

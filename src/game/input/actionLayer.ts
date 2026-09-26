@@ -23,6 +23,8 @@ export const KEYBOARD_ACTIONS: Readonly<Record<string, GameAction>> = {
   Escape: 'pause',
 };
 
+export const GAMEPAD_HELD_ACTIONS = { guard: 6, sprint: 7 } as const;
+
 export const GAMEPAD_BUTTON_ACTIONS: readonly (readonly [number, GameAction])[] = [
   [2, 'quickStrike'],
   [3, 'heavyStrike'],

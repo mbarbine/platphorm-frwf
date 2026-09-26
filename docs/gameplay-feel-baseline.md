@@ -71,7 +71,7 @@ RINGFALL: CHAOS CIRCUIT is a browser arcade-wrestling game. Its primary value is
 
 ### Arena and interaction
 
-- The Volt Dome has a raised ring, reactive ropes, posts/pads, apron, crowd, stage/tunnel, scoreboard, lighting, barricades, commentary desk, bell, chair, and crowd sign.
+- FRWF Arena has a raised ring, reactive ropes, posts/pads, apron, crowd, stage/tunnel, scoreboard, lighting, barricades, commentary desk, bell, chair, and crowd sign.
 - Ropes apply bounded force and return energy; deliberate apron transitions are force-driven.
 - Chair/sign pickup creates a real spherical hand joint; release inherits hand velocity and an explicit throw impulse.
 - The commentary desk only accumulates stress from a measured landing on its collider and breaks into four bounded fragments. Proximity alone cannot break it.

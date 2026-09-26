@@ -1,10 +1,47 @@
 import { describe, expect, it, vi } from 'vitest';
 // @ts-expect-error - JavaScript file lacks type definitions in server
-import handler from '../../../api/v1/route-compliance.js';
+import rawHandler from '../../../api/v1/route-compliance.js';
+
+interface MockRequest {
+  method?: string;
+  headers: Record<string, string | undefined>;
+  query?: Record<string, string | undefined>;
+}
+
+interface MockResponse {
+  status: ReturnType<typeof vi.fn>;
+  setHeader: ReturnType<typeof vi.fn>;
+  end?: ReturnType<typeof vi.fn>;
+  json?: ReturnType<typeof vi.fn>;
+}
+
+type RouteComplianceHandler = (req: MockRequest, res: MockResponse) => void;
+const handler = rawHandler as RouteComplianceHandler;
 
 describe('Route Compliance Serverless Handler', () => {
+  it('sets X-Content-Type-Options and Cache-Control security headers on responses', () => {
+    const req: MockRequest = {
+      method: 'GET',
+      headers: {
+        host: 'platphormnews.com',
+      },
+      query: {},
+    };
+    const res: MockResponse = {
+      status: vi.fn(),
+      setHeader: vi.fn(),
+      end: vi.fn(),
+    };
+    res.status.mockReturnValue(res);
+
+    handler(req, res);
+
+    expect(res.setHeader).toHaveBeenCalledWith('X-Content-Type-Options', 'nosniff');
+    expect(res.setHeader).toHaveBeenCalledWith('Cache-Control', 'no-store, max-age=0');
+  });
+
   it('redirects to the base domain with sanitized/validated timeoutMs when input is valid', () => {
-    const req = {
+    const req: MockRequest = {
       method: 'GET',
       headers: {
         host: 'platphormnews.com',
@@ -13,40 +50,14 @@ describe('Route Compliance Serverless Handler', () => {
         timeoutMs: '1500',
       },
     };
-    const res = {
-      status: vi.fn().mockReturnThis(),
+    const res: MockResponse = {
+      status: vi.fn(),
       setHeader: vi.fn(),
       end: vi.fn(),
     };
+    res.status.mockReturnValue(res);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    handler(req as any, res as any);
-
-    expect(res.status).toHaveBeenCalledWith(307);
-    expect(res.setHeader).toHaveBeenCalledWith(
-      'Location',
-      'https://base.platphormnews.com/api/v1/route-compliance?domain=platphormnews.com&mode=full&timeoutMs=1200'
-    );
-  });
-
-  it('correctly handles comma-separated x-forwarded-host header values from proxy chains', () => {
-    const req = {
-      method: 'GET',
-      headers: {
-        'x-forwarded-host': 'platphormnews.com:443, proxy2.domain.com',
-      },
-      query: {
-        timeoutMs: '1200',
-      },
-    };
-    const res = {
-      status: vi.fn().mockReturnThis(),
-      setHeader: vi.fn(),
-      end: vi.fn(),
-    };
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    handler(req as any, res as any);
+    handler(req, res);
 
     expect(res.status).toHaveBeenCalledWith(307);
     expect(res.setHeader).toHaveBeenCalledWith(
@@ -55,8 +66,34 @@ describe('Route Compliance Serverless Handler', () => {
     );
   });
 
+  it('correctly handles comma-separated x-forwarded-host header values from proxy chains', () => {
+    const req: MockRequest = {
+      method: 'GET',
+      headers: {
+        'x-forwarded-host': 'platphormnews.com:443, proxy2.domain.com',
+      },
+      query: {
+        timeoutMs: '1200',
+      },
+    };
+    const res: MockResponse = {
+      status: vi.fn(),
+      setHeader: vi.fn(),
+      end: vi.fn(),
+    };
+    res.status.mockReturnValue(res);
+
+    handler(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(307);
+    expect(res.setHeader).toHaveBeenCalledWith(
+      'Location',
+      'https://base.platphormnews.com/api/v1/route-compliance?domain=platphormnews.com&mode=full&timeoutMs=1200'
+    );
+  });
+
   it('falls back to default 1200ms when timeoutMs is invalid or missing', () => {
-    const req = {
+    const req: MockRequest = {
       method: 'GET',
       headers: {
         host: 'news.platphormnews.com',
@@ -65,14 +102,14 @@ describe('Route Compliance Serverless Handler', () => {
         timeoutMs: 'invalid_timeout',
       },
     };
-    const res = {
-      status: vi.fn().mockReturnThis(),
+    const res: MockResponse = {
+      status: vi.fn(),
       setHeader: vi.fn(),
       end: vi.fn(),
     };
+    res.status.mockReturnValue(res);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    handler(req as any, res as any);
+    handler(req, res);
 
     expect(res.status).toHaveBeenCalledWith(307);
     expect(res.setHeader).toHaveBeenCalledWith(
@@ -82,20 +119,21 @@ describe('Route Compliance Serverless Handler', () => {
   });
 
   it('rejects untrusted domains with a 400 response', () => {
-    const req = {
+    const req: MockRequest = {
       method: 'GET',
       headers: {
         host: 'malicious.com',
       },
       query: {},
     };
-    const res = {
-      status: vi.fn().mockReturnThis(),
+    const res: MockResponse = {
+      status: vi.fn(),
+      setHeader: vi.fn(),
       json: vi.fn(),
     };
+    res.status.mockReturnValue(res);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    handler(req as any, res as any);
+    handler(req, res);
 
     expect(res.status).toHaveBeenCalledWith(400);
     expect(res.json).toHaveBeenCalledWith(
@@ -109,20 +147,21 @@ describe('Route Compliance Serverless Handler', () => {
   });
 
   it('rejects chained x-forwarded-host starting with an untrusted host', () => {
-    const req = {
+    const req: MockRequest = {
       method: 'GET',
       headers: {
         'x-forwarded-host': 'attacker.com, foo.platphormnews.com',
       },
       query: {},
     };
-    const res = {
-      status: vi.fn().mockReturnThis(),
+    const res: MockResponse = {
+      status: vi.fn(),
+      setHeader: vi.fn(),
       json: vi.fn(),
     };
+    res.status.mockReturnValue(res);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    handler(req as any, res as any);
+    handler(req, res);
 
     expect(res.status).toHaveBeenCalledWith(400);
     expect(res.json).toHaveBeenCalledWith(
@@ -137,21 +176,21 @@ describe('Route Compliance Serverless Handler', () => {
   });
 
   it('rejects non-GET and non-HEAD methods with a 405 response', () => {
-    const req = {
+    const req: MockRequest = {
       method: 'POST',
       headers: {
         host: 'platphormnews.com',
       },
       query: {},
     };
-    const res = {
-      status: vi.fn().mockReturnThis(),
+    const res: MockResponse = {
+      status: vi.fn(),
       setHeader: vi.fn(),
       json: vi.fn(),
     };
+    res.status.mockReturnValue(res);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    handler(req as any, res as any);
+    handler(req, res);
 
     expect(res.status).toHaveBeenCalledWith(405);
     expect(res.setHeader).toHaveBeenCalledWith('Allow', 'GET, HEAD');
@@ -165,7 +204,7 @@ describe('Route Compliance Serverless Handler', () => {
   });
 
   it('allows HEAD method and redirects successfully', () => {
-    const req = {
+    const req: MockRequest = {
       method: 'HEAD',
       headers: {
         host: 'platphormnews.com',
@@ -174,14 +213,14 @@ describe('Route Compliance Serverless Handler', () => {
         timeoutMs: '1200',
       },
     };
-    const res = {
-      status: vi.fn().mockReturnThis(),
+    const res: MockResponse = {
+      status: vi.fn(),
       setHeader: vi.fn(),
       end: vi.fn(),
     };
+    res.status.mockReturnValue(res);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    handler(req as any, res as any);
+    handler(req, res);
 
     expect(res.status).toHaveBeenCalledWith(307);
     expect(res.setHeader).toHaveBeenCalledWith(
@@ -191,20 +230,21 @@ describe('Route Compliance Serverless Handler', () => {
   });
 
   it('rejects chained x-forwarded-host header with an untrusted first domain', () => {
-    const req = {
+    const req: MockRequest = {
       method: 'GET',
       headers: {
         'x-forwarded-host': 'evil.com, sub.platphormnews.com',
       },
       query: {},
     };
-    const res = {
-      status: vi.fn().mockReturnThis(),
+    const res: MockResponse = {
+      status: vi.fn(),
+      setHeader: vi.fn(),
       json: vi.fn(),
     };
+    res.status.mockReturnValue(res);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    handler(req as any, res as any);
+    handler(req, res);
 
     expect(res.status).toHaveBeenCalledWith(400);
     expect(res.json).toHaveBeenCalledWith(
@@ -218,7 +258,7 @@ describe('Route Compliance Serverless Handler', () => {
   });
 
   it('accepts chained x-forwarded-host header when the first domain is trusted', () => {
-    const req = {
+    const req: MockRequest = {
       method: 'GET',
       headers: {
         'x-forwarded-host': 'sub.platphormnews.com:8080, proxy.internal',
@@ -227,14 +267,14 @@ describe('Route Compliance Serverless Handler', () => {
         timeoutMs: '1200',
       },
     };
-    const res = {
-      status: vi.fn().mockReturnThis(),
+    const res: MockResponse = {
+      status: vi.fn(),
       setHeader: vi.fn(),
       end: vi.fn(),
     };
+    res.status.mockReturnValue(res);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    handler(req as any, res as any);
+    handler(req, res);
 
     expect(res.status).toHaveBeenCalledWith(307);
     expect(res.setHeader).toHaveBeenCalledWith(

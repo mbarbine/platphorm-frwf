@@ -1,3 +1,4 @@
+vi.mock('../game/audio/BackgroundMusic', () => ({ BackgroundMusic: () => null }));
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import React from 'react';
 import { render, screen, fireEvent, act, cleanup } from '@testing-library/react';
@@ -42,8 +43,8 @@ describe('Fighter Select Keyboard and ARIA Accessibility', () => {
   it('navigates to fighter select screen and tests wrap-around Arrow key select with ARIA alerts', async () => {
     render(React.createElement(App));
 
-    // 1. Click "ENTER THE VOLT DOME" to reach Main Menu
-    const enterBtn = screen.getByText('ENTER THE VOLT DOME');
+    // 1. Enter RINGFALL to reach the main menu
+    const enterBtn = screen.getByText('ENTER RINGFALL');
     expect(enterBtn).toBeTruthy();
     fireEvent.click(enterBtn);
 
@@ -81,14 +82,14 @@ describe('Fighter Select Keyboard and ARIA Accessibility', () => {
     expect(atlasCard.getAttribute('aria-pressed')).toBe('true');
     expect(screen.getByText(/Selected fighter: ATLAS REX, Heavyweight Powerhouse/i)).toBeTruthy();
 
-    // 5. Trigger ArrowLeft (Should wrap to the last fighter "CHAD “THE CLAW” KINSEY")
+    // 5. Trigger ArrowLeft (Should wrap to the last fighter "Josh The Enforcer")
     act(() => {
       window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft' }));
     });
-    const chadCard = document.querySelector('[data-fighter-select-id="chad"]') as HTMLButtonElement;
-    expect(chadCard).toBeTruthy();
-    expect(chadCard.getAttribute('aria-pressed')).toBe('true');
-    expect(screen.getByText(/Selected fighter: CHAD “THE CLAW” KINSEY, Ringside Roughneck/i)).toBeTruthy();
+    const lastCard = document.querySelector('[data-fighter-select-id="beer_bandit_ted"]') as HTMLButtonElement;
+    expect(lastCard).toBeTruthy();
+    expect(lastCard.getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByText(/Selected fighter: BEER BANDIT TED, Fast Counter Striker/i)).toBeTruthy();
 
     // 6. Trigger ArrowRight (Should wrap around to the first fighter "ATLAS REX")
     act(() => {

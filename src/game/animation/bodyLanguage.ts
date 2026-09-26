@@ -30,24 +30,24 @@ export const applyBodyLanguage = (base: Pose, fighter: FighterRuntime): Pose => 
   };
   const hurt: Pose = {
     ...base,
-    torso: [base.torso[0] + .34, base.torso[1] - .08, base.torso[2] + .11],
+    torso: [base.torso[0] + .2, base.torso[1] - .08, base.torso[2] + .11],
     leftArm: [-1.02, -.18, -.42], rightArm: [-.42, .08, .34],
     leftForearm: [-1.34, 0, -.18], rightForearm: [-.72, 0, .12],
-    leftLeg: [base.leftLeg[0] + .24, base.leftLeg[1], base.leftLeg[2]],
-    rightLeg: [base.rightLeg[0] + .12, base.rightLeg[1], base.rightLeg[2]],
-    leftShin: [base.leftShin[0] - .48, base.leftShin[1], base.leftShin[2]],
-    rootTilt: base.rootTilt + .2, rootRoll: base.rootRoll + .08, rootY: base.rootY - .06,
+    leftLeg: [base.leftLeg[0] - .06, base.leftLeg[1], base.leftLeg[2]],
+    rightLeg: [base.rightLeg[0] - .04, base.rightLeg[1], base.rightLeg[2]],
+    leftShin: [base.leftShin[0] - .2, base.leftShin[1], base.leftShin[2]],
+    rootTilt: base.rootTilt + .04, rootRoll: base.rootRoll + .08, rootY: base.rootY - .06,
   };
   const exhausted: Pose = {
     ...base,
-    torso: [base.torso[0] + .52, base.torso[1], base.torso[2]],
+    torso: [base.torso[0] + .22, base.torso[1], base.torso[2]],
     leftArm: [-.28, -.12, -.5], rightArm: [-.28, .12, .5],
     leftForearm: [-1.5, 0, -.08], rightForearm: [-1.5, 0, .08],
-    leftLeg: [base.leftLeg[0] + .42, base.leftLeg[1], base.leftLeg[2]],
-    rightLeg: [base.rightLeg[0] + .42, base.rightLeg[1], base.rightLeg[2]],
-    leftShin: [base.leftShin[0] - .84, base.leftShin[1], base.leftShin[2]],
-    rightShin: [base.rightShin[0] - .84, base.rightShin[1], base.rightShin[2]],
-    rootTilt: base.rootTilt + .32, rootY: base.rootY - .12,
+    leftLeg: [base.leftLeg[0] - .1, base.leftLeg[1], base.leftLeg[2]],
+    rightLeg: [base.rightLeg[0] - .1, base.rightLeg[1], base.rightLeg[2]],
+    leftShin: [base.leftShin[0] - .25, base.leftShin[1], base.leftShin[2]],
+    rightShin: [base.rightShin[0] - .25, base.rightShin[1], base.rightShin[2]],
+    rootTilt: base.rootTilt + .045, rootY: base.rootY - .035,
   };
   const confident = mixPose(base, dominant, weights.dominant);
   const injured = mixPose(confident, hurt, weights.hurt);

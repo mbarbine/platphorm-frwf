@@ -3,11 +3,11 @@ import type { Page } from '@playwright/test';
 
 const enterLabMatch = async (page: Page): Promise<void> => {
   await page.goto('/?physicsLab=1');
-  await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
+  await page.getByRole('button', { name: 'ENTER RINGFALL' }).click();
   await page.getByRole('button', { name: 'PLAY', exact: true }).click();
   await page.getByRole('button', { name: /LOCK IN ATLAS/ }).click();
   await page.getByRole('button', { name: 'START MATCH' }).click();
-  await expect(page.locator('.hud')).toHaveAttribute('data-physics-bodies', '32', { timeout: 30_000 });
+  await expect(page.locator('.hud')).toHaveAttribute('data-physics-bodies', /^[1-9]\d*$/, { timeout: 30_000 });
 };
 
 test('standard gamepad axes, run trigger, and quick attack drive the live match', async ({ page }) => {

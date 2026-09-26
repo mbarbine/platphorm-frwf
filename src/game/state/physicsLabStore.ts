@@ -5,6 +5,9 @@ export type LabPlaybackRate = .25 | .5 | 1;
 interface PhysicsLabStore {
   rate: LabPlaybackRate;
   debug: boolean;
+  pendingSteps: number;
+  requestStep: () => void;
+  consumeStep: () => void;
   setRate: (rate: LabPlaybackRate) => void;
   setDebug: (debug: boolean) => void;
   reset: () => void;
@@ -13,8 +16,11 @@ interface PhysicsLabStore {
 export const usePhysicsLabStore = create<PhysicsLabStore>((set) => ({
   rate: 1,
   debug: false,
+  pendingSteps: 0,
+  requestStep: () => set(state => ({ pendingSteps: Math.min(10, state.pendingSteps + 1) })),
+  consumeStep: () => set(state => ({ pendingSteps: Math.max(0, state.pendingSteps - 1) })),
   setRate: (rate) => set({ rate }),
   setDebug: (debug) => set({ debug }),
-  reset: () => set({ rate: 1, debug: false }),
+  reset: () => set({ rate: 1, debug: false, pendingSteps: 0 }),
 }));
 

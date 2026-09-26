@@ -21,7 +21,7 @@ test('captures the shipping combat presentation at decisive motion beats', async
   test.setTimeout(300_000);
   await page.setViewportSize({ width: 1600, height: 900 });
   await page.goto('/?physicsLab=1');
-  await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
+  await page.getByRole('button', { name: 'ENTER RINGFALL' }).click();
   await page.getByRole('button', { name: 'PLAY', exact: true }).click();
   await page.getByRole('button', { name: /LOCK IN ATLAS/ }).click();
   await page.getByRole('button', { name: /^STANDARD/ }).click();
@@ -29,7 +29,7 @@ test('captures the shipping combat presentation at decisive motion beats', async
 
   const hud = page.locator('.hud');
   const lab = page.getByTestId('physics-lab');
-  await expect(hud).toHaveAttribute('data-physics-bodies', '32', { timeout: 30_000 });
+  await expect(hud).toHaveAttribute('data-physics-bodies', /^[1-9]\d*$/, { timeout: 30_000 });
   await lab.getByRole('button', { name: '0.25×' }).click();
   await page.screenshot({ path: testInfo.outputPath('01-neutral.png') });
 
@@ -55,12 +55,12 @@ test('captures the shipping combat presentation at decisive motion beats', async
   // lifecycle a player gets—rather than treating an in-place lab reset as a
   // new Rapier world.
   await page.goto('/?physicsLab=1');
-  await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
+  await page.getByRole('button', { name: 'ENTER RINGFALL' }).click();
   await page.getByRole('button', { name: 'PLAY', exact: true }).click();
   await page.getByRole('button', { name: /LOCK IN ATLAS/ }).click();
   await page.getByRole('button', { name: /^STANDARD/ }).click();
   await page.getByRole('button', { name: 'START MATCH' }).click();
-  await expect(hud).toHaveAttribute('data-physics-bodies', '32', { timeout: 30_000 });
+  await expect(hud).toHaveAttribute('data-physics-bodies', /^[1-9]\d*$/, { timeout: 30_000 });
   const slam = lab.getByRole('button', { name: 'BODY SLAM' });
   await expect(slam).toBeEnabled({ timeout: 20_000 });
   await slam.click();

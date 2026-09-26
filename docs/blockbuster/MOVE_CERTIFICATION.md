@@ -4,7 +4,7 @@ Move manifest: `ringfall-moves-2.1.0`
 Current public move count: 39  
 Status: baseline inventory complete; visual/device/human certification pending
 
-The tables record the current runtime mapping. Shared animation, generic reaction, audio, VFX or camera entries are explicit gaps—not evidence of visual distinction.
+The tables are a historical move inventory, not current playability certification. Shared animation, generic reaction, audio, VFX or camera entries remain review gaps. The September 8 physical controller uses retargeted source motion for jab, combination, front kick and roundhouse; see [combat motion assets](../COMBAT_MOTION_ASSETS.md). Registry presence does not prove a move is available through the current controls.
 
 ## Definition and presentation mapping
 
@@ -43,7 +43,7 @@ The tables record the current runtime mapping. Shared animation, generic reactio
 | `prop_throw` Air Mail | E throw at range | prop | `heavyStrike` shared / weapon sell | thrown prop / contacted region | prop / weapon / wide | 8 / 14 / 17 / 18 | yes |
 | `finisher` Signature Finisher | F at full Momentum and legal target | finisher | `finisher` / generic finisher victim | fighter-dependent / torso-back | finisher / finisher / finisher | 12 / 32 / 0 / 38 | yes |
 | `counter` Flash Reversal | Space in counter window | utility | `counter` / stagger sell | hand-body / attacker | counter / counter / strike | 10 / 9 / 18 / 18 | yes |
-| `kick_up` Livewire Kick-Up | Space while downed | utility | `recovery` / none | support hands-feet / self | step / recovery / neutral | 12 / 0 / 2 / 3 | legal runtime |
+| Get Up (legacy `kick_up` remains in registry) | Space / touch Get Up while downed | recovery | supported back/front/side recovery / none | support feet and torso / self | recovery / neutral | 0 stamina; no attack damage | physical recovery controller |
 | `grapple_miss` Collar Reach | L outside grapple range | utility | full two-arm reach and recovery / none | hands / no target | grapple / utility / neutral | 0 / 0 / 0 / 0 | legal runtime |
 | `prop_pickup` Hardware Pickup | E near prop | utility | full crouch, reach, and lift / none | hands and full body / prop | prop / utility / neutral | 0 / 0 / 0 / 0 | legal runtime |
 | `prop_drop` Hardware Drop | E while holding outside attack range | utility | lower, release, and recover / none | hand and full body / prop | prop / utility / neutral | 0 / 0 / 0 / 0 | legal runtime |

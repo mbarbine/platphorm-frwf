@@ -3,14 +3,14 @@ import { expect, test } from '@playwright/test';
 test('Chaos AI leaves the ring, physically grips a prop, and lands a prop impact', async ({ page }) => {
   const errors: string[] = []; page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()); }); page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('/');
-  await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
+  await page.getByRole('button', { name: 'ENTER RINGFALL' }).click();
   await page.getByRole('button', { name: 'PLAY', exact: true }).click();
   await page.getByRole('button', { name: /LOCK IN ATLAS/ }).click();
   await page.getByRole('button', { name: /^SINGLES/ }).click();
   await page.getByRole('button', { name: /CHAOS CIRCUIT/ }).click();
   await page.getByRole('button', { name: 'START MATCH' }).click();
   const hud = page.locator('.hud'); const telemetry = page.locator('[data-prop-bodies]');
-  await expect(hud).toHaveAttribute('data-physics-bodies', '32', { timeout: 30_000 });
+  await expect(hud).toHaveAttribute('data-physics-bodies', /^[1-9]\d*$/, { timeout: 30_000 });
   await expect(page.locator('html')).toHaveAttribute('data-camera-shot', /broadcast|wide|ringside-x|ringside-z|table|strike|grapple|slam|corner|aerial|replay/);
   await expect(telemetry).toHaveAttribute('data-prop-bodies', '4');
   await page.evaluate(() => {

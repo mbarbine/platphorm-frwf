@@ -16,6 +16,9 @@ import type { FighterDetail } from '../presentation/presentationManifest';
 import { bodyWorksRuntime } from '../physics/physicsRuntime';
 import { authoredDeckPoseOwnsRoot, visiblePelvisDrop } from '../presentation/matPresentation';
 import { strikeDriveProfile } from '../physics/strikeDynamics';
+import { segmentSchema } from '../physics/bodySchema';
+import type { BodySegmentId } from '../physics/bodySchema';
+import { PhysicalPoseBinding } from '../presentation/physicalPoseBinding';
 import type { AnimationKey, FighterDefinition, FighterId, FighterRuntime, FighterSlot } from '../types/game';
 
 interface Props {
@@ -483,6 +486,8 @@ export function FighterModel({ runtime, counterpart, fighterId, preview = false,
   const alignmentPoints = useRef({
     pelvis: new Vector3(), chest: new Vector3(), head: new Vector3(), leftHand: new Vector3(), rightHand: new Vector3(), leftFoot: new Vector3(), rightFoot: new Vector3(),
   });
+  const binding = useRef(new PhysicalPoseBinding());
+  const jointPoints = useRef({ start: new Vector3(), middle: new Vector3(), end: new Vector3() });
   const phaseOffset = side === 'player' ? 0 : Math.PI;
   const width = fighter.proportions.width;
   const height = fighter.proportions.height;
@@ -599,9 +604,9 @@ export function FighterModel({ runtime, counterpart, fighterId, preview = false,
       safeNumber(runtime?.body?.headSnap, 0) * .24,
     );
     const armDroop = idle ? fatigue * profile.fatigueDroop * .34 : 0;
-    const gaitCycle = runtime ? safeNumber(runtime.body?.gaitPhase, t * 3) : t * 3;
     const gaitStrength = movement ? safeNumber(movement.gaitStrength, 0) : 0;
     const gaitForward = movement ? safeNumber(movement.forward, 0) : 0;
+    const gaitCycle = runtime ? safeNumber(runtime.body?.gaitPhase, t * 3) : t * 3;
     const armSwing = movement && movement.state === 'run' ? Math.sin(gaitCycle) * gaitStrength * .68
       : movement && gaitForward > .35 ? Math.sin(gaitCycle) * gaitStrength * .18 : 0;
     apply(leftArm.current, animatedPose.leftArm[0] + armSwing, animatedPose.leftArm[1], animatedPose.leftArm[2], armDroop);
@@ -666,9 +671,55 @@ export function FighterModel({ runtime, counterpart, fighterId, preview = false,
         const facingError = Math.atan2(Math.sin(safeFacing - shell.current.rotation.y), Math.cos(safeFacing - shell.current.rotation.y));
         shell.current.rotation.y += facingError * (1 - Math.exp(-clampedDelta * 24));
       }
+      // The live mesh follows solved Rapier joints. Authored animation still
+      // drives the motors, previews, and recorded replays, but cannot invent a
+      // second fist/boot trajectory that disagrees with the contact solver.
+      const pelvisBody = reportAlignment && !preview ? bodyWorksRuntime.segmentSnapshot(side, 'pelvis') : null;
+      const chestBody = bodyWorksRuntime.segmentSnapshot(side, 'chest');
+      const headBody = bodyWorksRuntime.segmentSnapshot(side, 'head');
+      if (pelvisBody && chestBody && headBody) {
+        const fit = binding.current;
+        // OPTIMIZATION: Replaced inner closure and array .find() calls with O(1) segmentSchema map lookups to prevent GC pressure and execution overhead in useFrame
+        fit.landmark(root.current, pelvisBody, [0, 1.02 * height, 0]);
+        fit.landmark(torso.current, chestBody, [0, .25, 0]);
+        fit.landmark(head.current, headBody, [0, 0, 0]);
+        for (const limbSide of ['left', 'right'] as const) {
+          const upperId = `${limbSide}UpperArm` as BodySegmentId;
+          const lowerId = `${limbSide}Forearm` as BodySegmentId;
+          const upper = bodyWorksRuntime.segmentSnapshot(side, upperId);
+          const lower = bodyWorksRuntime.segmentSnapshot(side, lowerId);
+          const hand = bodyWorksRuntime.segmentSnapshot(side, `${limbSide}Hand` as BodySegmentId);
+          const thighId = `${limbSide}Thigh` as BodySegmentId;
+          const shinId = `${limbSide}Shin` as BodySegmentId;
+          const thigh = bodyWorksRuntime.segmentSnapshot(side, thighId);
+          const shin = bodyWorksRuntime.segmentSnapshot(side, shinId);
+          const foot = bodyWorksRuntime.segmentSnapshot(side, `${limbSide}Foot` as BodySegmentId);
+          const points = jointPoints.current;
+          if (upper && lower && hand) {
+            const upperSchema = segmentSchema(fighter, upperId);
+            const chestSchema = segmentSchema(fighter, 'chest');
+            const lowerSchema = segmentSchema(fighter, lowerId);
+            fit.anchor(chestBody, [upperSchema.localPosition[0], (upperSchema.localPosition[1] - chestSchema.localPosition[1]) * .5, 0], points.start);
+            fit.anchor(upper, [0, (lowerSchema.localPosition[1] - upperSchema.localPosition[1]) * .5, 0], points.middle);
+            points.end.copy(hand.position);
+            fit.limb(limbSide === 'left' ? leftArm.current : rightArm.current, points.start, points.middle, [0, -.64, 0], upper);
+            fit.limb(limbSide === 'left' ? leftForearm.current : rightForearm.current, points.middle, points.end, [0, -.58, .035], lower);
+          }
+          if (thigh && shin && foot) {
+            const thighSchema = segmentSchema(fighter, thighId);
+            const pelvisSchema = segmentSchema(fighter, 'pelvis');
+            const shinSchema = segmentSchema(fighter, shinId);
+            fit.anchor(pelvisBody, [thighSchema.localPosition[0], (thighSchema.localPosition[1] - pelvisSchema.localPosition[1]) * .5, 0], points.start);
+            fit.anchor(thigh, [0, (shinSchema.localPosition[1] - thighSchema.localPosition[1]) * .5, 0], points.middle);
+            points.end.copy(foot.position);
+            fit.limb(limbSide === 'left' ? leftLeg.current : rightLeg.current, points.start, points.middle, [0, -.69, 0], thigh);
+            fit.limb(limbSide === 'left' ? leftShin.current : rightShin.current, points.middle, points.end, [0, -.66, .13], shin);
+          }
+        }
+      }
       root.current.updateWorldMatrix(true, true);
       root.current.localToWorld(alignmentPoints.current.pelvis.set(0, 1.02 * height, 0));
-      torso.current.getWorldPosition(alignmentPoints.current.chest);
+      torso.current.localToWorld(alignmentPoints.current.chest.set(0, .25, 0));
       head.current.getWorldPosition(alignmentPoints.current.head);
       leftForearm.current.localToWorld(alignmentPoints.current.leftHand.set(0, -.58, .035));
       rightForearm.current.localToWorld(alignmentPoints.current.rightHand.set(0, -.58, .035));

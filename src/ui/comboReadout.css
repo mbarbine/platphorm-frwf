@@ -1,0 +1,10 @@
+.hit-combo { position: absolute; top: 28%; left: 2%; max-width: min(28rem, 44vw); padding: .6rem .85rem; color: #fff8d9; background: #10171eea; border-left: 4px solid #edff67; border-radius: 3px; pointer-events: none; }
+.hit-combo[hidden] { display: none; }
+.hit-combo__score { display: flex; align-items: center; gap: .6rem; font-weight: 900; letter-spacing: .06em; }
+.hit-combo__score strong { font-size: 2.5rem; line-height: 1; color: #edff67; }
+.hit-combo__pips { display: flex; gap: .25rem; margin: .45rem 0; }
+.hit-combo__pips i { height: .22rem; flex: 1; background: #566064; }
+.hit-combo__pips .lit { background: #edff67; }
+.hit-combo small { display: block; font-size: .7rem; line-height: 1.6; }
+.hit-combo kbd { color: #edff67; font-weight: 900; }
+@media (max-width: 700px) { .hit-combo { top: 25%; padding: .3rem .5rem; } .hit-combo__score strong { font-size: 1.6rem; } .hit-combo small { display: none; } }

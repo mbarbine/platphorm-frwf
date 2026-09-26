@@ -41,7 +41,9 @@ export const mobileInput = {
   read(): FrameInput & { active: boolean } {
     const actions = state.actions.drain();
     const timestamp = performance.now();
-    const moveEvent = state.held.update('move', Math.hypot(state.move.x, state.move.z) > .08, 'touch', state.move, timestamp);
+    // OPTIMIZATION: Replacing slow Math.hypot with a zero-allocation squared magnitude check (> 0.0064 equivalent to > 0.08) on the hot input polling loop.
+    const isMoving = (state.move.x * state.move.x + state.move.z * state.move.z) > 0.0064;
+    const moveEvent = state.held.update('move', isMoving, 'touch', state.move, timestamp);
     const runEvent = state.held.update('run', state.run, 'touch', state.move, timestamp);
     const guardEvent = state.held.update('guard', state.block, 'touch', state.move, timestamp);
     if (moveEvent) actions.push(moveEvent);
@@ -52,11 +54,11 @@ export const mobileInput = {
       run: state.run,
       block: state.block,
       actions,
-      active: performance.now() - state.lastActiveAt < 2_500,
+      active: isMoving || state.run || state.block || performance.now() - state.lastActiveAt < 2_500,
     };
   },
   isActive(): boolean {
-    return performance.now() - state.lastActiveAt < 2_500;
+    return state.move.x * state.move.x + state.move.z * state.move.z > .0064 || state.run || state.block || performance.now() - state.lastActiveAt < 2_500;
   },
   reset(): void {
     state.move.x = 0;

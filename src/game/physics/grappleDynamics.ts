@@ -1,23 +1,23 @@
-import { fighterById } from '../data/fighters';
-import { getMove } from '../data/moves';
-import type { FighterRuntime, FighterSlot as FighterKey, GrapplePosition, GrappleRuntime, MatchModel, Vec2 } from '../types/game';
-import { clamp, length, normalize } from '../utils/math';
+import { fighterById } from "../data/fighters";
+import { getMove } from "../data/moves";
+import type { FighterRuntime, FighterSlot as FighterKey, GrapplePosition, GrappleRuntime, MatchModel, Vec2 } from "../types/game";
+import { clamp, length, normalize } from "../utils/math";
 
 const MOVE_POSITIONS: Readonly<Record<string, GrapplePosition>> = {
-  piledriver: 'frontFacelock',
-  slam: 'underhook',
-  suplex: 'rearWaistLock',
-  takedown: 'armControl',
-  whip: 'armControl',
-  arm_drag: 'armControl',
-  skyhook: 'frontFacelock',
-  powerbomb: 'frontFacelock',
-  clutch: 'headlock',
-  spinebuster: 'waistLock',
-  side_toss: 'overhook',
-  mountain_drop: 'waistLock',
-  corner_smash: 'armControl',
-  finisher: 'collarTie',
+  piledriver: "frontFacelock",
+  slam: "underhook",
+  suplex: "rearWaistLock",
+  takedown: "armControl",
+  whip: "armControl",
+  arm_drag: "armControl",
+  skyhook: "frontFacelock",
+  powerbomb: "frontFacelock",
+  clutch: "headlock",
+  spinebuster: "waistLock",
+  side_toss: "overhook",
+  mountain_drop: "waistLock",
+  corner_smash: "armControl",
+  finisher: "collarTie",
 };
 
 const HOLD_OFFSETS: Readonly<Record<GrapplePosition, { forward: number; side: number }>> = {
@@ -50,7 +50,7 @@ const LIFT_HEIGHTS: Readonly<Record<string, number>> = {
 
 const wrapAngle = (angle: number): number => Math.atan2(Math.sin(angle), Math.cos(angle));
 
-export const grapplePositionForMove = (moveId: string): GrapplePosition => MOVE_POSITIONS[moveId] ?? 'collarTie';
+export const grapplePositionForMove = (moveId: string): GrapplePosition => MOVE_POSITIONS[getMove(moveId).signatureBase ?? moveId] ?? "collarTie";
 
 export const createGrappleRuntime = (attacker: FighterKey, defender: FighterKey, moveId: string): GrappleRuntime => ({
   attacker,
@@ -63,14 +63,15 @@ export const createGrappleRuntime = (attacker: FighterKey, defender: FighterKey,
   struggle: 0,
   age: 0,
   gripCount: 0,
-  phase: 'reach',
+  phase: "reach",
+  liftElapsed: 0,
 });
 
 export const retargetGrapple = (grapple: GrappleRuntime, moveId: string): void => {
   grapple.position = grapplePositionForMove(moveId);
 };
 
-const inputFor = (key: FighterKey, playerIntent: Vec2, opponentIntent: Vec2): Vec2 => key === 'player' ? playerIntent : opponentIntent;
+const inputFor = (key: FighterKey, playerIntent: Vec2, opponentIntent: Vec2): Vec2 => key === "player" ? playerIntent : opponentIntent;
 
 const addConstraintVelocity = (fighter: FighterRuntime, force: Vec2, dt: number, sign: number): void => {
   const accelerationScale = 92 / Math.max(55, fighter.body.mass);
@@ -89,7 +90,7 @@ export const stepGrappleDynamics = (model: MatchModel, dt: number, playerIntent:
   if (!grapple) return { broken: false, liftEnergy: 0 };
   const attacker = model[grapple.attacker];
   const defender = model[grapple.defender];
-  if (!attacker.moveId || !['grappling', 'attacking'].includes(attacker.state) || defender.state !== 'grabbed') {
+  if (!attacker.moveId || !["grappling", "attacking"].includes(attacker.state) || defender.state !== "grabbed") {
     return { broken: true, liftEnergy: 0 };
   }
 
@@ -128,24 +129,25 @@ export const stepGrappleDynamics = (model: MatchModel, dt: number, playerIntent:
   grapple.leverage = clamp(attackerDrive / Math.max(.15, defenderDrive), .35, 2.2);
   grapple.struggle = clamp(grapple.struggle + (defenderInput - attackerInput * .45) * dt - dt * .12, 0, 1);
 
-  // BLOCKBUSTER: Doubled base stiffness from 13 to 26 and clamp limits from -18..18 to -36..36
+  // Intense two-body stiffness with dynamic struggle strain vibration during heavy lifts
+  const struggleStrain = grapple.struggle > 0.2 ? Math.sin(grapple.age * 38) * grapple.struggle * 1.8 : 0;
   const stiffness = (26 + technique * 12) * clamp(grapple.leverage, .65, 1.45);
   const damping = 4.8 + technique * 2.2;
   const force = {
-    x: clamp(error.x * stiffness - relativeVelocity.x * damping, -36, 36),
-    z: clamp(error.z * stiffness - relativeVelocity.z * damping, -36, 36),
+    x: clamp((error.x + right.x * struggleStrain * .015) * stiffness - relativeVelocity.x * damping, -36, 36),
+    z: clamp((error.z + right.z * struggleStrain * .015) * stiffness - relativeVelocity.z * damping, -36, 36),
   };
   // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt. Since inputs are simple coordinates, Math.sqrt is completely safe and ~8x faster.
   grapple.tension = clamp(Math.sqrt(force.x * force.x + force.z * force.z) / 18, 0, 1);
   grapple.rotation = wrapAngle(Math.atan2(toDefender.x, toDefender.z) - attacker.facing);
   addConstraintVelocity(defender, force, dt, 1);
   addConstraintVelocity(attacker, force, dt, -.62);
-  defender.facing = wrapAngle(attacker.facing + (grapple.position === 'rearWaistLock' ? 0 : Math.PI));
+  defender.facing = wrapAngle(attacker.facing + (grapple.position === "rearWaistLock" ? 0 : Math.PI));
   defender.body.balance = clamp(defender.body.balance - grapple.tension * dt * (2.5 + grapple.struggle * 5), 0, 100);
   attacker.body.balance = clamp(attacker.body.balance - grapple.tension * dt * 1.2, 0, 100);
 
   const progress = clamp(attacker.phaseElapsed / Math.max(.01, move.anticipationDuration), 0, 1);
-  const configuredHeight = LIFT_HEIGHTS[move.id] ?? .35;
+  const configuredHeight = LIFT_HEIGHTS[move.signatureBase ?? move.id] ?? .35;
   const liftWindow = clamp((progress - .18) / .64, 0, 1);
   const massAdvantage = clamp((attacker.body.mass * (.72 + power * .55)) / Math.max(55, defender.body.mass), .55, 1.55);
   const desiredLift = configuredHeight * Math.sin(liftWindow * Math.PI * .5) * massAdvantage * attacker.body.muscle;
@@ -159,10 +161,10 @@ export const stepGrappleDynamics = (model: MatchModel, dt: number, playerIntent:
   return { broken: impossibleStretch || leverageBreak, liftEnergy: Math.max(0, liftAcceleration) * defender.body.mass / 100 };
 };
 
-export const releaseGrapple = (model: MatchModel, defenderState: FighterRuntime['state'] = 'staggered'): void => {
+export const releaseGrapple = (model: MatchModel, defenderState: FighterRuntime["state"] = "staggered"): void => {
   if (!model.grapple) return;
   const defender = model[model.grapple.defender];
-  if (defender.state === 'grabbed') {
+  if (defender.state === "grabbed") {
     defender.state = defenderState;
     defender.stateElapsed = 0;
   }

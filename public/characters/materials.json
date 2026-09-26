@@ -1,0 +1,97 @@
+{
+  "atlas": {
+    "skinUrl": "/characters/atlas-skin.9f9994cde658.webp",
+    "sha256": "9f9994cde658aa362e2ee22722cbc5adbb166017db89e54c2db1916f19ed15c8",
+    "hairUrl": null
+  },
+  "vex": {
+    "skinUrl": "/characters/vex-skin.e9461403bec4.webp",
+    "sha256": "e9461403bec43c98c2b89b06a7bfa5da5c7796ca2439c9f163976606bcbba595",
+    "hairUrl": null
+  },
+  "nova": {
+    "skinUrl": "/characters/nova-skin.ae2164112204.webp",
+    "sha256": "ae216411220440bf689816b9a4b5d1f4706dbef4f26daac66b1d39dfb51fb8c5",
+    "hairUrl": "/characters/short01.42ce588f4d40.webp"
+  },
+  "brick": {
+    "skinUrl": "/characters/brick-skin.42f5eef4f3f2.webp",
+    "sha256": "42f5eef4f3f220d0d9deb87d6caeb5a93c24f687739502fc2c35efefea22b1c2",
+    "hairUrl": "/characters/short02.2869c613490f.webp"
+  },
+  "chad": {
+    "skinUrl": "/characters/chad-skin.8ccaf4765032.webp",
+    "sha256": "8ccaf4765032514736a7522ebc0aebc7b32b722db75ee02aebb29aa140bbb557",
+    "hairUrl": "/characters/short02.2869c613490f.webp"
+  },
+  "dale": {
+    "skinUrl": "/characters/dale-skin.2200b8e11ea7.webp",
+    "sha256": "2200b8e11ea7cc680cf7ada074bef35d0cd3a716192b0da2969de686fd0d7f72",
+    "hairUrl": "/characters/long01.a129620db6c3.webp"
+  },
+  "thomas": {
+    "skinUrl": "/characters/thomas-skin.a60b97e29fdf.webp",
+    "sha256": "a60b97e29fdfb0724cf01b0008fdd1b22a15b741df9ac5e495aa7ef4ce35c800",
+    "hairUrl": "/characters/long01-blonde.998d4f6d55c0.webp"
+  },
+  "sonny": {
+    "skinUrl": "/characters/sonny-skin.e91d94e61d72.webp",
+    "sha256": "e91d94e61d72dc66d73fa9d8de2a360a5ca787b8255e663f4629ffe22c5c7d4a",
+    "hairUrl": "/characters/short01.42ce588f4d40.webp"
+  },
+  "wrecking_ball": {
+    "skinUrl": "/characters/wrecking_ball-skin.74e5d7efbde8.webp",
+    "sha256": "74e5d7efbde8a49267cd662202eb9d459e95ad696fef5f840a88f7b0e968a1cd",
+    "hairUrl": "/characters/short02.2869c613490f.webp"
+  },
+  "steve": {
+    "skinUrl": "/characters/steve-skin.d23209f89bcd.webp",
+    "sha256": "d23209f89bcd076b08389df1632b3c20f767ab85c6573ae729ce5500b8ad7701",
+    "hairUrl": "/characters/short02.2869c613490f.webp"
+  },
+  "john": {
+    "skinUrl": "/characters/john-skin.2046a275863c.webp",
+    "sha256": "2046a275863c481be65dcb77863c4ff19aa80103f0e123813011ffc6492a2a49",
+    "hairUrl": "/characters/long01.a129620db6c3.webp"
+  },
+  "justin": {
+    "skinUrl": "/characters/justin-skin.81d542651836.webp",
+    "sha256": "81d542651836996b4ab434002fb8aa34f4f012001377506d707031d4148b19d2",
+    "hairUrl": "/characters/short02.2869c613490f.webp"
+  },
+  "mondo": {
+    "skinUrl": "/characters/mondo-skin.54b403744ae3.webp",
+    "sha256": "54b403744ae32aa2356dbe0bdc1f4dd4d608114800e6cf492ebec69079e549d9",
+    "hairUrl": "/characters/long01.a129620db6c3.webp"
+  },
+  "gil": {
+    "skinUrl": "/characters/gil-skin.1e059d557bbb.webp",
+    "sha256": "1e059d557bbb3c741a6d90c91e4d1610ccc87969a8d59413e4a9213b2af1f954",
+    "hairUrl": "/characters/long01.a129620db6c3.webp"
+  },
+  "josh": {
+    "skinUrl": "/characters/sonny-skin.e91d94e61d72.webp",
+    "sha256": "e91d94e61d72dc66d73fa9d8de2a360a5ca787b8255e663f4629ffe22c5c7d4a",
+    "hairUrl": "/characters/short01.42ce588f4d40.webp"
+  },
+  "chelsea": {
+    "skinUrl": "/characters/gil-skin.1e059d557bbb.webp",
+    "sha256": "1e059d557bbb3c741a6d90c91e4d1610ccc87969a8d59413e4a9213b2af1f954",
+    "hairUrl": "/characters/long01.a129620db6c3.webp"
+  },
+  "britt": {
+    "skinUrl": "/characters/gil-skin.1e059d557bbb.webp",
+    "sha256": "1e059d557bbb3c741a6d90c91e4d1610ccc87969a8d59413e4a9213b2af1f954",
+    "hairUrl": "/characters/long01.a129620db6c3.webp"
+  },
+  "beer_bandit_bill": {
+    "skinUrl": "/characters/sonny-skin.e91d94e61d72.webp",
+    "sha256": "e91d94e61d72dc66d73fa9d8de2a360a5ca787b8255e663f4629ffe22c5c7d4a",
+    "hairUrl": "/characters/short01.42ce588f4d40.webp"
+  },
+  "beer_bandit_ted": {
+    "skinUrl": "/characters/sonny-skin.e91d94e61d72.webp",
+    "sha256": "e91d94e61d72dc66d73fa9d8de2a360a5ca787b8255e663f4629ffe22c5c7d4a",
+    "hairUrl": "/characters/short01.42ce588f4d40.webp"
+  }
+}

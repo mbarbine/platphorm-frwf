@@ -1,7 +1,8 @@
+import { locomotionPose } from '../game/animation/locomotion';
 import { describe, expect, it } from 'vitest';
 import { fighterById } from '../game/data/fighters';
 import { integrateLocomotion, locomotionProfile } from '../game/physics/bodyDynamics';
-import { createMatch } from '../game/systems/combat';
+import { advanceMatch, createMatch } from '../game/systems/combat';
 
 const STEP = 1 / 60;
 
@@ -26,10 +27,117 @@ describe('arcade locomotion feel', () => {
     expect(Math.hypot(run.velocity.x, run.velocity.z)).toBeGreaterThan(Math.hypot(walk.velocity.x, walk.velocity.z) * 1.35);
   });
 
+  it('caps diagonal travel at the cardinal speed and preserves analog speed control', () => {
+    const definition = fighterById('vex');
+    const cardinal = createMatch('vex', 'atlas', 'standard', 'normal').player;
+    const diagonal = createMatch('vex', 'atlas', 'standard', 'normal').player;
+    const analog = createMatch('vex', 'atlas', 'standard', 'normal').player;
+    for (let frame = 0; frame < 60; frame += 1) {
+      integrateLocomotion(cardinal, definition, { x: 1, z: 0 }, false, STEP);
+      integrateLocomotion(diagonal, definition, { x: Math.SQRT1_2, z: Math.SQRT1_2 }, false, STEP);
+      integrateLocomotion(analog, definition, { x: .45, z: 0 }, false, STEP);
+    }
+    const cardinalSpeed = Math.hypot(cardinal.velocity.x, cardinal.velocity.z);
+    const diagonalSpeed = Math.hypot(diagonal.velocity.x, diagonal.velocity.z);
+    const analogSpeed = Math.hypot(analog.velocity.x, analog.velocity.z);
+
+    expect(diagonalSpeed).toBeCloseTo(cardinalSpeed, 5);
+    expect(analogSpeed).toBeCloseTo(cardinalSpeed * .45, 5);
+  });
+
+  it('mirrors the step path when travel reverses behind a combat-facing target', () => {
+    const definition = fighterById('atlas');
+    const travel = (move: { x: number; z: number }) => {
+      const fighter = createMatch('atlas', 'vex', 'standard', 'normal').player;
+      for (let frame = 0; frame < 24; frame += 1) integrateLocomotion(fighter, definition, move, false, STEP, 0);
+      return fighter;
+    };
+    const forward = travel({ x: 0, z: 1 }); const backward = travel({ x: 0, z: -1 });
+    const strafeLeft = travel({ x: -1, z: 0 }); const strafeRight = travel({ x: 1, z: 0 });
+
+    expect(forward.facing).toBeCloseTo(0);
+    expect(backward.facing).toBeCloseTo(0);
+    expect(forward.body.leftFoot.offset.z).toBeCloseTo(-backward.body.leftFoot.offset.z, 5);
+    expect(forward.body.rightFoot.offset.z).toBeCloseTo(-backward.body.rightFoot.offset.z, 5);
+    expect((strafeLeft.body.leftFoot.offset.x + strafeRight.body.leftFoot.offset.x) / 2).toBeCloseTo(-.16 * definition.proportions.width, 5);
+    expect((strafeLeft.body.rightFoot.offset.x + strafeRight.body.rightFoot.offset.x) / 2).toBeCloseTo(.16 * definition.proportions.width, 5);
+  });
+
+  it('keeps the travel gait through braking and only returns to idle after settling', () => {
+    const model = createMatch('atlas', 'vex', 'standard', 'easy');
+    model.labMode = true;
+    for (let frame = 0; frame < 18; frame += 1) advanceMatch(model, STEP, { move: { x: 0, z: 1 }, run: false, block: false, commands: [] });
+    expect(model.player.state).toBe('locomotion');
+
+    advanceMatch(model, STEP, { move: { x: 0, z: 0 }, run: false, block: false, commands: [] });
+    expect(model.player.state).toBe('locomotion');
+
+    for (let frame = 0; frame < 30; frame += 1) advanceMatch(model, STEP, { move: { x: 0, z: 0 }, run: false, block: false, commands: [] });
+    expect(Math.hypot(model.player.velocity.x, model.player.velocity.z)).toBeLessThan(.08);
+    expect(model.player.state).toBe('idle');
+  });
+
   it('gives agile fighters faster acceleration and turning than heavy fighters', () => {
     const atlas = locomotionProfile(fighterById('atlas')); const vex = locomotionProfile(fighterById('vex'));
     expect(vex.acceleration).toBeGreaterThan(atlas.acceleration); expect(vex.turnRate).toBeGreaterThan(atlas.turnRate); expect(vex.walkSpeed).toBeGreaterThan(atlas.walkSpeed);
-    expect(atlas.walkSpeed).toBeGreaterThan(3); expect(vex.walkSpeed).toBeLessThan(3.5);
-    expect(atlas.runSpeed).toBeGreaterThan(5.4); expect(vex.runSpeed).toBeLessThan(6.1);
+    // Ordinary approach must leave time to judge the final body length.
+    expect(atlas.walkSpeed).toBeLessThan(2.5); expect(vex.walkSpeed).toBeLessThan(2.5);
+    expect(atlas.runSpeed / atlas.walkSpeed).toBeGreaterThan(2);
   });
+});
+
+it('backsteps keep a short low shuffle and a guard instead of reversing a sprint', () => {
+  for (const speed of [1.8, 4.8]) {
+    const poses = Array.from({ length: 32 }, (_, index) => locomotionPose({ x: 0, z: -speed }, 0, index / 32 * Math.PI * 2));
+    const forward = Array.from({ length: 32 }, (_, index) => locomotionPose({ x: 0, z: speed }, 0, index / 32 * Math.PI * 2));
+    const excursion = (samples: typeof poses, limb: 'leftLeg' | 'leftShin') => Math.max(...samples.map(pose => Math.abs(pose[limb][0])));
+    expect(excursion(poses, 'leftLeg')).toBeLessThan(excursion(forward, 'leftLeg') * .7);
+    expect(excursion(poses, 'leftShin')).toBeLessThan(.31);
+    for (const pose of poses) { expect(pose.rootTilt).toBeGreaterThanOrEqual(0); expect(pose.leftForearm[0]).toBeLessThan(-.8); }
+  }
+});
+
+
+describe('combat-facing ownership', () => {
+  it.each([-1, 1])('turns monotonically toward the rival while backpedaling (side %s)', (side) => {
+    const model = createMatch('chad', 'dale', 'standard', 'easy');
+    model.labMode = true;
+    model.player.position = { x: 0, z: 0 };
+    model.opponent.position = { x: 0, z: 2.5 };
+    model.player.facing = side * .7;
+    let previousError = Math.abs(model.player.facing);
+    for (let frame = 0; frame < 30; frame++) {
+      advanceMatch(model, STEP, { move: { x: 0, z: -1 }, run: false, block: false, commands: [] });
+      const target = Math.atan2(model.opponent.position.x - model.player.position.x, model.opponent.position.z - model.player.position.z);
+      const error = Math.abs(Math.atan2(Math.sin(model.player.facing - target), Math.cos(model.player.facing - target)));
+      expect(error).toBeLessThanOrEqual(previousError + 1e-6);
+      previousError = error;
+    }
+    expect(previousError).toBeLessThan(.01);
+    expect(model.player.position.z).toBeLessThan(-.5);
+  });
+
+  it('does not create lateral turn recoil while steadily retreating', () => {
+    const fighter = createMatch('chad', 'dale', 'standard', 'easy').player;
+    const definition = fighterById('chad');
+    fighter.facing = 0;
+    fighter.velocity = { x: 0, z: -locomotionProfile(definition).walkSpeed };
+    for (let frame = 0; frame < 60; frame++) integrateLocomotion(fighter, definition, { x: 0, z: -1 }, false, STEP, 0);
+    expect(fighter.facing).toBe(0);
+    expect(fighter.body.sideVelocity).toBeCloseTo(0);
+  });
+});
+
+
+it('holding sprint while exhausted produces the same travel as exhausted walking', () => {
+  const definition = fighterById('chad');
+  const walking = createMatch('chad', 'dale', 'standard', 'easy').player;
+  const sprinting = createMatch('chad', 'dale', 'standard', 'easy').player;
+  walking.stamina = sprinting.stamina = 0;
+  for (let frame = 0; frame < 30; frame++) {
+    integrateLocomotion(walking, definition, { x: 0, z: 1 }, false, STEP);
+    integrateLocomotion(sprinting, definition, { x: 0, z: 1 }, true, STEP);
+  }
+  expect(sprinting.velocity).toEqual(walking.velocity);
+  expect(sprinting.velocity.z).toBeCloseTo(locomotionProfile(definition).walkSpeed * .86);
 });

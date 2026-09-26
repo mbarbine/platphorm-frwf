@@ -1,3 +1,4 @@
+import { GAMEPAD_HELD_ACTIONS } from './actionLayer';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { FrameInput } from '../systems/combat';
 import type { ControlDevice, Vec2 } from '../types/game';
@@ -105,6 +106,8 @@ export const useGameInput = (
 
   useEffect(() => {
     const down = (event: KeyboardEvent): void => {
+      const target = event.target;
+      if (target instanceof HTMLElement && (target.isContentEditable || target.matches('input, textarea, select'))) return;
       const action = KEYBOARD_ACTIONS[event.code];
       if (event.repeat && action) return;
       const targetCycle = keyboardTargetCycle(event.code, event.shiftKey);
@@ -192,8 +195,8 @@ export const useGameInput = (
       const direction = readGamepadDirection(gamepad);
       // OPTIMIZATION: Use zero-allocation squared comparison to avoid slow Math.hypot calls.
       if ((direction.x * direction.x + direction.z * direction.z) > 0.18 * 0.18) { x = direction.x; z = direction.z; heldSource = 'gamepad'; setDevice('gamepad'); }
-      const gamepadRun = (gamepad.buttons[7]?.value ?? 0) > .35;
-      const gamepadBlock = (gamepad.buttons[6]?.value ?? 0) > .35;
+      const gamepadRun = (gamepad.buttons[GAMEPAD_HELD_ACTIONS.sprint]?.value ?? 0) > .35;
+      const gamepadBlock = (gamepad.buttons[GAMEPAD_HELD_ACTIONS.guard]?.value ?? 0) > .35;
       if (gamepadRun || gamepadBlock) heldSource = 'gamepad';
       run ||= gamepadRun; block ||= gamepadBlock;
       for (const [index, action] of GAMEPAD_BUTTON_ACTIONS) {

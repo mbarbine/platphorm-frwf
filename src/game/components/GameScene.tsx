@@ -1,6 +1,13 @@
+import { physicsFrameBudget, FIXED_STEP } from '../runtime/physicsClock';
+import { rosterIsPresented, useRosterPresentation } from '../presentation/rosterReadiness';
+import { viewInputBasis } from '../camera/playerCamera';
+import { venueFor } from '../data/venues';
+import { FightVenue } from '../world/FightVenue';
+import { RendererHealth } from './RendererHealth';
+import { PlayerController } from '../input/playerController';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { AdaptiveDpr, BakeShadows, OrbitControls } from '@react-three/drei';
-import { Physics, useAfterPhysicsStep, useBeforePhysicsStep } from '@react-three/rapier';
+import { AdaptiveDpr, OrbitControls } from '@react-three/drei';
+import { Physics, useAfterPhysicsStep, useBeforePhysicsStep, useRapier } from '@react-three/rapier';
 import { JointData } from '@dimforge/rapier3d-compat';
 import { Component, lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ErrorInfo, ReactNode } from 'react';
@@ -10,6 +17,7 @@ import type { WebGLRenderer } from 'three';
 import { Arena } from './Arena';
 import { PhysicalFighterRig } from './PhysicalFighterRig';
 import { FighterModel } from './FighterModel';
+import { HumanoidFighter } from './HumanoidFighter';
 import { CameraRig } from './CameraRig';
 import { ImpactEffects } from './ImpactEffects';
 import { useMatchStore } from '../state/matchStore';
@@ -29,7 +37,7 @@ import { pulseConnectedGamepads } from '../input/gamepadHaptics';
 import { renderDiagnostics, resetRenderDiagnostics, sampleRenderDiagnostics } from '../runtime/renderDiagnostics';
 import { selectFighterDetail } from '../presentation/presentationManifest';
 import type { FighterDetail } from '../presentation/presentationManifest';
-import { FALL_REASONS, FIGHTER_SLOTS } from '../types/game';
+import { FALL_REASONS, FIGHTER_SLOTS, SINGLES_FIGHTER_SLOTS } from '../types/game';
 import { resolvedSpectatorTarget, useSpectatorStore } from '../state/spectatorStore';
 import { BODY_SEGMENT_COUNT } from '../physics/bodySchema';
 import { fallCount } from '../systems/falls';
@@ -44,8 +52,10 @@ const BodyWorksDebugOverlay = lazy(async () => ({ default: (await import('./Body
 bodyWorksRuntime.setJointData(JointData);
 
 function Simulation({ onPause, onDevice, onFinished, inputEnabled = true, onlineRole = null }: Props) {
+  const controller = useRef(new PlayerController());
   const pause = useCallback(onPause, [onPause]);
   const clearPendingInput = useCallback((reason: string) => {
+    controller.current.reset();
     const model = useMatchStore.getState().model;
     bodyWorksRuntime.rejectPendingActions('player', model.elapsed, reason);
   }, []);
@@ -73,13 +83,9 @@ function Simulation({ onPause, onDevice, onFinished, inputEnabled = true, online
     window.addEventListener('keydown', onTargetCycle);
     return () => window.removeEventListener('keydown', onTargetCycle);
   }, []);
-  const lab = physicsLabEnabled();
-  const labDebug = usePhysicsLabStore((state) => state.debug);
-  const requiresPhysicalRig = lab && labDebug;
-
   useBeforePhysicsStep((world) => {
     const model = useMatchStore.getState().model;
-    const fixedStep = model.labMode ? usePhysicsLabStore.getState().rate / 60 : 1 / 60;
+    const fixedStep = 1 / 60;
     if (model.networkAuthority) {
       const network = useMultiplayerStore.getState();
       const p1SessionId = [...network.roles.entries()].find((entry) => entry[1] === 'player1')?.[0];
@@ -104,25 +110,19 @@ function Simulation({ onPause, onDevice, onFinished, inputEnabled = true, online
         useMatchStore.getState().resolveNetworkMatch(network.matchResult.winner === localSessionId ? 'player' : 'opponent', network.matchResult.method);
       }
     }
-    const activeSlots = model.matchMode === 'battle_royale' ? FIGHTER_SLOTS.filter((slot) => model[slot].state !== 'defeated') : FIGHTER_SLOTS.slice(0, 2);
+    const activeSlots = model.matchMode === 'battle_royale' ? FIGHTER_SLOTS.filter((slot) => model[slot].state !== 'defeated') : SINGLES_FIGHTER_SLOTS;
     const expectedBodies = activeSlots.length * BODY_SEGMENT_COUNT;
-    if (requiresPhysicalRig) {
-      if (rosterReadiness.current.runtimeId !== model.runtimeId) rosterReadiness.current = { runtimeId: model.runtimeId, ready: false };
-      if (!rosterReadiness.current.ready && bodyWorksRuntime.metrics.bodyCount >= expectedBodies) rosterReadiness.current.ready = true;
-      if (!rosterReadiness.current.ready) {
-        // Let registered bodies settle under their motors. In non-lab modes we no
-        // longer block match progression if the rig count is low, because the
-        // presentation model should stay interactive and visible even when body
-        // registration is delayed.
-        bodyWorksRuntime.beforeFixedStep(fixedStep, model, world);
-        return;
-      }
-    } else if (rosterReadiness.current.runtimeId !== model.runtimeId) {
-      rosterReadiness.current = { runtimeId: model.runtimeId, ready: true };
+    if (rosterReadiness.current.runtimeId !== model.runtimeId) rosterReadiness.current = { runtimeId: model.runtimeId, ready: false };
+    if (!rosterReadiness.current.ready && bodyWorksRuntime.metrics.bodyCount >= expectedBodies && rosterIsPresented(model.runtimeId, activeSlots)) rosterReadiness.current.ready = true;
+    if (!rosterReadiness.current.ready) {
+      // Registration readiness applies to real matches too. Do not spend the
+      // player's opening or start AI attacks before the contact bodies exist.
+      bodyWorksRuntime.beforeFixedStep(fixedStep, model, world);
+      return;
     }
     bodyWorksRuntime.beforeFixedStep(fixedStep, model, world);
-    if (!requiresPhysicalRig || rosterReadiness.current.ready) {
-      const session = gl.xr.getSession(); const raw = input.read(session ? Array.from(session.inputSources) : []);
+    if (rosterReadiness.current.ready) {
+      const session = gl.xr.getSession(); let raw = input.read(session ? Array.from(session.inputSources) : []);
       if (raw.actions?.length) {
         storeActionCount.current += raw.actions.length;
         document.documentElement.dataset.storeActionCount = String(storeActionCount.current);
@@ -131,7 +131,7 @@ function Simulation({ onPause, onDevice, onFinished, inputEnabled = true, online
       if (raw.targetCycle) useMatchStore.getState().cyclePlayerTarget(raw.targetCycle);
       const middleX = activeSlots.reduce((sum, slot) => sum + model[slot].position.x, 0) / Math.max(1, activeSlots.length);
       const middleZ = activeSlots.reduce((sum, slot) => sum + model[slot].position.z, 0) / Math.max(1, activeSlots.length);
-      const candidate = cameraInputBasis({ x: camera.position.x, z: camera.position.z }, { x: middleX, z: middleZ });
+      const candidate = viewInputBasis(useSettings.getState().playerCamera, model.player.facing, cameraInputBasis({ x: camera.position.x, z: camera.position.z }, { x: middleX, z: middleZ }));
       if (!inputBasis.current) inputBasis.current = candidate;
       // OPTIMIZATION: Replacing Math.hypot with a zero-allocation squared magnitude check to avoid slow square root extraction on a hot path.
       const inputHeld = (raw.move.x * raw.move.x + raw.move.z * raw.move.z) > 0.0064; // 0.08 * 0.08 = 0.0064
@@ -150,6 +150,7 @@ function Simulation({ onPause, onDevice, onFinished, inputEnabled = true, online
         const magnitude = Math.max(1, Math.sqrt(direction.x * direction.x + direction.z * direction.z));
         return { ...event, direction: { x: direction.x / magnitude, y: direction.z / magnitude } };
       });
+      raw = controller.current.read(raw, model, useSettings.getState().controlStyle);
       if (model.networkAuthority && onlineRole !== 'spectator') {
         for (const event of raw.actions ?? []) useMultiplayerStore.getState().sendAction(event);
       }
@@ -197,6 +198,26 @@ function Simulation({ onPause, onDevice, onFinished, inputEnabled = true, online
   return null;
 }
 
+/** Playback changes wall-clock pacing, never the solved simulation timestep. */
+function ArenaPhysicsClock({ labEnabled }: { labEnabled: boolean }) {
+  const { step } = useRapier();
+  const accumulator = useRef(0);
+  useFrame((_, delta) => {
+    const store = useMatchStore.getState(); const lab = usePhysicsLabStore.getState();
+    if (store.replayActive) return;
+    if (labEnabled && lab.pendingSteps > 0) {
+      accumulator.current = 0;
+      store.pause(false); step(1 / 60); useMatchStore.getState().pause(true);
+      lab.consumeStep(); return;
+    }
+    if (store.model.paused) return;
+    const budget = physicsFrameBudget(accumulator.current, delta, labEnabled ? lab.rate : 1);
+    accumulator.current = budget.remainder;
+    for (let frame=0; frame<budget.steps; frame++) step(FIXED_STEP);
+  });
+  return null;
+}
+
 function RuntimeDiagnosticsSampler({ onSustainedSlow }: { onSustainedSlow: () => void }) {
   const { gl } = useThree();
   const startedAt = useRef(0); const fallbackIssued = useRef(false);
@@ -220,13 +241,13 @@ function SpectatorFreeCamera() {
   return <OrbitControls makeDefault enabled={enabled} enableDamping dampingFactor={.09} enablePan enableZoom minDistance={2.4} maxDistance={32} minPolarAngle={.16} maxPolarAngle={Math.PI * .49} target={[target.position.x, 2.5, target.position.z]} />;
 }
 
-function Fighters({ detail, showPhysical }: { detail: FighterDetail; showPhysical: boolean }) {
+function Fighters({ detail }: { detail: FighterDetail }) {
   const model = useMatchStore((state) => state.model); const runtimeId = model.runtimeId;
   const replayActive = useMatchStore((state) => state.replayActive);
-  const slots = model.matchMode === 'battle_royale' ? FIGHTER_SLOTS : FIGHTER_SLOTS.slice(0, 2);
+  const slots = model.matchMode === 'battle_royale' ? FIGHTER_SLOTS : SINGLES_FIGHTER_SLOTS;
   return <group key={runtimeId} visible={!replayActive}>
-    {slots.map((slot) => <PhysicalFighterRig key={`physics-${slot}`} runtime={model[slot]} side={slot} showVisuals={showPhysical} />)}
-    {!showPhysical && slots.map((slot) => <FighterModel key={`visual-${slot}`} runtime={model[slot]} counterpart={model[model.targets[slot]]} side={slot} detail={detail} />)}
+    {slots.map((slot) => <PhysicalFighterRig key={`physics-${slot}`} runtime={model[slot]} side={slot} showVisuals={false} />)}
+    {slots.map((slot) => <Suspense key={`visual-${slot}`} fallback={<FighterModel runtime={model[slot]} counterpart={model[model.targets[slot]]} side={slot} detail={detail} />}><HumanoidFighter runtime={model[slot]} side={slot} /></Suspense>)}
   </group>;
 }
 
@@ -240,9 +261,9 @@ function PlayerControlBeacon() {
     const hasMagnitude = (intent.move.x * intent.move.x + intent.move.z * intent.move.z) > 0.0064; // 0.08 * 0.08 = 0.0064
     const controllable = ['idle', 'locomotion'].includes(model.player.state) && !model.paused && !model.resolved;
     const battleIdentity = model.matchMode === 'battle_royale' && !['defeated', 'victorious'].includes(model.player.state) && !model.resolved;
-    group.visible = battleIdentity || controllable;
+    group.visible = battleIdentity || (!model.resolved && !model.paused && model.player.state !== 'defeated');
     if (!group.visible) return;
-    group.position.set(model.player.position.x, Math.abs(model.player.position.x) <= 5.82 && Math.abs(model.player.position.z) <= 4.32 ? 1.94 : .08, model.player.position.z);
+    group.position.set(model.player.position.x, (!venueFor(model).hasRing || (Math.abs(model.player.position.x) <= 5.82 && Math.abs(model.player.position.z) <= 4.32)) ? 1.88 : .43, model.player.position.z);
     group.rotation.y = Math.atan2(intent.move.x, intent.move.z);
     if (direction.current) direction.current.visible = controllable && hasMagnitude;
     const pulse = 1 + Math.sin(clock.elapsedTime * 8) * .045; group.scale.setScalar(intent.run && hasMagnitude ? pulse * 1.1 : pulse);
@@ -250,8 +271,7 @@ function PlayerControlBeacon() {
   return <group ref={beacon} visible={false}>
     <mesh rotation={[-Math.PI / 2, 0, 0]}><torusGeometry args={[.43, .035, 5, 32]} /><meshBasicMaterial color="#49efff" transparent opacity={.86} depthWrite={false} /></mesh>
     <group ref={direction}><mesh position={[0, .028, .5]} rotation={[Math.PI / 2, 0, 0]}><coneGeometry args={[.15, .4, 3]} /><meshBasicMaterial color="#dfff38" transparent opacity={.96} depthWrite={false} /></mesh></group>
-    <mesh position={[0, 2.62, 0]} rotation={[0, 0, Math.PI]}><coneGeometry args={[.22, .62, 4]} /><meshBasicMaterial color="#dfff38" transparent opacity={.94} depthWrite={false} /></mesh>
-    <mesh position={[0, 2.95, 0]} rotation={[-Math.PI / 2, 0, 0]}><torusGeometry args={[.3, .045, 5, 28]} /><meshBasicMaterial color="#49efff" transparent opacity={.92} depthWrite={false} /></mesh>
+    <mesh position={[0, 2.42, 0]} rotation={[0, 0, Math.PI]}><coneGeometry args={[.1, .22, 3]} /><meshBasicMaterial color="#dfff38" transparent opacity={.94} depthWrite={false} /></mesh>
   </group>;
 }
 
@@ -260,17 +280,12 @@ export function GameScene(props: Props) {
   const replayActive = useMatchStore((state) => state.replayActive);
   const diagnosticModel = useMatchStore((state) => state.model); const toyTestMode = diagnosticModel.toyTestMode; const playerMove = diagnosticModel.player.moveId; const playerPosition = diagnosticModel.player.position; const opponentHealth = diagnosticModel[diagnosticModel.targets.player].health;
   const lab = physicsLabEnabled();
-  const labRate = usePhysicsLabStore((state) => state.rate); const labDebug = usePhysicsLabStore((state) => state.debug);
-  const requiresPhysicalRig = lab && labDebug;
+  const labDebug = usePhysicsLabStore((state) => state.debug);
   const graphicsQuality = useSettings((state) => state.graphicsQuality); const reducedMotion = useSettings((state) => state.reducedMotion);
   const [automaticPerformanceFallback, setAutomaticPerformanceFallback] = useState(false);
   useEffect(() => { if (graphicsQuality !== 'auto') setAutomaticPerformanceFallback(false); }, [graphicsQuality]);
-  // Five articulated rigs, five presentation shells, ropes, props, and a full
-  // crowd are a materially different render budget from singles. Auto quality
-  // protects control latency first in Battle Royale; an explicit user quality
-  // choice still wins. Slow rendering must never turn the match into slow
-  // motion or make a held direction feel unregistered.
-  const runtimeGraphicsQuality = diagnosticModel.matchMode === 'battle_royale' && graphicsQuality === 'auto' ? 'performance' : graphicsQuality;
+  // Adapt from measured frame health; a match mode is not a GPU benchmark.
+  const runtimeGraphicsQuality = graphicsQuality;
   const selectedQuality = useMemo(() => browserRuntimeQuality(runtimeGraphicsQuality, reducedMotion, lab), [lab, reducedMotion, runtimeGraphicsQuality]);
   const fallbackQuality = useMemo(() => browserRuntimeQuality('performance', reducedMotion, lab), [lab, reducedMotion]);
   const quality = automaticPerformanceFallback && graphicsQuality === 'auto' ? fallbackQuality : selectedQuality;
@@ -278,6 +293,12 @@ export function GameScene(props: Props) {
   const networkDiagnostics = useMultiplayerStore.getState();
   const diagnosticSessionId = networkDiagnostics.sessionId;
   const diagnosticServerFighter = diagnosticSessionId ? networkDiagnostics.fighters.get(diagnosticSessionId) : null;
+  const [graphicsLost, setGraphicsLost] = useState(false);
+  const contextLost = useCallback(() => {
+    setGraphicsLost(true);
+    if (!useMatchStore.getState().model.paused) props.onPause();
+  }, [props.onPause]);
+  const contextRestored = useCallback(() => setGraphicsLost(false), []);
   const renderer = useRef<WebGLRenderer | null>(null); const [xrAvailable, setXrAvailable] = useState(false); const [xrPresenting, setXrPresenting] = useState(false); const [xrError, setXrError] = useState('');
   const enterXR = async (): Promise<void> => {
     if (!navigator.xr || !renderer.current) return;
@@ -289,7 +310,7 @@ export function GameScene(props: Props) {
   };
   const exitXR = async (): Promise<void> => { await renderer.current?.xr.getSession()?.end(); };
   const expectedBodies = (diagnosticModel.matchMode === 'battle_royale' ? 5 : 2) * BODY_SEGMENT_COUNT;
-  const simulationReady = requiresPhysicalRig ? bodyWorksRuntime.metrics.bodyCount >= expectedBodies : true;
+  const simulationReady = bodyWorksRuntime.metrics.bodyCount >= expectedBodies;
   return (
     <SceneBoundary>
       <div
@@ -302,6 +323,7 @@ export function GameScene(props: Props) {
         data-toy-test={toyTestMode ? 'true' : 'false'}
         data-graphics-tier={quality.tier}
         data-auto-performance-fallback={automaticPerformanceFallback ? 'true' : 'false'}
+        data-combat-venue={diagnosticModel.venue ?? 'dome'}
         data-physics-bodies={bodyWorksRuntime.metrics.bodyCount}
         data-physics-steps={bodyWorksRuntime.metrics.fixedSteps}
         data-physics-emergency-resets={bodyWorksRuntime.metrics.emergencyResetCount}
@@ -328,7 +350,7 @@ export function GameScene(props: Props) {
         data-network-server-z={diagnosticServerFighter?.posZ ?? ''}
       >
         <Canvas
-          shadows={quality.shadows ? 'basic' : false}
+          shadows={quality.shadows ? 'percentage' : false}
           dpr={quality.dpr}
           gl={{ antialias: quality.antialias, alpha: false, powerPreference: 'high-performance' }}
           camera={{ position: [8, 7, 11], fov: 48, near: .1, far: 72 }}
@@ -340,28 +362,33 @@ export function GameScene(props: Props) {
         >
           <Physics
             gravity={[0, -18, 0]}
-            timeStep={(lab ? labRate : 1) / 60}
-            paused={paused || replayActive}
+            timeStep={1 / 60}
+            paused={true}
             debug={lab && labDebug}
             interpolate
             numSolverIterations={8}
             numInternalPgsIterations={2}
             maxCcdSubsteps={2}
           >
-            <Arena crowdCount={quality.crowdCount} performanceMode={quality.tier === 'performance'} />
-            <Fighters detail={fighterDetail} showPhysical={lab && labDebug} />
+            {diagnosticModel.venue === 'dome' || diagnosticModel.venue === 'turkey_dome' || !diagnosticModel.venue
+              ? <Arena crowdCount={quality.crowdCount} performanceMode={quality.tier === 'performance'} venue={diagnosticModel.venue === 'turkey_dome' ? 'turkey_dome' : 'dome'} />
+              : <FightVenue venue={diagnosticModel.venue} />}
+            <ArenaPhysicsClock labEnabled={lab} />
+            <Fighters detail={fighterDetail} />
             <ReplayDirector />
             <PlayerControlBeacon />
             <ImpactEffects />
             <Simulation {...props} inputEnabled={props.onlineRole !== 'spectator' && !paused && !replayActive && !diagnosticModel.resolved && !['defeated', 'victorious'].includes(diagnosticModel.player.state)} />
           </Physics>
           {lab && labDebug ? <Suspense fallback={null}><BodyWorksDebugOverlay /></Suspense> : null}
+          <RendererHealth onLost={contextLost} onRestored={contextRestored} />
           <CameraRig />
           <SpectatorFreeCamera />
           <RuntimeDiagnosticsSampler onSustainedSlow={() => { if (graphicsQuality === 'auto') setAutomaticPerformanceFallback(true); }} />
-          <AdaptiveDpr pixelated />
-          {quality.bakeShadows && <BakeShadows />}
+          <AdaptiveDpr />
         </Canvas>
+        <RosterLoading />
+        {graphicsLost && <div className="graphics-recovery" role="alert"><b>GRAPHICS INTERRUPTED · MATCH PAUSED</b><span>Waiting for the graphics device to recover.</span><button className="button" onClick={() => location.reload()}>RELOAD GAME</button></div>}
         {xrAvailable && <button type="button" className="xr-entry" data-testid="xr-entry" onClick={() => void (xrPresenting ? exitXR() : enterXR())}>{xrPresenting ? 'EXIT ARENA XR' : 'ENTER ARENA XR'}<small>QUEST · STEAM FRAME · OPENXR</small></button>}
         {xrError && <div className="xr-error" role="status">XR UNAVAILABLE · {xrError}</div>}
       </div>
@@ -375,4 +402,13 @@ class SceneBoundary extends Component<{ children: ReactNode }, BoundaryState> {
   static getDerivedStateFromError(): BoundaryState { return { failed: true }; }
   componentDidCatch(error: Error, info: ErrorInfo): void { console.error('Arena rendering failed', error.message, info.componentStack); }
   render(): ReactNode { return this.state.failed ? <div className="canvas-fallback"><b>ARENA RENDERER RECOVERING</b><span>Reload the match to reinitialize WebGL.</span><button className="button" onClick={() => location.reload()}>RELOAD ARENA</button></div> : this.props.children; }
+}
+
+function RosterLoading() {
+  const model = useMatchStore(s => s.model);
+  useRosterPresentation();
+  const slots = model.matchMode === 'battle_royale' ? FIGHTER_SLOTS : SINGLES_FIGHTER_SLOTS;
+  const ready = rosterIsPresented(model.runtimeId,slots);
+  useEffect(() => { document.documentElement.dataset.fightersReady = String(ready); return () => {delete document.documentElement.dataset.fightersReady;}; },[ready]);
+  return ready ? null : <div className="graphics-recovery" role="status"><b>WRESTLERS ENTERING</b><span>Preparing the selected wrestlers.</span></div>;
 }

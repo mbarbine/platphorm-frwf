@@ -1,8 +1,11 @@
-export type FighterId = 'atlas' | 'vex' | 'nova' | 'brick' | 'chad';
+import type { CombatVenue } from '../data/venues';
+import type { FighterId } from '@frwf/game-protocol';
+export type { FighterId } from '@frwf/game-protocol';
 export type FighterSlot = 'player' | 'opponent' | 'rival1' | 'rival2' | 'rival3';
 export type AiFighterSlot = Exclude<FighterSlot, 'player'>;
 export const FIGHTER_SLOTS: readonly FighterSlot[] = ['player', 'opponent', 'rival1', 'rival2', 'rival3'];
 export const AI_FIGHTER_SLOTS: readonly AiFighterSlot[] = ['opponent', 'rival1', 'rival2', 'rival3'];
+export const SINGLES_FIGHTER_SLOTS: readonly FighterSlot[] = ['player', 'opponent'];
 export type FighterState =
   | 'idle' | 'locomotion' | 'jumping' | 'attacking' | 'grappling' | 'grabbed' | 'airborne'
   | 'blocking' | 'climbing' | 'staggered' | 'downed' | 'recovering' | 'pinning' | 'pinned' | 'victorious' | 'defeated';
@@ -14,7 +17,7 @@ export type AnimationKey =
   | 'counter' | 'block' | 'climb' | 'aerial' | 'taunt' | 'pin' | 'kickout' | 'victory' | 'defeat' | 'finisher';
 export type Ruleset = 'standard' | 'chaos';
 export type MatchMode = 'battle_royale' | 'singles';
-export type Difficulty = 'normal' | 'hard';
+export type Difficulty = 'easy' | 'normal' | 'hard';
 export type Tendencies = 'aggressive' | 'technical' | 'opportunistic';
 export type ControlDevice = 'keyboard' | 'gamepad' | 'touch';
 export type GameCommand = 'quick' | 'heavy' | 'grapple' | 'block' | 'dodge' | 'jump' | 'interact' | 'context' | 'taunt';
@@ -63,6 +66,7 @@ export interface FighterPhysicsProfile {
   armLength: number;
   legLength: number;
   torsoLength: number;
+  torsoDepthM?: number;
   centerOfMassBias: number;
   reachM: number;
   muscleStrength: number;
@@ -121,6 +125,7 @@ export interface MoveDefinition {
   knockdownStrength: number;
   counterWindow: readonly [number, number] | null;
   hypeValue: number;
+  signatureBase?: string;
   animationKey: AnimationKey;
   multiHit?: boolean;
 }
@@ -149,10 +154,17 @@ export interface FighterRuntime {
   pinEscape: number;
   heldPropId: string | null;
   comboStep: number;
+  comboInputs: ('quick' | 'heavy')[];
+  comboTarget: FighterSlot | null;
+  comboExpiresAt: number;
+  comboAttackId: number;
+  comboName: string | null;
+  strikeInput: 'quick' | 'heavy' | null;
   recentMoves: string[];
   lastActionAt: number;
   ropeRebound: number;
   finisherPrimed: boolean;
+  climbObjectId?: string | null;
   climbStage: 0 | 1 | 2 | 3;
   recoveryOrientation: RecoveryOrientation;
   fallReason: FallReason | null;
@@ -193,6 +205,7 @@ export interface MatchResult {
 
 export interface ImpactEvent {
   id: number;
+  contactPoint?: readonly [number, number, number];
   position: Vec2;
   kind: 'light' | 'heavy' | 'blocked' | 'counter' | 'grapple' | 'weapon' | 'finisher' | 'table' | 'nearfall' | 'ko' | 'rope';
   intensity: number;
@@ -206,6 +219,8 @@ export interface ImpactEvent {
 }
 
 export interface GrappleRuntime {
+  liftElapsed?: number;
+  manualRelease?: boolean;
   attacker: FighterSlot;
   defender: FighterSlot;
   position: GrapplePosition;
@@ -233,6 +248,7 @@ export interface ReplayFighterFrame {
   stamina: number;
   staminaCap: number;
   momentum: number;
+  climbObjectId?: string | null;
   climbStage: 0 | 1 | 2 | 3;
   recoveryOrientation: RecoveryOrientation;
   body: {
@@ -300,6 +316,8 @@ export interface FallEvent {
 }
 
 export interface MatchModel {
+  pinCover?: { attacker: FighterSlot; defender: FighterSlot; age: number; established: boolean; contactAge?: number; separation: number; shoulderHeight: number; lostSeconds: number; facing: number };
+  venue?: CombatVenue;
   toyTestMode: boolean;
   labMode: boolean;
   matchMode: MatchMode;

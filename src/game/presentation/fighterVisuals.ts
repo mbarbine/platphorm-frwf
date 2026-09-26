@@ -27,7 +27,7 @@ export interface FighterVisualProfile {
   soleColor: string;
 }
 
-export const FIGHTER_VISUALS: Readonly<Record<FighterId, FighterVisualProfile>> = {
+const ORIGINAL_VISUALS: Readonly<Record<'atlas' | 'vex' | 'nova' | 'brick' | 'dale' | 'chad', FighterVisualProfile>> = {
   atlas: {
     attire: 'conqueror', hair: 'crownFade', chestScale: 1.22, waistScale: 1.08, shoulderScale: 1.22, armScale: 1.18, thighScale: 1.2, calfScale: 1.14, bootScale: 1.18,
     headScale: [1.06, 1.02, 1], stanceWidth: 1.16, motionTempo: .82, stepWeight: 1.2, guardHeight: .94, fatigueDroop: .5, skinRoughness: .58, gearMetalness: .46,
@@ -48,11 +48,30 @@ export const FIGHTER_VISUALS: Readonly<Record<FighterId, FighterVisualProfile>> 
     headScale: [1.04, .98, 1.02], stanceWidth: 1.06, motionTempo: .96, stepWeight: 1.04, guardHeight: .96, fatigueDroop: .44, skinRoughness: .62, gearMetalness: .38,
     hairColor: '#16151d', browColor: '#17131a', eyeColor: '#7ee2ff', soleColor: '#41b8ff',
   },
+  dale: {
+    attire: 'brawler', hair: 'bandana', chestScale: 1.24, waistScale: 1.1, shoulderScale: 1.25, armScale: 1.2, thighScale: 1.18, calfScale: 1.12, bootScale: 1.2,
+    headScale: [1.05, 1.02, 1.03], stanceWidth: 1.15, motionTempo: .85, stepWeight: 1.25, guardHeight: .96, fatigueDroop: .45, skinRoughness: .62, gearMetalness: .24,
+    hairColor: '#30221b', browColor: '#30221b', eyeColor: '#b7a27c', soleColor: '#b84932',
+  },
   chad: {
     attire: 'roughneck', hair: 'mullet', chestScale: 1.13, waistScale: 1.07, shoulderScale: 1.14, armScale: 1.16, thighScale: 1.08, calfScale: 1.08, bootScale: 1.14,
     headScale: [1.05, 1.01, 1.03], stanceWidth: 1.09, motionTempo: .9, stepWeight: 1.1, guardHeight: .9, fatigueDroop: .78, skinRoughness: .66, gearMetalness: .22,
     hairColor: '#352018', browColor: '#3c241a', eyeColor: '#f6c26b', soleColor: '#d38b37',
   },
+};
+
+export const FIGHTER_VISUALS: Readonly<Record<FighterId, FighterVisualProfile>> = { ...ORIGINAL_VISUALS,
+  josh: { ...ORIGINAL_VISUALS.brick, hairColor: '#786044', browColor: '#786044', waistScale: .98, motionTempo: 1 },
+  chelsea: { ...ORIGINAL_VISUALS.brick, hairColor: '#a57b50', motionTempo: 0.91 },
+  britt: { ...ORIGINAL_VISUALS.brick, hairColor: '#433329', motionTempo: 1.03 },
+  beer_bandit_bill: { ...ORIGINAL_VISUALS.brick, hairColor: '#433329', motionTempo: 0.93 },
+  beer_bandit_ted: { ...ORIGINAL_VISUALS.brick, hairColor: '#433329', motionTempo: 1.07 },
+  thomas: { ...ORIGINAL_VISUALS.dale, hairColor: '#c5ab68', browColor: '#8e7549' },
+  sonny: { ...ORIGINAL_VISUALS.vex, hairColor: '#685039' },
+  wrecking_ball: { ...ORIGINAL_VISUALS.brick, waistScale: 1.5, chestScale: 1.3, stepWeight: 1.5 },
+  steve: { ...ORIGINAL_VISUALS.nova, hairColor: '#262320' },
+  john: { ...ORIGINAL_VISUALS.chad, hairColor: '#181713', guardHeight: .87, stepWeight: 1.12 }, justin: { ...ORIGINAL_VISUALS.nova, hairColor: '#634b31', chestScale: 1.04, guardHeight: 1.02 },
+  mondo: { ...ORIGINAL_VISUALS.brick, waistScale: 1.24, hairColor: '#574028', motionTempo: .91 }, gil: { ...ORIGINAL_VISUALS.vex, hairColor: '#593f2e' },
 };
 
 export const fighterVisual = (id: FighterId): FighterVisualProfile => FIGHTER_VISUALS[id];

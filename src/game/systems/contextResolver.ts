@@ -1,4 +1,8 @@
+import { signatureMoveId } from '../data/wrestlingStyles';
+import { cornerClimbAvailable, nearbyClimbableObject } from './climbing';
+import { venueFor } from '../data/venues';
 import { getMove } from '../data/moves';
+import { isRingside } from '../physics/ringDynamics';
 import { BALANCE } from '../data/balance';
 import type { FighterSlot, MatchModel, Vec2 } from '../types/game';
 import { distance } from '../utils/math';
@@ -10,6 +14,7 @@ export type ContextActionId =
   | 'top_rope_aerial'
   | 'corner_move'
   | 'environmental_wrestling_move'
+  | 'object_climb'
   | 'turnbuckle_climb'
   | 'ring_traversal'
   | 'stand_opponent'
@@ -49,12 +54,14 @@ export const resolveContextAction = (model: MatchModel, actorKey: FighterSlot, d
   if (model.paused) return rejected('ordinary_contextual_action', 'NO ACTION', 'Match is paused', 11);
   if (model.resolved || ['defeated', 'victorious'].includes(actor.state)) return rejected('ordinary_contextual_action', 'NO ACTION', 'Fighter is no longer active', 11);
 
+  const actorInGrapple = model.grapple?.attacker === actorKey || model.grapple?.defender === actorKey;
+
   // F1 — kickout always outranks every environmental or traversal option.
   if (actor.state === 'pinned') return resolved('kickout', 'KICK OUT', targetKey, 'Shoulders are down', 1);
 
   // F2 — finisher outranks pin and every location-driven action.
   if (actor.momentum >= 100 && !model.grapple && ['staggered', 'downed'].includes(target.state) && separation <= getMove('finisher').maximumRange) {
-    return resolved('finisher', getMove('finisher').displayName.toUpperCase(), targetKey, 'Momentum full and target vulnerable', 2);
+    return resolved('finisher', getMove(signatureMoveId(actor.definitionId)).displayName.toUpperCase(), targetKey, 'Momentum full and target vulnerable', 2);
   }
 
   // F3 — pin outranks climbing and exiting the ring.
@@ -73,25 +80,29 @@ export const resolveContextAction = (model: MatchModel, actorKey: FighterSlot, d
   const tdx = target.position.x - cornerX;
   const tdz = target.position.z - cornerZ;
   const targetCornerDistanceSq = tdx * tdx + tdz * tdz;
-  if (actor.state === 'grappling' && actor.attackPhase === 'anticipation' && model.grapple?.attacker === actorKey && targetCornerDistanceSq <= 9.9225) {
+  if (venueFor(model).hasRing && actor.state === 'grappling' && actor.attackPhase === 'anticipation' && model.grapple?.attacker === actorKey && targetCornerDistanceSq <= 9.9225) {
     return resolved('corner_move', getMove('corner_smash').displayName.toUpperCase(), targetKey, 'Secured clinch is inside the corner-call lane', 5);
   }
 
   const table = model.props.find((prop) => prop.kind === 'table' && !prop.broken);
   const tableDistance = table ? distance(target.position, table.position) : Number.POSITIVE_INFINITY;
   if (actor.state === 'grappling' && actor.attackPhase === 'anticipation' && model.grapple?.attacker === actorKey && table && tableDistance <= 2.6) {
-    return resolved('environmental_wrestling_move', 'COMMENTARY DESK SPOT', table.id, 'Secured clinch is aligned with the commentary desk', 6);
+    return resolved('environmental_wrestling_move', venueFor(model).hasRing ? 'COMMENTARY DESK SPOT' : 'WOODEN TABLE SPOT', table.id, 'Secured clinch is aligned with the table', 6);
   }
 
   if (actor.state === 'climbing' && actor.climbStage < 3) {
-    return resolved('turnbuckle_climb', actor.climbStage === 1 ? 'CLIMB MIDDLE ROPE' : 'CLIMB TOP ROPE', 'turnbuckle', 'Continue the active staged climb', 7);
+    if (actor.climbObjectId) return rejected('object_climb', 'CLIMBING TABLE · WAIT FOR FOOTING', 'Climb advances when physically supported', 7);
+    return resolved(actor.climbObjectId ? 'object_climb' : 'turnbuckle_climb', actor.climbStage === 1 ? 'CLIMB MIDDLE ROPE' : 'CLIMB TOP ROPE', 'turnbuckle', 'Continue the active staged climb', 7);
   }
-  const nearCorner = Math.abs(actor.position.x) > 4.35 && Math.abs(actor.position.z) > 2.95;
-  if (nearCorner && ['idle', 'locomotion'].includes(actor.state)) {
+  const nearCorner = cornerClimbAvailable(actor);
+  if (venueFor(model).hasRing && nearCorner && ['idle', 'locomotion'].includes(actor.state)) {
     return resolved('turnbuckle_climb', 'CLIMB LOWER ROPE', 'turnbuckle', 'Standing inside the turnbuckle climb lane', 7);
   }
 
-  if (canTraverseRopes(actor.position) && ['idle', 'locomotion'].includes(actor.state) && !model.grapple) {
+  const climbObject = ['idle', 'locomotion'].includes(actor.state) ? nearbyClimbableObject(model, actor) : null;
+  if (climbObject && !actorInGrapple) return resolved('object_climb', 'CLIMB TABLE', climbObject, 'Supported table edge within reach', 7);
+
+  if (venueFor(model).hasRing && canTraverseRopes(actor.position) && ['idle', 'locomotion'].includes(actor.state) && !actorInGrapple) {
     const ringside = Math.abs(actor.position.x) > 5.82 || Math.abs(actor.position.z) > 4.32;
     return resolved('ring_traversal', ringside ? 'ENTER RING' : 'EXIT RING', 'center_rope', ringside ? 'Ringside at a supported center-rope lane' : 'Inside at a supported center-rope lane', 8);
   }
@@ -119,7 +130,7 @@ export const resolvePropAction = (model: MatchModel, actorKey: FighterSlot, dire
     return resolved('drop_held_prop', 'DROP PROP', actor.heldPropId, 'Held prop has no legal swing target or throw modifier', 3);
   }
   const prop = model.props
-    .filter((candidate) => !candidate.broken && !candidate.heldBy && candidate.kind !== 'table')
+    .filter((candidate) => !candidate.broken && !candidate.heldBy && candidate.kind !== 'table' && (!venueFor(model).hasRing || isRingside(actor.position) === isRingside(candidate.position)))
     .sort((left, right) => distance(actor.position, left.position) - distance(actor.position, right.position))[0];
   if (prop && distance(actor.position, prop.position) <= 2.2) return resolved('pick_up_prop', `PICK UP ${prop.kind.toUpperCase()}`, prop.id, 'Nearest eligible prop is in pickup range', 4);
   const supported = model.props.find((candidate) => candidate.kind === 'table' && !candidate.broken && distance(actor.position, candidate.position) <= 1.8);

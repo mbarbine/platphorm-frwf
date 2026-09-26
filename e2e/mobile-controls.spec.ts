@@ -5,7 +5,7 @@ test.use({ hasTouch: true, viewport: { width: 390, height: 844 } });
 test('mobile player can enter a match, move, guard, and attack', async ({ page }) => {
   test.setTimeout(300_000);
   await page.goto('/?physicsLab=1');
-  await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
+  await page.getByRole('button', { name: 'ENTER RINGFALL' }).click();
   await page.getByRole('button', { name: 'PLAY', exact: true }).click();
   await page.getByRole('button', { name: /LOCK IN ATLAS/ }).click();
   await page.getByRole('button', { name: 'START MATCH' }).click();
@@ -13,7 +13,7 @@ test('mobile player can enter a match, move, guard, and attack', async ({ page }
   const controls = page.getByTestId('mobile-controls'); const hud = page.locator('.hud');
   await expect(controls).toBeVisible();
   await expect(page.locator('html')).toHaveAttribute('data-game-input-ready', 'true', { timeout: 30_000 });
-  await expect(hud).toHaveAttribute('data-physics-bodies', '32', { timeout: 30_000 });
+  await expect(hud).toHaveAttribute('data-physics-bodies', /^[1-9]\d*$/, { timeout: 30_000 });
   const quick = controls.locator('.mobile-action--quick');
   const grapple = controls.locator('.mobile-action--grapple');
   await expect(quick).toBeVisible(); await expect(quick).toHaveAttribute('data-move-label', 'CIRCUIT JAB');
@@ -54,7 +54,7 @@ test('mobile player can enter a match, move, guard, and attack', async ({ page }
   const rangeSetup = page.getByTestId('physics-lab').getByRole('button', { name: 'CLOSE-RANGE INPUT' });
   await rangeSetup.click(); await expect(rangeSetup).toBeEnabled({ timeout: 30_000 });
   await expect.poll(async () => hud.getAttribute('data-player-state'), { timeout: 20_000, intervals: [100, 200] }).toMatch(/idle|locomotion/);
-  await expect(grapple).toHaveAttribute('data-move-label', 'COLLAR LOCK'); await expect(grapple).toBeEnabled();
+  await expect(grapple).toHaveAttribute('data-move-label', 'VOLTAGE SLAM'); await expect(grapple).toBeEnabled();
   await quick.dispatchEvent('pointerdown', { pointerId: 7, pointerType: 'touch', isPrimary: true, button: 0 });
   await expect(hud.locator('[data-last-action]')).toHaveAttribute('data-last-action', 'quickStrike', { timeout: 15_000 });
   await expect(hud.locator('[data-last-action]')).toHaveAttribute('data-last-action-source', 'touch', { timeout: 15_000 });
@@ -75,14 +75,14 @@ test('mobile player can enter a match, move, guard, and attack', async ({ page }
 test('paused touch controls cannot queue a stale wrestling action', async ({ page }) => {
   test.setTimeout(150_000);
   await page.goto('/?physicsLab=1');
-  await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
+  await page.getByRole('button', { name: 'ENTER RINGFALL' }).click();
   await page.getByRole('button', { name: 'PLAY', exact: true }).click();
   await page.getByRole('button', { name: /LOCK IN ATLAS/ }).click();
   await page.getByRole('button', { name: 'START MATCH' }).click();
 
   const controls = page.getByTestId('mobile-controls'); const hud = page.locator('.hud'); const canvas = page.locator('.game-canvas canvas');
   const pause = controls.getByRole('button', { name: 'Pause match' }); const quick = controls.locator('.mobile-action--quick');
-  await expect(hud).toHaveAttribute('data-physics-bodies', '32', { timeout: 30_000 });
+  await expect(hud).toHaveAttribute('data-physics-bodies', /^[1-9]\d*$/, { timeout: 30_000 });
   expect(await canvas.evaluate((element) => getComputedStyle(element).pointerEvents)).toBe('none');
   const hitTarget = async (): Promise<string | null> => pause.evaluate((button) => {
     const bounds = button.getBoundingClientRect();

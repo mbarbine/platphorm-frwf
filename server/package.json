@@ -1,14 +1,14 @@
 {
   "name": "@frwf/game-server",
   "version": "1.0.0",
-  "description": "RINGFALL authoritative Colyseus game server — runs deterministic simulation, owns match state",
+  "description": "RINGFALL authoritative Colyseus game server \u2014 runs deterministic simulation, owns match state",
   "private": true,
   "type": "commonjs",
   "main": "dist/index.js",
   "scripts": {
-    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "dev": "ts-node-dev --project tsconfig.build.json --respawn --transpile-only src/index.ts",
     "lint": "eslint src --max-warnings 0",
-    "build": "tsc",
+    "build": "tsc -p tsconfig.build.json",
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

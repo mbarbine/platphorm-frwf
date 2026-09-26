@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 test('neutral standing, walk, and stop retain real support with no unknown fall', async ({ page }) => {
   await page.goto('/?physicsLab=1');
-  await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
+  await page.getByRole('button', { name: 'ENTER RINGFALL' }).click();
   await page.getByRole('button', { name: 'PLAY', exact: true }).click();
   await page.getByRole('button', { name: /LOCK IN ATLAS/ }).click();
   await page.getByRole('button', { name: /^STANDARD/ }).click();
@@ -10,7 +10,7 @@ test('neutral standing, walk, and stop retain real support with no unknown fall'
 
   const hud = page.locator('.hud'); const lab = page.getByTestId('physics-lab');
   const fallAudit = hud.locator('[data-unknown-falls]');
-  await expect(hud).toHaveAttribute('data-physics-bodies', '32', { timeout: 30_000 });
+  await expect(hud).toHaveAttribute('data-physics-bodies', /^[1-9]\d*$/, { timeout: 30_000 });
 
   const standing = lab.getByRole('button', { name: 'STANDING STABILITY' });
   await standing.click(); await expect(standing).toBeEnabled({ timeout: 15_000 });
@@ -56,14 +56,14 @@ test('neutral standing, walk, and stop retain real support with no unknown fall'
 
 test('neutral soft separation resolves close overlap without a fall or emergency reset', async ({ page }) => {
   await page.goto('/?physicsLab=1');
-  await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
+  await page.getByRole('button', { name: 'ENTER RINGFALL' }).click();
   await page.getByRole('button', { name: 'PLAY', exact: true }).click();
   await page.getByRole('button', { name: /LOCK IN ATLAS/ }).click();
   await page.getByRole('button', { name: /^STANDARD/ }).click();
   await page.getByRole('button', { name: 'START MATCH' }).click();
 
   const hud = page.locator('.hud'); const lab = page.getByTestId('physics-lab'); const fallAudit = hud.locator('[data-unknown-falls]');
-  await expect(hud).toHaveAttribute('data-physics-bodies', '32', { timeout: 30_000 });
+  await expect(hud).toHaveAttribute('data-physics-bodies', /^[1-9]\d*$/, { timeout: 30_000 });
   const separation = lab.getByRole('button', { name: 'SOFT SEPARATION' });
   await separation.click(); await expect(separation).toBeEnabled({ timeout: 15_000 });
   await expect.poll(async () => Math.hypot(

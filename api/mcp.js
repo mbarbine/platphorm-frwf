@@ -9,8 +9,14 @@ function error(id, code, message) {
   return { jsonrpc: "2.0", id: id ?? null, error: { code, message } }
 }
 
+function sanitizeId(id) {
+  if (typeof id === "string") return id.length > 128 ? id.slice(0, 128) : id
+  if (typeof id === "number" && Number.isFinite(id)) return id
+  return null
+}
+
 function dispatch(message) {
-  const id = message && typeof message === "object" ? message.id : null
+  const id = sanitizeId(message && typeof message === "object" ? message.id : null)
   if (!message || typeof message !== "object" || Array.isArray(message) || message.jsonrpc !== "2.0" || typeof message.method !== "string") {
     return error(id, -32600, "Invalid Request")
   }
@@ -36,6 +42,12 @@ function dispatch(message) {
 
 export default function handler(request, response) {
   try {
+    // SECURITY ENHANCEMENT: Set security headers to prevent MIME sniffing and response caching (CWE-79 / CWE-524)
+    if (typeof response?.setHeader === "function") {
+      response.setHeader("X-Content-Type-Options", "nosniff")
+      response.setHeader("Cache-Control", "no-store, max-age=0")
+    }
+
     if (request.method === "GET") {
       return response.status(200).json({
         ok: true,
@@ -48,7 +60,10 @@ export default function handler(request, response) {
         },
       })
     }
-    if (request.method !== "POST") return response.status(405).json(error(null, -32600, "Method not allowed"))
+    if (request.method !== "POST") {
+      response.setHeader("Allow", "GET, POST")
+      return response.status(405).json(error(null, -32600, "Method not allowed"))
+    }
 
     let payload = request.body
     if (typeof payload === "string") {

@@ -1,3 +1,4 @@
+vi.mock('../game/audio/BackgroundMusic', () => ({ BackgroundMusic: () => null }));
 import { describe, expect, it, vi, afterEach } from 'vitest';
 import React from 'react';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
@@ -130,7 +131,7 @@ describe('App Fighter Select Keyboard Navigation', () => {
     render(React.createElement(App));
 
     // Move past init screen
-    const enterButton = await screen.findByText('ENTER THE VOLT DOME');
+    const enterButton = await screen.findByText('ENTER RINGFALL');
     fireEvent.click(enterButton);
 
     // On main menu, click play to go to select

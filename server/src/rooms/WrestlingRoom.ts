@@ -1,3 +1,4 @@
+import { FIGHTER_IDS } from '@frwf/game-protocol';
 import { Room } from 'colyseus';
 import type { Client, Delayed } from 'colyseus';
 import { randomInt } from 'node:crypto';
@@ -120,10 +121,10 @@ export class WrestlingRoom extends Room<MatchRoomStateSchema> {
       fighterId = opt.fighterId;
     }
 
-    const activePlayers = [...this.sessions.values()].filter(s => s.role !== 'spectator' && s.connected);
-    const role: PlayerRole = spectate || activePlayers.length >= 2
-      ? 'spectator'
-      : activePlayers.length === 0 ? 'player1' : 'player2';
+    // Disconnected seats remain reserved during the reconnection window.
+    const occupied = new Set(this.activePlayers().map(session => session.role));
+    const role: PlayerRole = spectate || this.state.phase === 'active' || occupied.size >= 2
+      ? 'spectator' : !occupied.has('player1') ? 'player1' : 'player2';
 
     const session: PlayerSession = {
       sessionId: client.sessionId,
@@ -163,6 +164,9 @@ export class WrestlingRoom extends Room<MatchRoomStateSchema> {
         this.log(`${client.sessionId} did not reconnect — match ends by forfeit`);
         this.resolveForfeit(session);
       }
+    } else if (session.role !== 'spectator' && this.state.phase === 'active') {
+      session.connected = false;
+      this.resolveForfeit(session);
     } else {
       this.sessions.delete(client.sessionId);
       this.state.fighters.delete(client.sessionId);
@@ -210,6 +214,7 @@ export class WrestlingRoom extends Room<MatchRoomStateSchema> {
     // Defensively check that payload is a valid object
     if (!msg || typeof msg !== 'object') return;
 
+    session.ready = false;
     session.fighterId = this.validatedFighterId(msg.fighterId);
     const fighter = this.state.fighters.get(client.sessionId);
     if (fighter) fighter.definitionId = session.fighterId;
@@ -225,7 +230,7 @@ export class WrestlingRoom extends Room<MatchRoomStateSchema> {
 
     session.ready = true;
     const players = this.activePlayers();
-    if (players.length >= 2 && players.every(s => s.ready)) this.startMatch();
+    if (players.length === 2 && players.every(s => s.ready && s.connected)) this.startMatch();
     else { this.state.announcement = 'WAITING FOR SECOND WRESTLER'; this.state.announcementTimer = 0; this.broadcastRoomState(); }
   }
 
@@ -274,6 +279,8 @@ export class WrestlingRoom extends Room<MatchRoomStateSchema> {
     const p2 = players.find(s => s.role === 'player2');
     if (!p1 || !p2) return;
 
+    this.simulationClock?.clear();
+    this.snapshotClock?.clear();
     this.matchModel = createOnlineMatch([
       { sessionId: p1.sessionId, fighterId: p1.fighterId },
       { sessionId: p2.sessionId, fighterId: p2.fighterId },
@@ -421,7 +428,7 @@ export class WrestlingRoom extends Room<MatchRoomStateSchema> {
   }
 
   private validatedFighterId(id: unknown): FighterId {
-    const valid: FighterId[] = ['atlas', 'vex', 'nova', 'brick', 'chad'];
+    const valid: readonly FighterId[] = FIGHTER_IDS;
     return valid.includes(id as FighterId) ? (id as FighterId) : 'atlas';
   }
 

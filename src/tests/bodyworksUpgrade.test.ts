@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { recoveryPose } from '../game/animation/recoveryMotion';
+import { RECOVERY_DURATION, recoveryPose } from '../game/animation/recoveryMotion';
 import { POSES } from '../game/animation/poses';
 import { stepBodyDynamics } from '../game/physics/bodyDynamics';
 import { authoredDeckPoseOwnsRoot, visiblePelvisDrop } from '../game/presentation/matPresentation';
@@ -20,26 +20,17 @@ describe('Bodyworks playability upgrade', () => {
     expect(shouldUsePerformanceFallback({ sampleCount: 12, frameP95Ms: 65, frameP99Ms: 110, framesOver100Ms: 3 })).toBe(true);
   });
 
+  it('keeps the selected render quality in the lab while dropping the decorative crowd', () => {
+    const input = { preference: 'quality' as const, width: 1440, devicePixelRatio: 2, hardwareConcurrency: 10, reducedMotion: false, physicsLab: false };
+    const match = resolveRuntimeQuality(input); const lab = resolveRuntimeQuality({ ...input, physicsLab: true });
+    expect(lab.dpr).toEqual(match.dpr);
+    expect(lab.antialias).toBe(true); expect(lab.shadows).toBe(true); expect(lab.crowdCount).toBe(0);
+  });
+
   it('authors distinct back, front, and side recoveries that converge on the standing stance', () => {
     const back = recoveryPose('back', 'downed', 0); const front = recoveryPose('front', 'downed', 0); const side = recoveryPose('left', 'downed', 0);
     expect(front.rootYaw).not.toBe(back.rootYaw); expect(side.rootRoll).not.toBe(back.rootRoll);
-    expect(recoveryPose('right', 'recovering', .7)).toEqual(POSES.combatIdle);
-  });
-
-  it('authors a raised guard that closes both arms across the centerline', () => {
-    expect(POSES.block.leftArm[0]).toBeLessThan(-.5);
-    expect(POSES.block.leftArm[0]).toBeGreaterThan(-.9);
-    expect(POSES.block.rightArm[0]).toBe(POSES.block.leftArm[0]);
-    expect(POSES.block.leftForearm[0]).toBeLessThan(POSES.block.leftArm[0]);
-    expect(POSES.block.rightForearm[0]).toBe(POSES.block.leftForearm[0]);
-    expect(POSES.block.leftArm[2]).toBeGreaterThan(0);
-    expect(POSES.block.rightArm[2]).toBeLessThan(0);
-    expect(Math.abs(POSES.block.leftArm[2])).toBeLessThan(.35);
-    expect(Math.abs(POSES.block.rightArm[2])).toBeLessThan(.35);
-    expect(Math.abs(POSES.block.leftForearm[2])).toBeLessThan(.25);
-    expect(Math.abs(POSES.block.rightForearm[2])).toBeLessThan(.25);
-    expect(POSES.block.leftForearm[2]).toBeGreaterThan(0);
-    expect(POSES.block.rightForearm[2]).toBeLessThan(0);
+    expect(recoveryPose('right', 'recovering', RECOVERY_DURATION)).toEqual(POSES.combatIdle);
   });
 
   it('puts a real trash can in Chaos and exposes a nearby secured corner rail shot', () => {

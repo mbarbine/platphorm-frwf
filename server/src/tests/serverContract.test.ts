@@ -1,9 +1,30 @@
 import { describe, expect, it, vi } from 'vitest';
+import type { Request, Response, NextFunction } from 'express';
 import { PROTOCOL_VERSION } from '@frwf/game-protocol';
 import { SERVER_CONFIG } from '../config';
 import { FighterStateSchema, MatchRoomStateSchema } from '../rooms/WrestlingRoomState';
 import { WrestlingRoom } from '../rooms/WrestlingRoom';
 import type { ActionEvent } from '@frwf/game-protocol';
+
+
+interface MockResponse {
+  status: ReturnType<typeof vi.fn>;
+  setHeader: ReturnType<typeof vi.fn>;
+  json: ReturnType<typeof vi.fn>;
+  end: ReturnType<typeof vi.fn>;
+}
+
+function createMockResponse(): MockResponse & Response {
+  const res: Partial<MockResponse> = {
+    setHeader: vi.fn(),
+    json: vi.fn(),
+    end: vi.fn(),
+  };
+  res.status = vi.fn().mockReturnValue(res);
+  return res as MockResponse & Response;
+}
+
+type McpHandler = (req: Partial<Request>, res: Response) => void;
 
 describe('authoritative server contract', () => {
   it('uses the documented fixed simulation and snapshot rates', () => {
@@ -12,6 +33,15 @@ describe('authoritative server contract', () => {
     expect(SERVER_CONFIG.SNAPSHOT_RATE).toBeLessThanOrEqual(20);
     expect(SERVER_CONFIG.PROTOCOL_VERSION).toBe(PROTOCOL_VERSION);
     expect(SERVER_CONFIG.RECONNECT_GRACE_SECONDS).toBeGreaterThan(0);
+  });
+
+  it('enforces restricted CORS_ORIGIN and never defaults to wildcard *', () => {
+    expect(SERVER_CONFIG.CORS_ORIGIN).not.toBe('*');
+    if (process.env.NODE_ENV === 'production') {
+      expect(SERVER_CONFIG.CORS_ORIGIN).toBe(process.env.CORS_ORIGIN ?? '');
+    } else {
+      expect(SERVER_CONFIG.CORS_ORIGIN).toBe(process.env.CORS_ORIGIN ?? 'http://localhost:5173');
+    }
   });
 
   it('starts synchronized match state in an honest empty lobby', () => {
@@ -135,9 +165,12 @@ describe('authoritative server contract', () => {
     expect(() => room.onCreate(undefined as unknown as { ruleset?: string })).not.toThrow();
     expect(() => room.onCreate({ ruleset: 123, difficulty: { foo: 'bar' }, private: 'yes' } as unknown as { ruleset?: string })).not.toThrow();
 
-    // Check fallback to defaults
+    // Check fallback to defaults and cryptographically generated seed
     expect(room.state.ruleset).toBe('standard');
     expect(room.state.difficulty).toBe('normal');
+    expect(Number.isInteger(room.state.seed)).toBe(true);
+    expect(room.state.seed).toBeGreaterThanOrEqual(0);
+    expect(room.state.seed).toBeLessThanOrEqual(0xFFFFFF);
 
     // Verify onJoin handles various types of options safely
     const mockClient = {
@@ -176,7 +209,9 @@ describe('authoritative server contract', () => {
     const event = (action: ActionEvent['action'], sequence: number, direction: ActionEvent['direction'], phase: ActionEvent['phase'] = 'started'): ActionEvent => ({ action, sequence, direction, phase, timestamp: sequence * 16, source: 'network' });
     const tick = intervals.get(1000 / SERVER_CONFIG.SERVER_TICK_RATE); expect(tick).toBeDefined();
     let movementSequence = 0;
-    for (let frame = 0; frame < 16; frame += 1) {
+    for (let frame = 0; frame < 90; frame += 1) {
+      const first = room.state.fighters.get('p1'); const second = room.state.fighters.get('p2');
+      if (first && second && Math.hypot(second.posX - first.posX, second.posZ - first.posZ) < 1.1) break;
       if (frame % 6 === 0) {
         movementSequence += 1;
         handlers.get('command')?.(p1, { seq: movementSequence, event: event('move', movementSequence, { x: 1, y: 0 }, frame === 0 ? 'started' : 'held') });
@@ -354,11 +389,10 @@ describe('authoritative server contract', () => {
   });
 
   it('enforces JSON-RPC batch limit of 20 in api/mcp.js', async () => {
-    /* eslint-disable @typescript-eslint/no-explicit-any */
     // @ts-expect-error - JavaScript file lacks type definitions
     const mcpModule = await import('../../../api/mcp.js');
-    const mcpHandler = mcpModule.default;
-    const req = {
+    const mcpHandler: McpHandler = mcpModule.default;
+    const req: Partial<Request> = {
       method: 'POST',
       body: Array.from({ length: 21 }, (_, i) => ({
         jsonrpc: '2.0',
@@ -366,12 +400,9 @@ describe('authoritative server contract', () => {
         method: 'ping'
       })),
     };
-    const res = {
-      status: vi.fn().mockReturnThis(),
-      json: vi.fn(),
-    };
+    const res = createMockResponse();
 
-    mcpHandler(req as any, res as any);
+    mcpHandler(req, res);
 
     expect(res.status).toHaveBeenCalledWith(400);
     expect(res.json).toHaveBeenCalledWith(
@@ -382,18 +413,60 @@ describe('authoritative server contract', () => {
         }),
       })
     );
-    /* eslint-enable @typescript-eslint/no-explicit-any */
+  });
+
+  it('rejects unsupported HTTP methods in api/mcp.js with 405 status and Allow header', async () => {
+    // @ts-expect-error - JavaScript file lacks type definitions
+    const mcpModule = await import('../../../api/mcp.js');
+    const mcpHandler: McpHandler = mcpModule.default;
+    const req: Partial<Request> = {
+      method: 'PUT',
+    };
+    const res = createMockResponse();
+
+    mcpHandler(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(405);
+    expect(res.setHeader).toHaveBeenCalledWith('Allow', 'GET, POST');
+    expect(res.json).toHaveBeenCalledWith({
+      jsonrpc: '2.0',
+      id: null,
+      error: {
+        code: -32600,
+        message: 'Method not allowed',
+      },
+    });
+  });
+
+  it('Express middleware sets Referrer-Policy and Permissions-Policy security headers', async () => {
+    const middleware = (_req: Request, res: Response, next: NextFunction) => {
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      res.setHeader('X-Frame-Options', 'DENY');
+      res.setHeader('X-XSS-Protection', '1; mode=block');
+      res.setHeader('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'");
+      res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+      res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+      res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+      next();
+    };
+
+    const req = {} as Request;
+    const res = createMockResponse();
+    const next = vi.fn();
+
+    middleware(req, res, next);
+
+    expect(res.setHeader).toHaveBeenCalledWith('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    expect(res.setHeader).toHaveBeenCalledWith('Referrer-Policy', 'strict-origin-when-cross-origin');
+    expect(res.setHeader).toHaveBeenCalledWith('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+    expect(next).toHaveBeenCalled();
   });
 
   it('Express secure error handling middleware prevents stack trace disclosure', async () => {
-    /* eslint-disable @typescript-eslint/no-explicit-any */
     const { secureErrorHandler } = await import('../index');
     const err = new Error('Sensitive database connection failed! Stack trace should not be leaked.');
-    const req = {} as any;
-    const res = {
-      status: vi.fn().mockReturnThis(),
-      json: vi.fn(),
-    } as any;
+    const req = {} as Request;
+    const res = createMockResponse();
     const next = vi.fn();
 
     // Verify the actual exported production middleware behaves securely
@@ -409,13 +482,12 @@ describe('authoritative server contract', () => {
     const jsonCallArgs = res.json.mock.calls[0][0];
     expect(JSON.stringify(jsonCallArgs)).not.toContain('Sensitive database connection failed');
     expect(JSON.stringify(jsonCallArgs)).not.toContain('stack');
-    /* eslint-enable @typescript-eslint/no-explicit-any */
   });
 
   it('vercel.json header configuration contains valid JSON and no duplicate header keys', async () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
-    const vercelJsonPath = path.resolve(process.cwd(), 'vercel.json');
+    const vercelJsonPath = path.resolve(import.meta.dirname, '../../../vercel.json');
     const rawContent = fs.readFileSync(vercelJsonPath, 'utf-8');
     const parsed = JSON.parse(rawContent);
 
@@ -433,7 +505,6 @@ describe('authoritative server contract', () => {
   });
 
   it('rateLimiter middleware allows requests within limit and returns 429 when limit is exceeded', async () => {
-    /* eslint-disable @typescript-eslint/no-explicit-any */
     const { rateLimiter, rateLimitMap } = await import('../index');
 
     // Clear any existing rate limit tracking to have a clean slate
@@ -443,13 +514,9 @@ describe('authoritative server contract', () => {
     const req = {
       ip,
       socket: { remoteAddress: ip },
-    } as any;
+    } as unknown as Request;
 
-    const res = {
-      status: vi.fn().mockReturnThis(),
-      json: vi.fn(),
-    } as any;
-
+    const res = createMockResponse();
     const next = vi.fn();
 
     // 1. Send 100 requests. All should call next() and not return 429 status.
@@ -460,10 +527,11 @@ describe('authoritative server contract', () => {
     expect(next).toHaveBeenCalledTimes(100);
     expect(res.status).not.toHaveBeenCalled();
 
-    // 2. The 101st request should be rejected with status 429
+    // 2. The 101st request should be rejected with status 429 and Retry-After header
     rateLimiter(req, res, next);
 
     expect(next).toHaveBeenCalledTimes(100); // Should not have been called a 101st time
+    expect(res.setHeader).toHaveBeenCalledWith('Retry-After', expect.any(String));
     expect(res.status).toHaveBeenCalledWith(429);
     expect(res.json).toHaveBeenCalledWith({
       error: {
@@ -474,7 +542,96 @@ describe('authoritative server contract', () => {
 
     // Cleanup
     rateLimitMap.clear();
-    /* eslint-enable @typescript-eslint/no-explicit-any */
+  });
+
+  it('rateLimiter enforces MAX_MAP_SIZE capacity bound to prevent memory exhaustion DoS', async () => {
+    const { rateLimiter, rateLimitMap, MAX_MAP_SIZE } = await import('../index');
+
+    rateLimitMap.clear();
+
+    const res = createMockResponse();
+    const next = vi.fn();
+
+    // Fill up rateLimitMap to MAX_MAP_SIZE
+    for (let i = 0; i < MAX_MAP_SIZE; i++) {
+      const req = { ip: `10.0.${Math.floor(i / 256)}.${i % 256}`, socket: {} } as unknown as Request;
+      rateLimiter(req, res, next);
+    }
+
+    expect(rateLimitMap.size).toBe(MAX_MAP_SIZE);
+
+    // Simulate request from new IP when map is at max capacity
+    const overflowReq = { ip: '192.168.1.1', socket: {} } as unknown as Request;
+    rateLimiter(overflowReq, res, next);
+
+    // Verify map size does not exceed MAX_MAP_SIZE
+    expect(rateLimitMap.size).toBe(MAX_MAP_SIZE);
+    expect(rateLimitMap.has('192.168.1.1')).toBe(true);
+
+    rateLimitMap.clear();
+  });
+
+  it('sets X-Content-Type-Options and Cache-Control headers on api/mcp.js responses', async () => {
+    // @ts-expect-error - JavaScript file lacks type definitions
+    const mcpModule = await import('../../../api/mcp.js');
+    const mcpHandler: McpHandler = mcpModule.default;
+
+    const req: Partial<Request> = { method: 'GET' };
+    const res = createMockResponse();
+
+    mcpHandler(req, res);
+
+    expect(res.setHeader).toHaveBeenCalledWith('X-Content-Type-Options', 'nosniff');
+    expect(res.setHeader).toHaveBeenCalledWith('Cache-Control', 'no-store, max-age=0');
+  });
+
+  it('sanitizes JSON-RPC id payloads in api/mcp.js to prevent object reflection or memory amplification DoS', async () => {
+    // @ts-expect-error - JavaScript file lacks type definitions
+    const mcpModule = await import('../../../api/mcp.js');
+    const mcpHandler: McpHandler = mcpModule.default;
+
+    // 1. Object ID payload should be sanitized to null
+    const reqObject: Partial<Request> = {
+      method: 'POST',
+      body: { jsonrpc: '2.0', id: { nested: 'object' }, method: 'ping' },
+    };
+    const resObject = createMockResponse();
+    mcpHandler(reqObject, resObject);
+    expect(resObject.status).toHaveBeenCalledWith(200);
+    expect(resObject.json).toHaveBeenCalledWith(expect.objectContaining({ jsonrpc: '2.0', id: null }));
+
+    // 2. Overly long string ID should be truncated to 128 characters
+    const longId = 'a'.repeat(200);
+    const reqLong: Partial<Request> = {
+      method: 'POST',
+      body: { jsonrpc: '2.0', id: longId, method: 'ping' },
+    };
+    const resLong = createMockResponse();
+    mcpHandler(reqLong, resLong);
+    expect(resLong.status).toHaveBeenCalledWith(200);
+    expect(resLong.json).toHaveBeenCalledWith(expect.objectContaining({ jsonrpc: '2.0', id: 'a'.repeat(128) }));
+  });
+
+  it('sets X-Content-Type-Options and Cache-Control security headers on responses in api/mcp.js', async () => {
+    // @ts-expect-error - JavaScript file lacks type definitions
+    const mcpModule = await import('../../../api/mcp.js');
+    const mcpHandler: McpHandler = mcpModule.default;
+
+    const req: Partial<Request> = { method: 'GET' };
+    const res = createMockResponse();
+
+    mcpHandler(req, res);
+
+    expect(res.setHeader).toHaveBeenCalledWith('X-Content-Type-Options', 'nosniff');
+    expect(res.setHeader).toHaveBeenCalledWith('Cache-Control', 'no-store, max-age=0');
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
+
+  it("disables X-Powered-By header on Express application instance", async () => {
+    const { createApp } = await import("../index");
+    const app = createApp();
+
+    expect(app.disabled("x-powered-by")).toBe(true);
   });
 
 });

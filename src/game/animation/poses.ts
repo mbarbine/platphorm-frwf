@@ -39,16 +39,15 @@ export const POSES: Readonly<Record<AnimationKey, Pose>> = {
   lift: { ...base, leftArm: [-1.45, -.18, -.2], rightArm: [-1.45, .18, .2], leftForearm: [-1.15, 0, 0], rightForearm: [-1.15, 0, 0], leftLeg: [.25, 0, 0], rightLeg: [.25, 0, 0], leftShin: [-.6, 0, 0], rightShin: [-.6, 0, 0], rootY: .25 },
   slam: { ...base, torso: [.65, 0, 0], leftArm: [-.3, 0, -.7], rightArm: [-.3, 0, .7], leftForearm: [-.35, 0, 0], rightForearm: [-.35, 0, 0], leftLeg: [.4, 0, 0], rightLeg: [-.12, 0, 0], leftShin: [-.75, 0, 0], rootTilt: .38 },
   throw: { ...base, torso: [.3, .5, 0], leftArm: [-.65, -.55, -.6], rightArm: [-.65, -.55, .6], leftForearm: [-.7, 0, 0], rightForearm: [-.7, 0, 0], rootTilt: .22, rootRoll: -.18 },
-  stagger: { ...base, torso: [-.35, 0, 0], leftArm: [.7, 0, -.4], rightArm: [.45, 0, .4], leftForearm: [-.35, 0, 0], rightForearm: [-.2, 0, 0], leftLeg: [-.18, 0, 0], rightLeg: [.2, 0, 0], rootTilt: -.2 },
+  stagger: { ...base, torso: [-.16, 0, -.05], leftArm: [-.42, 0, -.32], rightArm: [-.28, 0, .35], leftForearm: [-.8, 0, 0], rightForearm: [-.9, 0, 0], leftLeg: [-.08, 0, 0], rightLeg: [.12, 0, 0], rootTilt: -.04 },
   knockdown: { ...base, torso: [-.7, 0, 0], leftArm: [.8, 0, -.3], rightArm: [.8, 0, .3], rootY: -.6, rootTilt: -1 },
   downed: { ...base, rootY: -.64, rootTilt: -1.5, leftArm: [.7, 0, -.45], rightArm: [-.25, 0, .45] },
   recovery: { ...base, rootY: -.55, rootTilt: -.7, leftArm: [-.9, 0, -.35], leftForearm: [-.8, 0, 0], leftLeg: [-.5, 0, 0], rightShin: [-.8, 0, 0] },
   dodge: { ...base, torso: [.35, 0, .35], leftArm: [-.3, 0, -.5], rightArm: [-.3, 0, .5], rootTilt: .25 },
   counter: { ...base, torso: [0, .2, 0], leftArm: [-.75, 0, -.6], rightArm: [-1.15, .2, .25], rightLeg: [-.55, 0, 0] },
-  // Roll the arms toward the centerline while keeping the forearms across the
-  // chest-to-face strike lane. A higher fold put both physical guard colliders
-  // above an ordinary jab and made a visibly raised guard mechanically empty.
-  block: { ...base, torso: [.14, 0, 0], leftArm: [-.68, -.12, .28], rightArm: [-.68, .12, -.28], leftForearm: [-1.05, 0, .18], rightForearm: [-1.05, 0, -.18], leftLeg: [.12, 0, 0], rightLeg: [-.12, 0, 0], rootTilt: .08 },
+  // Raise the elbows and fold the hinged forearms toward the chin. Guard
+  // must visibly protect the head, rather than leaving both hands at the waist.
+  block: { ...base, torso: [.1, 0, 0], leftArm: [-1.35, -.18, .12], rightArm: [-1.35, .18, -.12], leftForearm: [-1.9, 0, 0], rightForearm: [-1.9, 0, 0], leftLeg: [.12, 0, 0], rightLeg: [-.12, 0, 0], rootTilt: .04 },
   climb: { ...base, torso: [.55, 0, 0], leftArm: [-1.85, -.08, -.72], rightArm: [-1.85, .08, .72], leftForearm: [-1.28, 0, -.12], rightForearm: [-1.28, 0, .12], leftLeg: [-1.02, 0, 0], rightLeg: [-.52, 0, 0], leftShin: [-.72, 0, 0], rightShin: [-.58, 0, 0], rootY: 1.38, rootTilt: -.06 },
   aerial: { ...base, torso: [-.1, 0, .42], leftArm: [-2.15, 0, -.92], rightArm: [-.28, 0, .9], leftForearm: [-.85, 0, 0], rightForearm: [-1.4, 0, 0], leftLeg: [-1.08, 0, -.1], rightLeg: [.76, 0, .1], leftShin: [-.42, 0, 0], rightShin: [-1.32, 0, 0], rootY: 1.62, rootTilt: -.18, rootYaw: .72, rootRoll: .58 },
   taunt: { ...base, leftArm: [-2.65, 0, -.5], rightArm: [-2.65, 0, .5], rootY: .12 },

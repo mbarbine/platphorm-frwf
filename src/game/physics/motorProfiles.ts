@@ -61,22 +61,40 @@ export const MOTOR_PROFILES: Readonly<Record<MotorProfileId, MotorProfile>> = {
   victory: profile('victory', 'planted', .82),
 };
 
-export const motorChainForSegment = (segment: BodySegmentId): MotorChain => {
-  if (segment === 'pelvis' || segment === 'abdomen' || segment === 'chest') return 'core';
-  if (segment === 'head') return 'head';
-  if (segment.includes('Hand')) return 'hands';
-  if (segment.includes('Foot')) return 'feet';
-  if (segment.startsWith('left') && (segment.includes('Arm') || segment.includes('Forearm'))) return 'leftArm';
-  if (segment.startsWith('right') && (segment.includes('Arm') || segment.includes('Forearm'))) return 'rightArm';
-  return segment.startsWith('left') ? 'leftLeg' : 'rightLeg';
+const SEGMENT_CHAIN_MAP: Readonly<Record<BodySegmentId, MotorChain>> = {
+  pelvis: 'core',
+  abdomen: 'core',
+  chest: 'core',
+  head: 'head',
+  leftHand: 'hands',
+  rightHand: 'hands',
+  leftFoot: 'feet',
+  rightFoot: 'feet',
+  leftUpperArm: 'leftArm',
+  leftForearm: 'leftArm',
+  rightUpperArm: 'rightArm',
+  rightForearm: 'rightArm',
+  leftThigh: 'leftLeg',
+  leftShin: 'leftLeg',
+  rightThigh: 'rightLeg',
+  rightShin: 'rightLeg',
 };
 
+export const motorChainForSegment = (segment: BodySegmentId): MotorChain => SEGMENT_CHAIN_MAP[segment];
+
+const REACH_MOVES = new Set(['grapple_miss', 'prop_pickup', 'prop_drop']);
+const THROW_MOVES = new Set(['slam', 'suplex', 'powerbomb', 'spinebuster', 'mountain_drop', 'skyhook', 'finisher', 'piledriver']);
+const CLINCH_MOVES = new Set(['whip', 'arm_drag', 'takedown', 'clutch', 'side_toss', 'corner_smash']);
+const HEAVY_STRIKE_MOVES = new Set(['heavy', 'uppercut', 'stiff_arm', 'rebound']);
+
 export const selectMotorProfile = (fighter: FighterRuntime): MotorProfile => {
+  if (fighter.state === 'pinning' || fighter.state === 'pinned') return MOTOR_PROFILES.getUp;
   if (fighter.state === 'defeated') return MOTOR_PROFILES.knockout;
   if (fighter.state === 'downed') return MOTOR_PROFILES.downed;
   if (fighter.state === 'recovering') return MOTOR_PROFILES.getUp;
   if (fighter.state === 'airborne') return MOTOR_PROFILES.protectedFall;
-  if (fighter.state === 'staggered' || fighter.state === 'grabbed') return MOTOR_PROFILES.stagger;
+  if (fighter.state === 'staggered') return MOTOR_PROFILES.localReaction;
+  if (fighter.state === 'grabbed') return MOTOR_PROFILES.stagger;
   if (fighter.state === 'blocking') return MOTOR_PROFILES.blocking;
   if (fighter.state === 'jumping') return MOTOR_PROFILES.airborne;
   if (fighter.state === 'victorious') return MOTOR_PROFILES.victory;
@@ -84,11 +102,11 @@ export const selectMotorProfile = (fighter: FighterRuntime): MotorProfile => {
   if (fighter.state === 'locomotion') return (fighter.velocity.x * fighter.velocity.x + fighter.velocity.z * fighter.velocity.z) > 14.0625 ? MOTOR_PROFILES.running : MOTOR_PROFILES.walking;
   if (fighter.moveId) {
     if (fighter.attackPhase === 'recovery') return MOTOR_PROFILES.neutral;
-    if (['grapple_miss', 'prop_pickup', 'prop_drop'].includes(fighter.moveId)) return MOTOR_PROFILES.grappleReach;
-    if (['slam', 'suplex', 'powerbomb', 'spinebuster', 'mountain_drop', 'skyhook', 'finisher', 'piledriver'].includes(fighter.moveId)) return fighter.attackPhase === 'active' ? MOTOR_PROFILES.throw : MOTOR_PROFILES.lift;
-    if (['whip', 'arm_drag', 'takedown', 'clutch', 'side_toss', 'corner_smash'].includes(fighter.moveId)) return MOTOR_PROFILES.clinch;
+    if (REACH_MOVES.has(fighter.moveId)) return MOTOR_PROFILES.grappleReach;
+    if (THROW_MOVES.has(fighter.moveId)) return fighter.attackPhase === 'active' ? MOTOR_PROFILES.throw : MOTOR_PROFILES.lift;
+    if (CLINCH_MOVES.has(fighter.moveId)) return MOTOR_PROFILES.clinch;
     if (fighter.moveId.includes('kick') || fighter.moveId === 'roundhouse' || fighter.moveId === 'aerial') return MOTOR_PROFILES.kick;
-    if (fighter.moveId === 'heavy' || fighter.moveId === 'uppercut' || fighter.moveId === 'stiff_arm' || fighter.moveId === 'rebound') return MOTOR_PROFILES.heavyStrike;
+    if (HEAVY_STRIKE_MOVES.has(fighter.moveId)) return MOTOR_PROFILES.heavyStrike;
     if (fighter.state === 'grappling') return MOTOR_PROFILES.grappleReach;
     return MOTOR_PROFILES.quickStrike;
   }
