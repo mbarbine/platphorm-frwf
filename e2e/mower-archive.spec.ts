@@ -3,7 +3,7 @@ test.setTimeout(90000);
 test('opens the source archive and launches the embedded mower from the grounds', async ({ page }) => {
   const live = process.env.RUN_LIVE_INTEGRATION_TESTS === 'true';
   await page.goto(live ? 'https://frwf.platphormnews.com' : '/');
-  await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
+  await page.getByRole('button', { name: 'ENTER RINGFALL' }).click();
   await page.getByRole('button', { name: 'EXPLORE SHOWGROUND' }).click();
   await page.getByRole('button', { name: 'BEER BANDIT BILL', exact: true }).click();
   await expect(page.getByText('PROVISIONAL MODEL · LIKENESS IN PROGRESS')).toBeVisible();

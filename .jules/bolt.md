@@ -121,3 +121,7 @@
 ## 2026-09-18 - [Precomputed Mat Edge Dampening Factors in Hot Vertex Frame Loop]
 **Learning:** In `WrestlingMat.tsx`, calculating vertex edge boundary factors (`Math.min(1, (5.65 - Math.abs(x)) * 3, (4.15 - Math.abs(z)) * 3)`) inside `useFrame` vertex deformation loop executed ~2,100 redundant `Math.abs`, `Math.min`, and `Math.max` calls per active impact frame across 1,073 geometry vertices. Precomputing these static factors into a `Float32Array` via `useMemo` eliminates thousands of math calls per frame during mat deformation.
 **Action:** Precompute static geometry boundary dampening factors into typed arrays (`Float32Array`) via `useMemo` for R3F vertex deformation meshes.
+
+## 2026-09-22 - [Static Move Set Lookups in Motor Profile Selection]
+**Learning:** In `selectMotorProfile` (`src/game/physics/motorProfiles.ts`), evaluating inline array literals (`['grapple_miss', 'prop_pickup', 'prop_drop'].includes(...)`) during fighter physics ticks created temporary array objects and used linear array search per call. Extracting move categories to module-scoped `Set` constants (`GRAPPLE_REACH_MOVES`, `THROW_LIFT_MOVES`, `CLINCH_MOVES`) and replacing `.includes()` with `.has()` eliminated per-invocation array allocations and provided O(1) membership lookups (~1.33x speedup in benchmark).
+**Action:** Replace inline array literals and `.includes()` membership checks in hot physics and state selection paths with module-scoped `Set` constants using `.has()`.

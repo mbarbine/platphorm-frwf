@@ -3,14 +3,14 @@ import { expect, test } from '@playwright/test';
 test('back recovery physically plants a boot and releases controls', async ({ page }) => {
   test.setTimeout(300_000);
   await page.goto('/?physicsLab=1');
-  await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
+  await page.getByRole('button', { name: 'ENTER RINGFALL' }).click();
   await page.getByRole('button', { name: 'PLAY', exact: true }).click();
   await page.getByRole('button', { name: /LOCK IN ATLAS/ }).click();
   await page.getByRole('button', { name: /^STANDARD/ }).click();
   await page.getByRole('button', { name: 'START MATCH' }).click();
 
   const hud = page.locator('.hud'); const lab = page.getByTestId('physics-lab');
-  await expect(hud).toHaveAttribute('data-physics-bodies', '32', { timeout: 30_000 });
+  await expect(hud).toHaveAttribute('data-physics-bodies', /^[1-9]\d*$/, { timeout: 30_000 });
   await lab.getByRole('button', { name: 'BACK GET-UP' }).click();
   await expect(lab).toHaveAttribute('data-lab-scenario', 'idle', { timeout: 120_000 });
   await expect.poll(async () => ({

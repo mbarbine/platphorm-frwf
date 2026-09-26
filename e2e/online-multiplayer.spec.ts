@@ -23,7 +23,7 @@ test('two browsers share authoritative movement, contact, and impact state', asy
   try {
     for (const page of [host, guest]) {
       await page.goto(baseURL ?? '/');
-      await page.getByRole('button', { name: 'ENTER THE VOLT DOME' }).click();
+      await page.getByRole('button', { name: 'ENTER RINGFALL' }).click();
       await page.getByRole('button', { name: 'PLAY ONLINE' }).click();
     }
 

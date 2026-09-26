@@ -6,6 +6,7 @@ import { useSettings } from '../state/settings';
 
 /** One continuous canvas: impacts flex the cloth without opening gaps between tiles. */
 export function WrestlingMat() {
+  const turkeyBarn = useMatchStore((state) => state.model.venue === 'turkey_dome');
   const geometry = useMemo(() => new PlaneGeometry(11.3, 8.3, 36, 28), []);
   const texture = useMemo(() => {
     const canvas = document.createElement('canvas'); canvas.width = 1024; canvas.height = 768;
@@ -17,16 +18,16 @@ export function WrestlingMat() {
       ctx.globalAlpha = .18; ctx.strokeStyle = '#5d666a'; ctx.lineWidth = 1;
       for (let x = 3; x < 1024; x += 5) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, 768); ctx.stroke(); }
       ctx.globalAlpha = .55; ctx.lineWidth = 2; ctx.setLineDash([5, 4]); ctx.strokeRect(24, 24, 976, 720); ctx.setLineDash([]);
-      ctx.globalAlpha = .78; ctx.strokeStyle = '#38454b'; ctx.lineWidth = 5;
+      ctx.globalAlpha = .78; ctx.strokeStyle = turkeyBarn ? '#76613a' : '#38454b'; ctx.lineWidth = 5;
       ctx.beginPath(); ctx.ellipse(512, 384, 186, 173, 0, 0, Math.PI * 2); ctx.stroke();
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#39464b'; ctx.font = '900 italic 104px sans-serif'; ctx.fillText('FRWF', 508, 374);
-      ctx.font = 'bold 17px sans-serif'; ctx.fillText('ORIGINALS  •  EST. IN THE BACKYARD', 512, 445);
-      ctx.font = 'bold 21px sans-serif'; ctx.fillText('VOLT DOME', 512, 69);
+      ctx.font = 'bold 17px sans-serif'; ctx.fillText(turkeyBarn ? 'TURKEY FARM  •  WRESTLING SINCE FOREVER' : 'ORIGINALS  •  EST. IN THE BACKYARD', 512, 445);
+      ctx.font = 'bold 21px sans-serif'; ctx.fillText(turkeyBarn ? 'TURKEY DOME' : 'FRWF ARENA', 512, 69);
       ctx.save(); ctx.translate(512, 699); ctx.rotate(Math.PI); ctx.fillText('CHAOS CIRCUIT', 0, 0); ctx.restore();
       for (let i = 0; i < 140; i++) { ctx.globalAlpha = .025 + random() * .045; ctx.strokeStyle = '#3b4142'; ctx.lineWidth = 1 + random() * 2; const x = random() * 1024; const y = random() * 768; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + random() * 42 - 21, y + random() * 16); ctx.stroke(); }
     }
     const map = new CanvasTexture(canvas); map.colorSpace = SRGBColorSpace; map.anisotropy = 4; return map;
-  }, []);
+  }, [turkeyBarn]);
   useEffect(() => () => { geometry.dispose(); texture.dispose(); }, [geometry, texture]);
   // OPTIMIZATION: Precompute static mat edge dampening factors to eliminate ~2,100 redundant Math.abs/Math.min/Math.max calls per frame inside hot vertex deformation loop.
   const edgeFactors = useMemo(() => {
@@ -59,7 +60,7 @@ export function WrestlingMat() {
       // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt in hot frame vertex deformation loop (~1000 vertices per frame).
       const dx = x - center.current.x; const dz = z - center.current.z;
       const distance = Math.sqrt(dx * dx + dz * dz);
-      positions.setZ(i, -strength.current * Math.cos(distance * 4 - age.current * 22) * Math.exp(-distance * 1.2) * decay * edgeFactors[i]);
+      positions.setZ(i, -strength.current * Math.cos(distance * 4 - age.current * 22) * Math.exp(-distance * 1.2) * decay * (edgeFactors[i] ?? 0));
     }
     positions.needsUpdate = true;
   });

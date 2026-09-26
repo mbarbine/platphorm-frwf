@@ -43,8 +43,8 @@ describe('Fighter Select Keyboard and ARIA Accessibility', () => {
   it('navigates to fighter select screen and tests wrap-around Arrow key select with ARIA alerts', async () => {
     render(React.createElement(App));
 
-    // 1. Click "ENTER THE VOLT DOME" to reach Main Menu
-    const enterBtn = screen.getByText('ENTER THE VOLT DOME');
+    // 1. Enter RINGFALL to reach the main menu
+    const enterBtn = screen.getByText('ENTER RINGFALL');
     expect(enterBtn).toBeTruthy();
     fireEvent.click(enterBtn);
 
