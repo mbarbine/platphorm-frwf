@@ -18,6 +18,12 @@ import { bodyFramingDistance, placeBroadcastCamera } from '../camera/bodyFraming
 
 const BROADCAST_YAW = Math.PI / 4;
 
+// OPTIMIZATION: Static Sets eliminate dynamic array and closure allocations in 60Hz useFrame render loops
+const UNSECURED_GRAPPLE_PHASES = new Set<string>(['reach', 'acquire', 'failed']);
+const ENGAGED_PLAYER_STATES = new Set<FighterState>(['grappling', 'grabbed', 'climbing', 'airborne', 'jumping', 'pinning', 'pinned']);
+const NON_STRIKE_SHOTS = new Set<CameraShot>(['slam', 'aerial', 'grapple', 'replay']);
+const SINGLES_ZOOM_SHOTS = new Set<CameraShot>(['grapple', 'slam', 'strike']);
+
 const isFiniteNumber = (value: unknown): value is number => Number.isFinite(value as number);
 const safeNumber = (value: unknown, fallback: number): number => isFiniteNumber(value) ? value : fallback;
 const boundedPrediction = (position: number, velocity: number, seconds: number): number => {
@@ -330,19 +336,32 @@ export function CameraRig() {
     const player = updateSlotState(slotStateCache.current, model, 'player', 0, 0);
     const playerState = model.player;
     const playerMove = playerState?.moveId ? getMove(playerState.moveId) : null;
+    // OPTIMIZATION: Direct equality checks and static Set lookup eliminate per-frame dynamic array and closure allocations
+    const isGrappleAttackerPlayer = model.grapple?.attacker === 'player';
+    const isGrappleDefenderPlayer = model.grapple?.defender === 'player';
+    const isGrappleAttackerTarget = model.grapple?.attacker === playerTargetSlot;
+    const isGrappleDefenderTarget = model.grapple?.defender === playerTargetSlot;
     const targetEngagingPlayer = model.targets[playerTargetSlot] === 'player'
-      || Boolean(model.grapple && [model.grapple.attacker, model.grapple.defender].includes('player')
-        && [model.grapple.attacker, model.grapple.defender].includes(playerTargetSlot));
+      || Boolean(model.grapple && (isGrappleAttackerPlayer || isGrappleDefenderPlayer)
+        && (isGrappleAttackerTarget || isGrappleDefenderTarget));
     const opponentMove = targetEngagingPlayer && playerTarget?.moveId ? getMove(playerTarget.moveId) : null;
-    const playerInGrapple = Boolean(model.grapple && (model.grapple.attacker === 'player' || model.grapple.defender === 'player'));
+    const playerInGrapple = Boolean(model.grapple && (isGrappleAttackerPlayer || isGrappleDefenderPlayer));
     const securedGrapple = Boolean(
       playerInGrapple
       && model.grapple
       && model.grapple.gripCount >= 2
-      && !['reach', 'acquire', 'failed'].includes(model.grapple.phase)
+      && !UNSECURED_GRAPPLE_PHASES.has(model.grapple.phase)
     );
 
-    const table = model.props.find((prop) => prop.kind === 'table' && !prop.broken) ?? null;
+    // OPTIMIZATION: Indexed for loop over model.props avoids closure allocations inside useFrame
+    let table = null;
+    for (let i = 0; i < model.props.length; i++) {
+      const prop = model.props[i];
+      if (prop.kind === 'table' && !prop.broken) {
+        table = prop;
+        break;
+      }
+    }
 
     // Use pre-allocated context to completely eliminate garbage collection overhead inside useFrame
     const ctx = cameraDirectorContextRef.current;
@@ -363,10 +382,11 @@ export function CameraRig() {
 
     const directedShot = selectCameraShot(ctx);
 
+    // OPTIMIZATION: Static Set.has() avoids per-frame array allocation in useFrame
     const playerEngaged = replayActive
       || playerInGrapple
       || model.player.moveId !== null
-      || ['grappling', 'grabbed', 'climbing', 'airborne', 'jumping', 'pinning', 'pinned'].includes(model.player.state);
+      || ENGAGED_PLAYER_STATES.has(model.player.state);
     const battleShot = directedShot;
     const requestedShot = (cameraCuts === 'off' || model.matchMode === 'battle_royale') && battleShot !== 'replay'
       ? model.matchMode === 'battle_royale' ? 'wide' : 'broadcast'
@@ -592,7 +612,8 @@ export function CameraRig() {
         || (impactDx * impactDx + impactDz * impactDz < 5.76);
       impactImpulse.current = battleImpactRelevant ? impact.intensity * hierarchy : 0;
       const isMajorStrike = (impact.kind === 'heavy' || impact.kind === 'counter' || impact.kind === 'weapon') && impact.intensity >= 1.3;
-      if (battleImpactRelevant && isMajorStrike && !['slam', 'aerial', 'grapple', 'replay'].includes(shot.current) && cameraCuts === 'full') {
+      // OPTIMIZATION: Static Set.has() check avoids per-frame array allocation in useFrame
+      if (battleImpactRelevant && isMajorStrike && !NON_STRIKE_SHOTS.has(shot.current) && cameraCuts === 'full') {
         shot.current = 'strike';
         shotChangedAt.current = elapsed.current;
         document.documentElement.dataset.cameraShot = 'strike';
@@ -665,8 +686,15 @@ export function CameraRig() {
                       : shot.current.startsWith('ringside')
                         ? 46
                         : 44 + Math.min(9, separation * 1.15);
-      const fovModifier = (model.matchMode === 'singles' && ['grapple', 'slam', 'strike'].includes(shot.current)) ? -4 : 0;
-      const pinInProgress = FIGHTER_SLOTS.some((slot) => model[slot]?.state === 'pinned');
+      // OPTIMIZATION: Static Set.has() check and indexed loop over active slots eliminate array and closure allocations
+      const fovModifier = (model.matchMode === 'singles' && SINGLES_ZOOM_SHOTS.has(shot.current)) ? -4 : 0;
+      let pinInProgress = false;
+      for (let i = 0; i < activeSlotsCount; i++) {
+        if (model[activeSlotsRef.current[i]]?.state === 'pinned') {
+          pinInProgress = true;
+          break;
+        }
+      }
       const nearfallZoom = (model.matchMode === 'singles' && pinInProgress) ? -6 : 0;
       const singlesFovOffset = fovModifier + nearfallZoom;
       const desiredFov = Math.max(
