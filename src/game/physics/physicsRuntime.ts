@@ -1315,12 +1315,20 @@ export class BodyWorksRuntime {
     if (moving) {
       for (const [id, phase] of [['leftFoot', fighter.body.gaitPhase], ['rightFoot', fighter.body.gaitPhase + Math.PI]] as const) {
         const foot = rig.bodies[id]; const cycle = gaitCycle(phase, gaitRunBlend(Math.hypot(fighter.velocity.x, fighter.velocity.z)));
-        if (!foot || !rig.supportContacts.has(id) || !cycle.planted) continue;
-        // Contact traction acts only on the stance foot. The swing boot is free
-        // to clear the deck, and Rapier still owns support and all joint limits.
-        const velocity = foot.linvel(); const mass = foot.mass();
-        const gain = 8 * cycle.supportWeight;
-        foot.addForce({ x: clamp(-velocity.x * gain, -40, 40) * mass, y: 0, z: clamp(-velocity.z * gain, -40, 40) * mass }, true);
+        const anchor = rig.plantedFootAnchors[id];
+        if (!foot || !rig.supportContacts.has(id) || !cycle.planted) { anchor.active = false; continue; }
+        // Give the planted boot a world-space traction target for this stance.
+        // Velocity-only damping lets the foot skate whenever the pelvis keeps
+        // driving forward; the bounded position/velocity servo transfers that
+        // load through the articulated leg while leaving swing and airborne
+        // feet completely free.
+        const position = foot.translation();
+        if (!anchor.active) { anchor.active = true; anchor.x = position.x; anchor.z = position.z; }
+        const velocity = foot.linvel();
+        const supportWeight = Math.max(.22, cycle.supportWeight);
+        const forceX = clamp((anchor.x - position.x) * 190 - velocity.x * 30, -520, 520) * supportWeight;
+        const forceZ = clamp((anchor.z - position.z) * 190 - velocity.z * 30, -520, 520) * supportWeight;
+        foot.addForce({ x: forceX, y: 0, z: forceZ }, true);
       }
       return;
     }
