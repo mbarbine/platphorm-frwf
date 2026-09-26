@@ -32,6 +32,16 @@ const connectWebSocket = async (roomId: string, ticket: string) => {
 };
 
 describe('real Worker / Durable Object / D1 / R2 integration', () => {
+  it('serves the new Turkey Dome map beside the compatible original arena map', async () => {
+    const response = await worker.dispatchFetch(origin + '/api/maps');
+    const json = await response.json() as { data: { maps: { id: string; title: string; environment?: string }[] } };
+    expect(response.status).toBe(200);
+    expect(json.data.maps.map(map => map.id)).toContain('turkey-dome');
+    expect(json.data.maps.find(map => map.id === 'turkey-dome')).toMatchObject({ title: 'Turkey Dome', environment: 'turkey-barn-farm' });
+    expect(json.data.maps.find(map => map.id === 'volt-dome')?.title).toBe('FRWF Arena');
+    const detail = await worker.dispatchFetch(origin + '/api/maps/turkey-dome');
+    expect(await detail.json()).toMatchObject({ ok: true, data: { id: 'turkey-dome', title: 'Turkey Dome' } });
+  });
   it('probes storage and returns genuinely empty results with no credential disclosure', async () => {
     const health = await worker.dispatchFetch(origin + '/api/health');
     expect(health.headers.get('X-Frame-Options')).toBe('DENY');

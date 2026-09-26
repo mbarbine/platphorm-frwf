@@ -24,7 +24,7 @@ export const clientMessage = z.discriminatedUnion('type', [
 export const gameInfo = {
   name: 'RINGFALL: CHAOS CIRCUIT', canonicalUrl: 'https://frwf.platphormnews.com',
   map: 'volt-dome', fighters: fighterId.options, protocolVersion: PROTOCOL_VERSION,
-  local: { world: { locations: ['showground', 'backstage', 'ringside'], encounters: 6, venues: ['yard', 'backstage', 'dome'], combat: 'instanced_bouts', persistence: 'device_local_only' }, wrestling: ['physical strikes', 'paired throws', 'supported breakfalls', 'contact-verified cross-body covers'], modes: ['singles', 'battle_royale'], rulesets: ['standard', 'chaos'], simulationHz: 60, renderer: 'Three.js + Rapier', inputs: ['keyboard', 'gamepad', 'touch', 'webxr'] },
+  local: { world: { locations: ['showground', 'backstage', 'ringside'], encounters: 6, venues: ['yard', 'backstage', 'dome', 'turkey_dome'], combat: 'instanced_bouts', persistence: 'device_local_only' }, wrestling: ['physical strikes', 'paired throws', 'supported breakfalls', 'contact-verified cross-body covers'], modes: ['singles', 'battle_royale'], rulesets: ['standard', 'chaos'], simulationHz: 60, renderer: 'Three.js + Rapier', inputs: ['keyboard', 'gamepad', 'touch', 'webxr'] },
   online: { modes: ['private_singles'], simulationHz: 30, commands: ['move', 'run', 'quickStrike', 'heavyStrike', 'grapple', 'guard'], limitations: ['Online rules are a smaller swept-contact simulation; not BodyWorks parity.', 'Operator-created room tickets required.', 'No public matchmaking or persistent player identity.'] },
 } as const;
 
@@ -37,11 +37,16 @@ export const bundledMap = {
   delivery: 'bundled-procedural',
 };
 // Published contracts identify the implemented arena, not arbitrary executable levels.
+export const turkeyDomeMap = {
+  ...bundledMap, id: 'turkey-dome', version: '1.0.0', title: 'Turkey Dome',
+  environment: 'turkey-barn-farm', delivery: 'bundled-procedural-barnyard-v1',
+};
+export const bundledMaps = [bundledMap, turkeyDomeMap] as const;
 export const mapPublication = z.object({
-  id: z.literal('volt-dome'), version: z.string().regex(/^\d+\.\d+\.\d+$/).max(24),
+  id: z.enum(['volt-dome', 'turkey-dome']), version: z.string().regex(/^\d+\.\d+\.\d+$/).max(24),
   compatibilityVersion: z.literal(1), title: z.string().min(1).max(80),
   spawns: z.array(z.object({ x: z.number().finite().min(-5.3).max(5.3), z: z.number().finite().min(-3.8).max(3.8) }).strict()).length(5),
-  geometry: z.literal('bundled-volt-dome-v2'),
+  geometry: z.enum(['bundled-volt-dome-v2', 'bundled-turkey-barn-v1']),
 }).strict().superRefine((map, ctx) => {
   for (let i = 0; i < map.spawns.length; i++) for (let j = i + 1; j < map.spawns.length; j++) {
     const a = map.spawns[i]; const b = map.spawns[j];
