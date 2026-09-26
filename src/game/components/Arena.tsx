@@ -682,6 +682,61 @@ function StunningAssets() {
   </group>;
 }
 
+function BarnTurkey({ position, tone = '#76553e', phase = 0 }: { position: [number, number, number]; tone?: string; phase?: number }) {
+  const bird = useRef<Group>(null);
+  useFrame((state) => { if (bird.current) { bird.current.position.y = position[1] + Math.sin(state.clock.elapsedTime * 2.1 + phase) * .025; bird.current.rotation.y = Math.sin(state.clock.elapsedTime * .65 + phase) * .035; } });
+  return <group ref={bird} position={position}>
+    <mesh position={[0, .34, 0]} castShadow><sphereGeometry args={[.31, 12, 10]} /><meshStandardMaterial color={tone} roughness={.95} /></mesh>
+    <mesh position={[0, .66, .12]} rotation={[-.16, 0, 0]} castShadow><capsuleGeometry args={[.075, .27, 3, 7]} /><meshStandardMaterial color={tone} roughness={.9} /></mesh>
+    <mesh position={[0, .81, .15]} castShadow><sphereGeometry args={[.105, 10, 8]} /><meshStandardMaterial color={tone} roughness={.9} /></mesh>
+    <mesh position={[0, .78, .253]}><coneGeometry args={[.045, .105, 6]} /><meshStandardMaterial color="#df9a37" roughness={.8} /></mesh>
+    <mesh position={[.065, .735, .21]}><sphereGeometry args={[.035, 7, 6]} /><meshStandardMaterial color="#c83f3c" roughness={.8} /></mesh>
+    {[-1, 1].map(side => <group key={side}>
+      <mesh position={[side * .22, .34, 0]} rotation={[0, 0, side * -.14]}><sphereGeometry args={[.14, 9, 7]} /><meshStandardMaterial color={tone} roughness={1} /></mesh>
+      <mesh position={[side * .1, .065, .02]}><cylinderGeometry args={[.025, .018, .14, 6]} /><meshStandardMaterial color="#d99b38" /></mesh>
+    </group>)}
+    {[-2, -1, 0, 1, 2].map(index => <mesh key={index} position={[index * .09, .37, -.29 - Math.abs(index) * .015]} rotation={[0, 0, index * -.12]}><sphereGeometry args={[.105, 8, 6]} /><meshStandardMaterial color={index % 2 ? '#9a7549' : '#b48b5b'} roughness={1} /></mesh>)}
+  </group>;
+}
+
+/** The Turkey Dome is a playable barn show, framed by real farm details. */
+function TurkeyBarnArchitecture() {
+  const birds: [number, number, number][] = [
+    [-10.7, .38, -10.3], [-8.7, .38, -10.7], [-6.7, .38, -10.4], [-3.2, .38, -10.8], [1.1, .38, -10.6], [4.3, .38, -10.8], [8.2, .38, -10.4], [10.2, .38, -10.7],
+    [-10.9, .38, 10.5], [-8.8, .38, 10.8], [-5.5, .38, 10.6], [6.4, .38, 10.8], [9.4, .38, 10.5],
+  ];
+  return <group>
+    <mesh position={[0, 5.2, -13.1]} receiveShadow><boxGeometry args={[27, 10.4, .48]} /><meshStandardMaterial color="#733e2c" roughness={.96} /></mesh>
+    <mesh position={[-13.1, 5.2, 0]} receiveShadow><boxGeometry args={[.48, 10.4, 27]} /><meshStandardMaterial color="#693b2b" roughness={.96} /></mesh>
+    <mesh position={[13.1, 5.2, 0]} receiveShadow><boxGeometry args={[.48, 10.4, 27]} /><meshStandardMaterial color="#693b2b" roughness={.96} /></mesh>
+    <mesh position={[-6.85, 11.05, 0]} rotation={[0, 0, .2]}><boxGeometry args={[14.7, .32, 27]} /><meshStandardMaterial color="#737772" metalness={.42} roughness={.78} side={DoubleSide} /></mesh>
+    <mesh position={[6.85, 11.05, 0]} rotation={[0, 0, -.2]}><boxGeometry args={[14.7, .32, 27]} /><meshStandardMaterial color="#686d69" metalness={.42} roughness={.78} side={DoubleSide} /></mesh>
+    {[-11, -8, -5, -2, 2, 5, 8, 11].map(x => <group key={x} position={[x, 0, 0]}>
+      <mesh position={[0, 5.5, 0]} rotation={[0, 0, .36]}><boxGeometry args={[.22, 11.2, .24]} /><meshStandardMaterial color="#4a3023" roughness={.9} /></mesh>
+      <mesh position={[0, 9.4, 0]} rotation={[0, 0, -.35]}><boxGeometry args={[.16, 4.7, .2]} /><meshStandardMaterial color="#81553a" roughness={.9} /></mesh>
+    </group>)}
+    {[-10, -6, -2, 2, 6, 10].map(x => <mesh key={x} position={[x, 7.75, 0]}><boxGeometry args={[.16, .18, 25]} /><meshStandardMaterial color="#c2a477" roughness={.82} /></mesh>)}
+    <group position={[0, 3.4, -12.82]}>
+      <mesh><boxGeometry args={[8.4, 6.8, .16]} /><meshStandardMaterial color="#3e211a" roughness={.95} /></mesh>
+      <mesh position={[0, -.25, -.1]}><boxGeometry args={[7.6, 5.9, .12]} /><meshStandardMaterial color="#9b3f2b" roughness={.9} /></mesh>
+      <mesh position={[0, 3.35, -.18]}><boxGeometry args={[9.3, .2, .12]} /><meshStandardMaterial color="#e2ca91" roughness={.75} /></mesh>
+    </group>
+    <group position={[0, 8.6, -11.9]}>
+      <mesh><boxGeometry args={[9, 1.2, .16]} /><meshStandardMaterial color="#171912" roughness={.85} /></mesh>
+      {[-3.5, -2.1, -.7, .7, 2.1, 3.5].map(x => <mesh key={x} position={[x, 0, -.1]}><boxGeometry args={[.07, .82, .05]} /><meshStandardMaterial color="#e0bd72" emissive="#b38039" emissiveIntensity={.16} /></mesh>)}
+    </group>
+    {[-1, 1].map(side => <group key={side} position={[side * 11.4, .34, -3]}>
+      <mesh><boxGeometry args={[1.25, .68, 1.1]} /><meshStandardMaterial color="#c2a063" roughness={1} /></mesh>
+      {[-.42, -.14, .14, .42].map(x => <mesh key={x} position={[x, .36, 0]} rotation={[0, 0, x * .2]}><cylinderGeometry args={[.035, .035, .12, 5]} /><meshStandardMaterial color="#e4cc92" /></mesh>)}
+    </group>)}
+    {birds.map((position, index) => <BarnTurkey key={index} position={position} phase={index * .73} tone={index % 3 === 0 ? '#5f4938' : index % 3 === 1 ? '#896849' : '#72543d'} />)}
+    <group position={[0, 1.8, -8.8]}>
+      <mesh><boxGeometry args={[6.3, 1.05, .16]} /><meshStandardMaterial color="#18201a" roughness={.8} /></mesh>
+      <mesh position={[0, 0, -.1]}><boxGeometry args={[5.95, .78, .06]} /><meshStandardMaterial color="#b7975d" roughness={.75} /></mesh>
+    </group>
+  </group>;
+}
+
 export function Arena({ crowdCount = 156, performanceMode = false, venue = 'dome' }: { crowdCount?: number; performanceMode?: boolean; venue?: 'dome' | 'turkey_dome' }) {
   const turkeyBarn = venue === 'turkey_dome';
   const spotlight = useMatchStore((state) => state.model.chaosEvent?.type === 'SPOTLIGHT SHOWDOWN');
