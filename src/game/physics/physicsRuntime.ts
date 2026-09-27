@@ -457,24 +457,38 @@ export class BodyWorksRuntime {
     }
   }
 
+  private processBufferedEvent(fighter: FighterKey, event: ActionEvent, inputRun: boolean, now: number, nowMs: number): void {
+    if (event.phase !== 'started' || !isBufferedAction(event.action)) return;
+    const command = actionToGameCommand(event.action);
+    if (!command) return;
+    const buffered = { id: event.sequence, fighter, event, command, direction: actionDirectionToVec2(event.direction), running: inputRun };
+    const result = this.actions.push(buffered, event, nowMs, `${fighter}:${event.source}:${event.action}:${event.phase}`);
+    if (fighter === 'player') this.playerActionFeedback = {
+      event,
+      status: result,
+      updatedAt: now,
+      reason: result === 'duplicate' ? 'Duplicate input edge' : result === 'rejected' ? 'Action buffer full' : null,
+      displayName: null,
+    };
+  }
+
   captureInput(fighter: FighterKey, input: FrameInput, now: number): void {
     const intent = this.intents[fighter];
     intent.move.x = input.move.x; intent.move.z = input.move.z; intent.run = input.run; intent.block = input.block;
     const nowMs = now * 1_000;
-    const legacyEvents = (input.commands ?? []).map((command) => createActionEvent(gameCommandToAction(command), { source: 'replay', timestamp: nowMs, direction: input.move }));
-    for (const event of [...(input.actions ?? []), ...legacyEvents]) {
-      if (event.phase !== 'started' || !isBufferedAction(event.action)) continue;
-      const command = actionToGameCommand(event.action);
-      if (!command) continue;
-      const buffered = { id: event.sequence, fighter, event, command, direction: actionDirectionToVec2(event.direction), running: input.run };
-      const result = this.actions.push(buffered, event, nowMs, `${fighter}:${event.source}:${event.action}:${event.phase}`);
-      if (fighter === 'player') this.playerActionFeedback = {
-        event,
-        status: result,
-        updatedAt: now,
-        reason: result === 'duplicate' ? 'Duplicate input edge' : result === 'rejected' ? 'Action buffer full' : null,
-        displayName: null,
-      };
+    if (input.actions) {
+      for (let i = 0; i < input.actions.length; i++) {
+        const event = input.actions[i];
+        if (event) this.processBufferedEvent(fighter, event, input.run, now, nowMs);
+      }
+    }
+    if (input.commands) {
+      for (let i = 0; i < input.commands.length; i++) {
+        const command = input.commands[i];
+        if (!command) continue;
+        const event = createActionEvent(gameCommandToAction(command), { source: 'replay', timestamp: nowMs, direction: input.move });
+        this.processBufferedEvent(fighter, event, input.run, now, nowMs);
+      }
     }
     this.syncActionMetrics();
   }
