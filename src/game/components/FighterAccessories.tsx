@@ -30,48 +30,85 @@ function ChampionshipPlate() {
   </group>;
 }
 
-/** Identity details remain attached to solved anatomy throughout a throw. */
-export function FighterAccessories({ fighterId, side, previewPose, modelScale = 1 }: { modelScale?: number; fighterId: FighterId; side?: FighterSlot; previewPose?: (segment: 'head' | 'pelvis' | 'chest') => { position: Vector3; rotation: Quaternion } | undefined }) {
-  const head = useRef<Group>(null); const waist = useRef<Group>(null);
-  // OPTIMIZATION: Update head and waist segment transforms directly to avoid per-frame array allocations in useFrame
-  useFrame(() => {
-    if (head.current) {
-      const pose = previewPose ? previewPose('head') : side ? bodyWorksRuntime.segmentSnapshot(side, 'head') : undefined;
-      if (pose) {
-        head.current.position.copy(pose.position);
-        head.current.quaternion.set(pose.rotation.x, pose.rotation.y, pose.rotation.z, pose.rotation.w);
-      }
-      if (fighterId === 'atlas') {
-        const model = useMatchStore.getState().model;
-        head.current.visible = Boolean(side && model[side].state === 'victorious');
-      }
-    }
-    if (waist.current) {
-      const pose = previewPose ? previewPose('pelvis') : side ? bodyWorksRuntime.segmentSnapshot(side, 'pelvis') : undefined;
-      if (pose) {
-        waist.current.position.copy(pose.position);
-        waist.current.quaternion.set(pose.rotation.x, pose.rotation.y, pose.rotation.z, pose.rotation.w);
-      }
-      const model = useMatchStore.getState().model;
-      waist.current.visible = Boolean(side && model[side].state === 'victorious');
-    }
-  });
-  return <>
-    {side && <RingGear side={side} fighterId={fighterId} />}
-    <group ref={head} scale={modelScale}>
-      <OriginalFaceDetails fighterId={fighterId} />
-      {fighterId === 'atlas' ? <group position={[0, .13, 0]}>
-        <mesh rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[.102, .009, 8, 28]} /><meshStandardMaterial color="#c99b40" metalness={.8} roughness={.3} /></mesh>
-        {[-.072, 0, .072].map((x) => <mesh key={x} position={[x, .026, .067]}><coneGeometry args={[.018, .064, 5]} /><meshStandardMaterial color="#e7bc57" metalness={.75} roughness={.28} /></mesh>)}
-      </group> : fighterId === 'vex' ? <mesh position={[0, .13, -.005]} scale={[.2, 1, 1]}><capsuleGeometry args={[.06, .11, 8, 16]} /><meshStandardMaterial color="#17323b" roughness={.86} /></mesh>
-        : null}
+function AtlasCrown() {
+  return (
+    <group position={[0, .13, 0]}>
+      <mesh rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[.102, .009, 8, 28]} /><meshStandardMaterial color="#c99b40" metalness={.8} roughness={.3} /></mesh>
+      {[-.072, 0, .072].map((x) => <mesh key={x} position={[x, .026, .067]}><coneGeometry args={[.018, .064, 5]} /><meshStandardMaterial color="#e7bc57" metalness={.75} roughness={.28} /></mesh>)}
     </group>
-    {fighterId === 'chad' && <>
-      <group ref={waist}><mesh scale={[1.35, 1, .8]}><cylinderGeometry args={[.21, .21, .3, 32, 1, true]} /><meshStandardMaterial color="#14151a" roughness={.76} /></mesh><ChampionshipPlate /></group>
-    </>}
-  </>;
+  );
 }
 
+function VexHeadgear() {
+  return (
+    <mesh position={[0, .13, -.005]} scale={[.2, 1, 1]}><capsuleGeometry args={[.06, .11, 8, 16]} /><meshStandardMaterial color="#17323b" roughness={.86} /></mesh>
+  );
+}
+
+interface AccessoryTransformProps {
+  fighterId: FighterId;
+  side?: FighterSlot;
+  previewPose?: (segment: 'head' | 'pelvis' | 'chest') => { position: Vector3; rotation: Quaternion } | undefined;
+  modelScale?: number;
+}
+
+function HeadAccessories({ fighterId, side, previewPose, modelScale = 1 }: AccessoryTransformProps) {
+  const head = useRef<Group>(null);
+  // OPTIMIZATION: Update head segment transforms directly to avoid per-frame array allocations in useFrame
+  useFrame(() => {
+    if (!head.current) return;
+    const pose = previewPose ? previewPose('head') : side ? bodyWorksRuntime.segmentSnapshot(side, 'head') : undefined;
+    if (pose) {
+      head.current.position.copy(pose.position);
+      head.current.quaternion.set(pose.rotation.x, pose.rotation.y, pose.rotation.z, pose.rotation.w);
+    }
+    if (fighterId === 'atlas') {
+      const model = useMatchStore.getState().model;
+      head.current.visible = Boolean(side && model[side].state === 'victorious');
+    }
+  });
+
+  return (
+    <group ref={head} scale={modelScale}>
+      <OriginalFaceDetails fighterId={fighterId} />
+      {fighterId === 'atlas' && <AtlasCrown />}
+      {fighterId === 'vex' && <VexHeadgear />}
+    </group>
+  );
+}
+
+function ChampionshipBelt({ side, previewPose }: Omit<AccessoryTransformProps, 'fighterId'>) {
+  const waist = useRef<Group>(null);
+  // OPTIMIZATION: Update waist segment transforms directly to avoid per-frame array allocations in useFrame
+  useFrame(() => {
+    if (!waist.current) return;
+    const pose = previewPose ? previewPose('pelvis') : side ? bodyWorksRuntime.segmentSnapshot(side, 'pelvis') : undefined;
+    if (pose) {
+      waist.current.position.copy(pose.position);
+      waist.current.quaternion.set(pose.rotation.x, pose.rotation.y, pose.rotation.z, pose.rotation.w);
+    }
+    const model = useMatchStore.getState().model;
+    waist.current.visible = Boolean(side && model[side].state === 'victorious');
+  });
+
+  return (
+    <group ref={waist}>
+      <mesh scale={[1.35, 1, .8]}><cylinderGeometry args={[.21, .21, .3, 32, 1, true]} /><meshStandardMaterial color="#14151a" roughness={.76} /></mesh>
+      <ChampionshipPlate />
+    </group>
+  );
+}
+
+/** Identity details remain attached to solved anatomy throughout a throw. */
+export function FighterAccessories({ fighterId, side, previewPose, modelScale = 1 }: { modelScale?: number; fighterId: FighterId; side?: FighterSlot; previewPose?: (segment: 'head' | 'pelvis' | 'chest') => { position: Vector3; rotation: Quaternion } | undefined }) {
+  return (
+    <>
+      {side && <RingGear side={side} fighterId={fighterId} />}
+      <HeadAccessories fighterId={fighterId} side={side} previewPose={previewPose} modelScale={modelScale} />
+      {fighterId === 'chad' && <ChampionshipBelt side={side} previewPose={previewPose} />}
+    </>
+  );
+}
 
 const GEAR_SEGMENTS: readonly BodySegmentId[] = ['leftForearm', 'rightForearm', 'leftFoot', 'rightFoot'];
 
