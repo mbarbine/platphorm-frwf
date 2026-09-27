@@ -2444,16 +2444,16 @@ export class BodyWorksRuntime {
    */
   private refreshPendingLandingContacts(model: MatchModel): void {
     const world = this.world; if (!world || this.pendingLandings.size === 0) return;
-    for (const [defender, landing] of [...this.pendingLandings]) {
-      const rig = this.rigs.get(defender);
-      const surfaces = [...this.landingSurfaces.values()].filter((candidate) => landing.targetSurface
-        ? candidate.kind === landing.targetSurface
-        : candidate.kind === 'ring' || candidate.kind === 'floor');
-      if (!rig || surfaces.length === 0) continue;
+    for (const [defender, landing] of this.pendingLandings) {
+      const rig = this.rigs.get(defender); if (!rig) continue;
       let recorded = false;
-      for (const surface of surfaces) {
-        if (!surface.body.isValid()) continue;
-        for (const segment of CORE_SEGMENTS) {
+      for (const surface of this.landingSurfaces.values()) {
+        const matchesSurface = landing.targetSurface
+          ? surface.kind === landing.targetSurface
+          : surface.kind === 'ring' || surface.kind === 'floor';
+        if (!matchesSurface || !surface.body.isValid()) continue;
+        for (let s = 0; s < CORE_SEGMENTS.length; s += 1) {
+          const segment = CORE_SEGMENTS[s]; if (!segment) continue;
           const body = rig.bodies[segment]; if (!body?.isValid() || body.numColliders() === 0) continue;
           const sourceCollider = body.collider(0);
           for (let index = 0; index < surface.body.numColliders(); index += 1) {
