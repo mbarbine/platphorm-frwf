@@ -624,13 +624,18 @@ function StunningAssets() {
   const assetsData = useMemo(() => {
     const items = [];
     const count = 60;
+    let seed = 42;
+    const random = () => {
+      seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+      return seed / 4294967296;
+    };
     for (let i = 0; i < count; i++) {
       const angle = (i / count) * Math.PI * 2;
       const radius = 18 + Math.sin(i * 3.14) * 2;
       const x = Math.cos(angle) * radius;
       const z = Math.sin(angle) * radius;
       const y = 8 + Math.cos(i * 2.7) * 3;
-      const scale = 0.6 + Math.random() * 0.8;
+      const scale = 0.6 + random() * 0.8;
 
       const isCyan = i % 2 === 0;
       const color = isCyan ? '#4be7ff' : '#ff3a95';
@@ -638,10 +643,10 @@ function StunningAssets() {
 
       items.push({
         x, y, z, scale, color, emissive,
-        rotSpeedX: (Math.random() - 0.5) * 2,
-        rotSpeedY: (Math.random() - 0.5) * 2,
-        rotSpeedZ: (Math.random() - 0.5) * 2,
-        phaseOffset: Math.random() * Math.PI * 2
+        rotSpeedX: (random() - 0.5) * 2,
+        rotSpeedY: (random() - 0.5) * 2,
+        rotSpeedZ: (random() - 0.5) * 2,
+        phaseOffset: random() * Math.PI * 2
       });
     }
     return items;
