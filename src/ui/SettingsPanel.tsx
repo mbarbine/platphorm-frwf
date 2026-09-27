@@ -55,10 +55,10 @@ export function SettingsPanel({ onBack }: { onBack: () => void }) {
   return <section className="panel panel--settings"><div className="section-heading"><span>ACCESSIBILITY + AUDIO</span><h2>SETTINGS</h2></div>
     <p className="sr-only" role="status" aria-live="polite">{resetAnnounce}</p>
     <div className="settings-grid">
-      <label className="setting-row setting-row--select" htmlFor="setting-player-camera"><span>Playing camera</span><select id="setting-player-camera" value={settings.playerCamera} onChange={event => settings.update({ playerCamera: event.target.value as typeof settings.playerCamera })}>{PLAYER_CAMERA_MODES.map(mode => <option key={mode.id} value={mode.id}>{mode.label}</option>)}</select></label>
+      <label className="setting-row setting-row--select" htmlFor="setting-player-camera"><span>Playing camera</span><select id="setting-player-camera" aria-label="Playing camera" value={settings.playerCamera} onChange={event => settings.update({ playerCamera: event.target.value as typeof settings.playerCamera })}>{PLAYER_CAMERA_MODES.map(mode => <option key={mode.id} value={mode.id}>{mode.label}</option>)}</select></label>
       <label className="setting-row setting-row--select" htmlFor="setting-control-style">
         <span>Combat controls<b>{settings.controlStyle.toUpperCase()}</b></span>
-        <select id="setting-control-style" value={settings.controlStyle} onChange={(event) => settings.update({ controlStyle: event.target.value as 'arcade' | 'technical' })}>
+        <select id="setting-control-style" aria-label="Combat controls" value={settings.controlStyle} onChange={(event) => settings.update({ controlStyle: event.target.value as 'arcade' | 'technical' })}>
           <option value="arcade">Arcade · consistent strikes and one-button slam</option>
           <option value="technical">Technical · movement selects directional moves</option>
         </select>
@@ -125,7 +125,7 @@ export function SettingsPanel({ onBack }: { onBack: () => void }) {
       >
         {confirmReset ? 'CONFIRM RESET?' : 'RESET SAVED SETTINGS'}
       </button>
-      <button className="button" onClick={onBack}>DONE</button>
+      <button className="button" onClick={onBack} aria-label="Done: save settings and return to main menu">DONE</button>
     </div>
   </section>;
 }

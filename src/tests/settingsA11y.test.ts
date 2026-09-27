@@ -8,6 +8,19 @@ describe('SettingsPanel Accessibility', () => {
     cleanup();
   });
 
+  it('renders explicit aria-label attributes on select controls', () => {
+    const onBack = vi.fn();
+    render(React.createElement(SettingsPanel, { onBack }));
+
+    expect(screen.getByRole('combobox', { name: 'Playing camera' })).toBeTruthy();
+    expect(screen.getByRole('combobox', { name: 'Combat controls' })).toBeTruthy();
+    expect(screen.getByRole('combobox', { name: 'Graphics quality' })).toBeTruthy();
+    expect(screen.getByRole('combobox', { name: 'Control deck' })).toBeTruthy();
+    expect(screen.getByRole('combobox', { name: 'Grapple guide' })).toBeTruthy();
+    expect(screen.getByRole('combobox', { name: 'Camera cuts' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Done: save settings and return to main menu' })).toBeTruthy();
+  });
+
   it('announces double-confirmation prompt and reset completion to screen readers via aria-live', () => {
     const onBack = vi.fn();
     render(React.createElement(SettingsPanel, { onBack }));

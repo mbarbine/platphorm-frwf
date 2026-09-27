@@ -55,3 +55,7 @@
 ## 2025-03-05 - Accessible Instant Replay Overlays and Single-Key Dismissal
 **Learning:** Automatic instant replay overlays that trigger on major impacts interrupt active match play and can disorient screen reader and keyboard users if rendered without status ARIA attributes or a single-key dismissal shortcut. Providing a visually hidden `role="status"` `aria-live="polite"` region alongside keydown listeners for `Escape` and `Space` ensures screen reader users understand the playback context immediately while keyboard users can skip replays effortlessly without leaving combat controls.
 **Action:** Always pair auto-triggering replay overlays with polite `aria-live` announcements and standard single-key dismissal shortcuts (`Escape`/`Space`).
+
+## 2025-03-06 - Label in Name Alignment for Accessible Action Buttons
+**Learning:** Overriding a button's visual text label (such as 'DONE') with an `aria-label` that omits the visible string breaks voice recognition users who navigate by speaking visual button names (WCAG 2.5.3 - Label in Name). Ensuring that `aria-label` attributes prefix or include the exact visual text string (e.g. `aria-label="Done: save settings and return to main menu"`) guarantees seamless voice control and screen reader clarity.
+**Action:** Always include the exact visual text label as a prefix in custom `aria-label` attributes on buttons.
