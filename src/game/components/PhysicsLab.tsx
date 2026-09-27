@@ -222,19 +222,23 @@ export function PhysicsLab() {
         dispatchKey(step.code, step.down); dispatched.add(index);
       });
       if (scenario.id === 'climb' || scenario.id === 'dive') {
-        if (current.player.climbStage !== stagedLastClimbStage) {
-          stagedLastClimbStage = current.player.climbStage;
-          stagedNextAttemptAt = elapsedMs + 220;
-        }
         if (stagedKey && elapsedMs >= stagedReleaseAt) {
           dispatchKey(stagedKey, false); stagedKey = null;
         }
-        if (!stagedKey && elapsedMs >= stagedNextAttemptAt) {
-          const code = current.player.climbStage < 3 ? 'KeyF' : !stagedFinishIssued ? scenario.id === 'climb' ? 'KeyQ' : 'KeyF' : null;
-          if (code) {
+        if (!stagedFinishIssued) {
+          if (current.player.climbStage !== stagedLastClimbStage) {
+            stagedLastClimbStage = current.player.climbStage;
+            stagedNextAttemptAt = elapsedMs + 220;
+          }
+          // Continue staged inputs only while the wrestler is on the corner.
+          // Once the dive/taunt starts, repeated context presses can replace its
+          // attack instance with another action before physical contact lands.
+          if (current.player.state === 'climbing' && !stagedKey && elapsedMs >= stagedNextAttemptAt) {
+            const code = current.player.climbStage < 3 ? 'KeyF' : scenario.id === 'climb' ? 'KeyQ' : 'KeyF';
             dispatchKey(code, true); stagedKey = code; stagedReleaseAt = elapsedMs + 120; stagedNextAttemptAt = elapsedMs + 520;
             if (current.player.climbStage === 3) stagedFinishIssued = true;
           }
+          if (scenario.id === 'dive' && current.player.moveId && getMove(current.player.moveId).category === 'aerial') stagedFinishIssued = true;
         }
       }
       if (scenario.id === 'blockedJab' && !blockedJabQueued && current.player.state === 'blocking' && elapsedMs >= blockedJabNextAttemptAt) {

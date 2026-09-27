@@ -948,3 +948,28 @@ it.each([false, true])('walking and running keep the loaded sole level (run=%s)'
     expect(folded, JSON.stringify(firstFold)).toBe(0);
   } finally { runtime.reset(); world.free(); }
 });
+
+it('lets a top-rope aerial follow a ballistic arc instead of grounded support motors', () => {
+  const { world, runtime, model, rig } = makeHarness('chad');
+  try {
+    model.labMode = true;
+    for (let frame = 0; frame < 90; frame++) stepHarness(world, runtime, model);
+    model.player.state = 'attacking';
+    model.player.moveId = 'aerial';
+    model.player.attackPhase = 'active';
+    const startY = rig.bodies.pelvis.translation().y;
+    runtime.requestCornerDive('player', { x: 0, z: 0 });
+    let apexY = startY;
+    for (let frame = 0; frame < 24; frame++) {
+      stepHarness(world, runtime, model);
+      apexY = Math.max(apexY, rig.bodies.pelvis.translation().y);
+    }
+    const descendingVelocity = rig.bodies.pelvis.linvel().y;
+    for (let frame = 0; frame < 60; frame++) stepHarness(world, runtime, model);
+    const landedOrDescendingY = rig.bodies.pelvis.translation().y;
+    expect(apexY, JSON.stringify({ startY, apexY })).toBeGreaterThan(startY + .45);
+    expect(descendingVelocity).toBeLessThan(0);
+    expect(landedOrDescendingY, JSON.stringify({ apexY, landedOrDescendingY })).toBeLessThan(apexY - .35);
+    expect(runtime.metrics.emergencyResetCount).toBe(0);
+  } finally { runtime.reset(); world.free(); }
+});

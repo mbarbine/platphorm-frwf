@@ -1044,8 +1044,13 @@ export class BodyWorksRuntime {
       return;
     }
     if (fighter.state !== 'climbing') rig.cornerAnchor = null;
+    // An aerial move is a physical flight phase even though combat keeps the
+    // fighter in `attacking`. Ground support here would counter gravity and
+    // make a launched wrestler hang/skim across the ring like a puppet.
+    const aerialFlight = fighter.state === 'attacking' && Boolean(fighter.moveId && getMove(fighter.moveId).category === 'aerial')
+      && ['anticipation', 'active', 'recovery'].includes(fighter.attackPhase ?? '');
     const controlledJumpLanding = fighter.state === 'jumping' && fighter.body.verticalOffset < .35 && fighter.body.verticalVelocity <= 0;
-    const groundedControl = standingClinch || controlledJumpLanding || GROUNDED_CONTROL_STATES.has(fighter.state);
+    const groundedControl = !aerialFlight && (standingClinch || controlledJumpLanding || GROUNDED_CONTROL_STATES.has(fighter.state));
     if (groundedControl) {
       const recoveryBlend = fighter.state === 'recovering' ? clamp(fighter.stateElapsed / RECOVERY_DURATION, 0, 1) : 1;
       const recoveryTargetY = targetPelvisY - (1 - recoveryBlend) * .62;
@@ -2187,7 +2192,11 @@ export class BodyWorksRuntime {
   private releaseAllGrips(world: World): void { for (const grip of [...this.grips]) this.removeGrip(world, grip); this.metrics.gripCount = 0; this.metrics.jointCount = this.rigs.size * 15 + this.propGrips.size; }
 
   private applyPoseDrive(rig: FighterRigRegistration, fighter: FighterRuntime, motorProfile: MotorProfile, overridePose?: Pose): void {
-    const supportedFall = !overridePose && ['downed', 'airborne', 'defeated'].includes(fighter.state);
+    // Aerial attacks keep combat state for hit validation, but their body
+    // pose must still yield to the physical launch and gravity until landing.
+    const aerialFlight = fighter.state === 'attacking' && Boolean(fighter.moveId && getMove(fighter.moveId).category === 'aerial')
+      && ['anticipation', 'active', 'recovery'].includes(fighter.attackPhase ?? '');
+    const supportedFall = !overridePose && (['downed', 'airborne', 'defeated'].includes(fighter.state) || aerialFlight);
     const pose = supportedFall ? BREAKFALL_POSE : overridePose ?? targetPoseFor(fighter);
     const targets = physicalPoseTargets(pose, supportedFall ? 0 : fighter.facing, ['idle', 'locomotion', 'blocking'].includes(fighter.state) || fighter.state === 'grappling' && motorProfile.id === 'lift');
     if (supportedFall && rig.bodies.pelvis) {
@@ -2772,8 +2781,6 @@ export class BodyWorksRuntime {
     this.venue = 'dome';
     if (this.world) this.releaseAllGrips(this.world);
     if (this.world) for (const grip of [...this.propGrips.values()]) this.releasePropGrip(this.world, grip, null);
-    if (this.world) {
-    }
     if (this.instrumentedWorld && this.originalRemoveImpulseJoint) this.instrumentedWorld.removeImpulseJoint = this.originalRemoveImpulseJoint;
     this.generation += 1; this.rigs.clear(); this.actions.clear(true); this.playerActionFeedback = null; this.playerAttack.reset(); this.contacts.length = 0; this.replay.clear(); this.tasks.clear(); this.networkTargets.clear();
     this.pendingLandings.clear(); this.landingDeflections.clear(); this.grappleEnvironmentTarget = null; this.props.clear(); this.landingSurfaces.clear(); this.propGrips.clear(); this.releasedPropAttacks.clear(); this.replayAccumulator = 0; this.world = null; this.instrumentedWorld = null; this.originalRemoveImpulseJoint = null; this.stepStartedAt = -1; this.lastStrikeMetricKey = '';
