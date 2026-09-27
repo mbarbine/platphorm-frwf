@@ -84,6 +84,15 @@ describe('arcade locomotion feel', () => {
     expect(atlas.walkSpeed).toBeLessThan(2.5); expect(vex.walkSpeed).toBeLessThan(2.5);
     expect(atlas.runSpeed / atlas.walkSpeed).toBeGreaterThan(2);
   });
+
+  it('makes a heavier body build speed and redirect more deliberately', () => {
+    const agile = fighterById('vex');
+    const heavy = { ...agile, physics: { ...agile.physics, massKg: 180 } };
+    const quick = locomotionProfile(agile); const loaded = locomotionProfile(heavy);
+    expect(loaded.acceleration).toBeLessThan(quick.acceleration);
+    expect(loaded.turnRate).toBeLessThan(quick.turnRate);
+    expect(loaded.braking).toBeLessThan(quick.braking);
+  });
 });
 
 it('backsteps keep a short low shuffle and a guard instead of reversing a sprint', () => {

@@ -154,8 +154,15 @@ export function PhysicsLab() {
     else if (scenario.id === 'climb' || scenario.id === 'dive') {
       useMatchStore.getState().prepareLabScenario({ x: -4.52, z: -3.08 }, { x: -1.6, z: -.8 });
       const current = useMatchStore.getState().model;
-      current.opponent.state = 'downed'; current.opponent.downTimer = 90;
-      bodyWorksRuntime.prepareLabFall('opponent', 'back', current.opponent.facing);
+      if (scenario.id === 'climb') {
+        // Isolate the physical climb and turnbuckle-taunt baseline from AI
+        // attacks; the separate dive scenario keeps a live downed target.
+        current.opponent.state = 'defeated'; current.opponent.health = 0;
+        current.opponent.moveId = null; current.opponent.attackPhase = null;
+      } else {
+        current.opponent.state = 'downed'; current.opponent.downTimer = 90;
+        bodyWorksRuntime.prepareLabFall('opponent', 'back', current.opponent.facing);
+      }
     }
     else if (scenario.id === 'cornerSmash') useMatchStore.getState().prepareLabScenario({ x: 3.72, z: 2.45 }, { x: 4.45, z: 3.02 });
     else if (scenario.id === 'apronReturn') useMatchStore.getState().prepareLabScenario({ x: 6.52, z: 0 }, { x: 0, z: 2.4 });

@@ -859,14 +859,22 @@ it.each([false, true])('Chad visible soles stay grounded during travel (run=%s)'
   const skin = await loadContactSkin('chad'); const { world, runtime, model, rig } = makeHarness('chad');
   try {
     for (let frame = 0; frame < 100; frame++) stepHarness(world, runtime, model);
-    let floating = 0; let longest = 0; let worst = 0;
+    let floating = 0; let longest = 0; let worst = 0; let maximumSoleTilt = 0; let tiltDetail = '';
     for (let frame = 0; frame < 100; frame++) {
       stepHarness(world, runtime, model, { x: .7, z: 0 }, run);
       const sole = Math.min(...skin.points(rig.bodies, 'leftFoot').map(p => p.y), ...skin.points(rig.bodies, 'rightFoot').map(p => p.y));
       const gap = sole - 1.845;
       worst = Math.max(worst, gap); floating = gap > .025 ? floating + 1 : 0; longest = Math.max(longest, floating);
+      for (const footId of ['leftFoot', 'rightFoot'] as const) {
+        if (!model.player.body[footId].planted) continue;
+        const q = rig.bodies[footId].rotation();
+        const upY = 1 - 2 * (q.x * q.x + q.z * q.z);
+        const tilt = Math.acos(Math.max(-1, Math.min(1, upY)));
+        if (tilt > maximumSoleTilt) { maximumSoleTilt = tilt; tiltDetail = `${footId} q(${q.x.toFixed(2)},${q.y.toFixed(2)},${q.z.toFixed(2)},${q.w.toFixed(2)}) frame=${frame} phase=${model.player.body[footId].phase.toFixed(2)} support=${runtime.fighterSnapshot('player').supportFeet}`; }
+      }
     }
     expect(longest, JSON.stringify({ worst, longest })).toBeLessThan(8);
+    expect(maximumSoleTilt, JSON.stringify({ maximumSoleTilt, tiltDetail })).toBeLessThan(.62);
   } finally { skin.dispose(); runtime.reset(); world.free(); }
 });
 

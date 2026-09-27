@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createMatch, requestCommand, performCounter } from '../game/systems/combat';
 import { quickPickup, reversalAvailable, situationalStrike } from '../game/systems/strikeResolver';
-import { strikeDriveProfile } from '../game/physics/strikeDynamics';
+import { strikeApproachAcceleration, strikeDriveProfile } from '../game/physics/strikeDynamics';
 
 const bout = () => {
   const model = createMatch('atlas', 'vex', 'chaos', 'normal');
@@ -11,6 +11,11 @@ const bout = () => {
 };
 
 describe('situational attack families', () => {
+  it('keeps a missed strike wind-up to a bounded planted approach instead of a full-body lunge', () => {
+    expect(strikeApproachAcceleration(2.4, 0, 1.02)).toBe(4.8);
+    expect(strikeApproachAcceleration(2.4, 2, 1.02)).toBe(0);
+    expect(strikeApproachAcceleration(1.02, 0, 1.02)).toBe(0);
+  });
   it('K stomps a nearby grounded opponent with the boot; J uses a hammerfist', () => {
     const model = bout(); model.opponent.state = 'downed';
     expect(situationalStrike(model.player, model.opponent, 'heavy')).toBe('ground');

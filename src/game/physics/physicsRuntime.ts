@@ -28,7 +28,7 @@ import { throwDirection, throwMotionFor } from './throwMotion';
 import { BREAKFALL_POSE, COVER_POSE, COVERED_POSE, hasPhysicalCover, kneeFlexion, standingRecoilPose } from './wrestlingPose';
 import type { QuaternionValue, Vector3Value } from './motorController';
 import { apronTransitionTarget, isRingside, RING_HARD_LIMIT, ROPE_LOADED_COMPRESSION, ROPE_REBOUND_ENTRY_SPEED, shouldReleaseRopeRebound, solveRopeReleaseDirection, solveRopeResponse } from './ringDynamics';
-import { computeStrikeForce, guardInterceptDriveProfile, guardInterceptSurfaceTarget, strikeDriveProfile, strikePelvisAcceleration } from './strikeDynamics';
+import { computeStrikeForce, guardInterceptDriveProfile, guardInterceptSurfaceTarget, strikeApproachAcceleration, strikeDriveProfile, strikePelvisAcceleration } from './strikeDynamics';
 import { locomotionIntent, locomotionProfile } from './bodyDynamics';
 import { FRWF_ARENA } from '../data/arena';
 import { BODYWORKS_FLAGS } from './bodyWorksFlags';
@@ -752,8 +752,6 @@ export class BodyWorksRuntime {
     this.currentFixedDt = dt;
     this.metrics.currentMotorSaturations = 0;
     if (world) {
-      if (this.world && this.world !== world) {
-      }
       this.world = world;
       if (import.meta.env.DEV && this.instrumentedWorld !== world) {
         this.instrumentedWorld = world; this.originalRemoveImpulseJoint = world.removeImpulseJoint.bind(world);
@@ -1580,7 +1578,7 @@ export class BodyWorksRuntime {
       // Close a small spacing error with a planted step. The old 18 m/s²
       // charge multiplied across every body segment could turn a missed
       // strike wind-up into a fast, floating full-body lunge.
-      const approach = clamp((separation - optimum) * 9 - (velocity.x * nx + velocity.z * nz) * 7, 0, 5.5);
+      const approach = strikeApproachAcceleration(separation, velocity.x * nx + velocity.z * nz, optimum);
       this.applyRigAcceleration(rig, {x:nx * approach,y:0,z:nz * approach});
     }
 

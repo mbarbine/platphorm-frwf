@@ -35,14 +35,16 @@ export const locomotionStateFor = (move: Vec2, velocity: Vec2): 'idle' | 'locomo
 /** Fighter-specific feel values shared by deterministic intent and Rapier drive. */
 export const locomotionProfile = (definition: FighterDefinition): LocomotionProfile => {
   const agility = definition.stats.speed / 100; const massPenalty = clamp((definition.physics.massKg - 78) / 48, 0, 1);
-  const acceleration = 12.5 + agility * 6.5 - massPenalty * 2.2;
-  const turnRate = 4.1 + agility * 2.55 - massPenalty * .72;
+  // Keep the readable baseline gait shared, while mass governs how quickly a
+  // wrestler builds, sheds, and redirects speed.
+  const acceleration = 12.5 + agility * 6.5 - massPenalty * 2.8;
+  const turnRate = 4.1 + agility * 2.55 - massPenalty * 1.05;
   return {
     walkSpeed: 1.9 + agility * .55,
     runSpeed: 4.2 + agility * .95,
     acceleration,
     runAcceleration: acceleration * .84,
-    braking: 22.5 + agility * 4.8 - massPenalty * 1.1,
+    braking: 22.5 + agility * 4.8 - massPenalty * 1.8,
     turnRate,
     sprintTurnRate: turnRate * .68,
   };

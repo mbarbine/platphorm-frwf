@@ -12,6 +12,10 @@ export interface StrikeDriveProfile {
   pelvisAcceleration: number;
 }
 
+/** Small planted approach step; strike power comes from the limb/torso drive. */
+export const strikeApproachAcceleration = (separation: number, closingSpeed: number, optimum: number): number =>
+  Math.max(0, Math.min(4.8, (separation - optimum) * 9 - closingSpeed * 7));
+
 const HAND_STRIKE: StrikeDriveProfile = { source: 'rightHand', target: 'chest', speed: 18, response: 32, maximumAcceleration: 600, pelvisAcceleration: 5.4 };
 
 export const strikeDriveProfile = (moveId: string): StrikeDriveProfile | null => {
