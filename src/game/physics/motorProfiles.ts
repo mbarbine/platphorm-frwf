@@ -23,9 +23,10 @@ const profile = (id: MotorProfileId, rootMode: MotorProfile['rootMode'], multipl
     leftLeg: chain(170, 31, 168), rightLeg: chain(170, 31, 168),
     hands: chain(68, 16, 96), feet: chain(92, 18, 74),
   };
-  for (const name of Object.keys(base) as MotorChain[]) {
-    const current = base[name]; const override = overrides[name];
-    base[name] = {
+  for (const name in base) {
+    const chainName = name as MotorChain;
+    const current = base[chainName]; const override = overrides[chainName];
+    base[chainName] = {
       stiffness: (override?.stiffness ?? current.stiffness) * multiplier,
       damping: (override?.damping ?? current.damping) * multiplier,
       maximumTorque: (override?.maximumTorque ?? current.maximumTorque) * multiplier,

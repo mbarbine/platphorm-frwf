@@ -40,4 +40,30 @@ describe('motorProfiles move ID check allocation performance', () => {
     expect(Number.isFinite(setDuration)).toBe(true);
     expect(Number.isFinite(chainedDuration)).toBe(true);
   });
+
+  it('verifies for...in iteration produces identical results to Object.keys for motor chain tuning', () => {
+    type MotorChain = 'core' | 'head' | 'leftArm' | 'rightArm' | 'leftLeg' | 'rightLeg' | 'hands' | 'feet';
+    const base: Record<MotorChain, { stiffness: number; damping: number; maximumTorque: number; strength: number }> = {
+      core: { stiffness: 255, damping: 44, maximumTorque: 275, strength: 1 },
+      head: { stiffness: 120, damping: 20, maximumTorque: 88, strength: 1 },
+      leftArm: { stiffness: 132, damping: 32, maximumTorque: 285, strength: 1 },
+      rightArm: { stiffness: 132, damping: 32, maximumTorque: 285, strength: 1 },
+      leftLeg: { stiffness: 170, damping: 31, maximumTorque: 168, strength: 1 },
+      rightLeg: { stiffness: 170, damping: 31, maximumTorque: 168, strength: 1 },
+      hands: { stiffness: 68, damping: 16, maximumTorque: 96, strength: 1 },
+      feet: { stiffness: 92, damping: 18, maximumTorque: 74, strength: 1 },
+    };
+
+    const keysResult: Record<string, number> = {};
+    for (const name of Object.keys(base) as MotorChain[]) {
+      keysResult[name] = base[name].stiffness;
+    }
+
+    const forInResult: Record<string, number> = {};
+    for (const name in base) {
+      forInResult[name] = base[name as MotorChain].stiffness;
+    }
+
+    expect(forInResult).toEqual(keysResult);
+  });
 });
