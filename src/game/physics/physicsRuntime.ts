@@ -1023,7 +1023,17 @@ export class BodyWorksRuntime {
       const surface = fighter.climbObjectId ? objectClimbTarget(model, fighter.climbObjectId) : null;
       if (fighter.climbObjectId && !surface) { fighter.state = 'airborne'; fighter.climbStage = 0; fighter.climbObjectId = null; rig.cornerAnchor = null; return; }
       if (surface) { target.x = surface.x; target.z = surface.z; }
-      const targetY = surface ? surface.topY + legReach - (target.stage < 3 ? .35 : .08) : (target.stage === 1 ? 2.35 : target.stage === 2 ? 2.9 : 3.6) + legReach - (target.stage < 3 ? .24 : .1);
+      else {
+        // Every climb stage works from the inward turnbuckle cushion. Aiming
+        // the wrestler's centre at the post drives the chest into its solid
+        // collider and leaves the wrestler hanging below the next foothold.
+        target.x = Math.sign(target.x || 1) * 4.8;
+        target.z = Math.sign(target.z || 1) * 3.34;
+      }
+      const targetY = surface ? surface.topY + legReach - (target.stage < 3 ? .35 : .08)
+        : target.stage === 1 ? 2.35 + legReach - .24
+          : target.stage === 2 ? 2.9 + legReach - .24
+            : 4 + legReach - .1;
       // Pull the articulated tree with one critically damped centre-of-mass
       // velocity. The old high-gain acceleration fought the fixed post every
       // frame, producing the visible rope-merge jitter. This remains physical:
@@ -1042,7 +1052,7 @@ export class BodyWorksRuntime {
         y: climbVerticalDelta(targetY - position.y + (clearingObject ? .5 : 0), velocity.y, dt),
         z: clamp((clearingObject ? 0 : desiredZ) - center.velocityZ, -24 * dt, 24 * dt),
       });
-      if (target.stage < 3 && fighter.stateElapsed > .4 && Math.abs(targetY - position.y) < .25 && planarDistSq < .1225) { fighter.climbStage = (target.stage + 1) as 2 | 3; fighter.stateElapsed = 0; }
+      if (target.stage < 3 && fighter.stateElapsed > .4 && Math.abs(targetY - position.y) < .25 && planarDistSq < .64) { fighter.climbStage = (target.stage + 1) as 2 | 3; fighter.stateElapsed = 0; }
       this.applyPoseDrive(rig, fighter, motorProfile);
       return;
     }

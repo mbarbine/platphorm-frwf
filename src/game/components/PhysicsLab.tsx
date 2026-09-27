@@ -151,7 +151,12 @@ export function PhysicsLab() {
     else if (scenario.id === 'tableClimb') useMatchStore.getState().prepareLabScenario({ x: 0, z: -2.3 }, { x: 4, z: 2 });
     else if (scenario.id === 'signature') { useMatchStore.getState().prepareLabScenario({ x: 0, z: -.55 }, { x: 0, z: .55 }); const current = useMatchStore.getState().model; current.player.momentum = 100; current.opponent.state = 'staggered'; current.opponent.stateElapsed = -3; }
     else if (scenario.id === 'separation') useMatchStore.getState().prepareLabScenario({ x: -.12, z: 0 }, { x: .12, z: 0 });
-    else if (scenario.id === 'climb' || scenario.id === 'dive') useMatchStore.getState().prepareLabScenario({ x: -4.52, z: -3.08 }, { x: -1.6, z: -.8 });
+    else if (scenario.id === 'climb' || scenario.id === 'dive') {
+      useMatchStore.getState().prepareLabScenario({ x: -4.52, z: -3.08 }, { x: -1.6, z: -.8 });
+      const current = useMatchStore.getState().model;
+      current.opponent.state = 'downed'; current.opponent.downTimer = 90;
+      bodyWorksRuntime.prepareLabFall('opponent', 'back', current.opponent.facing);
+    }
     else if (scenario.id === 'cornerSmash') useMatchStore.getState().prepareLabScenario({ x: 3.72, z: 2.45 }, { x: 4.45, z: 3.02 });
     else if (scenario.id === 'apronReturn') useMatchStore.getState().prepareLabScenario({ x: 6.52, z: 0 }, { x: 0, z: 2.4 });
     else if (scenario.id === 'tableCollapse') useMatchStore.getState().prepareLabScenario({ x: 0, z: -5.25 }, { x: 0, z: -6.05 });
