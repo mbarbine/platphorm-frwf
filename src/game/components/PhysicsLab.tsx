@@ -2,13 +2,13 @@ import { signatureMoveId } from '../data/wrestlingStyles';
 import { canLinkStrike } from '../systems/hitCombos';
 import { getMove } from '../data/moves';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { VENUES, type CombatVenue } from '../data/venues';
+import { VENUES, type CombatVenue, venueFor } from '../data/venues';
 import { FIGHTERS } from '../data/fighters';
 import { bodyWorksRuntime } from '../physics/physicsRuntime';
 import { useMatchStore } from '../state/matchStore';
 import { usePhysicsLabStore } from '../state/physicsLabStore';
 import type { LabPlaybackRate } from '../state/physicsLabStore';
-import type { FighterId, RecoveryOrientation, Ruleset } from '../types/game';
+import type { FighterId, MatchModel, RecoveryOrientation, Ruleset } from '../types/game';
 import { RELEASE_IDENTITY } from '../release/releaseIdentity';
 import { renderDiagnostics } from '../runtime/renderDiagnostics';
 
@@ -20,6 +20,13 @@ interface LabScenario { id: string; label: string; steps: readonly KeyStep[]; du
 // requested action, not the one-frame registration pose.
 const SCENARIO_SETTLE_MS = 360;
 type BaselineSample = { time: number; state: string; move: string | null; speed: number; supportFeet: number; upright: number; leftFootY: number; rightFootY: number; damage: number; hits: number; chain: string; combo: string | null };
+
+const RING_SCENARIOS = new Set(['ringExit', 'climb', 'dive', 'apronReturn', 'ropes', 'ropeStrike', 'cornerSmash']);
+const scenarioDisabled = (id: string, model: MatchModel, active: string | null): boolean => active !== null
+  || ['propDrop', 'propThrow'].includes(id) && !model.props.some(prop => prop.kind === 'chair' && !prop.broken)
+  || RING_SCENARIOS.has(id) && !venueFor(model).hasRing
+  || id === 'tableClimb' && venueFor(model).hasRing
+  || id === 'tableRecovery' && (!model.venue || venueFor(model).hasRing);
 
 const tap = (code: string, at = 0, duration = 90): readonly KeyStep[] => [{ at, code, down: true }, { at: at + duration, code, down: false }];
 const hold = (code: string, at: number, duration: number): readonly KeyStep[] => [{ at, code, down: true }, { at: at + duration, code, down: false }];
@@ -240,7 +247,7 @@ export function PhysicsLab() {
         // At rebound speed even the compact wind-up covers roughly one metre.
         // Queue near the outer edge of legal move range, before the chest has
         // crossed the opponent, so the real arm collider reaches on active.
-        if (player.ropeRebound > 0 && Math.hypot(player.position.x - opponent.position.x, player.position.z - opponent.position.z) <= 1.85) {
+        if (player.ropeRebound > 0 && Math.hypot(player.position.x - opponent.position.x, player.position.z - opponent.position.z) <= getMove('stiff_arm').maximumRange - .05) {
           reboundPressAt = elapsedMs; dispatchKey('KeyK', true);
         }
       } else if (reboundPressAt !== null && !reboundReleased && elapsedMs >= reboundPressAt + 180) {
@@ -288,7 +295,7 @@ export function PhysicsLab() {
     <p>BASELINE V2 · confirmed hits, combo routes and body support. Physical controller hardware still needs a hands-on check.</p><div className="physics-lab__toolbar"><button disabled={!samples.current.length} onClick={exportBaseline}>EXPORT BASELINE</button><button onClick={takeControl}>TAKE CONTROL</button><button onClick={() => { clearTimers(); setActive(null); usePhysicsLabStore.getState().setRate(1); useMatchStore.getState().configure(playerId, opponentId, 'standard', 'normal', 0, 0, 'battle_royale'); useMatchStore.getState().pause(false); setMinimized(true); }}>BATTLE ROYALE PLAYTEST</button><button onClick={() => useMatchStore.getState().pause(!model.paused)}>{model.paused ? 'PLAY' : 'PAUSE'}</button><button onClick={stepOnce}>STEP</button>{([.25, .5, 1] as LabPlaybackRate[]).map((value) => <button className={rate === value ? 'active' : ''} key={value} onClick={() => usePhysicsLabStore.getState().setRate(value)}>{value}×</button>)}<button className={debug ? 'active' : ''} onClick={() => usePhysicsLabStore.getState().setDebug(!debug)} aria-pressed={debug}>COLLISION OVERLAY</button><button disabled={!lastScenario.current || active !== null} onClick={() => lastScenario.current && run(lastScenario.current)}>REPEAT</button><button disabled={!lastScenario.current} onClick={() => lastScenario.current && run(lastScenario.current)}>RESET</button></div>
     <details className="physics-lab__setup"><summary>PAIR / SEED / STAMINA / MASS</summary><div><label>RULES<select value={ruleset} onChange={event => setRuleset(event.target.value as Ruleset)}><option value="standard">Standard</option><option value="chaos">Chaos · props enabled</option></select></label><label>VENUE<select value={venue} onChange={event => setVenue(event.target.value as CombatVenue)}>{Object.entries(VENUES).map(([id, value]) => <option key={id} value={id}>{value.name}</option>)}</select></label><label>PLAYER<select value={playerId} onChange={(event) => setPlayerId(event.target.value as FighterId)}>{FIGHTERS.map((fighter) => <option key={fighter.id} value={fighter.id}>{fighter.name}</option>)}</select></label><label>OPPONENT<select value={opponentId} onChange={(event) => setOpponentId(event.target.value as FighterId)}>{FIGHTERS.map((fighter) => <option key={fighter.id} value={fighter.id}>{fighter.name}</option>)}</select></label><label>SEED<input type="number" value={seed} onChange={(event) => setSeed(Number(event.target.value) || 1)} /></label><label>P1 GAS {playerStamina}%<input type="range" min="10" max="100" step="5" value={playerStamina} onChange={(event) => setPlayerStamina(Number(event.target.value))} /></label><label>CPU GAS {opponentStamina}%<input type="range" min="10" max="100" step="5" value={opponentStamina} onChange={(event) => setOpponentStamina(Number(event.target.value))} /></label><label>P1 MASS +{playerMass} KG<input type="range" min="0" max="80" step="5" value={playerMass} onChange={(event) => setPlayerMass(Number(event.target.value))} /></label><label>CPU MASS +{opponentMass} KG<input type="range" min="0" max="80" step="5" value={opponentMass} onChange={(event) => setOpponentMass(Number(event.target.value))} /></label><button onClick={applyPair}>LOAD PAIR</button></div></details>
     <div className="physics-lab__diagnostics">{diagnostics.map(([label, value]) => <div key={label}><span>{label}</span><b>{value}</b></div>)}</div>
-    <div className="physics-lab__scenarios">{SCENARIOS.map((scenario) => <button key={scenario.id} disabled={active !== null || ['propDrop', 'propThrow'].includes(scenario.id) && !model.props.some(prop => prop.kind === 'chair' && !prop.broken) || ['ringExit', 'climb', 'dive', 'apronReturn', 'ropes', 'ropeStrike', 'cornerSmash'].includes(scenario.id) && model.venue !== 'dome' || scenario.id === 'tableClimb' && model.venue === 'dome' || scenario.id === 'tableRecovery' && (!model.venue || model.venue === 'dome')} className={active === scenario.id ? 'active' : ''} onClick={() => run(scenario)}>{active === scenario.id ? 'RUNNING · ' : ''}{scenario.label}</button>)}</div>
+    <div className="physics-lab__scenarios">{SCENARIOS.map((scenario) => <button key={scenario.id} disabled={scenarioDisabled(scenario.id, model, active)} className={active === scenario.id ? 'active' : ''} onClick={() => run(scenario)}>{active === scenario.id ? 'RUNNING · ' : ''}{scenario.label}</button>)}</div>
     <footer>SUPPORT · COM · MOTORS · CONSTRAINTS · ATTACK WINDOWS LIVE</footer>
   </aside>;
 }

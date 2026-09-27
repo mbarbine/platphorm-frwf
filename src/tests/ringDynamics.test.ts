@@ -20,7 +20,10 @@ describe('elastic ring boundary', () => {
     expect(standard.axis).toBe('x'); expect(overdrive.force.x).toBeLessThan(standard.force.x);
   });
 
-  it('releases a fully loaded rebound only after outward travel is arrested', () => {
+  it('releases a collider-limited loaded rebound only after outward travel is arrested', () => {
+    expect(shouldReleaseRopeRebound({ compression: .07, outwardSpeed: .9 }, .07, 5.4, .9)).toBe(false);
+    expect(shouldReleaseRopeRebound({ compression: .07, outwardSpeed: .08 }, .07, 5.4, .08)).toBe(true);
+    expect(shouldReleaseRopeRebound({ compression: .03, outwardSpeed: .08 }, .03, 5.4, .08)).toBe(false);
     expect(shouldReleaseRopeRebound({ compression: .5, outwardSpeed: .9 }, .5, 5.4, .9)).toBe(false);
     expect(shouldReleaseRopeRebound({ compression: .5, outwardSpeed: .08 }, .5, 5.4, .08)).toBe(true);
     expect(shouldReleaseRopeRebound({ compression: .5, outwardSpeed: .08 }, .5, .8, .08)).toBe(false);

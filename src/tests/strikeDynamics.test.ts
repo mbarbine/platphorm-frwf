@@ -66,6 +66,7 @@ describe('physical strike drive', () => {
     const aerial = strikeDriveProfile('aerial');
     expect(aerial).toMatchObject({ source: 'chest', target: 'chest' });
     expect(aerial?.pelvisAcceleration).toBeGreaterThan(strikeDriveProfile('front_kick')?.pelvisAcceleration ?? 0);
+    expect(aerial ? strikePelvisAcceleration(aerial, false) : 0).toBeLessThanOrEqual(6.2);
   });
 
   it('keeps a high-speed rebound contact when the attacker crosses the target between phases', () => {

@@ -4,6 +4,10 @@ export const RING_ROPE_LIMIT = { x: 5.2, z: 3.7 } as const;
 export const RING_HARD_LIMIT = { x: 5.72, z: 4.22 } as const;
 export const RINGSIDE_THRESHOLD = { x: 5.82, z: 4.32 } as const;
 export const ROPE_REBOUND_ENTRY_SPEED = 1 as const;
+// The ring's visible rope colliders stop the pelvis around 0.07 m past the
+// spring line. Use that measured range; 0.48 m was beyond collider travel and
+// made a legitimate loaded rebound unreachable.
+export const ROPE_LOADED_COMPRESSION = .04 as const;
 
 export interface RopeResponse {
   engaged: boolean;
@@ -64,7 +68,8 @@ export const shouldReleaseRopeRebound = (
   signedAxisVelocity: number,
 ): boolean => {
   const visiblyDecompressing = signedAxisVelocity < -.42 && response.compression < peakCompression - .025;
-  const loadedAtTravelLimit = entrySpeed > ROPE_REBOUND_ENTRY_SPEED && peakCompression >= .48 && response.compression >= .48;
+  const loadedAtTravelLimit = entrySpeed > ROPE_REBOUND_ENTRY_SPEED
+    && peakCompression >= ROPE_LOADED_COMPRESSION && response.compression >= ROPE_LOADED_COMPRESSION;
   const arrestedAtTravelLimit = loadedAtTravelLimit && response.outwardSpeed <= .18 && signedAxisVelocity <= .18;
   return visiblyDecompressing || arrestedAtTravelLimit;
 };

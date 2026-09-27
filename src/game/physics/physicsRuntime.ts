@@ -27,7 +27,7 @@ import { authoredIdlePose } from '../animation/combatMotion';
 import { throwDirection, throwMotionFor } from './throwMotion';
 import { BREAKFALL_POSE, COVER_POSE, COVERED_POSE, hasPhysicalCover, kneeFlexion, standingRecoilPose } from './wrestlingPose';
 import type { QuaternionValue, Vector3Value } from './motorController';
-import { apronTransitionTarget, isRingside, RING_HARD_LIMIT, ROPE_REBOUND_ENTRY_SPEED, shouldReleaseRopeRebound, solveRopeReleaseDirection, solveRopeResponse } from './ringDynamics';
+import { apronTransitionTarget, isRingside, RING_HARD_LIMIT, ROPE_LOADED_COMPRESSION, ROPE_REBOUND_ENTRY_SPEED, shouldReleaseRopeRebound, solveRopeReleaseDirection, solveRopeResponse } from './ringDynamics';
 import { computeStrikeForce, guardInterceptDriveProfile, guardInterceptSurfaceTarget, strikeDriveProfile, strikePelvisAcceleration } from './strikeDynamics';
 import { locomotionIntent, locomotionProfile } from './bodyDynamics';
 import { FRWF_ARENA } from '../data/arena';
@@ -572,6 +572,8 @@ export class BodyWorksRuntime {
 
   requestCornerClimb(fighter: FighterKey, from: Vec2, stage: 1 | 2 | 3 = 1): void {
     const rig = this.rigs.get(fighter); if (!rig) return;
+    this.releaseFootLocks(rig);
+    rig.plantedFootAnchors.leftFoot.active = false; rig.plantedFootAnchors.rightFoot.active = false; rig.footPlantMoving = false;
     rig.cornerAnchor = { x: (Math.sign(from.x) || 1) * 5.08, z: (Math.sign(from.z) || 1) * 3.58, stage };
     rig.ropeContact = null;
   }
@@ -605,6 +607,8 @@ export class BodyWorksRuntime {
   requestApronTransition(fighter: FighterKey, from: Vec2): void {
     const rig = this.rigs.get(fighter); if (!rig) return;
     if (rig.apronAnchor) return;
+    this.releaseFootLocks(rig);
+    rig.plantedFootAnchors.leftFoot.active = false; rig.plantedFootAnchors.rightFoot.active = false; rig.footPlantMoving = false;
     const center = this.rigPlanarCenter(rig);
     const transition = apronTransitionTarget(Number.isFinite(center.x) && Number.isFinite(center.z) ? center : from);
     rig.apronAnchor = { ...transition, age: 0 };
@@ -1400,6 +1404,20 @@ export class BodyWorksRuntime {
     rig.footLocks[footId] = joint;
   }
 
+  private syncStanceFootLocks(model: MatchModel): void {
+    for (const [fighterKey, rig] of this.rigs) {
+      const fighter = model[fighterKey];
+      const canPlant = !rig.apronAnchor && !rig.cornerAnchor && ['idle', 'locomotion', 'blocking', 'recovering'].includes(fighter.state);
+      for (const [footId, phase] of [['leftFoot', fighter.body.gaitPhase], ['rightFoot', fighter.body.gaitPhase + Math.PI]] as const) {
+        const foot = rig.bodies[footId];
+        const runBlend = gaitRunBlend(Math.hypot(fighter.velocity.x, fighter.velocity.z));
+        const logicalPlant = fighter.state === 'idle' ? fighter.body[footId].planted : gaitCycle(phase, runBlend).planted;
+        if (canPlant && foot?.isValid() && logicalPlant && rig.supportContacts.has(footId)) this.ensureFootLock(rig, footId, foot);
+        else this.releaseFootLock(rig, footId);
+      }
+    }
+  }
+
   private releaseFootLock(rig: FighterRigRegistration, footId: 'leftFoot' | 'rightFoot'): void {
     const joint = rig.footLocks[footId];
     if (!joint) return;
@@ -1602,7 +1620,10 @@ export class BodyWorksRuntime {
       const optimum = profile.source.includes('Hand') ? 1.02 : profile.source.includes('Foot') ? 1.3 : .78;
       const p = pelvis.translation(); const velocity = pelvis.linvel();
       const nx = (targetPosition.x - p.x) / Math.max(.001, separation); const nz = (targetPosition.z - p.z) / Math.max(.001, separation);
-      const approach = clamp((separation - optimum) * 32 - (velocity.x * nx + velocity.z * nz) * 7, 0, 18);
+      // Close a small spacing error with a planted step. The old 18 m/s²
+      // charge multiplied across every body segment could turn a missed
+      // strike wind-up into a fast, floating full-body lunge.
+      const approach = clamp((separation - optimum) * 9 - (velocity.x * nx + velocity.z * nz) * 7, 0, 5.5);
       this.applyRigAcceleration(rig, {x:nx * approach,y:0,z:nz * approach});
     }
 
@@ -1769,7 +1790,8 @@ export class BodyWorksRuntime {
       const contact = rig.ropeContact;
       let axisVelocity = (response.axis === 'x' ? center.velocityX : center.velocityZ) * response.side;
       let releaseResponse = response;
-      const loadedAtTravelLimit = Boolean(contact && contact.entrySpeed > ROPE_REBOUND_ENTRY_SPEED && contact.peakCompression >= .48 && response.compression >= .48);
+      const loadedAtTravelLimit = Boolean(contact && contact.entrySpeed > ROPE_REBOUND_ENTRY_SPEED
+        && contact.peakCompression >= ROPE_LOADED_COMPRESSION && response.compression >= ROPE_LOADED_COMPRESSION);
       if (loadedAtTravelLimit && response.outwardSpeed > .18) {
         const arrest = -response.side * response.outwardSpeed;
         this.applyRigVelocityDelta(rig, response.axis === 'x' ? { x: arrest, y: 0, z: 0 } : { x: 0, y: 0, z: arrest });
@@ -2294,6 +2316,7 @@ export class BodyWorksRuntime {
     this.refreshActiveStrikeContacts(model);
     this.refreshPendingLandingContacts(model);
     this.refreshPhysicalSupportContacts();
+    this.syncStanceFootLocks(model);
     this.measureFootPlantDrift(model);
     this.refreshCoverEvidence(model);
     this.inspectNumericalHealth();

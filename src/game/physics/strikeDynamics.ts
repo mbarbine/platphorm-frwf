@@ -47,9 +47,13 @@ export const strikeDriveProfile = (moveId: string): StrikeDriveProfile | null =>
  * two articulated rigs into the same solver space.
  */
 export const strikePelvisAcceleration = (profile: StrikeDriveProfile, guardIntercept: boolean, strikeDistance = .2): number => {
-  if (!guardIntercept) return profile.pelvisAcceleration;
+  // A strike should move the attacker's mass through the target, not launch
+  // the whole articulated rig toward it. Limb and torso motors supply the
+  // visible hit speed; keep the pelvis contribution as a short, heavy drive.
+  const bodyDrive = Math.min(profile.pelvisAcceleration, 6.2);
+  if (!guardIntercept) return bodyDrive;
   const clearance = Math.max(0, strikeDistance - .2);
-  return Math.min(profile.pelvisAcceleration, .8 + clearance * 4.75);
+  return Math.min(bodyDrive, .8 + clearance * 4.75);
 };
 
 /**
