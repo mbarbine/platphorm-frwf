@@ -23,7 +23,7 @@ The lab now exposes explicit standing, walk, run, brake, rapid turn, rope run, r
 
 ## Final human/device qualification
 
-Automation can certify behavior, cleanup and emulated input surfaces. It cannot honestly certify subjective controller feel or physical headset comfort. After local and preview gates are green, run short Standard and Chaos matches on desktop keyboard, representative iOS Safari and Android Chrome, one standard gamepad, and one OpenXR headset. Record device/browser, input latency or mapping issue, camera comfort, sustained frame rate, and whether the player could complete a match and rematch without help. These are device-required evidence, not hidden code TODOs.
+Automation can certify behavior, cleanup and emulated input surfaces. It cannot honestly certify subjective controller feel or physical headset comfort. After local and preview gates are green, run short Standard and Chaos matches on desktop keyboard, representative iOS Safari and Android Chrome, one standard gamepad, and one OpenXR headset. Record device/browser, input latency or mapping issue, camera comfort, sustained frame rate, and whether the player could complete a match and rematch without help. These records constitute formal device-required evidence logged in `TEST_REPORT.md` under the Human and Device Qualification Evidence matrix, rather than remaining as unrecorded or hidden code TODOs.
 
 ## Ongoing super-fun cadence
 
