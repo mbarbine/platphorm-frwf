@@ -66,6 +66,17 @@
     "production": {
       "name": "frwf-game-production",
       "workers_dev": true,
+      "secrets": {
+        "required": [
+          "PLATPHORM_API_KEY"
+        ]
+      },
+      "routes": [
+        {
+          "pattern": "frwf.ja1.io",
+          "custom_domain": true
+        }
+      ],
       "vars": {
         "ENVIRONMENT": "production",
         "PUBLIC_ORIGIN": "https://frwf.ja1.io",
@@ -96,7 +107,7 @@
         {
           "binding": "DB",
           "database_name": "frwf-production",
-          "database_id": "123ed056-d17f-4e30-a6ad-6bb09105dcd3",
+          "database_id": "09e51273-c3f1-44b1-807e-a0942ba48724",
           "migrations_dir": "migrations"
         }
       ],
