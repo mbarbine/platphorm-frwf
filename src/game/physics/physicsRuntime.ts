@@ -2246,19 +2246,21 @@ export class BodyWorksRuntime {
       const recovering = fighter.state === 'recovering';
       const authority = .65 + Math.min(1, motorStrengthFor(fighter, motorProfile, segment)) * .35;
       const stepping = fighter.state === 'locomotion' && /Thigh|Shin|Foot/.test(segment);
-      const gain = stepping ? 18 : striking ? 15 : onMat ? 9 : recovering ? 10 : 12;
-      const speed = stepping ? 9 : striking ? 9 * authority : onMat ? 3.8 : recovering ? 4 : 5.5;
+      const stabilizingFoot = stepping && segment.endsWith('Foot');
+      const gain = stabilizingFoot ? 32 : stepping ? 18 : striking ? 15 : onMat ? 9 : recovering ? 10 : 12;
+      const speed = stabilizingFoot ? 16 : stepping ? 9 : striking ? 9 * authority : onMat ? 3.8 : recovering ? 4 : 5.5;
       // One bounded velocity servo per body. The solver still owns every
       // constraint/contact; no second torque impulse can kick it off target.
       const parent = segment === 'head' ? rig.bodies.chest
         : striking && segment.endsWith('Forearm') ? rig.bodies[segment === 'leftForearm' ? 'leftUpperArm' : 'rightUpperArm']
           : striking && segment.endsWith('Hand') ? rig.bodies[segment === 'leftHand' ? 'leftForearm' : 'rightForearm']
-            : stepping && segment.endsWith('Shin') ? rig.bodies[segment === 'leftShin' ? 'leftThigh' : 'rightThigh'] : undefined;
+            : stepping && segment.endsWith('Shin') ? rig.bodies[segment === 'leftShin' ? 'leftThigh' : 'rightThigh']
+              : stabilizingFoot ? rig.bodies[segment === 'leftFoot' ? 'leftShin' : 'rightShin'] : undefined;
       const follow = parent?.angvel() ?? { x: 0, y: 0, z: 0 };
       const angular = body.angvel();
       // A knee motor controls flexion relative to a moving thigh. Without
       // parent angular feed-forward, sprinting hips outrun the shin servo.
-      const drive = chasePoseAngularVelocity(body.rotation(), targets[segment], { x: angular.x - follow.x, y: angular.y - follow.y, z: angular.z - follow.z }, gain, speed, .65);
+      const drive = chasePoseAngularVelocity(body.rotation(), targets[segment], { x: angular.x - follow.x, y: angular.y - follow.y, z: angular.z - follow.z }, gain, speed, stabilizingFoot ? .85 : .65);
       body.setAngvel({ x: drive.x + follow.x, y: drive.y + follow.y, z: drive.z + follow.z }, true);
     }
   }
