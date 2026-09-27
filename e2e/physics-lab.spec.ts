@@ -78,7 +78,7 @@ test('Bodyworks lab exposes live Rapier diagnostics and drives real jump/walk in
   expect(walkingPeak).toBeGreaterThan(.5);
   await expect(lab).toHaveAttribute('data-lab-foot-plant-drift', /^\d+\.\d{4}$/);
   const plantedFootDrift = Number(await lab.getAttribute('data-lab-foot-plant-drift'));
-  expect(plantedFootDrift, 'a physically supported foot should stay within 2 cm of its stance anchor').toBeLessThanOrEqual(.02);
+  expect(plantedFootDrift, `a physically supported foot should stay within 2 cm of its stance anchor; worst sample: ${await lab.getAttribute('data-lab-foot-plant-detail')}`).toBeLessThanOrEqual(.02);
   await page.locator('html').evaluate(element => { (element as HTMLElement).dataset.locomotionPeakSpeed = '0'; });
   await lab.getByRole('button', { name: 'RUN + MOMENTUM' }).click();
   await expect(lab).toHaveAttribute('data-lab-scenario', 'run');

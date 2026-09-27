@@ -4,8 +4,8 @@ import { AttackOutcomeTracker, type AttackIdentity, type AttackOutcome } from '.
 import { VENUES, venueFor, type CombatVenue } from '../data/venues';
 import { planarInputVelocity } from '../input/playerController';
 import type { RapierRigidBody } from '@react-three/rapier';
-import type { ImpulseJoint, JointData, World } from '@dimforge/rapier3d-compat';
-import { Ray } from '@dimforge/rapier3d-compat';
+import type { ImpulseJoint, JointData, RigidBody as RapierBody, World } from '@dimforge/rapier3d-compat';
+import { Ray, RigidBodyDesc } from '@dimforge/rapier3d-compat';
 import type { FrameInput } from '../systems/combat';
 import { AI_FIGHTER_SLOTS, FALL_REASONS, FIGHTER_SLOTS, SINGLES_FIGHTER_SLOTS } from '../types/game';
 import type { AttackPhase, BodyRegion, FighterRuntime, FighterSlot, GameCommand, MatchModel, PropRuntime, RecoveryOrientation, Vec2 } from '../types/game';
@@ -144,6 +144,7 @@ export interface BodyWorksMetrics {
   actionMaximumWaitMs: number;
   maximumFootPlantDrift: number;
   maximumNpcFootPlantDrift: number;
+  maximumFootPlantDriftDetail: string;
 }
 
 export interface FighterPhysicsSnapshot { pelvisY: number; headY: number; footY: number; leftFootY: number; rightFootY: number; restFootOffsetY: number; upright: number; speed: number; supportFeet: number }
@@ -161,6 +162,7 @@ interface FighterRigRegistration {
   rotationallyDynamic: Set<BodySegmentId>;
   supportContacts: Set<BodySegmentId>;
   plantedFootAnchors: Record<'leftFoot' | 'rightFoot', { active: boolean; x: number; z: number }>;
+  footLocks: Partial<Record<'leftFoot' | 'rightFoot', ImpulseJoint>>;
   footPlantMoving: boolean;
   jumpCooldown: number;
   ropeContact: { axis: 'x' | 'z'; side: -1 | 1; peakCompression: number; entrySpeed: number } | null;
@@ -302,6 +304,7 @@ export class BodyWorksRuntime {
   private contactId = 0;
   private generation = 0;
   private world: World | null = null;
+  private footAnchorBody: RapierBody | null = null;
   private instrumentedWorld: World | null = null;
   private originalRemoveImpulseJoint: World['removeImpulseJoint'] | null = null;
   private readonly grips: PhysicalGrip[] = [];
@@ -328,7 +331,7 @@ export class BodyWorksRuntime {
   private stepSampleCount = 0;
   private stepSampleTotal = 0;
   readonly replay = new PhysicsReplayBuffer(300);
-  readonly metrics: BodyWorksMetrics = { fixedSteps: 0, bodyCount: 0, jointCount: 0, gripCount: 0, nearestGripDistance: 0, maximumGripError: 0, maximumGripLoad: 0, lastGripBreakReason: 'none', worldJointCount: 0, gripCreateCount: 0, gripInvalidCount: 0, propBodyCount: 0, propGripCount: 0, worldBodyCount: 0, invalidRegisteredBodyCount: 0, worldRemoveCount: 0, contactCount: 0, lastContactPair: 'none', lastContactMaximumForce: 0, lastContactRelativeSpeed: 0, emergencyResetCount: 0, containmentCount: 0, lastStepMs: 0, averageStepMs: 0, p95StepMs: 0, maximumStepMs: 0, replayEstimatedBytes: 0, currentJointSeparation: 0, maximumJointSeparation: 0, motorSaturationCount: 0, currentMotorSaturations: 0, lastStrikeDistance: 0, minimumStrikeDistance: 0, minimumStrikePlanarDistance: 0, minimumStrikeVerticalDistance: 0, numericalFaultCount: 0, lastNumericalFault: 'none', supportScore: 0, taskCount: 0, taskTimeoutCount: 0, lastTaskPhase: 'none', actionBuffered: 0, actionExecuted: 0, actionExpired: 0, actionRejected: 0, actionDuplicate: 0, actionAverageWaitMs: 0, actionMaximumWaitMs: 0, maximumFootPlantDrift: 0, maximumNpcFootPlantDrift: 0 };
+  readonly metrics: BodyWorksMetrics = { fixedSteps: 0, bodyCount: 0, jointCount: 0, gripCount: 0, nearestGripDistance: 0, maximumGripError: 0, maximumGripLoad: 0, lastGripBreakReason: 'none', worldJointCount: 0, gripCreateCount: 0, gripInvalidCount: 0, propBodyCount: 0, propGripCount: 0, worldBodyCount: 0, invalidRegisteredBodyCount: 0, worldRemoveCount: 0, contactCount: 0, lastContactPair: 'none', lastContactMaximumForce: 0, lastContactRelativeSpeed: 0, emergencyResetCount: 0, containmentCount: 0, lastStepMs: 0, averageStepMs: 0, p95StepMs: 0, maximumStepMs: 0, replayEstimatedBytes: 0, currentJointSeparation: 0, maximumJointSeparation: 0, motorSaturationCount: 0, currentMotorSaturations: 0, lastStrikeDistance: 0, minimumStrikeDistance: 0, minimumStrikePlanarDistance: 0, minimumStrikeVerticalDistance: 0, numericalFaultCount: 0, lastNumericalFault: 'none', supportScore: 0, taskCount: 0, taskTimeoutCount: 0, lastTaskPhase: 'none', actionBuffered: 0, actionExecuted: 0, actionExpired: 0, actionRejected: 0, actionDuplicate: 0, actionAverageWaitMs: 0, actionMaximumWaitMs: 0, maximumFootPlantDrift: 0, maximumNpcFootPlantDrift: 0, maximumFootPlantDriftDetail: 'none' };
 
   registerFighter(fighter: FighterKey, bodies: Partial<Record<BodySegmentId, RapierRigidBody>>, jointCount: number): () => void {
     const pelvisPosition = bodies.pelvis?.translation() ?? { x: 0, y: 3.02, z: 0 };
@@ -341,12 +344,16 @@ export class BodyWorksRuntime {
       const position = body.translation();
       restOffsets[segment] = { x: position.x - pelvisPosition.x, y: position.y - pelvisPosition.y, z: position.z - pelvisPosition.z };
     }
-    this.rigs.set(fighter, { bodies, bodyEntries, restOffsets, restPelvisY: pelvisPosition.y, rootStabilized: false, skeletonStabilized: false, rotationSignature: '', rotationallyDynamic: new Set<BodySegmentId>(), supportContacts: new Set<BodySegmentId>(), plantedFootAnchors: { leftFoot: { active: false, x: 0, z: 0 }, rightFoot: { active: false, x: 0, z: 0 } }, footPlantMoving: false, jumpCooldown: 0, ropeContact: null, ringsideEstablished: false, reboundTracking: false, cornerAnchor: null, apronAnchor: null, jointFaultFrames: 0, jointFaultReported: false, settlingFrames: 0, landingSupportFrames: 0, airborneSeconds: 0, recoveryOrientationCaptured: false, lastSafeCenter: { x: pelvisPosition.x, z: pelvisPosition.z }, neutralAnchor: { x: pelvisPosition.x, z: pelvisPosition.z } });
+    this.rigs.set(fighter, { bodies, bodyEntries, restOffsets, restPelvisY: pelvisPosition.y, rootStabilized: false, skeletonStabilized: false, rotationSignature: '', rotationallyDynamic: new Set<BodySegmentId>(), supportContacts: new Set<BodySegmentId>(), plantedFootAnchors: { leftFoot: { active: false, x: 0, z: 0 }, rightFoot: { active: false, x: 0, z: 0 } }, footLocks: {}, footPlantMoving: false, jumpCooldown: 0, ropeContact: null, ringsideEstablished: false, reboundTracking: false, cornerAnchor: null, apronAnchor: null, jointFaultFrames: 0, jointFaultReported: false, settlingFrames: 0, landingSupportFrames: 0, airborneSeconds: 0, recoveryOrientationCaptured: false, lastSafeCenter: { x: pelvisPosition.x, z: pelvisPosition.z }, neutralAnchor: { x: pelvisPosition.x, z: pelvisPosition.z } });
     this.applyLabAdditionalMass(fighter);
     this.recount(jointCount);
     const registeredGeneration = this.generation;
     return () => {
-      if (registeredGeneration === this.generation) this.rigs.delete(fighter);
+      if (registeredGeneration === this.generation) {
+        const rig = this.rigs.get(fighter);
+        if (rig) this.releaseFootLocks(rig);
+        this.rigs.delete(fighter);
+      }
       this.recount(0);
     };
   }
@@ -551,6 +558,7 @@ export class BodyWorksRuntime {
   requestJump(fighter: FighterKey): boolean {
     const rig = this.rigs.get(fighter);
     if (!rig || !this.canJump(fighter)) return false;
+    this.releaseFootLocks(rig);
     rig.supportContacts.clear();
     for (let i = 0; i < rig.bodyEntries.length; i++) {
       const entry = rig.bodyEntries[i]; if (!entry) continue; const body = entry.body;
@@ -612,8 +620,9 @@ export class BodyWorksRuntime {
     this.metrics.contactCount = 0; this.metrics.lastContactPair = 'none'; this.metrics.lastContactMaximumForce = 0; this.metrics.lastContactRelativeSpeed = 0;
     this.metrics.lastStrikeDistance = 0; this.metrics.minimumStrikeDistance = 0; this.metrics.minimumStrikePlanarDistance = 0; this.metrics.minimumStrikeVerticalDistance = 0;
     this.metrics.maximumFootPlantDrift = 0;
+    this.metrics.maximumFootPlantDriftDetail = 'none';
     this.metrics.maximumNpcFootPlantDrift = 0;
-    for (const rig of this.rigs.values()) { rig.plantedFootAnchors.leftFoot.active = false; rig.plantedFootAnchors.rightFoot.active = false; rig.footPlantMoving = false; }
+    for (const rig of this.rigs.values()) { this.releaseFootLocks(rig); rig.plantedFootAnchors.leftFoot.active = false; rig.plantedFootAnchors.rightFoot.active = false; rig.footPlantMoving = false; }
     this.metrics.gripCreateCount = 0; this.metrics.maximumGripError = 0; this.metrics.maximumGripLoad = 0; this.metrics.lastGripBreakReason = 'none';
     this.metrics.taskCount = 0; this.metrics.taskTimeoutCount = 0; this.metrics.lastTaskPhase = 'none'; this.lastStrikeMetricKey = '';
     this.placeFighter('player', player); this.placeFighter('opponent', opponent);
@@ -746,6 +755,10 @@ export class BodyWorksRuntime {
     this.currentFixedDt = dt;
     this.metrics.currentMotorSaturations = 0;
     if (world) {
+      if (this.world && this.world !== world) {
+        for (const rig of this.rigs.values()) this.releaseFootLocks(rig);
+        this.footAnchorBody = null;
+      }
       this.world = world;
       if (import.meta.env.DEV && this.instrumentedWorld !== world) {
         this.instrumentedWorld = world; this.originalRemoveImpulseJoint = world.removeImpulseJoint.bind(world);
@@ -1115,6 +1128,15 @@ export class BodyWorksRuntime {
       if (!settled) for (let i = 0; i < rig.bodyEntries.length; i++) {
         const entry = rig.bodyEntries[i]; if (!entry) continue; const body = entry.body;
         if (!body.isValid()) continue;
+        // A planted leg chain is the stance support for the whole articulated
+        // wrestler. Driving its thigh, shin, and boot with the same world-space
+        // impulse as the pelvis bypasses the leg joints and drags the sole.
+        // Let the free side and torso carry controller drive; stance joints
+        // transfer the load into the grounded foot instead.
+        const leftSupport = fighter.body.leftFoot.planted && rig.supportContacts.has('leftFoot');
+        const rightSupport = fighter.body.rightFoot.planted && rig.supportContacts.has('rightFoot');
+        if (leftSupport && ['leftThigh', 'leftShin', 'leftFoot'].includes(entry.segment)
+          || rightSupport && ['rightThigh', 'rightShin', 'rightFoot'].includes(entry.segment)) continue;
         body.applyImpulse({ x: body.mass() * deltaX, y: 0, z: body.mass() * deltaZ }, true);
       }
     }
@@ -1311,8 +1333,17 @@ export class BodyWorksRuntime {
   }
 
   private applyFootPlantDrive(rig: FighterRigRegistration, fighter: FighterRuntime, desiredVelocity: Vec2, inputLength: number): void {
-    if (!['idle', 'locomotion', 'blocking', 'recovering'].includes(fighter.state)) return;
-    const moving = fighter.state === 'locomotion' && inputLength > .08;
+    if (!['idle', 'locomotion', 'blocking', 'recovering'].includes(fighter.state)) {
+      this.releaseFootLocks(rig);
+      return;
+    }
+    const residualSpeedSq = fighter.velocity.x * fighter.velocity.x + fighter.velocity.z * fighter.velocity.z;
+    // Keep stance ownership active while the controller is braking. Releasing
+    // input is not the same as the body having stopped: disabling the servo
+    // at key-up let the loaded boot slide under the remaining COM momentum.
+    const moving = ['locomotion', 'idle'].includes(fighter.state)
+      && (inputLength > .08 || residualSpeedSq > .08 * .08
+        || desiredVelocity.x * desiredVelocity.x + desiredVelocity.z * desiredVelocity.z > .08 * .08);
     if (moving && !rig.footPlantMoving) {
       // The neutral stance target belongs to the previous pose. Start each
       // travel action with fresh anchors so the first boot-off never drags the
@@ -1325,19 +1356,18 @@ export class BodyWorksRuntime {
       for (const [id, phase] of [['leftFoot', fighter.body.gaitPhase], ['rightFoot', fighter.body.gaitPhase + Math.PI]] as const) {
         const foot = rig.bodies[id]; const cycle = gaitCycle(phase, gaitRunBlend(Math.hypot(fighter.velocity.x, fighter.velocity.z)));
         const anchor = rig.plantedFootAnchors[id];
-        if (!foot || !rig.supportContacts.has(id) || !cycle.planted) { anchor.active = false; continue; }
-        // Give the planted boot a world-space traction target for this stance.
-        // Velocity-only damping lets the foot skate whenever the pelvis keeps
-        // driving forward; the bounded position/velocity servo transfers that
-        // load through the articulated leg while leaving swing and airborne
-        // feet completely free.
+        const logicalPlant = fighter.state === 'idle' ? fighter.body[id].planted : cycle.planted;
+        if (!foot || !rig.supportContacts.has(id) || !logicalPlant) {
+          this.releaseFootLock(rig, id);
+          anchor.active = false;
+          continue;
+        }
+        // A real support contact owns a short-lived world pin for the foot
+        // during stance. The leg joints still flex and carry the moving torso;
+        // toe-off, lost support, and non-standing states release the pin.
         const position = foot.translation();
         if (!anchor.active) { anchor.active = true; anchor.x = position.x; anchor.z = position.z; }
-        const velocity = foot.linvel();
-        const supportWeight = Math.max(.22, cycle.supportWeight);
-        const forceX = clamp((anchor.x - position.x) * 190 - velocity.x * 30, -520, 520) * supportWeight;
-        const forceZ = clamp((anchor.z - position.z) * 190 - velocity.z * 30, -520, 520) * supportWeight;
-        foot.addForce({ x: forceX, y: 0, z: forceZ }, true);
+        this.ensureFootLock(rig, id, foot);
       }
       return;
     }
@@ -1351,6 +1381,35 @@ export class BodyWorksRuntime {
       const mass = foot.mass(); const strength = fighter.state === 'recovering' ? 2.2 : 4.8;
       foot.addForce({ x: clamp(-velocity.x * mass * strength, -42, 42), y: 0, z: clamp(-velocity.z * mass * strength, -42, 42) }, true);
     }
+  }
+
+  private ensureFootLock(rig: FighterRigRegistration, footId: 'leftFoot' | 'rightFoot', foot: RapierRigidBody): void {
+    const existing = rig.footLocks[footId];
+    if (existing?.isValid()) return;
+    const world = this.world; const jointData = this.jointData;
+    if (!world || !jointData) return;
+    if (!this.footAnchorBody?.isValid()) this.footAnchorBody = world.createRigidBody(RigidBodyDesc.fixed());
+    const position = foot.translation();
+    const joint = world.createImpulseJoint(
+      jointData.spherical({ x: position.x, y: position.y, z: position.z }, { x: 0, y: 0, z: 0 }),
+      this.footAnchorBody,
+      foot,
+      true,
+    );
+    joint.setContactsEnabled(false);
+    rig.footLocks[footId] = joint;
+  }
+
+  private releaseFootLock(rig: FighterRigRegistration, footId: 'leftFoot' | 'rightFoot'): void {
+    const joint = rig.footLocks[footId];
+    if (!joint) return;
+    if (joint.isValid() && this.world) this.world.removeImpulseJoint(joint, true);
+    delete rig.footLocks[footId];
+  }
+
+  private releaseFootLocks(rig: FighterRigRegistration): void {
+    this.releaseFootLock(rig, 'leftFoot');
+    this.releaseFootLock(rig, 'rightFoot');
   }
 
   private standingSurfaceY(rig: FighterRigRegistration, model: MatchModel, floor: number): number {
@@ -2501,7 +2560,10 @@ export class BodyWorksRuntime {
         if (!anchor.active) { anchor.active = true; anchor.x = position.x; anchor.z = position.z; continue; }
         const dx = position.x - anchor.x; const dz = position.z - anchor.z;
         const drift = Math.sqrt(dx * dx + dz * dz);
-        if (fighterKey === 'player') this.metrics.maximumFootPlantDrift = Math.max(this.metrics.maximumFootPlantDrift, drift);
+        if (fighterKey === 'player' && drift > this.metrics.maximumFootPlantDrift) {
+          this.metrics.maximumFootPlantDrift = drift;
+          this.metrics.maximumFootPlantDriftDetail = `${footId} anchor(${anchor.x.toFixed(2)},${anchor.z.toFixed(2)}) now(${position.x.toFixed(2)},${position.z.toFixed(2)})`;
+        }
         else this.metrics.maximumNpcFootPlantDrift = Math.max(this.metrics.maximumNpcFootPlantDrift, drift);
       }
     }
@@ -2731,12 +2793,16 @@ export class BodyWorksRuntime {
     this.venue = 'dome';
     if (this.world) this.releaseAllGrips(this.world);
     if (this.world) for (const grip of [...this.propGrips.values()]) this.releasePropGrip(this.world, grip, null);
+    if (this.world) {
+      for (const rig of this.rigs.values()) this.releaseFootLocks(rig);
+      if (this.footAnchorBody?.isValid()) this.world.removeRigidBody(this.footAnchorBody);
+    }
     if (this.instrumentedWorld && this.originalRemoveImpulseJoint) this.instrumentedWorld.removeImpulseJoint = this.originalRemoveImpulseJoint;
     this.generation += 1; this.rigs.clear(); this.actions.clear(true); this.playerActionFeedback = null; this.playerAttack.reset(); this.contacts.length = 0; this.replay.clear(); this.tasks.clear(); this.networkTargets.clear();
-    this.pendingLandings.clear(); this.landingDeflections.clear(); this.grappleEnvironmentTarget = null; this.props.clear(); this.landingSurfaces.clear(); this.propGrips.clear(); this.releasedPropAttacks.clear(); this.replayAccumulator = 0; this.world = null; this.instrumentedWorld = null; this.originalRemoveImpulseJoint = null; this.stepStartedAt = -1; this.lastStrikeMetricKey = '';
+    this.pendingLandings.clear(); this.landingDeflections.clear(); this.grappleEnvironmentTarget = null; this.props.clear(); this.landingSurfaces.clear(); this.propGrips.clear(); this.releasedPropAttacks.clear(); this.replayAccumulator = 0; this.world = null; this.footAnchorBody = null; this.instrumentedWorld = null; this.originalRemoveImpulseJoint = null; this.stepStartedAt = -1; this.lastStrikeMetricKey = '';
     this.stepSamples.fill(0); this.stepSampleCursor = 0; this.stepSampleCount = 0; this.stepSampleTotal = 0;
     for (const key of FIGHTER_SLOTS) { this.intents[key] = EMPTY_INTENT(); this.presentationPoints[key] = {}; this.labAdditionalMass[key] = 0; }
-    this.metrics.fixedSteps = 0; this.metrics.bodyCount = 0; this.metrics.jointCount = 0; this.metrics.gripCount = 0; this.metrics.nearestGripDistance = 0; this.metrics.maximumGripError = 0; this.metrics.maximumGripLoad = 0; this.metrics.lastGripBreakReason = 'none'; this.metrics.worldJointCount = 0; this.metrics.gripCreateCount = 0; this.metrics.gripInvalidCount = 0; this.metrics.propBodyCount = 0; this.metrics.propGripCount = 0; this.metrics.worldBodyCount = 0; this.metrics.invalidRegisteredBodyCount = 0; this.metrics.worldRemoveCount = 0; this.metrics.contactCount = 0; this.metrics.lastContactPair = 'none'; this.metrics.lastContactMaximumForce = 0; this.metrics.lastContactRelativeSpeed = 0; this.metrics.emergencyResetCount = 0; this.metrics.containmentCount = 0; this.metrics.lastStepMs = 0; this.metrics.averageStepMs = 0; this.metrics.p95StepMs = 0; this.metrics.maximumStepMs = 0; this.metrics.replayEstimatedBytes = 0; this.metrics.currentJointSeparation = 0; this.metrics.maximumJointSeparation = 0; this.metrics.motorSaturationCount = 0; this.metrics.currentMotorSaturations = 0; this.metrics.lastStrikeDistance = 0; this.metrics.minimumStrikeDistance = 0; this.metrics.minimumStrikePlanarDistance = 0; this.metrics.minimumStrikeVerticalDistance = 0; this.metrics.numericalFaultCount = 0; this.metrics.lastNumericalFault = 'none'; this.metrics.supportScore = 0; this.metrics.taskCount = 0; this.metrics.taskTimeoutCount = 0; this.metrics.lastTaskPhase = 'none'; this.metrics.actionBuffered = 0; this.metrics.actionExecuted = 0; this.metrics.actionExpired = 0; this.metrics.actionRejected = 0; this.metrics.actionDuplicate = 0; this.metrics.actionAverageWaitMs = 0; this.metrics.actionMaximumWaitMs = 0; this.metrics.maximumFootPlantDrift = 0; this.metrics.maximumNpcFootPlantDrift = 0; this.continuousStrikeCaptureCount = 0; this.lastContinuousStrikePair = 'none';
+    this.metrics.fixedSteps = 0; this.metrics.bodyCount = 0; this.metrics.jointCount = 0; this.metrics.gripCount = 0; this.metrics.nearestGripDistance = 0; this.metrics.maximumGripError = 0; this.metrics.maximumGripLoad = 0; this.metrics.lastGripBreakReason = 'none'; this.metrics.worldJointCount = 0; this.metrics.gripCreateCount = 0; this.metrics.gripInvalidCount = 0; this.metrics.propBodyCount = 0; this.metrics.propGripCount = 0; this.metrics.worldBodyCount = 0; this.metrics.invalidRegisteredBodyCount = 0; this.metrics.worldRemoveCount = 0; this.metrics.contactCount = 0; this.metrics.lastContactPair = 'none'; this.metrics.lastContactMaximumForce = 0; this.metrics.lastContactRelativeSpeed = 0; this.metrics.emergencyResetCount = 0; this.metrics.containmentCount = 0; this.metrics.lastStepMs = 0; this.metrics.averageStepMs = 0; this.metrics.p95StepMs = 0; this.metrics.maximumStepMs = 0; this.metrics.replayEstimatedBytes = 0; this.metrics.currentJointSeparation = 0; this.metrics.maximumJointSeparation = 0; this.metrics.motorSaturationCount = 0; this.metrics.currentMotorSaturations = 0; this.metrics.lastStrikeDistance = 0; this.metrics.minimumStrikeDistance = 0; this.metrics.minimumStrikePlanarDistance = 0; this.metrics.minimumStrikeVerticalDistance = 0; this.metrics.numericalFaultCount = 0; this.metrics.lastNumericalFault = 'none'; this.metrics.supportScore = 0; this.metrics.taskCount = 0; this.metrics.taskTimeoutCount = 0; this.metrics.lastTaskPhase = 'none'; this.metrics.actionBuffered = 0; this.metrics.actionExecuted = 0; this.metrics.actionExpired = 0; this.metrics.actionRejected = 0; this.metrics.actionDuplicate = 0; this.metrics.actionAverageWaitMs = 0; this.metrics.actionMaximumWaitMs = 0; this.metrics.maximumFootPlantDrift = 0; this.metrics.maximumNpcFootPlantDrift = 0; this.metrics.maximumFootPlantDriftDetail = 'none'; this.continuousStrikeCaptureCount = 0; this.lastContinuousStrikePair = 'none';
   }
 
   pendingCommandCount(): number { return this.actions.size; }
