@@ -102,8 +102,9 @@ describe('ArchiveBackdrop & ArenaLoading components', () => {
     render(React.createElement(ArchiveBackdrop));
 
     const container = screen.getByTestId('archive-backdrop');
-    const video = container.querySelector('video')!;
+    const video = container.querySelector('video');
     expect(video).toBeTruthy();
+    if (!video) return;
 
     expect(screen.getByRole('button', { name: 'Pause background footage' })).toBeTruthy();
 
@@ -116,7 +117,9 @@ describe('ArchiveBackdrop & ArenaLoading components', () => {
     render(React.createElement(ArchiveBackdrop));
 
     const container = screen.getByTestId('archive-backdrop');
-    const video = container.querySelector('video')!;
+    const video = container.querySelector('video');
+    expect(video).toBeTruthy();
+    if (!video) return;
     expect(video.getAttribute('src')).toBe(archive.clips[0].src);
 
     fireEvent.ended(video);
