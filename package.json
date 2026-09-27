@@ -1,7 +1,7 @@
 {
   "name": "platphorm-frwf",
   "private": true,
-  "version": "1.4.1",
+  "version": "1.4.2",
   "packageManager": "pnpm@12.6.0",
   "type": "module",
   "scripts": {
