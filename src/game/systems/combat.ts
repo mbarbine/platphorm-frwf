@@ -610,7 +610,9 @@ export const requestCommand = (model: MatchModel, actorKey: FighterSlot, command
       if (resolution.actionId === 'object_climb') actor.climbObjectId = resolution.target;
       else if (actor.state !== 'climbing') actor.climbObjectId = null;
       if (actor.state === 'climbing') {
-        if (model.physicsAuthority) return false;
+        // The physics rig moves to the next authored foothold through the
+        // climbing motor. Rejecting this input under physics authority left
+        // the advertised "F again" control unusable after stage one.
         actor.climbStage = (actor.climbStage + 1) as 2 | 3; actor.stateElapsed = 0; return true;
       }
       actor.state = 'climbing'; actor.climbStage = 1; actor.stateElapsed = 0; actor.velocity = { x: 0, z: 0 };

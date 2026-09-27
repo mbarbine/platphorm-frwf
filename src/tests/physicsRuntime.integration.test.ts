@@ -9,7 +9,7 @@ import { FIGHTERS, fighterById } from '../game/data/fighters';
 import { buildBodySchema, extremityColliderShape, HEAD_COLLIDER_OFFSET, torsoColliderArgs } from '../game/physics/bodySchema';
 import type { BodySegmentId, BodySegmentSchema } from '../game/physics/bodySchema';
 import { shortestQuaternionError } from '../game/physics/motorController';
-import { arenaCollisionGroups, fighterCollisionGroups } from '../game/physics/collisionGroups';
+import { arenaCollisionGroups, fighterCollisionGroups, turnbucklePostCollisionGroups } from '../game/physics/collisionGroups';
 import { BodyWorksRuntime, bodyWorksRuntime } from '../game/physics/physicsRuntime';
 import { useMatchStore } from '../game/state/matchStore';
 import { RINGSIDE_THRESHOLD } from '../game/physics/ringDynamics';
@@ -331,15 +331,25 @@ describe('Rapier-backed Bodyworks integration', () => {
   });
 
   it('physically ascends all corner stages from one ordinary context command', () => {
-    const { world, runtime, model } = makeHarness();
+    const { world, runtime, model, rig } = makeHarness();
     try {
       model.labMode = true;
+      // Mirror the arena's fixed post and its inward turnbuckle cushion. A
+      // climb that only passes in an empty headless world is not a usable climb.
+      const post = world.createRigidBody(RigidBodyDesc.fixed().setTranslation(5.08, 2.2, 3.58));
+      const postCore = world.createCollider(ColliderDesc.cuboid(.24, 1.82, .24).setCollisionGroups(arenaCollisionGroups), post);
+      const cushion = world.createCollider(ColliderDesc.cuboid(.5, .13, .5).setTranslation(-.28, 1.56, -.24).setCollisionGroups(arenaCollisionGroups), post);
       runtime.prepareLabPositions({ x: 4.9, z: 3.35 }, { x: 0, z: -2 });
       for (let frame = 0; frame < 60; frame++) stepHarness(world, runtime, model);
       const initialY = runtime.fighterSnapshot('player').pelvisY;
       expect(requestCommand(model, 'player', 'context')).toBe(true);
-      for (let frame = 0; frame < 300; frame++) stepHarness(world, runtime, model);
-      expect(model.player.climbStage, JSON.stringify(runtime.fighterSnapshot('player'))).toBe(3);
+      for (let frame = 0; frame < 300; frame++) {
+        const groups = model.player.state === 'climbing' ? turnbucklePostCollisionGroups : arenaCollisionGroups;
+        postCore.setCollisionGroups(groups); postCore.setSolverGroups(groups);
+        cushion.setCollisionGroups(groups); cushion.setSolverGroups(groups);
+        stepHarness(world, runtime, model);
+      }
+      expect(model.player.climbStage, JSON.stringify({ position: model.player.position, pelvis: rig.bodies.pelvis.translation(), snapshot: runtime.fighterSnapshot('player') })).toBe(3);
       expect(runtime.fighterSnapshot('player').pelvisY).toBeGreaterThan(initialY + 1);
       expect(runtime.metrics.emergencyResetCount).toBe(0);
     } finally { runtime.reset(); world.free(); }

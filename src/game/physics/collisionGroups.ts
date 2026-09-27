@@ -10,5 +10,7 @@ export const fighterCollisionGroups = (side: FighterSlot): number => interaction
 );
 
 export const arenaCollisionGroups = interactionGroups(COLLISION_GROUP.arena, [...FIGHTER_GROUPS, COLLISION_GROUP.props]);
+/** Turnbuckle surfaces yield to a wrestler during an active climb so the articulated rig can clear the corner. */
+export const turnbucklePostCollisionGroups = interactionGroups(COLLISION_GROUP.arena, [COLLISION_GROUP.props]);
 export const propCollisionGroups = interactionGroups(COLLISION_GROUP.props, [COLLISION_GROUP.arena, ...FIGHTER_GROUPS, COLLISION_GROUP.props]);
 export const gripSensorGroups = (target: FighterSlot): number => interactionGroups(COLLISION_GROUP.gripSensors, [COLLISION_GROUP[target]]);

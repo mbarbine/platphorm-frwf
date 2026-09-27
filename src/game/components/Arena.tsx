@@ -1,11 +1,11 @@
 import { CuboidCollider, RigidBody } from '@react-three/rapier';
-import type { ContactForcePayload, RapierRigidBody } from '@react-three/rapier';
+import type { ContactForcePayload, RapierCollider, RapierRigidBody } from '@react-three/rapier';
 import { useFrame } from '@react-three/fiber';
 import { useEffect, useMemo, useRef } from 'react';
 import { Color, Object3D, Vector3, AdditiveBlending, DoubleSide } from 'three';
 import type { Group, InstancedMesh, MeshStandardMaterial } from 'three';
 import { useMatchStore } from '../state/matchStore';
-import { arenaCollisionGroups, propCollisionGroups } from '../physics/collisionGroups';
+import { arenaCollisionGroups, propCollisionGroups, turnbucklePostCollisionGroups } from '../physics/collisionGroups';
 import { bodyWorksRuntime } from '../physics/physicsRuntime';
 import type { FighterKey } from '../physics/physicsRuntime';
 import type { BodySegmentId } from '../physics/bodySchema';
@@ -111,10 +111,26 @@ function Ropes() {
 }
 
 function Post({ x, z }: { x: number; z: number }) {
-  const visual = useRef<Group>(null); const jewel = useRef<MeshStandardMaterial>(null); const impulse = useRef(0); const lastImpactId = useRef(0);
+  const visual = useRef<Group>(null); const jewel = useRef<MeshStandardMaterial>(null); const core = useRef<RapierCollider>(null); const cushion = useRef<RapierCollider>(null); const impulse = useRef(0); const lastImpactId = useRef(0); const climbCollision = useRef(false);
   useFrame((_, dt) => {
+    const actors = useMatchStore.getState().model;
+    const climbingHere = [actors.player, actors.opponent, actors.rival1, actors.rival2, actors.rival3].some((fighter) => {
+      const dx = fighter.position.x - x; const dz = fighter.position.z - z;
+      // Let only the active corner yield: disabling every post lets fighters
+      // ghost through unrelated corners during a climb elsewhere in the ring.
+      const climbing = fighter.state === 'climbing' && fighter.climbStage > 0;
+      const topRopeMove = fighter.state === 'attacking' && ['aerial', 'aerial_elbow', 'aerial_kick'].includes(fighter.moveId ?? '');
+      const cornerDistanceSq = dx * dx + dz * dz;
+      return (climbing && cornerDistanceSq < 2 * 2) || (topRopeMove && cornerDistanceSq < 1.65 * 1.65);
+    });
+    if (core.current && climbingHere !== climbCollision.current) {
+      const groups = climbingHere ? turnbucklePostCollisionGroups : arenaCollisionGroups;
+      core.current.setCollisionGroups(groups); core.current.setSolverGroups(groups);
+      cushion.current?.setCollisionGroups(groups); cushion.current?.setSolverGroups(groups);
+      climbCollision.current = climbingHere;
+    }
     const group = visual.current; if (!group) return;
-    const impact = useMatchStore.getState().model.lastImpact;
+    const impact = actors.lastImpact;
     if (impact && impact.id !== lastImpactId.current) {
       lastImpactId.current = impact.id;
       const dx = impact.position.x - x;
@@ -132,8 +148,8 @@ function Post({ x, z }: { x: number; z: number }) {
     if (jewel.current) jewel.current.emissiveIntensity = .03 + impulse.current * .08;
   });
   return <RigidBody type="fixed" position={[x, 2.2, z]} colliders={false} collisionGroups={arenaCollisionGroups} solverGroups={arenaCollisionGroups} userData={{ surface: true, kind: 'turnbuckle' }}>
-    <CuboidCollider args={[.24, 1.82, .24]} friction={.5} restitution={.08} />
-    <CuboidCollider args={[.5, .13, .5]} position={[x > 0 ? -.28 : .28, 1.56, z > 0 ? -.24 : .24]} friction={1.2} restitution={.02} />
+    <CuboidCollider ref={core} args={[.24, 1.82, .24]} friction={.5} restitution={.08} />
+    <CuboidCollider ref={cushion} args={[.5, .13, .5]} position={[x > 0 ? -.28 : .28, 1.56, z > 0 ? -.24 : .24]} friction={1.2} restitution={.02} />
     <group ref={visual}>
       <mesh castShadow><cylinderGeometry args={[.19, .23, 3.5, 10]} /><meshStandardMaterial color="#161321" metalness={.85} roughness={.2} /></mesh>
       {[.3, .85, 1.4].map((y) => <group key={y} position={[x > 0 ? -.22 : .22, y, z > 0 ? -.18 : .18]}><mesh castShadow scale={[.82, .38, .48]}><boxGeometry /><meshStandardMaterial color="#35203f" roughness={.86} /></mesh><mesh position={[0, 0, .31]}><boxGeometry args={[.31, .1, .04]} /><meshStandardMaterial color="#c2bcae" roughness={.9} /></mesh></group>)}

@@ -742,6 +742,16 @@ describe('deterministic combat rules', () => {
     expect(requestCommand(model, 'player', 'context')).toBe(true); expect(model.player.moveId).toBe('aerial'); expect(model.player.state).toBe('attacking'); expect(model.player.climbStage).toBe(0);
   });
 
+  it('accepts the advertised next-foothold input under physical authority', () => {
+    const model = createMatch('atlas', 'vex', 'standard', 'normal');
+    model.physicsAuthority = true;
+    model.player.position = { x: 4.9, z: 3.35 }; model.player.state = 'climbing'; model.player.climbStage = 2; model.player.stateElapsed = .4;
+    model.opponent.position = { x: 0, z: -2 };
+    model.player.stateElapsed = .1;
+    expect(requestCommand(model, 'player', 'context')).toBe(true);
+    expect(model.player.climbStage).toBe(3);
+  });
+
   it('rewards only a completed taunt and preserves a top-turnbuckle perch', () => {
     const model = createMatch('chad', 'atlas', 'standard', 'normal'); model.labMode = true; model.player.position = { x: 5, z: 3.5 }; model.opponent.position = { x: 1, z: 0 };
     requestCommand(model, 'player', 'context'); requestCommand(model, 'player', 'context'); requestCommand(model, 'player', 'context');
