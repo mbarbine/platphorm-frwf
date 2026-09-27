@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from 'vitest';
-// @ts-expect-error - JavaScript serverless function lacks type definitions
 import rawHandler from '../../api/v1/route-compliance.js';
 
 interface MockRequest {

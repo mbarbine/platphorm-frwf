@@ -389,7 +389,6 @@ describe('authoritative server contract', () => {
   });
 
   it('enforces JSON-RPC batch limit of 20 in api/mcp.js', async () => {
-    // @ts-expect-error - JavaScript file lacks type definitions
     const mcpModule = await import('../../../api/mcp.js');
     const mcpHandler: McpHandler = mcpModule.default;
     const req: Partial<Request> = {
@@ -416,7 +415,6 @@ describe('authoritative server contract', () => {
   });
 
   it('rejects unsupported HTTP methods in api/mcp.js with 405 status and Allow header', async () => {
-    // @ts-expect-error - JavaScript file lacks type definitions
     const mcpModule = await import('../../../api/mcp.js');
     const mcpHandler: McpHandler = mcpModule.default;
     const req: Partial<Request> = {
@@ -572,7 +570,6 @@ describe('authoritative server contract', () => {
   });
 
   it('sets X-Content-Type-Options, X-Frame-Options, Strict-Transport-Security, and Cache-Control headers on api/mcp.js responses', async () => {
-    // @ts-expect-error - JavaScript file lacks type definitions
     const mcpModule = await import('../../../api/mcp.js');
     const mcpHandler: McpHandler = mcpModule.default;
 
@@ -588,7 +585,6 @@ describe('authoritative server contract', () => {
   });
 
   it('sanitizes JSON-RPC id payloads in api/mcp.js to prevent object reflection or memory amplification DoS', async () => {
-    // @ts-expect-error - JavaScript file lacks type definitions
     const mcpModule = await import('../../../api/mcp.js');
     const mcpHandler: McpHandler = mcpModule.default;
 
@@ -615,7 +611,6 @@ describe('authoritative server contract', () => {
   });
 
   it('sets X-Content-Type-Options and Cache-Control security headers on responses in api/mcp.js', async () => {
-    // @ts-expect-error - JavaScript file lacks type definitions
     const mcpModule = await import('../../../api/mcp.js');
     const mcpHandler: McpHandler = mcpModule.default;
 

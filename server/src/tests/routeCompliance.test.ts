@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from 'vitest';
-// @ts-expect-error - JavaScript file lacks type definitions in server
 import rawHandler from '../../../api/v1/route-compliance.js';
 
 interface MockRequest {
