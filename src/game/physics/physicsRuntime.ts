@@ -244,6 +244,12 @@ const DYNAMIC_ARM_PROFILES = new Set<MotorProfileId>([
 const PHYSICAL_REACH_MOVES = new Set<string>(['grapple_miss', 'prop_pickup', 'prop_drop']);
 const GROUNDED_POSE_STATES = new Set<string>(['idle', 'locomotion', 'blocking']);
 const GROUNDED_CONTROL_STATES = new Set<string>(['idle', 'locomotion', 'blocking', 'attacking', 'grappling', 'recovering', 'staggered', 'victorious']);
+const ATTACK_PHASES_ALL = new Set<string>(['anticipation', 'active', 'recovery']);
+const ATTACK_PHASES_ACTIVE = new Set<string>(['anticipation', 'active']);
+const SUPPORTED_FALL_STATES = new Set<string>(['downed', 'airborne', 'defeated']);
+const GROUNDED_STANCE_STATES = new Set<string>(['idle', 'locomotion', 'blocking']);
+const GROUNDED_OR_RECOVERING_STATES = new Set<string>(['idle', 'locomotion', 'blocking', 'recovering']);
+const ON_MAT_STATES = new Set<string>(['pinning', 'pinned']);
 const JOINT_LINKS: readonly (readonly [BodySegmentId, BodySegmentId])[] = [
   ['pelvis', 'abdomen'], ['abdomen', 'chest'], ['chest', 'head'],
   ['chest', 'leftUpperArm'], ['chest', 'rightUpperArm'],
@@ -290,6 +296,13 @@ const rotatedLocalPoint = (body: RapierRigidBody, local: Vector3Value): Vector3V
   };
 };
 
+const createInitialIntents = (): Record<FighterKey, IntentState> => ({ player: EMPTY_INTENT(), opponent: EMPTY_INTENT(), rival1: EMPTY_INTENT(), rival2: EMPTY_INTENT(), rival3: EMPTY_INTENT() });
+const createInitialPresentationPoints = (): Record<FighterKey, Partial<Record<BodySegmentId, Vector3Value>>> => ({ player: {}, opponent: {}, rival1: {}, rival2: {}, rival3: {} });
+const createInitialLabMass = (): Record<FighterKey, number> => ({ player: 0, opponent: 0, rival1: 0, rival2: 0, rival3: 0 });
+const createInitialMetrics = (): BodyWorksMetrics => ({
+  fixedSteps: 0, bodyCount: 0, jointCount: 0, gripCount: 0, nearestGripDistance: 0, maximumGripError: 0, maximumGripLoad: 0, lastGripBreakReason: 'none', worldJointCount: 0, gripCreateCount: 0, gripInvalidCount: 0, propBodyCount: 0, propGripCount: 0, worldBodyCount: 0, invalidRegisteredBodyCount: 0, worldRemoveCount: 0, contactCount: 0, lastContactPair: 'none', lastContactMaximumForce: 0, lastContactRelativeSpeed: 0, emergencyResetCount: 0, containmentCount: 0, lastStepMs: 0, averageStepMs: 0, p95StepMs: 0, maximumStepMs: 0, replayEstimatedBytes: 0, currentJointSeparation: 0, maximumJointSeparation: 0, motorSaturationCount: 0, currentMotorSaturations: 0, lastStrikeDistance: 0, minimumStrikeDistance: 0, minimumStrikePlanarDistance: 0, minimumStrikeVerticalDistance: 0, numericalFaultCount: 0, lastNumericalFault: 'none', supportScore: 0, taskCount: 0, taskTimeoutCount: 0, lastTaskPhase: 'none', actionBuffered: 0, actionExecuted: 0, actionExpired: 0, actionRejected: 0, actionDuplicate: 0, actionAverageWaitMs: 0, actionMaximumWaitMs: 0, maximumFootPlantDrift: 0, maximumNpcFootPlantDrift: 0, maximumFootPlantDriftDetail: 'none',
+});
+
 /** Imperative simulation state. It is intentionally outside React and Zustand. */
 export class BodyWorksRuntime {
   private readonly locomotionPoseSource: LocomotionPoseSource;
@@ -302,7 +315,7 @@ export class BodyWorksRuntime {
   private isRingside(position: { x: number; z: number }): boolean { return VENUES[this.venue].hasRing && isRingside(position); }
   private jointData: typeof JointData | null = null;
   private readonly rigs = new Map<FighterKey, FighterRigRegistration>();
-  private readonly intents: Record<FighterKey, IntentState> = { player: EMPTY_INTENT(), opponent: EMPTY_INTENT(), rival1: EMPTY_INTENT(), rival2: EMPTY_INTENT(), rival3: EMPTY_INTENT() };
+  private readonly intents: Record<FighterKey, IntentState> = createInitialIntents();
   private readonly actions = new ActionBuffer<BufferedPhysicsCommand>({ capacity: 32 });
   private playerActionFeedback: ActionFeedback | null = null;
   private readonly playerAttack = new AttackOutcomeTracker();
@@ -321,8 +334,8 @@ export class BodyWorksRuntime {
   private readonly pendingLandings = new Map<FighterKey, PendingLanding>();
   private readonly pendingStrikeCasts = new Map<string, PendingStrikeCast>();
   private readonly landingDeflections = new Set<string>();
-  private readonly presentationPoints: Record<FighterKey, Partial<Record<BodySegmentId, Vector3Value>>> = { player: {}, opponent: {}, rival1: {}, rival2: {}, rival3: {} };
-  private readonly labAdditionalMass: Record<FighterKey, number> = { player: 0, opponent: 0, rival1: 0, rival2: 0, rival3: 0 };
+  private readonly presentationPoints: Record<FighterKey, Partial<Record<BodySegmentId, Vector3Value>>> = createInitialPresentationPoints();
+  private readonly labAdditionalMass: Record<FighterKey, number> = createInitialLabMass();
   private readonly networkTargets = new Map<FighterKey, { position: Vec2; velocity: Vec2 }>();
   private grappleEnvironmentTarget: GrappleEnvironmentTarget | null = null;
   private replayAccumulator = 0;
@@ -336,7 +349,7 @@ export class BodyWorksRuntime {
   private stepSampleCount = 0;
   private stepSampleTotal = 0;
   readonly replay = new PhysicsReplayBuffer(300);
-  readonly metrics: BodyWorksMetrics = { fixedSteps: 0, bodyCount: 0, jointCount: 0, gripCount: 0, nearestGripDistance: 0, maximumGripError: 0, maximumGripLoad: 0, lastGripBreakReason: 'none', worldJointCount: 0, gripCreateCount: 0, gripInvalidCount: 0, propBodyCount: 0, propGripCount: 0, worldBodyCount: 0, invalidRegisteredBodyCount: 0, worldRemoveCount: 0, contactCount: 0, lastContactPair: 'none', lastContactMaximumForce: 0, lastContactRelativeSpeed: 0, emergencyResetCount: 0, containmentCount: 0, lastStepMs: 0, averageStepMs: 0, p95StepMs: 0, maximumStepMs: 0, replayEstimatedBytes: 0, currentJointSeparation: 0, maximumJointSeparation: 0, motorSaturationCount: 0, currentMotorSaturations: 0, lastStrikeDistance: 0, minimumStrikeDistance: 0, minimumStrikePlanarDistance: 0, minimumStrikeVerticalDistance: 0, numericalFaultCount: 0, lastNumericalFault: 'none', supportScore: 0, taskCount: 0, taskTimeoutCount: 0, lastTaskPhase: 'none', actionBuffered: 0, actionExecuted: 0, actionExpired: 0, actionRejected: 0, actionDuplicate: 0, actionAverageWaitMs: 0, actionMaximumWaitMs: 0, maximumFootPlantDrift: 0, maximumNpcFootPlantDrift: 0, maximumFootPlantDriftDetail: 'none' };
+  readonly metrics: BodyWorksMetrics = createInitialMetrics();
 
   registerFighter(fighter: FighterKey, bodies: Partial<Record<BodySegmentId, RapierRigidBody>>, jointCount: number): () => void {
     const pelvisPosition = bodies.pelvis?.translation() ?? { x: 0, y: 3.02, z: 0 };
@@ -1058,7 +1071,7 @@ export class BodyWorksRuntime {
     // fighter in `attacking`. Ground support here would counter gravity and
     // make a launched wrestler hang/skim across the ring like a puppet.
     const aerialFlight = fighter.state === 'attacking' && Boolean(fighter.moveId && getMove(fighter.moveId).category === 'aerial')
-      && ['anticipation', 'active', 'recovery'].includes(fighter.attackPhase ?? '');
+      && Boolean(fighter.attackPhase && ATTACK_PHASES_ALL.has(fighter.attackPhase));
     const controlledJumpLanding = fighter.state === 'jumping' && fighter.body.verticalOffset < .35 && fighter.body.verticalVelocity <= 0;
     const groundedControl = !aerialFlight && (standingClinch || controlledJumpLanding || GROUNDED_CONTROL_STATES.has(fighter.state));
     if (groundedControl) {
@@ -1343,7 +1356,7 @@ export class BodyWorksRuntime {
   }
 
   private applyFootPlantDrive(rig: FighterRigRegistration, fighter: FighterRuntime, desiredVelocity: Vec2, inputLength: number): void {
-    if (!['idle', 'locomotion', 'blocking', 'recovering'].includes(fighter.state)) {
+    if (!GROUNDED_OR_RECOVERING_STATES.has(fighter.state)) {
       return;
     }
     const residualSpeedSq = fighter.velocity.x * fighter.velocity.x + fighter.velocity.z * fighter.velocity.z;
@@ -2225,10 +2238,10 @@ export class BodyWorksRuntime {
     // Aerial attacks keep combat state for hit validation, but their body
     // pose must still yield to the physical launch and gravity until landing.
     const aerialFlight = fighter.state === 'attacking' && Boolean(fighter.moveId && getMove(fighter.moveId).category === 'aerial')
-      && ['anticipation', 'active', 'recovery'].includes(fighter.attackPhase ?? '');
-    const supportedFall = !overridePose && (['downed', 'airborne', 'defeated'].includes(fighter.state) || aerialFlight);
+      && Boolean(fighter.attackPhase && ATTACK_PHASES_ALL.has(fighter.attackPhase));
+    const supportedFall = !overridePose && (SUPPORTED_FALL_STATES.has(fighter.state) || aerialFlight);
     const pose = supportedFall ? BREAKFALL_POSE : overridePose ?? targetPoseFor(fighter, this.locomotionPoseSource);
-    const targets = physicalPoseTargets(pose, supportedFall ? 0 : fighter.facing, ['idle', 'locomotion', 'blocking'].includes(fighter.state) || fighter.state === 'grappling' && motorProfile.id === 'lift');
+    const targets = physicalPoseTargets(pose, supportedFall ? 0 : fighter.facing, GROUNDED_STANCE_STATES.has(fighter.state) || fighter.state === 'grappling' && motorProfile.id === 'lift');
     if (supportedFall && rig.bodies.pelvis) {
       const root = rig.bodies.pelvis.rotation();
       for (const segment of Object.keys(targets) as BodySegmentId[]) targets[segment] = quaternionMultiply(root, targets[segment]);
@@ -2257,14 +2270,14 @@ export class BodyWorksRuntime {
       if (upperArm?.isValid()) targets[`${side}Forearm`] = quaternionMultiply(upperArm.rotation(), quaternionFromEuler([clamp(pose[`${side}Forearm`][0], -2.65, .08), 0, 0]));
       if (forearm?.isValid()) targets[`${side}Hand`] = forearm.rotation();
       const thigh = rig.bodies[`${side}Thigh`]; const shin = rig.bodies[`${side}Shin`];
-      if (rig.bodies.pelvis && ['idle', 'locomotion', 'blocking'].includes(fighter.state)) {
+      if (rig.bodies.pelvis && GROUNDED_STANCE_STATES.has(fighter.state)) {
         targets[`${side}Thigh`] = quaternionMultiply(rig.bodies.pelvis.rotation(), quaternionFromEuler(pose[`${side}Leg`]));
       }
       if (thigh?.isValid()) targets[`${side}Shin`] = quaternionMultiply(thigh.rotation(), quaternionFromEuler([kneeFlexion(pose[`${side}Shin`][0]), 0, 0]));
       if (shin?.isValid()) {
         const strikeSource = fighter.moveId ? strikeDriveProfile(fighter.moveId)?.source : null;
         const standingStrike = fighter.state === 'attacking' && fighter.moveId && getMove(fighter.moveId).category !== 'aerial';
-        const plant = fighter.state === 'climbing' && fighter.climbStage === 3 || ['idle', 'locomotion', 'blocking', 'recovering'].includes(fighter.state) || standingStrike && strikeSource !== `${side}Foot`;
+        const plant = fighter.state === 'climbing' && fighter.climbStage === 3 || GROUNDED_OR_RECOVERING_STATES.has(fighter.state) || standingStrike && strikeSource !== `${side}Foot`;
         // A loaded ankle targets the mat frame, not the authored shin angle.
         // Cancelling the planned angle against a lagging physical shin left
         // the sole pitched forward under load, producing the tiptoe gait.
@@ -2280,8 +2293,8 @@ export class BodyWorksRuntime {
       if (!body.isValid() || supportedFall && segment === 'pelvis') continue;
       if (segment !== 'pelvis' && !rig.rotationallyDynamic.has(segment)) continue;
       if (segment === 'pelvis' && rig.rootStabilized) continue;
-      const striking = (strikeSegments.includes(segment) || Boolean(strike) && (segment === 'chest' || segment === 'abdomen')) && ['anticipation', 'active'].includes(fighter.attackPhase ?? '');
-      const onMat = supportedFall || ['pinning', 'pinned'].includes(fighter.state);
+      const striking = (strikeSegments.includes(segment) || Boolean(strike) && (segment === 'chest' || segment === 'abdomen')) && Boolean(fighter.attackPhase && ATTACK_PHASES_ACTIVE.has(fighter.attackPhase));
+      const onMat = supportedFall || ON_MAT_STATES.has(fighter.state);
       const recovering = fighter.state === 'recovering';
       const authority = .65 + Math.min(1, motorStrengthFor(fighter, motorProfile, segment)) * .35;
       const stepping = fighter.state === 'locomotion' && /Thigh|Shin|Foot/.test(segment);
@@ -2574,7 +2587,7 @@ export class BodyWorksRuntime {
       const fighter = model[fighterKey];
       for (const footId of ['leftFoot', 'rightFoot'] as const) {
         const logicalFoot = fighter.body[footId]; const foot = rig.bodies[footId]; const anchor = rig.plantedFootAnchors[footId];
-        const supportedStance = ['idle', 'locomotion', 'blocking'].includes(fighter.state)
+        const supportedStance = GROUNDED_STANCE_STATES.has(fighter.state)
           && logicalFoot.planted && rig.supportContacts.has(footId) && foot?.isValid();
         if (!supportedStance || !foot) { anchor.active = false; continue; }
         const position = foot.translation();
@@ -2922,7 +2935,15 @@ export class BodyWorksRuntime {
 
 const fighterPower = (fighter: FighterRuntime): number => fighter.definitionId === 'atlas' ? .96 : fighter.definitionId === 'chad' ? .88 : fighter.definitionId === 'brick' ? .82 : fighter.definitionId === 'nova' ? .7 : .64;
 const gripCapacity = (fighter: FighterRuntime): number => fighter.body.muscle * (fighter.definitionId === 'nova' ? .98 : fighter.definitionId === 'chad' ? .97 : fighter.definitionId === 'atlas' ? .91 : fighter.definitionId === 'brick' ? .84 : .7);
-const liftDriveForMove = (rawMoveId: string): number => { const moveId = getMove(rawMoveId).signatureBase ?? rawMoveId; return ['powerbomb', 'mountain_drop', 'skyhook', 'finisher', 'piledriver'].includes(moveId) ? 1.2 : ['slam', 'suplex', 'spinebuster'].includes(moveId) ? 1 : .7; };
+const HIGH_LIFT_MOVES = new Set<string>(['powerbomb', 'mountain_drop', 'skyhook', 'finisher', 'piledriver']);
+const STANDARD_LIFT_MOVES = new Set<string>(['slam', 'suplex', 'spinebuster']);
+
+const liftDriveForMove = (rawMoveId: string): number => {
+  const moveId = getMove(rawMoveId).signatureBase ?? rawMoveId;
+  if (HIGH_LIFT_MOVES.has(moveId)) return 1.2;
+  if (STANDARD_LIFT_MOVES.has(moveId)) return 1;
+  return .7;
+};
 const gripPreferences = (moveId: string): readonly [BodySegmentId, BodySegmentId, number][] => {
   if (moveId === 'slam') return [['leftHand', 'chest', -.18], ['rightHand', 'chest', .18]];
   if (moveId === 'suplex' || moveId === 'skyhook') return [['leftHand', 'pelvis', -.14], ['rightHand', 'pelvis', .14]];
