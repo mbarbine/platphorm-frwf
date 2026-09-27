@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { gaitCycle, gaitRunBlend } from '../game/animation/gaitCycle';
-import { locomotionPose } from '../game/animation/locomotion';
+import { LOCOMOTION_STYLES, locomotionPose, proceduralLocomotionSource } from '../game/animation/locomotion';
 
 describe('grounded walking and running', () => {
   it('never leaves both walking feet in swing and includes double support', () => {
@@ -50,5 +50,25 @@ describe('grounded walking and running', () => {
     expect(peak((pose) => pose.leftArm[0] - pose.rightArm[0])).toBeGreaterThan(.2);
     expect(peak((pose) => pose.leftArm[0] - pose.rightArm[0])).toBeLessThan(.3);
     expect(poses.some((pose) => pose.leftLeg[0] * pose.rightLeg[0] < 0)).toBe(true);
+  });
+
+  it('lets body mass change weight transfer without changing the pose-source contract', () => {
+    const input = { velocity: { x: 0, z: 2.8 }, facing: 0, phase: Math.PI / 2, fighterId: 'atlas' as const };
+    const light = proceduralLocomotionSource.pose({ ...input, massKg: 78 });
+    const heavy = proceduralLocomotionSource.pose({ ...input, massKg: 190 });
+    expect(Math.abs(heavy.rootY)).toBeLessThan(Math.abs(light.rootY));
+    // The same source input remains consumable through the legacy helper used
+    // by previews; a captured-motion source can replace the runtime provider.
+    expect(proceduralLocomotionSource.pose(input)).toEqual(locomotionPose(input.velocity, input.facing, input.phase, true, input.fighterId));
+  });
+
+  it('keeps character gait selection separate from signature and combat style data', () => {
+    const baseline = LOCOMOTION_STYLES.baseline;
+    expect(LOCOMOTION_STYLES.powerhouse).toEqual(baseline);
+    expect(LOCOMOTION_STYLES.agile).toEqual(baseline);
+    expect(LOCOMOTION_STYLES.technical).toEqual(baseline);
+    const atlas = proceduralLocomotionSource.pose({ velocity: { x: 0, z: 2 }, facing: 0, phase: .7, fighterId: 'atlas' });
+    const vex = proceduralLocomotionSource.pose({ velocity: { x: 0, z: 2 }, facing: 0, phase: .7, fighterId: 'vex' });
+    expect(atlas).toEqual(vex);
   });
 });

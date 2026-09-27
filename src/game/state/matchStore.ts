@@ -16,7 +16,7 @@ import { useSpectatorStore } from './spectatorStore';
 import { createActionEvent, gameCommandToAction } from '../input/actionLayer';
 import { beginFall } from '../systems/falls';
 import { FALL_REASONS } from '../types/game';
-import { resolveContextAction, resolvePropAction } from '../systems/contextResolver';
+import { canTraverseRopes, resolveContextAction, resolvePropAction } from '../systems/contextResolver';
 
 interface MatchStore {
   model: MatchModel;
@@ -130,8 +130,7 @@ export const useMatchStore = create<MatchStore>((set) => ({
       const wasGrappling = model.player.state === 'grappling';
       const contextPreview = buffered.command === 'context' ? resolveContextAction(model, 'player', buffered.direction).displayName : null;
       const propPreview = buffered.command === 'interact' ? resolvePropAction(model, 'player', buffered.direction).displayName : null;
-      const wasNearApron = ((Math.abs(model.player.position.x) > 4.62 && Math.abs(model.player.position.x) < 6.9 && Math.abs(model.player.position.z) < 3.55)
-        || (Math.abs(model.player.position.z) > 3.05 && Math.abs(model.player.position.z) < 5.6 && Math.abs(model.player.position.x) < 5.15));
+      const wasNearApron = canTraverseRopes(model.player.position);
       if (wasDowned === false && model.player.state === 'pinned' && ['context', 'dodge', 'quick', 'heavy'].includes(buffered.command)) {
         pinRecoveryActions.push(buffered.event); commandAccepted = true; return { executed: true, displayName: 'KICK OUT' };
       }

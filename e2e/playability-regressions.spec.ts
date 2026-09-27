@@ -74,9 +74,13 @@ test('top-rope dive tracks the target and lands physical damage', async ({ page 
   const errors = captureErrors(page); await enterLabMatch(page);
   const hud = page.locator('.hud'); const lab = page.getByTestId('physics-lab'); const html = page.locator('html'); const startingHealth = Number(await hud.getAttribute('data-opponent-health'));
   await page.evaluate((health) => {
+    const timeline: string[] = [];
     const observe = (): void => {
       const liveHud = document.querySelector('.hud'); const aerial = /aerial/.test(liveHud?.getAttribute('data-player-move') ?? '');
-      const contact = liveHud?.querySelector('[data-physics-last-contact]')?.getAttribute('data-physics-last-contact') ?? '';
+      const detail = (name: string): string => liveHud?.querySelector(`[${name}]`)?.getAttribute(name) ?? '';
+      const contact = detail('data-physics-last-contact');
+      const sample = [liveHud?.getAttribute('data-player-state'), detail('data-player-climb-stage'), liveHud?.getAttribute('data-player-move'), liveHud?.getAttribute('data-player-phase'), detail('data-last-action-status'), detail('data-last-action-reason'), liveHud?.getAttribute('data-opponent-state'), liveHud?.getAttribute('data-opponent-health'), contact, detail('data-last-continuous-strike')].join('/');
+      if (timeline.at(-1) !== sample) { timeline.push(sample); if (timeline.length > 36) timeline.shift(); document.documentElement.dataset.diveTimeline = timeline.join(' | '); }
       if (aerial) document.documentElement.dataset.sawDeterministicDive = 'true';
       if (/^(?:chest|abdomen|pelvis|left|right)(?:UpperArm|Forearm|Hand|Thigh|Shin|Foot)?>/.test(contact)) document.documentElement.dataset.sawDeterministicDiveContact = 'true';
       if (Number(liveHud?.getAttribute('data-opponent-health')) < health) document.documentElement.dataset.sawDeterministicDiveImpact = 'true';

@@ -19,6 +19,7 @@ import { FALL_REASONS } from '../types/game';
 import type { ActionEvent } from '../input/actionLayer';
 import { quickPickup, reversalAvailable, situationalStrike } from './strikeResolver';
 import { canTraverseRopes, resolveContextAction, resolvePropAction } from './contextResolver';
+import { isAtHorizontalRopeLane } from '../physics/ringDynamics';
 import { GRAPPLE_ACQUISITION_RANGE, selectDirectionalGrapple, selectGrappleEntryMove } from './moveSelection';
 
 export { combatDirection, selectDirectionalGrapple, selectDirectionalStrike } from './moveSelection';
@@ -620,7 +621,7 @@ export const requestCommand = (model: MatchModel, actorKey: FighterSlot, command
       return true;
     }
     if (resolution.actionId === 'ring_traversal') {
-      const nearXApron = Math.abs(actor.position.x) > 4.62 && Math.abs(actor.position.x) < 6.9 && Math.abs(actor.position.z) < 3.55;
+      const nearXApron = isAtHorizontalRopeLane(actor.position);
       const inside = Math.abs(actor.position.x) <= 5.8 && Math.abs(actor.position.z) <= 4.3;
       if (!model.physicsAuthority) {
         if (nearXApron) actor.position.x = Math.sign(actor.position.x) * (inside ? 6.45 : 5.05);

@@ -1,6 +1,9 @@
 // @vitest-environment node
 import { loadContactSkin, visibleSurfaceGap } from './helpers/skinnedContact';
 import { strikeDriveProfile } from '../game/physics/strikeDynamics';
+import { locomotionProfile } from '../game/physics/bodyDynamics';
+import { locomotionPose } from '../game/animation/locomotion';
+import type { LocomotionPoseInput, LocomotionPoseSource } from '../game/animation/locomotion';
 import { configureCombatVenue, VENUES, type CombatVenue } from '../game/data/venues';
 import { ColliderDesc, JointData, RigidBodyDesc, World, init } from '@dimforge/rapier3d-compat';
 import type { RigidBody } from '@dimforge/rapier3d-compat';
@@ -65,11 +68,11 @@ const createHeadlessRig = (world: World, fighterId: FighterId, slot: FighterSlot
   return { bodies, joints: 15 };
 };
 
-const makeHarness = (fighterId: FighterId = 'atlas'): { world: World; runtime: BodyWorksRuntime; model: MatchModel; rig: HeadlessRig } => {
+const makeHarness = (fighterId: FighterId = 'atlas', locomotionPoseSource?: LocomotionPoseSource): { world: World; runtime: BodyWorksRuntime; model: MatchModel; rig: HeadlessRig } => {
   const world = new World({ x: 0, y: -18, z: 0 }); world.timestep = STEP; world.numSolverIterations = 8; world.numInternalPgsIterations = 2; world.maxCcdSubsteps = 2;
   const mat = world.createRigidBody(RigidBodyDesc.fixed().setTranslation(0, 1.52, 0));
   world.createCollider(ColliderDesc.cuboid(6, .325, 4.5).setFriction(1.1).setCollisionGroups(arenaCollisionGroups), mat);
-  const runtime = new BodyWorksRuntime(); const model = createMatch(fighterId, fighterId === 'nova' ? 'atlas' : 'nova', 'standard', 'normal', 913); model.physicsAuthority = true; model.aiThinkTimer = 999; model.aiControllers.opponent.thinkTimer = 999;
+  const runtime = new BodyWorksRuntime(locomotionPoseSource); const model = createMatch(fighterId, fighterId === 'nova' ? 'atlas' : 'nova', 'standard', 'normal', 913); model.physicsAuthority = true; model.aiThinkTimer = 999; model.aiControllers.opponent.thinkTimer = 999;
   runtime.setJointData(JointData);
   runtime.registerLandingSurface('ring', 'ring', mat);
   const rig = createHeadlessRig(world, fighterId, 'player', -1.6); runtime.registerFighter('player', rig.bodies, rig.joints);
@@ -109,6 +112,40 @@ const stepGrappleHarness = (world: World, runtime: BodyWorksRuntime, model: Matc
 beforeAll(async () => { await init(); });
 
 describe('Rapier-backed Bodyworks integration', () => {
+  it('keeps grounded strike drive at run pace without clipping the articulated pose', () => {
+    const { world, runtime, model, rig } = makeHarness('atlas');
+    try {
+      model.player.state = 'attacking'; model.player.moveId = 'jab'; model.player.attackPhase = 'active';
+      for (const body of Object.values(rig.bodies)) body.setLinvel({ x: 10, y: 0, z: 0 }, true);
+      runtime.beforeFixedStep(STEP, model, world);
+      const totalMass = Object.values(rig.bodies).reduce((sum, body) => sum + body.mass(), 0);
+      const centerVelocity = Object.values(rig.bodies).reduce((sum, body) => sum + body.linvel().x * body.mass(), 0) / totalMass;
+      const limit = locomotionProfile(fighterById('atlas')).runSpeed + .35;
+      expect(centerVelocity).toBeLessThanOrEqual(limit + .001);
+      expect(centerVelocity).toBeGreaterThan(limit - .01);
+      const spread = Object.values(rig.bodies).map(body => body.linvel().x);
+      expect(Math.max(...spread) - Math.min(...spread)).toBeLessThan(.001);
+    } finally { runtime.reset(); world.free(); }
+  });
+
+  it('injects a locomotion source using solved fighter state, independent of the rig renderer', () => {
+    const samples: LocomotionPoseInput[] = [];
+    const source: LocomotionPoseSource = {
+      pose: (input) => {
+        samples.push({ ...input, velocity: { ...input.velocity } });
+        return locomotionPose(input.velocity, input.facing, input.phase, input.combat, input.fighterId, input.massKg);
+      },
+    };
+    const { world, runtime, model } = makeHarness('atlas', source);
+    try {
+      for (let frame = 0; frame < 12; frame++) stepHarness(world, runtime, model, { x: .2, z: 1 });
+      expect(samples.length).toBeGreaterThan(0);
+      expect(samples.some((sample) => sample.fighterId === 'atlas' && sample.massKg === fighterById('atlas').physics.massKg)).toBe(true);
+      expect(samples.some((sample) => sample.styleId === 'baseline')).toBe(true);
+      expect(samples.some((sample) => sample.velocity.z > .1 && Number.isFinite(sample.phase) && Number.isFinite(sample.facing))).toBe(true);
+    } finally { runtime.reset(); world.free(); }
+  });
+
   it.each(FIGHTERS)('keeps $id idle free of wrist flips and arm vibration', (fighter) => {
     const { world, runtime, model, rig } = makeHarness(fighter.id);
     try {
@@ -368,6 +405,27 @@ describe('Rapier-backed Bodyworks integration', () => {
       runtime.requestApronTransition('player', model.player.position);
       for (let frame = 0; frame < 240; frame++) stepHarness(world, runtime, model);
       expect(model.player.position.x).toBeLessThan(5.3);
+      expect(runtime.fighterSnapshot('player').footY).toBeGreaterThan(1.75);
+      expect(runtime.metrics.emergencyResetCount).toBe(0);
+    } finally { runtime.reset(); world.free(); }
+  });
+
+  it('uses a physical center-rope path to exit and re-enter the ring', () => {
+    const { world, runtime, model } = makeHarness();
+    try {
+      model.labMode = true;
+      const floor = world.createRigidBody(RigidBodyDesc.fixed().setTranslation(0, -.1, 0));
+      world.createCollider(ColliderDesc.cuboid(14, .1, 12).setCollisionGroups(arenaCollisionGroups), floor);
+      runtime.prepareLabPositions({ x: 4.7, z: 0 }, { x: 0, z: 2.4 });
+      for (let frame = 0; frame < 60; frame++) stepHarness(world, runtime, model);
+      runtime.requestApronTransition('player', model.player.position);
+      for (let frame = 0; frame < 180; frame++) stepHarness(world, runtime, model);
+      expect(model.player.position.x, JSON.stringify({ position: model.player.position, snapshot: runtime.fighterSnapshot('player') })).toBeGreaterThan(6);
+      expect(runtime.metrics.emergencyResetCount).toBe(0);
+
+      runtime.requestApronTransition('player', model.player.position);
+      for (let frame = 0; frame < 180; frame++) stepHarness(world, runtime, model);
+      expect(model.player.position.x, JSON.stringify({ position: model.player.position, snapshot: runtime.fighterSnapshot('player') })).toBeLessThan(5.3);
       expect(runtime.fighterSnapshot('player').footY).toBeGreaterThan(1.75);
       expect(runtime.metrics.emergencyResetCount).toBe(0);
     } finally { runtime.reset(); world.free(); }

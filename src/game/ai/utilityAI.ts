@@ -7,7 +7,7 @@ import type { FighterDefinition, FighterSlot, GameCommand, MatchModel, Vec2 } fr
 import { GRAPPLE_ACQUISITION_RANGE } from '../systems/moveSelection';
 import { situationalStrike } from '../systems/strikeResolver';
 import { canLinkStrike } from '../systems/hitCombos';
-import { isRingside } from '../physics/ringDynamics';
+import { isAtRopeTraversalLane, isRingside } from '../physics/ringDynamics';
 
 export interface AiDecision { command: GameCommand | null; move: { x: number; z: number }; run: boolean; nextSeed: number }
 
@@ -65,8 +65,7 @@ export const isActionLegal = (model: MatchModel, command: GameCommand, actorKey:
     if (pinEligible && target.state === 'downed' && targetDistance <= 1.6) return !pinInProgress;
     const nearCorner = Math.abs(actor.position.x) > 4.35 && Math.abs(actor.position.z) > 2.95;
     if (venueFor(model).hasRing && nearCorner && ['idle', 'locomotion'].includes(actor.state)) return true;
-    const nearApron = (Math.abs(actor.position.x) > 4.62 && Math.abs(actor.position.x) < 6.9 && Math.abs(actor.position.z) < 3.55)
-      || (Math.abs(actor.position.z) > 3.05 && Math.abs(actor.position.z) < 5.6 && Math.abs(actor.position.x) < 5.15);
+    const nearApron = isAtRopeTraversalLane(actor.position);
     return venueFor(model).hasRing && nearApron && ['idle', 'locomotion'].includes(actor.state);
   }
   if (command === 'grapple' && model.grapple) return false;

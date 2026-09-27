@@ -5,6 +5,7 @@ import { FALL_REASONS } from '../types/game';
 import type { FighterId, FighterSlot, GameCommand, MatchMode, MatchModel, Vec2 } from '../types/game';
 import { createActionEvent, gameCommandToAction } from '../input/actionLayer';
 import { fallCount } from '../systems/falls';
+import { isAtRopeTraversalLane } from '../physics/ringDynamics';
 
 export interface AiSoakMatch {
   seed: number;
@@ -65,8 +66,7 @@ const playerBotInput = (model: MatchModel, step: number): FrameInput => {
   const dx = target.position.x - actor.position.x; const dz = target.position.z - actor.position.z;
   const separation = Math.sqrt(dx * dx + dz * dz);
   const cadence = step % 11 === 0; let command: GameCommand | null = null;
-  const nearApron = (Math.abs(actor.position.x) > 4.62 && Math.abs(actor.position.x) < 6.9 && Math.abs(actor.position.z) < 3.55)
-    || (Math.abs(actor.position.z) > 3.05 && Math.abs(actor.position.z) < 5.6 && Math.abs(actor.position.x) < 5.15);
+  const nearApron = isAtRopeTraversalLane(actor.position);
   const targetRingside = Math.abs(target.position.x) > 5.82 || Math.abs(target.position.z) > 4.32;
   const actorRingside = Math.abs(actor.position.x) > 5.82 || Math.abs(actor.position.z) > 4.32;
 

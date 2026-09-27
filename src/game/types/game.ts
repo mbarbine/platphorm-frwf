@@ -44,6 +44,8 @@ export interface Vec2 { x: number; z: number }
 
 export interface FighterDefinition {
   id: FighterId;
+  /** Selectable locomotion authoring profile; defaults to the shared baseline. */
+  locomotionStyle?: 'baseline' | 'powerhouse' | 'agile' | 'technical';
   name: string;
   nickname: string;
   archetype: string;

@@ -3,6 +3,7 @@ import type { FighterDefinition, FighterId } from '../types/game';
 export const FIGHTERS: readonly FighterDefinition[] = [
   {
     id: 'atlas', name: 'ATLAS REX', nickname: 'The Fault Line', archetype: 'Heavyweight Powerhouse',
+    locomotionStyle: 'baseline',
     bio: 'A former orbital-yard rigger who treats gravity as a negotiable clause. Atlas came to the Circuit to make every landing historic.',
     signature: 'CROWN BREAKER', taunt: 'Raises both fists and dares the Dome to get louder.', tendency: 'aggressive',
     personality: { cowardly: 8, showman: 78, technical: 64, aggressive: 92, reckless: 66, dirty: 28, athletic: 54, powerhouse: 98 },
@@ -13,6 +14,7 @@ export const FIGHTERS: readonly FighterDefinition[] = [
   },
   {
     id: 'vex', name: 'VEX VOLT', nickname: 'Live Wire', archetype: 'Agile Striker',
+    locomotionStyle: 'baseline',
     bio: 'A rooftop courier turned combat showstopper. Vex attacks in bright, impossible angles and leaves before the echo arrives.',
     signature: 'VOLT FALLOUT', taunt: 'Sketches a lightning bolt in the air with one glowing glove.', tendency: 'opportunistic',
     personality: { cowardly: 22, showman: 96, technical: 76, aggressive: 72, reckless: 88, dirty: 18, athletic: 99, powerhouse: 42 },
@@ -23,6 +25,7 @@ export const FIGHTERS: readonly FighterDefinition[] = [
   },
   {
     id: 'nova', name: 'NOVA FANG', nickname: 'The Lockstar', archetype: 'Technical Grappler',
+    locomotionStyle: 'baseline',
     bio: 'Raised in a zero-gravity acrobatics house, Nova sees a match as a moving equation—and every opponent as the final variable.',
     signature: 'EVENT HORIZON', taunt: 'Calmly traces a circle, then snaps it shut.', tendency: 'technical',
     personality: { cowardly: 18, showman: 68, technical: 99, aggressive: 58, reckless: 32, dirty: 12, athletic: 84, powerhouse: 56 },
@@ -33,6 +36,7 @@ export const FIGHTERS: readonly FighterDefinition[] = [
   },
   {
     id: 'brick', name: 'BRICK MERCY', nickname: 'Last Courtesy', archetype: 'Balanced Brawler',
+    locomotionStyle: 'baseline',
     bio: 'A scrapyard pit champion with one rule: return every favor with interest. Brick can turn any loose object into a headline.',
     signature: 'MERCY DROP', taunt: 'Dusts off both hands with theatrical disappointment.', tendency: 'aggressive',
     personality: { cowardly: 12, showman: 72, technical: 70, aggressive: 86, reckless: 70, dirty: 84, athletic: 71, powerhouse: 82 },
@@ -43,6 +47,7 @@ export const FIGHTERS: readonly FighterDefinition[] = [
   },
   {
     id: 'chad', name: 'CHAD “THE CLAW” KINSEY', nickname: 'The Mountain Hand', archetype: 'Ringside Roughneck',
+    locomotionStyle: 'baseline',
     bio: 'A fearless climber with scrapyard balance and an iron grip, Chad treats the FRWF Arena like a piece of heavy equipment: get above it, hold on, and make the landing count.',
     signature: 'CLAW HAMMER', taunt: 'Raises one iron claw toward the rafters, then points straight down at the landing zone.', tendency: 'opportunistic',
     personality: { cowardly: 4, showman: 91, technical: 69, aggressive: 82, reckless: 94, dirty: 62, athletic: 72, powerhouse: 88 },
@@ -53,6 +58,7 @@ export const FIGHTERS: readonly FighterDefinition[] = [
   },
   {
     id: 'dale', name: 'DALE DAMAGE', nickname: 'The Wrecking Crew', archetype: 'Towering Powerhouse',
+    locomotionStyle: 'baseline',
     bio: '6′4″, 225 lb of bearded backyard trouble. Dale traps an opponent’s face under his raised arm for Welcome to the Jungle.',
     signature: 'WELCOME TO THE JUNGLE', taunt: 'Spreads his arms, plants his boots, and dares anyone to move him.', tendency: 'aggressive',
     personality: { cowardly: 6, showman: 80, technical: 65, aggressive: 90, reckless: 45, dirty: 35, athletic: 52, powerhouse: 99 },
@@ -63,6 +69,7 @@ export const FIGHTERS: readonly FighterDefinition[] = [
   },
   {
     id: 'thomas', name: 'THOMAS “DOUBLE H” MORSE', nickname: 'Double H', archetype: 'Towering Slam Specialist',
+    locomotionStyle: 'baseline',
     bio: 'A tall, muscular FRWF original with long blonde hair and a beard. Double H closes the distance, lifts with his legs, and drives his opponent into the mat with the Spine Buster.', signature: 'SPINE BUSTER', taunt: 'Spreads his arms, then draws a line across his chest.', tendency: 'aggressive',
     personality: { cowardly: 8, showman: 85, technical: 82, aggressive: 92, reckless: 45, dirty: 25, athletic: 59, powerhouse: 92 },
     palette: { primary: '#af9156', secondary: '#171a20', skin: '#be9576', emissive: '#af9156' },
@@ -72,6 +79,7 @@ export const FIGHTERS: readonly FighterDefinition[] = [
   },
   {
     id: 'sonny', name: 'SONNY SIXXSHOT', nickname: 'Sixxshot', archetype: 'Fast Counter Striker',
+    locomotionStyle: 'baseline',
     bio: 'The bandana-masked FRWF original brings quick feet, sharp counters and fearless aerial offense.', signature: 'SIXXSHOT FALLOUT', taunt: 'Crosses his arms, then points toward his opponent.', tendency: 'opportunistic',
     personality: { cowardly: 8, showman: 91, technical: 82, aggressive: 68, reckless: 45, dirty: 25, athletic: 92, powerhouse: 68 },
     palette: { primary: '#d9d5c5', secondary: '#36413e', skin: '#c49a79', emissive: '#d9d5c5' },
@@ -81,6 +89,7 @@ export const FIGHTERS: readonly FighterDefinition[] = [
   },
   {
     id: 'wrecking_ball', name: 'THE WRECKING BALL', nickname: 'The Wrecking Ball', archetype: 'Super Heavyweight',
+    locomotionStyle: 'baseline',
     bio: 'A tall, enormous FRWF original with glasses and a cream vest. His size gives every lift, body check and landing unmistakable weight.', signature: 'WRECKING BALL CRUSH', taunt: 'Plants his feet and raises a clenched fist.', tendency: 'aggressive',
     personality: { cowardly: 8, showman: 89, technical: 63, aggressive: 99, reckless: 45, dirty: 25, athletic: 36, powerhouse: 99 },
     palette: { primary: '#d4c49a', secondary: '#191c20', skin: '#c29b7d', emissive: '#d4c49a' },
@@ -90,6 +99,7 @@ export const FIGHTERS: readonly FighterDefinition[] = [
   },
   {
     id: 'steve', name: 'STEVE “STRIKING LIGHTNING” LEWBALLIN', nickname: 'Striking Lightning', archetype: 'Precision Brawler',
+    locomotionStyle: 'baseline',
     bio: 'The FRWF original in glasses and a dark jacket. Steve works close, counters cleanly and builds toward an explosive signature slam.', signature: 'LIGHTNING DRIVER', taunt: 'Adjusts his jacket, then raises his guard.', tendency: 'technical',
     personality: { cowardly: 8, showman: 90, technical: 92, aggressive: 79, reckless: 45, dirty: 25, athletic: 79, powerhouse: 79 },
     palette: { primary: '#70a190', secondary: '#24262b', skin: '#b89375', emissive: '#70a190' },
@@ -99,6 +109,7 @@ export const FIGHTERS: readonly FighterDefinition[] = [
   },
   {
     id: 'john', name: 'JOHN “THE TRAIN” THUNDAS', nickname: 'The Train', archetype: 'Ringside Power Brawler',
+    locomotionStyle: 'baseline',
     bio: 'The FRWF original with long dark hair, a goatee and green shades. The Train builds momentum and commits his whole body to the finish.', signature: 'THUNDER RAIL', taunt: 'Throws both arms wide and calls for the crowd.', tendency: 'aggressive',
     personality: { cowardly: 8, showman: 96, technical: 73, aggressive: 89, reckless: 45, dirty: 25, athletic: 64, powerhouse: 89 },
     palette: { primary: '#85a949', secondary: '#202223', skin: '#c19a79', emissive: '#85a949' },
@@ -108,6 +119,7 @@ export const FIGHTERS: readonly FighterDefinition[] = [
   },
   {
     id: 'justin', name: 'JUSTIN “THE CHEF” COOK', nickname: 'The Chef', archetype: 'Technical Showman',
+    locomotionStyle: 'baseline',
     bio: 'The FRWF original in glasses, a white chef hat and black apron. The Chef works the clinch patiently before serving up his signature slam.', signature: 'THE MAIN COURSE', taunt: 'Raises a fist and beckons his opponent closer.', tendency: 'technical',
     personality: { cowardly: 8, showman: 94, technical: 92, aggressive: 76, reckless: 45, dirty: 25, athletic: 76, powerhouse: 76 },
     palette: { primary: '#d9d3b6', secondary: '#202221', skin: '#b9997b', emissive: '#d9d3b6' },
@@ -117,6 +129,7 @@ export const FIGHTERS: readonly FighterDefinition[] = [
   },
   {
     id: 'mondo', name: 'MONDO', nickname: 'Mondo', archetype: 'Masked Chaos Brawler',
+    locomotionStyle: 'baseline',
     bio: 'The FRWF original in a green mask, colorful head wrap and tie-dye shirt. Mondo brings unpredictable movement and a heavy landing.', signature: 'MONDO MELTDOWN', taunt: 'Tilts his head, opens his arms and lets the crowd answer.', tendency: 'opportunistic',
     personality: { cowardly: 8, showman: 98, technical: 77, aggressive: 85, reckless: 45, dirty: 25, athletic: 65, powerhouse: 85 },
     palette: { primary: '#6db47d', secondary: '#37483d', skin: '#bc9575', emissive: '#6db47d' },
@@ -126,6 +139,7 @@ export const FIGHTERS: readonly FighterDefinition[] = [
   },
   {
     id: 'gil', name: 'G.I. JIL', nickname: 'G.I. Jil', archetype: 'Agile Grappler',
+    locomotionStyle: 'baseline',
     bio: 'The FRWF original with long brown hair, a camouflage cap, black top and denim shorts. Quick footwork sets up precise counters and a decisive throw.', signature: 'FIELD MANEUVER', taunt: 'Salutes the crowd, then settles into a ready stance.', tendency: 'technical',
     personality: { cowardly: 8, showman: 88, technical: 94, aggressive: 66, reckless: 45, dirty: 25, athletic: 94, powerhouse: 66 },
     palette: { primary: '#898659', secondary: '#20252a', skin: '#c39b81', emissive: '#898659' },
@@ -135,6 +149,7 @@ export const FIGHTERS: readonly FighterDefinition[] = [
   },
   {
     id: 'josh', name: 'JOSH “THE ENFORCER”', nickname: 'The Enforcer', archetype: 'Counter Brawler',
+    locomotionStyle: 'baseline',
     bio: 'An FRWF original with a cap, goatee and black sleeveless shirt. The Enforcer works behind a sharp jab and answers pressure with a committed counter.',
     signature: 'ENFORCER SLAM', taunt: 'Raises his fists and settles into a firm guard.', tendency: 'technical',
     personality: { cowardly: 8, showman: 76, technical: 84, aggressive: 82, reckless: 40, dirty: 30, athletic: 78, powerhouse: 72 },
@@ -146,6 +161,7 @@ export const FIGHTERS: readonly FighterDefinition[] = [
   },
   {
     id: 'chelsea', name: 'CHELSEA WHIPLASH', nickname: 'Whiplash', archetype: 'Agile Grappler',
+    locomotionStyle: 'baseline',
     bio: 'An FRWF original inspired by the supplied archive. A playable movement and signature profile; the shared model is provisional while the individual likeness and attire are authored.', signature: 'WHIPLASH REVERSAL', taunt: 'Salutes the crowd, then settles into a ready stance.', tendency: 'technical',
     personality: { cowardly: 8, showman: 88, technical: 94, aggressive: 66, reckless: 45, dirty: 25, athletic: 94, powerhouse: 66 },
     palette: { primary: '#dba56d', secondary: '#20252a', skin: '#c39b81', emissive: '#898659' },
@@ -155,6 +171,7 @@ export const FIGHTERS: readonly FighterDefinition[] = [
   },
   {
     id: 'britt', name: 'ANASTASIA BRITT', nickname: 'Anastasia Britt', archetype: 'Agile Grappler',
+    locomotionStyle: 'baseline',
     bio: 'A poised FRWF grappler with quick footwork and a sharp counter game. Her shared model remains provisional while her individual likeness and attire are authored.', signature: 'BASH LANDING', taunt: 'Salutes the crowd, then settles into a ready stance.', tendency: 'technical',
     personality: { cowardly: 8, showman: 88, technical: 94, aggressive: 66, reckless: 45, dirty: 25, athletic: 94, powerhouse: 66 },
     palette: { primary: '#e14798', secondary: '#20252a', skin: '#c39b81', emissive: '#898659' },
@@ -164,6 +181,7 @@ export const FIGHTERS: readonly FighterDefinition[] = [
   },
   {
     id: 'beer_bandit_bill', name: 'BEER BANDIT BILL', nickname: 'Beer Bandit Bill', archetype: 'Fast Counter Striker',
+    locomotionStyle: 'baseline',
     bio: 'An FRWF original inspired by the supplied archive. A playable movement and signature profile; the shared model is provisional while the individual likeness and attire are authored.', signature: 'GREEN LIGHT HEIST', taunt: 'Crosses his arms, then points toward his opponent.', tendency: 'opportunistic',
     personality: { cowardly: 8, showman: 91, technical: 82, aggressive: 68, reckless: 45, dirty: 25, athletic: 92, powerhouse: 68 },
     palette: { primary: '#76bd3b', secondary: '#36413e', skin: '#c49a79', emissive: '#d9d5c5' },
@@ -173,6 +191,7 @@ export const FIGHTERS: readonly FighterDefinition[] = [
   },
   {
     id: 'beer_bandit_ted', name: 'BEER BANDIT TED', nickname: 'Beer Bandit Ted', archetype: 'Fast Counter Striker',
+    locomotionStyle: 'baseline',
     bio: 'An FRWF original inspired by the supplied archive. A playable movement and signature profile; the shared model is provisional while the individual likeness and attire are authored.', signature: 'LAST CALL DRIVER', taunt: 'Crosses his arms, then points toward his opponent.', tendency: 'opportunistic',
     personality: { cowardly: 8, showman: 91, technical: 82, aggressive: 68, reckless: 45, dirty: 25, athletic: 92, powerhouse: 68 },
     palette: { primary: '#696f76', secondary: '#36413e', skin: '#c49a79', emissive: '#d9d5c5' },

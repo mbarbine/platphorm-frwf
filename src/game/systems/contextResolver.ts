@@ -2,7 +2,7 @@ import { signatureMoveId } from '../data/wrestlingStyles';
 import { cornerClimbAvailable, nearbyClimbableObject } from './climbing';
 import { venueFor } from '../data/venues';
 import { getMove } from '../data/moves';
-import { isRingside } from '../physics/ringDynamics';
+import { isAtRopeTraversalLane, isRingside } from '../physics/ringDynamics';
 import { BALANCE } from '../data/balance';
 import type { FighterSlot, MatchModel, Vec2 } from '../types/game';
 import { distance } from '../utils/math';
@@ -41,10 +41,7 @@ const rejected = (actionId: ResolvedContextAction['actionId'], displayName: stri
   actionId, displayName, target: null, reason, priority, legalState: false, rejectionReason: reason,
 });
 
-export const canTraverseRopes = (position: Vec2): boolean => {
-  const x = Math.abs(position.x); const z = Math.abs(position.z);
-  return (x > 4.62 && x < 6.9 && z < 3.55) || (z > 3.05 && z < 5.6 && x < 5.15);
-};
+export const canTraverseRopes = isAtRopeTraversalLane;
 
 const pinAlreadyActive = (model: MatchModel): boolean => (['player', 'opponent', 'rival1', 'rival2', 'rival3'] as const)
   .some((slot) => model[slot].state === 'pinning' || model[slot].state === 'pinned');

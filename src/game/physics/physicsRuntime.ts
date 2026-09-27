@@ -22,7 +22,8 @@ import { POSES } from '../animation/poses';
 import type { Pose } from '../animation/poses';
 import { RECOVERY_DURATION, recoveryPose } from '../animation/recoveryMotion';
 import { gaitCycle, gaitRunBlend } from '../animation/gaitCycle';
-import { locomotionPose } from '../animation/locomotion';
+import { proceduralLocomotionSource } from '../animation/locomotion';
+import type { LocomotionPoseSource } from '../animation/locomotion';
 import { authoredIdlePose } from '../animation/combatMotion';
 import { throwDirection, throwMotionFor } from './throwMotion';
 import { BREAKFALL_POSE, COVER_POSE, COVERED_POSE, hasPhysicalCover, kneeFlexion, standingRecoilPose } from './wrestlingPose';
@@ -291,6 +292,12 @@ const rotatedLocalPoint = (body: RapierRigidBody, local: Vector3Value): Vector3V
 
 /** Imperative simulation state. It is intentionally outside React and Zustand. */
 export class BodyWorksRuntime {
+  private readonly locomotionPoseSource: LocomotionPoseSource;
+
+  constructor(locomotionPoseSource: LocomotionPoseSource = proceduralLocomotionSource) {
+    this.locomotionPoseSource = locomotionPoseSource;
+  }
+
   private venue: CombatVenue = 'dome';
   private isRingside(position: { x: number; z: number }): boolean { return VENUES[this.venue].hasRing && isRingside(position); }
   private jointData: typeof JointData | null = null;
@@ -600,7 +607,9 @@ export class BodyWorksRuntime {
 
   requestApronTransition(fighter: FighterKey, from: Vec2): void {
     const rig = this.rigs.get(fighter); if (!rig) return;
-    if (rig.apronAnchor) return;
+    // A fresh traversal input reverses an in-progress crossing from the
+    // wrestler's current centre. Consuming F while an exit anchor is active
+    // used to strand players on the apron with no way to step back in.
     rig.plantedFootAnchors.leftFoot.active = false; rig.plantedFootAnchors.rightFoot.active = false; rig.footPlantMoving = false;
     const center = this.rigPlanarCenter(rig);
     const transition = apronTransitionTarget(Number.isFinite(center.x) && Number.isFinite(center.z) ? center : from);
@@ -779,9 +788,10 @@ export class BodyWorksRuntime {
       intent.move.x = controller.movement.x; intent.move.z = controller.movement.z; intent.run = controller.running;
       intent.block = controller.blockTimer > 0;
     }
-    for (const rig of this.rigs.values()) {
+    for (const [key, rig] of this.rigs) {
       this.installAnatomicalLimits(rig);
       this.capRigVelocity(rig);
+      this.capGroundedStrikeSpeed(rig, model[key]);
     }
     for (const key of slots) this.applyFighterController(key, model[key], dt, model);
     this.applyCloseRangeSeparation(model);
@@ -1242,7 +1252,7 @@ export class BodyWorksRuntime {
 
   private configureRotationalAuthority(rig: FighterRigRegistration, fighter: FighterRuntime, profile: MotorProfile): void {
     const dynamic = new Set<BodySegmentId>();
-    const targets = physicalPoseTargets(targetPoseFor(fighter), fighter.facing, GROUNDED_POSE_STATES.has(fighter.state));
+    const targets = physicalPoseTargets(targetPoseFor(fighter, this.locomotionPoseSource), fighter.facing, GROUNDED_POSE_STATES.has(fighter.state));
     if (profile.rootMode === 'physical') { for (let i = 0; i < rig.bodyEntries.length; i++) { const entry = rig.bodyEntries[i]; if (entry) dynamic.add(entry.segment); } }
     // Arms remain a live, supported chain in standing locomotion so hands are
     // physically held in a guard and can reach from that guard. Locking them
@@ -1598,7 +1608,8 @@ export class BodyWorksRuntime {
     source.addForce({ x: force.x * phaseScale, y: force.y * phaseScale, z: force.z * phaseScale }, true);
     // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt for ~8x speedups.
     const planarDistance = Math.max(.001, Math.sqrt(spDx * spDx + spDz * spDz));
-    const pelvisAcceleration = strikePelvisAcceleration(profile, guardIntercept, strikeDistance);
+    const bodyDriveLimit = move.category === 'aerial' || !['leftHand', 'rightHand', 'leftForearm', 'rightForearm', 'head'].includes(profile.source) ? 6.2 : 3.2;
+    const pelvisAcceleration = strikePelvisAcceleration(profile, guardIntercept, strikeDistance, bodyDriveLimit);
     this.applyRigAcceleration(rig, {
       x: (targetPosition.x - sourcePosition.x) / planarDistance * pelvisAcceleration * phaseScale,
       y: 0,
@@ -1870,6 +1881,25 @@ export class BodyWorksRuntime {
       if (linearSq > 144) { const scale = 12 / Math.sqrt(linearSq); body.setLinvel({ x: linear.x * scale, y: linear.y * scale, z: linear.z * scale }, true); }
       const angular = body.angvel(); const angularSq = angular.x * angular.x + angular.y * angular.y + angular.z * angular.z;
       if (angularSq > 576) { const scale = 24 / Math.sqrt(angularSq); body.setAngvel({ x: angular.x * scale, y: angular.y * scale, z: angular.z * scale }, true); }
+    }
+  }
+
+  /** Keep committed grounded attacks at wrestling sprint speed, not ragdoll launch speed. */
+  private capGroundedStrikeSpeed(rig: FighterRigRegistration, fighter: FighterRuntime): void {
+    if (fighter.state !== 'attacking' || !fighter.moveId || getMove(fighter.moveId).category === 'aerial') return;
+    const center = this.rigPlanarCenter(rig);
+    const speed = Math.sqrt(center.velocityX * center.velocityX + center.velocityZ * center.velocityZ);
+    const maximum = locomotionProfile(fighterById(fighter.definitionId)).runSpeed + .35;
+    if (speed <= maximum) return;
+    const scale = maximum / speed;
+    const deltaX = center.velocityX * (scale - 1);
+    const deltaZ = center.velocityZ * (scale - 1);
+    // Apply one shared velocity correction to the complete articulated tree;
+    // changing only the pelvis would stretch the joints and look weightless.
+    for (const entry of rig.bodyEntries) {
+      if (!entry?.body.isValid()) continue;
+      const velocity = entry.body.linvel();
+      entry.body.setLinvel({ x: velocity.x + deltaX, y: velocity.y, z: velocity.z + deltaZ }, true);
     }
   }
 
@@ -2197,7 +2227,7 @@ export class BodyWorksRuntime {
     const aerialFlight = fighter.state === 'attacking' && Boolean(fighter.moveId && getMove(fighter.moveId).category === 'aerial')
       && ['anticipation', 'active', 'recovery'].includes(fighter.attackPhase ?? '');
     const supportedFall = !overridePose && (['downed', 'airborne', 'defeated'].includes(fighter.state) || aerialFlight);
-    const pose = supportedFall ? BREAKFALL_POSE : overridePose ?? targetPoseFor(fighter);
+    const pose = supportedFall ? BREAKFALL_POSE : overridePose ?? targetPoseFor(fighter, this.locomotionPoseSource);
     const targets = physicalPoseTargets(pose, supportedFall ? 0 : fighter.facing, ['idle', 'locomotion', 'blocking'].includes(fighter.state) || fighter.state === 'grappling' && motorProfile.id === 'lift');
     if (supportedFall && rig.bodies.pelvis) {
       const root = rig.bodies.pelvis.rotation();
@@ -2278,7 +2308,10 @@ export class BodyWorksRuntime {
     if (this.stepStartedAt >= 0) this.recordStepDuration(performance.now() - this.stepStartedAt);
     this.stepStartedAt = -1;
     if (model.paused) return;
-    for (const rig of this.rigs.values()) this.capRigVelocity(rig);
+    for (const [key, rig] of this.rigs) {
+      this.capRigVelocity(rig);
+      this.capGroundedStrikeSpeed(rig, model[key]);
+    }
     this.refreshActiveStrikeContacts(model);
     this.refreshPendingLandingContacts(model);
     this.refreshPhysicalSupportContacts();
@@ -2932,7 +2965,15 @@ const uprightFromRotation = (rotation: QuaternionValue): number => {
 
 const withYaw = (yaw: QuaternionValue, euler: readonly [number, number, number]): QuaternionValue => quaternionMultiply(yaw, quaternionFromEuler(euler));
 
-const locomotionPoseFor = (fighter: FighterRuntime): Pose => locomotionPose(fighter.velocity, fighter.facing, fighter.body.gaitPhase, true, fighter.definitionId);
+const locomotionPoseFor = (fighter: FighterRuntime, source: LocomotionPoseSource): Pose => source.pose({
+  velocity: fighter.velocity,
+  facing: fighter.facing,
+  phase: fighter.body.gaitPhase,
+  combat: true,
+  fighterId: fighter.definitionId,
+  styleId: fighterById(fighter.definitionId).locomotionStyle ?? 'baseline',
+  massKg: fighterById(fighter.definitionId).physics.massKg,
+});
 
 const climbPoseFor = (fighter: FighterRuntime): Pose => {
   const stage = fighter.climbStage || 1;
@@ -2964,7 +3005,7 @@ const CENTER_ROPE_POSE: Pose = {
   leftLeg: [.48, 0, -.12], rightLeg: [.48, 0, .12], leftShin: [-.92, 0, 0], rightShin: [-.92, 0, 0], rootTilt: .52, rootRoll: .08,
 };
 
-const targetPoseFor = (fighter: FighterRuntime): Pose => {
+const targetPoseFor = (fighter: FighterRuntime, locomotionSource: LocomotionPoseSource): Pose => {
   if (fighter.moveId) {
     const move = getMove(fighter.moveId);
     if (move.id === 'taunt') return tauntPoseFor(fighter);
@@ -2980,7 +3021,7 @@ const targetPoseFor = (fighter: FighterRuntime): Pose => {
   if (fighter.state === 'victorious') return POSES.victory;
   if (fighter.state === 'pinning') return POSES.pin;
   if (fighter.state === 'pinned') return fighter.pinEscape > 52 ? POSES.kickout : POSES.downed;
-  if (fighter.state === 'locomotion') return applyBodyLanguage(locomotionPoseFor(fighter), fighter);
+  if (fighter.state === 'locomotion') return applyBodyLanguage(locomotionPoseFor(fighter, locomotionSource), fighter);
   // Breathing combat idle: subtle torso sway and weight shift to make fighters feel alive
   const breathe = Math.sin(fighter.stateElapsed * 2.2) * .024;
   const sway = Math.cos(fighter.stateElapsed * .88) * .016;

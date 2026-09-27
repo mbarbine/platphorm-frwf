@@ -46,7 +46,8 @@ describe('physical strike drive', () => {
     expect(jab).not.toBeNull();
     if (!jab) return;
 
-    expect(strikePelvisAcceleration(jab, false)).toBe(jab.pelvisAcceleration);
+    expect(strikePelvisAcceleration(jab, false)).toBe(3.2);
+    expect(strikePelvisAcceleration(jab, false)).toBeLessThan(jab.pelvisAcceleration);
     expect(strikePelvisAcceleration(jab, true, .23)).toBeLessThan(1);
     expect(strikePelvisAcceleration(jab, true, .23)).toBeGreaterThan(0);
     expect(guardInterceptDriveProfile(jab, .23)).toMatchObject({
@@ -57,7 +58,7 @@ describe('physical strike drive', () => {
       maximumAcceleration: expect.closeTo(195.6),
     });
     expect(guardInterceptDriveProfile(jab, 4)).toMatchObject(jab);
-    expect(strikePelvisAcceleration(jab, true, 1.4)).toBe(jab.pelvisAcceleration);
+    expect(strikePelvisAcceleration(jab, true, 1.4)).toBe(3.2);
     expect(guardInterceptSurfaceTarget({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 1 })).toEqual({ x: 0, y: 0, z: .92 });
     expect(guardInterceptSurfaceTarget({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: .07 })).toEqual({ x: 0, y: 0, z: 0 });
   });
@@ -66,7 +67,7 @@ describe('physical strike drive', () => {
     const aerial = strikeDriveProfile('aerial');
     expect(aerial).toMatchObject({ source: 'chest', target: 'chest' });
     expect(aerial?.pelvisAcceleration).toBeGreaterThan(strikeDriveProfile('front_kick')?.pelvisAcceleration ?? 0);
-    expect(aerial ? strikePelvisAcceleration(aerial, false) : 0).toBeLessThanOrEqual(6.2);
+    expect(aerial ? strikePelvisAcceleration(aerial, false, .2, 6.2) : 0).toBeLessThanOrEqual(6.2);
   });
 
   it('keeps a high-speed rebound contact when the attacker crosses the target between phases', () => {

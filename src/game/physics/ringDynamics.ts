@@ -3,6 +3,9 @@ import type { Vec2 } from '../types/game';
 export const RING_ROPE_LIMIT = { x: 5.2, z: 3.7 } as const;
 export const RING_HARD_LIMIT = { x: 5.72, z: 4.22 } as const;
 export const RINGSIDE_THRESHOLD = { x: 5.82, z: 4.32 } as const;
+// Keep the supported traversal lane wider than the authored destination: the
+// articulated body can settle several tenths beyond its pelvis target.
+export const RING_TRAVERSAL_LANE = { xInner: 4.62, xOuter: 8, xCross: 3.55, zInner: 3.05, zOuter: 6.5, zCross: 5.15 } as const;
 export const ROPE_REBOUND_ENTRY_SPEED = 1 as const;
 // The ring's visible rope colliders stop the pelvis around 0.07 m past the
 // spring line. Use that measured range; 0.48 m was beyond collider travel and
@@ -25,6 +28,17 @@ export interface ApronTransitionTarget {
 }
 
 export const isRingside = (position: Vec2): boolean => Math.abs(position.x) > RINGSIDE_THRESHOLD.x || Math.abs(position.z) > RINGSIDE_THRESHOLD.z;
+
+export const isAtHorizontalRopeLane = (position: Vec2): boolean => {
+  const { xInner, xOuter, xCross } = RING_TRAVERSAL_LANE;
+  return Math.abs(position.x) > xInner && Math.abs(position.x) < xOuter && Math.abs(position.z) < xCross;
+};
+
+export const isAtRopeTraversalLane = (position: Vec2): boolean => {
+  const { zInner, zOuter, zCross } = RING_TRAVERSAL_LANE;
+  return isAtHorizontalRopeLane(position)
+    || (Math.abs(position.z) > zInner && Math.abs(position.z) < zOuter && Math.abs(position.x) < zCross);
+};
 
 /** Select the nearest rope opening. The runtime reaches it with forces. */
 export const apronTransitionTarget = (position: Vec2): ApronTransitionTarget => {

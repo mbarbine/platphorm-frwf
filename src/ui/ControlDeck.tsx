@@ -156,7 +156,7 @@ export function buildControlReadout(player: FighterRuntime, opponent: FighterRun
   else if (opponent.state === 'downed' && distance < 1.7) callout = `${actionKey} PIN · ${keys.quick} GROUND STRIKE`;
   else if (nearCorner) callout = `${actionKey} · CLIMB LOWER TURNBUCKLE`;
   else if (hasRing && canTransitionThroughRopes(player.position)) callout = `${actionKey} · ${ringside ? 'ENTER RING' : 'EXIT TO RINGSIDE'} THROUGH CENTER ROPE`;
-  else if (hasRing && !nearCorner && (Math.abs(player.position.x) > 4.1 || Math.abs(player.position.z) > 3.2)) callout = `NEAR ROPES · SPRINT TO REBOUND · ${actionKey} AT APRON TO EXIT RING`;
+  else if (hasRing && !nearCorner && (Math.abs(player.position.x) > 4.1 || Math.abs(player.position.z) > 3.2)) callout = `NEAR ROPES · SPRINT TO REBOUND · ${actionKey} TO ${Math.abs(player.position.x) > 5.82 || Math.abs(player.position.z) > 4.32 ? 'ENTER' : 'EXIT'} RING`;
   else if (player.counterWindow > 0) callout = `${keys.counter} NOW · REVERSE THE ATTACK`;
   else if (distance <= GRAPPLE_ACQUISITION_RANGE && controlStyle === 'arcade') callout = `${keys.quick} JAB → COMBO → UPPERCUT · ${keys.heavy} KICK · ${keys.grapple} CLINCH`;
   else if (distance <= GRAPPLE_ACQUISITION_RANGE) callout = `${keys.grapple} BODY SLAM · BACK/DOWN + ${keys.grapple} PILEDRIVER · CONTACT MUST LAND · ${keys.quick} RAPID COMBO`;

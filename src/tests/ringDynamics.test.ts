@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { apronTransitionTarget, isRingside, RING_HARD_LIMIT, RING_ROPE_LIMIT, shouldReleaseRopeRebound, solveRopeReleaseDirection, solveRopeResponse } from '../game/physics/ringDynamics';
+import { apronTransitionTarget, isAtRopeTraversalLane, isRingside, RING_HARD_LIMIT, RING_ROPE_LIMIT, shouldReleaseRopeRebound, solveRopeReleaseDirection, solveRopeResponse } from '../game/physics/ringDynamics';
 
 describe('elastic ring boundary', () => {
   it('stays passive in the playable center', () => {
@@ -42,6 +42,12 @@ describe('elastic ring boundary', () => {
 });
 
 describe('physical apron transitions', () => {
+  it('keeps settled exit and entry overshoot inside the supported rope lane', () => {
+    expect(isAtRopeTraversalLane({ x: 7.3, z: 0 })).toBe(true);
+    expect(isAtRopeTraversalLane({ x: 0, z: 5.8 })).toBe(true);
+    expect(isAtRopeTraversalLane({ x: 8.1, z: 0 })).toBe(false);
+    expect(isAtRopeTraversalLane({ x: 0, z: 6.6 })).toBe(false);
+  });
   it('targets ringside from inside without mutating the source position', () => {
     const source = { x: 5.3, z: .4 }; const target = apronTransitionTarget(source);
     expect(target.inside).toBe(false); expect(target.target.x).toBeGreaterThan(RING_HARD_LIMIT.x + 1); expect(source).toEqual({ x: 5.3, z: .4 });

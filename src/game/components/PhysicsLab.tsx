@@ -8,7 +8,8 @@ import { bodyWorksRuntime } from '../physics/physicsRuntime';
 import { useMatchStore } from '../state/matchStore';
 import { usePhysicsLabStore } from '../state/physicsLabStore';
 import type { LabPlaybackRate } from '../state/physicsLabStore';
-import type { FighterId, MatchModel, RecoveryOrientation, Ruleset } from '../types/game';
+import { FALL_REASONS, type FighterId, type MatchModel, type RecoveryOrientation, type Ruleset } from '../types/game';
+import { beginFall } from '../systems/falls';
 import { RELEASE_IDENTITY } from '../release/releaseIdentity';
 import { renderDiagnostics } from '../runtime/renderDiagnostics';
 
@@ -144,6 +145,10 @@ export function PhysicsLab() {
       useMatchStore.getState().prepareLabScenario({ x: 0, z: 0 }, { x: 4, z: 2.4 });
       const current = useMatchStore.getState().model;
       current.opponent.state = 'downed'; current.opponent.downTimer = 90;
+      // This is an intentional scripted setup, not an unexplained gameplay
+      // fall. Keep the shared audit truthful while retaining the event in lab
+      // telemetry as a Physics Lab fall.
+      beginFall(current, 'opponent', FALL_REASONS.PhysicsLab);
       bodyWorksRuntime.prepareLabFall('opponent', 'back', current.opponent.facing);
     }
     else if (scenario.id === 'propDrop' || scenario.id === 'propThrow') { const chair = useMatchStore.getState().model.props.find(prop => prop.kind === 'chair' && !prop.broken); if (!chair) { clearTimers(); setActive(null); return; } useMatchStore.getState().prepareLabScenario({ x: chair.position.x, z: chair.position.z + .8 }, { x: 2, z: 3 }); }
@@ -201,8 +206,8 @@ export function PhysicsLab() {
     const dispatched = new Set<number>(); let blockedJabQueued = false; let blockedJabNextAttemptAt = SCENARIO_SETTLE_MS + 360; let gripStressComplete = scenario.stressGripAt === undefined; let labKnockoutResolved = false;
     let blockedJabAttempts = 0;
     let reboundPressAt: number | null = null; let reboundReleased = false; let slamPressAt: number | null = null; let slamReleased = false;
-    let stagedKey: 'KeyF' | 'KeyQ' | null = null; let stagedReleaseAt = 0; let stagedNextAttemptAt = SCENARIO_SETTLE_MS + 80;
-    let stagedLastClimbStage = -1; let stagedFinishIssued = false;
+    let stagedNextAttemptAt = SCENARIO_SETTLE_MS + 80;
+    let stagedLastClimbStage = -1; let stagedStartIssued = false; let stagedFinishIssued = false;
     const scheduler = window.setInterval(() => {
       const current = useMatchStore.getState().model; const elapsedMs = (current.elapsed - startedAt) * 1_000;
       if (elapsedMs - sampledAt >= 50 && samples.current.length < 1200) { const physical = bodyWorksRuntime.fighterSnapshot('player'); samples.current.push({ time: elapsedMs / 1000, state: current.player.state, move: current.player.moveId, speed: physical.speed, supportFeet: physical.supportFeet, upright: physical.upright, leftFootY: physical.leftFootY, rightFootY: physical.rightFootY, damage: 100 - current.opponent.health, hits: current.player.comboStep, chain: current.player.comboInputs.join(','), combo: current.player.comboName }); sampledAt = elapsedMs; }
@@ -222,21 +227,26 @@ export function PhysicsLab() {
         dispatchKey(step.code, step.down); dispatched.add(index);
       });
       if (scenario.id === 'climb' || scenario.id === 'dive') {
-        if (stagedKey && elapsedMs >= stagedReleaseAt) {
-          dispatchKey(stagedKey, false); stagedKey = null;
-        }
         if (!stagedFinishIssued) {
           if (current.player.climbStage !== stagedLastClimbStage) {
             stagedLastClimbStage = current.player.climbStage;
             stagedNextAttemptAt = elapsedMs + 220;
           }
+          // The scenario reset places the wrestler beside the corner in an
+          // idle state. Start climbing once before waiting for staged climbs;
+          // otherwise the scripted test waits forever for `climbing`.
+          if (!stagedStartIssued && current.player.state !== 'climbing' && !current.player.moveId && elapsedMs >= stagedNextAttemptAt) {
+            useMatchStore.getState().requestLabCommand('player', 'context');
+            stagedNextAttemptAt = elapsedMs + 520; stagedStartIssued = true;
+          }
           // Continue staged inputs only while the wrestler is on the corner.
           // Once the dive/taunt starts, repeated context presses can replace its
           // attack instance with another action before physical contact lands.
-          if (current.player.state === 'climbing' && !stagedKey && elapsedMs >= stagedNextAttemptAt) {
-            const code = current.player.climbStage < 3 ? 'KeyF' : scenario.id === 'climb' ? 'KeyQ' : 'KeyF';
-            dispatchKey(code, true); stagedKey = code; stagedReleaseAt = elapsedMs + 120; stagedNextAttemptAt = elapsedMs + 520;
-            if (current.player.climbStage === 3) stagedFinishIssued = true;
+          if (current.player.state === 'climbing' && elapsedMs >= stagedNextAttemptAt) {
+            if (current.player.climbStage < 3 || scenario.id === 'dive') useMatchStore.getState().requestLabCommand('player', 'context');
+            else useMatchStore.getState().requestLabCommand('player', 'taunt');
+            stagedNextAttemptAt = elapsedMs + 520;
+            if (scenario.id === 'climb' && current.player.moveId === 'taunt') stagedFinishIssued = true;
           }
           if (scenario.id === 'dive' && current.player.moveId && getMove(current.player.moveId).category === 'aerial') stagedFinishIssued = true;
         }
@@ -280,7 +290,6 @@ export function PhysicsLab() {
       for (const step of scenario.steps) if (step.down) dispatchKey(step.code, false);
       if (reboundPressAt !== null && !reboundReleased) dispatchKey('KeyK', false);
       if (slamPressAt !== null && !slamReleased) dispatchKey('KeyK', false);
-      if (stagedKey) dispatchKey(stagedKey, false);
       automationActive.current = false; setActive(null);
     }, 8);
     timers.current.push(scheduler);
