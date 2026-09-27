@@ -1,5 +1,6 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
+  "account_id": "f1ac50e4b31352abecc790ae1cde443a",
   "name": "frwf-game-development",
   "main": "src/index.ts",
   "compatibility_date": "2026-09-07",
@@ -67,7 +68,7 @@
       "workers_dev": true,
       "vars": {
         "ENVIRONMENT": "production",
-        "PUBLIC_ORIGIN": "https://frwf.platphormnews.com",
+        "PUBLIC_ORIGIN": "https://frwf.ja1.io",
         "RELEASE": "1.4.1"
       },
       "durable_objects": {

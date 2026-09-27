@@ -357,7 +357,7 @@ export function CameraRig() {
     let table = null;
     for (let i = 0; i < model.props.length; i++) {
       const prop = model.props[i];
-      if (prop.kind === 'table' && !prop.broken) {
+      if (prop?.kind === 'table' && !prop.broken) {
         table = prop;
         break;
       }
@@ -690,7 +690,8 @@ export function CameraRig() {
       const fovModifier = (model.matchMode === 'singles' && SINGLES_ZOOM_SHOTS.has(shot.current)) ? -4 : 0;
       let pinInProgress = false;
       for (let i = 0; i < activeSlotsCount; i++) {
-        if (model[activeSlotsRef.current[i]]?.state === 'pinned') {
+        const slot = activeSlotsRef.current[i];
+        if (slot && model[slot]?.state === 'pinned') {
           pinInProgress = true;
           break;
         }
