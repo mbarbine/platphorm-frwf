@@ -104,7 +104,7 @@ export function PhysicsLab() {
   const [seed, setSeed] = useState(model.seed); const [playerStamina, setPlayerStamina] = useState(100); const [opponentStamina, setOpponentStamina] = useState(100);
   const [playerMass, setPlayerMass] = useState(0); const [opponentMass, setOpponentMass] = useState(0);
   const frames = useRef(0); const lastFpsAt = useRef(performance.now());
-  const clearTimers = (): void => { automationActive.current = false; for (const timer of timers.current) { window.clearTimeout(timer); window.clearInterval(timer); } timers.current = []; for (const code of [...scriptedKeys]) dispatchKey(code, false); };
+  const clearTimers = (): void => { automationActive.current = false; for (const timer of timers.current) { window.clearTimeout(timer); window.clearInterval(timer); } timers.current = []; for (const code of scriptedKeys) dispatchKey(code, false); };
   useEffect(() => {
     let frame = 0; const tick = (): void => { frames.current += 1; frame = requestAnimationFrame(tick); }; frame = requestAnimationFrame(tick);
     const interval = window.setInterval(() => { const now = performance.now(); fps.current = Math.round(frames.current * 1_000 / Math.max(1, now - lastFpsAt.current)); frames.current = 0; lastFpsAt.current = now; }, 1_000);
