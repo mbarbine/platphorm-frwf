@@ -571,7 +571,7 @@ describe('authoritative server contract', () => {
     rateLimitMap.clear();
   });
 
-  it('sets X-Content-Type-Options and Cache-Control headers on api/mcp.js responses', async () => {
+  it('sets X-Content-Type-Options, X-Frame-Options, Strict-Transport-Security, and Cache-Control headers on api/mcp.js responses', async () => {
     // @ts-expect-error - JavaScript file lacks type definitions
     const mcpModule = await import('../../../api/mcp.js');
     const mcpHandler: McpHandler = mcpModule.default;
@@ -582,6 +582,8 @@ describe('authoritative server contract', () => {
     mcpHandler(req, res);
 
     expect(res.setHeader).toHaveBeenCalledWith('X-Content-Type-Options', 'nosniff');
+    expect(res.setHeader).toHaveBeenCalledWith('X-Frame-Options', 'DENY');
+    expect(res.setHeader).toHaveBeenCalledWith('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
     expect(res.setHeader).toHaveBeenCalledWith('Cache-Control', 'no-store, max-age=0');
   });
 

@@ -19,7 +19,7 @@ type RouteComplianceHandler = (req: MockRequest, res: MockResponse) => void;
 const handler = rawHandler as RouteComplianceHandler;
 
 describe('Route Compliance Serverless Handler', () => {
-  it('sets X-Content-Type-Options and Cache-Control security headers on responses', () => {
+  it('sets X-Content-Type-Options, X-Frame-Options, Strict-Transport-Security, and Cache-Control security headers on responses', () => {
     const req: MockRequest = {
       method: 'GET',
       headers: {
@@ -37,6 +37,8 @@ describe('Route Compliance Serverless Handler', () => {
     handler(req, res);
 
     expect(res.setHeader).toHaveBeenCalledWith('X-Content-Type-Options', 'nosniff');
+    expect(res.setHeader).toHaveBeenCalledWith('X-Frame-Options', 'DENY');
+    expect(res.setHeader).toHaveBeenCalledWith('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
     expect(res.setHeader).toHaveBeenCalledWith('Cache-Control', 'no-store, max-age=0');
   });
 
