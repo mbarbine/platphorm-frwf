@@ -167,15 +167,17 @@ export function rateLimiter(req: express.Request, res: express.Response, next: e
   }
 }
 
-// Periodically clean up expired rate limit entries to prevent memory leak (CWE-400)
-export const cleanupInterval = setInterval(() => {
+export function cleanExpiredRateLimits(): void {
   const now = Date.now();
   for (const [ip, data] of rateLimitMap.entries()) {
     if (now > data.resetTime) {
       rateLimitMap.delete(ip);
     }
   }
-}, 60000);
+}
+
+// Periodically clean up expired rate limit entries to prevent memory leak (CWE-400)
+export const cleanupInterval = setInterval(cleanExpiredRateLimits, 60000);
 
 if (process.env.NODE_ENV === 'test' || process.env.VITEST) {
   clearInterval(cleanupInterval);

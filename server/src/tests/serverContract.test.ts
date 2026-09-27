@@ -629,6 +629,33 @@ describe('authoritative server contract', () => {
     expect(res.status).toHaveBeenCalledWith(200);
   });
 
+  it("cleans up expired rate limit entries on cleanupInterval tick", async () => {
+    const { rateLimitMap, cleanExpiredRateLimits } = await import("../index");
+
+    rateLimitMap.clear();
+    vi.useFakeTimers();
+
+    const baseTime = 100000;
+    vi.setSystemTime(baseTime);
+
+    // Entry 1 expires at 130,000 ms
+    rateLimitMap.set("10.0.0.1", { count: 5, resetTime: baseTime + 30000 });
+    // Entry 2 expires at 220,000 ms
+    rateLimitMap.set("10.0.0.2", { count: 1, resetTime: baseTime + 120000 });
+
+    const interval = setInterval(cleanExpiredRateLimits, 60000);
+
+    // Advance time by 60,000 ms (to 160,000 ms), triggering cleanupInterval
+    vi.advanceTimersByTime(60000);
+
+    expect(rateLimitMap.has("10.0.0.1")).toBe(false);
+    expect(rateLimitMap.has("10.0.0.2")).toBe(true);
+
+    clearInterval(interval);
+    vi.useRealTimers();
+    rateLimitMap.clear();
+  });
+
   it("disables X-Powered-By header on Express application instance", async () => {
     const { createApp } = await import("../index");
     const app = createApp();
