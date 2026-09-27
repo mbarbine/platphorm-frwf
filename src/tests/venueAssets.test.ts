@@ -35,3 +35,10 @@ describe('venue completion assets', () => {
     });
   }
 });
+
+describe("arena visual effects determinism", () => {
+  it("does not use Math.random in Arena.tsx", () => {
+    const code = readFileSync(resolve("src/game/components/Arena.tsx"), "utf8");
+    expect(code).not.toContain("Math.random");
+  });
+});
