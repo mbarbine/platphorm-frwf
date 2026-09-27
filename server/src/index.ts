@@ -114,8 +114,7 @@ if (process.env.NODE_ENV !== 'test' && !process.env.VITEST) {
 /**
  * Custom error handling middleware to catch any unhandled errors and return a standardized secure JSON response, preventing stack trace disclosure (CWE-209).
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function secureErrorHandler(err: unknown, _req: express.Request, res: express.Response, next: express.NextFunction): void {
+export function secureErrorHandler(err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction): void {
   console.error('Unhandled server error:', err);
   res.status(500).json({
     error: {
