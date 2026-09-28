@@ -16,7 +16,8 @@ readonly r2_name='frwf-assets-production'
 readonly public_origin='https://frwf.ja1.io'
 repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$repo_dir"
-
+export CLOUDFLARE_APPLY_D1_MIGRATIONS=1
+CLOUDFLARE_APPLY_D1_MIGRATIONS=1
 # Wrangler's account selection can differ between product APIs; pin it for every call.
 export CLOUDFLARE_ACCOUNT_ID="$account_id"
 source_sha="$(git rev-parse HEAD)"
