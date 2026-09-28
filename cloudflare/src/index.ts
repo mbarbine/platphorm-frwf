@@ -167,7 +167,17 @@ async function route(request: Request, env: Env): Promise<Response> {
   if (path === '/sitemap.xml' || path === '/sitemap-index.xml') return new Response(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${gameInfo.canonicalUrl}</loc></url></urlset>`, { headers: { 'Content-Type': 'application/xml' } });
   if (path === '/rss.xml') return new Response(`<?xml version="1.0"?><rss version="2.0"><channel><title>RINGFALL</title><link>${gameInfo.canonicalUrl}</link><description>Release feed; no release events published by this backend.</description></channel></rss>`, { headers: { 'Content-Type': 'application/rss+xml' } });
   if (path === '/feed.xml') return new Response(`<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom"><id>${gameInfo.canonicalUrl}</id><title>RINGFALL</title><updated>2026-09-07T00:00:00Z</updated><link href="${gameInfo.canonicalUrl}"/></feed>`, { headers: { 'Content-Type': 'application/atom+xml' } });
-  if (path === '/manifest.webmanifest') return Response.json({ name: gameInfo.name, short_name: 'RINGFALL', start_url: gameInfo.canonicalUrl, display: 'standalone', icons: [], description: 'Cloudflare-hosted RINGFALL game and multiplayer backend.' });
+  if (path === '/manifest.webmanifest') return Response.json({
+    id: '/', name: 'FRWF Presents: RINGFALL: Chaos Circuit', short_name: 'RINGFALL',
+    description: 'FRWF backyard wrestling and barnyard chaos. Offline play is limited to previously cached game resources; multiplayer requires a connection.',
+    start_url: '/?source=pwa', scope: '/', display: 'standalone', display_override: ['standalone', 'minimal-ui'],
+    background_color: '#080610', theme_color: '#8d46ff', categories: ['games', 'entertainment'],
+    icons: [
+      { src: '/icons/ringfall-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+      { src: '/icons/ringfall-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+      { src: '/icons/ringfall-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+    ],
+  }, { headers: { 'Content-Type': 'application/manifest+json; charset=utf-8', 'Cache-Control': 'public, max-age=300' } });
   return fail('not_found', 404);
 }
 

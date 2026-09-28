@@ -50,6 +50,19 @@ const nextSocketMessage = <T>(socket: WebSocket, predicate: (message: Record<str
   });
 
 describe('real Worker / Durable Object / D1 / R2 integration', () => {
+  it('serves a valid cross-platform install manifest with real icon assets', async () => {
+    const response = await worker.dispatchFetch(origin + '/manifest.webmanifest');
+    const manifest = await response.json() as { name: string; id?: string; scope?: string; display: string; start_url: string; icons: { src: string; sizes: string; purpose: string }[] };
+    expect(response.status).toBe(200);
+    expect(response.headers.get('Content-Type')).toContain('manifest+json');
+    expect(manifest).toMatchObject({ name: 'FRWF Presents: RINGFALL: Chaos Circuit', id: '/', scope: '/', display: 'standalone', start_url: '/?source=pwa' });
+    expect(manifest.icons).toEqual(expect.arrayContaining([
+      { src: '/icons/ringfall-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+      { src: '/icons/ringfall-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+      { src: '/icons/ringfall-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+    ]));
+  });
+
   it('serves the new Turkey Dome map beside the compatible original arena map', async () => {
     const response = await worker.dispatchFetch(origin + '/api/maps');
     const json = await response.json() as { data: { maps: { id: string; title: string; environment?: string }[] } };
