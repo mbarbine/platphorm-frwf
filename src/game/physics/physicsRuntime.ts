@@ -10,7 +10,7 @@ import type { FrameInput } from '../systems/combat';
 import { AI_FIGHTER_SLOTS, FALL_REASONS, FIGHTER_SLOTS, SINGLES_FIGHTER_SLOTS } from '../types/game';
 import type { AttackPhase, BodyRegion, FighterRuntime, FighterSlot, GameCommand, MatchModel, PropRuntime, RecoveryOrientation, Vec2 } from '../types/game';
 import { clamp } from '../utils/math';
-import { ALL_BODY_SEGMENTS, CORE_SEGMENTS, HEAD_COLLIDER_RADIUS, buildBodySchema, torsoColliderArgs } from './bodySchema';
+import { ALL_BODY_SEGMENTS, CORE_SEGMENTS, HEAD_COLLIDER_RADIUS, buildBodySchema, segmentSchema, torsoColliderArgs } from './bodySchema';
 import type { BodySegmentId } from './bodySchema';
 import { chasePoseAngularVelocity, strikePoseChain } from './motorController';
 import { PhysicsReplayBuffer } from './replayBuffer';
@@ -238,6 +238,12 @@ interface PendingStrikeCast {
 
 const EMPTY_INTENT = (): IntentState => ({ move: { x: 0, z: 0 }, run: false, block: false });
 const MAX_CONTACTS = 128;
+const CORE_RADII_ENTRIES: readonly (readonly [BodySegmentId, number])[] = [
+  ['pelvis', .22],
+  ['abdomen', .21],
+  ['chest', .27],
+  ['head', HEAD_COLLIDER_RADIUS],
+] as const;
 const DYNAMIC_ARM_PROFILES = new Set<MotorProfileId>([
   'neutral', 'combat', 'walking', 'running', 'braking', 'jumpLoad', 'landing', 'victory',
 ]);
@@ -2714,20 +2720,24 @@ export class BodyWorksRuntime {
     if (!['airborne', 'downed', 'recovering', 'pinned', 'defeated'].includes(fighter.state)) return;
     const rig = this.rigs.get(key); if (!rig) return;
     const surfaceY = this.isRingside(fighter.position) ? .4 : FRWF_ARENA.ring.deckY;
-    const coreRadii = { pelvis: .22, abdomen: .21, chest: .27, head: HEAD_COLLIDER_RADIUS } as const;
-    const lowestCoreClearance = (Object.keys(coreRadii) as (keyof typeof coreRadii)[]).reduce((lowest, segment) => {
+    const definition = fighterById(fighter.definitionId);
+    let lowestCoreClearance = Number.POSITIVE_INFINITY;
+    for (let i = 0; i < CORE_RADII_ENTRIES.length; i++) {
+      const entry = CORE_RADII_ENTRIES[i]; if (!entry) continue;
+      const [segment, baseRadius] = entry;
       const body = rig.bodies[segment];
-      if (!body?.isValid()) return lowest;
-      let radius: number = coreRadii[segment];
+      if (!body?.isValid()) continue;
+      let radius: number = baseRadius;
       if (segment !== 'head') {
-        const schema = buildBodySchema(fighterById(fighter.definitionId)).find(entry => entry.id === segment);
+        const schema = segmentSchema(definition, segment);
         const args = schema && torsoColliderArgs(schema); const q = body.rotation();
         if (args) radius = Math.abs(2 * (q.x * q.y + q.w * q.z)) * args[0]
           + Math.abs(1 - 2 * (q.x * q.x + q.z * q.z)) * args[1]
           + Math.abs(2 * (q.y * q.z - q.w * q.x)) * args[2] + args[3];
       }
-      return Math.min(lowest, (body.numColliders() ? body.collider(0).translation().y : body.translation().y) - radius);
-    }, Number.POSITIVE_INFINITY);
+      const clearance = (body.numColliders() ? body.collider(0).translation().y : body.translation().y) - radius;
+      if (clearance < lowestCoreClearance) lowestCoreClearance = clearance;
+    }
     if (!Number.isFinite(lowestCoreClearance) || lowestCoreClearance >= surfaceY - .025) return;
     // Preserve the entire articulated pose while moving the connected tree out
     // of the fixed surface. This is a bounded penetration correction, not a

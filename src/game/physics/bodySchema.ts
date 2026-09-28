@@ -64,8 +64,8 @@ const segment = (definition: FighterDefinition, id: BodySegmentId, side: Segment
 // Cache to store pre-built body schemas by fighter ID to eliminate GC pressure and rebuild overhead
 const SCHEMA_CACHE = new Map<string, readonly BodySegmentSchema[]>();
 
-// Cache to store pre-built body segment schemas by fighter ID and segment ID for O(1) retrieval
-const SEGMENT_SCHEMA_CACHE = new Map<string, BodySegmentSchema>();
+// Cache to store pre-built body segment schemas by fighter ID and segment ID for O(1) retrieval without string allocations
+const SEGMENT_SCHEMA_CACHE = new Map<string, Map<BodySegmentId, BodySegmentSchema>>();
 
 /** Stable human proportions in meters. All segment masses stay within a safe connected ratio. */
 export const buildBodySchema = (definition: FighterDefinition): readonly BodySegmentSchema[] => {
@@ -107,14 +107,19 @@ export const buildBodySchema = (definition: FighterDefinition): readonly BodySeg
 };
 
 export const segmentSchema = (definition: FighterDefinition, id: BodySegmentId): BodySegmentSchema => {
-  const cacheKey = `${definition.id}-${id}`;
-  const cached = SEGMENT_SCHEMA_CACHE.get(cacheKey);
-  if (cached) return cached;
+  let fighterMap = SEGMENT_SCHEMA_CACHE.get(definition.id);
+  if (!fighterMap) {
+    fighterMap = new Map<BodySegmentId, BodySegmentSchema>();
+    const schema = buildBodySchema(definition);
+    for (let i = 0; i < schema.length; i++) {
+      const item = schema[i];
+      if (item) fighterMap.set(item.id, item);
+    }
+    SEGMENT_SCHEMA_CACHE.set(definition.id, fighterMap);
+  }
 
-  const found = buildBodySchema(definition).find((candidate) => candidate.id === id);
+  const found = fighterMap.get(id);
   if (!found) throw new Error(`Missing body segment ${id}`);
-
-  SEGMENT_SCHEMA_CACHE.set(cacheKey, found);
   return found;
 };
 

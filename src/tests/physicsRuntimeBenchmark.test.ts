@@ -1,5 +1,6 @@
 import { describe, test, expect } from 'vitest';
-import { ALL_BODY_SEGMENTS, type BodySegmentId } from '../game/physics/bodySchema';
+import { ALL_BODY_SEGMENTS, buildBodySchema, segmentSchema, type BodySegmentId } from '../game/physics/bodySchema';
+import { fighterById } from '../game/data/fighters';
 
 describe('PhysicsRuntime Hot Loop Benchmark', () => {
   test('measures state membership check performance', () => {
@@ -131,5 +132,44 @@ describe('PhysicsRuntime Hot Loop Benchmark', () => {
     expect(sum2).toBe(sum1);
     expect(sum3).toBe(sum1);
     expect(sum4).toBe(sum1);
+  });
+
+  test("measures body schema segment lookup performance", { timeout: 30000 }, () => {
+    const iterations = 1_000_000;
+    const definition = fighterById("atlas");
+    const segments: BodySegmentId[] = ["pelvis", "abdomen", "chest", "head"];
+
+    // 1. Baseline: buildBodySchema(definition).find(entry => entry.id === segment)
+    const startBaseline = performance.now();
+    let baselineSum = 0;
+    for (let i = 0; i < iterations; i++) {
+      const segment = segments[i % segments.length] ?? "pelvis";
+      const schema = buildBodySchema(definition).find(entry => entry.id === segment);
+      if (schema) {
+        baselineSum += schema.massKg;
+      }
+    }
+    const baselineTime = performance.now() - startBaseline;
+
+    // 2. Optimized: segmentSchema(definition, segment) O(1) map lookup
+    const startOptimized = performance.now();
+    let optimizedSum = 0;
+    for (let i = 0; i < iterations; i++) {
+      const segment = segments[i % segments.length] ?? "pelvis";
+      const schema = segmentSchema(definition, segment);
+      if (schema) {
+        optimizedSum += schema.massKg;
+      }
+    }
+    const optimizedTime = performance.now() - startOptimized;
+
+    console.log("\n--- BENCHMARK RESULTS (Body Schema Segment Lookup) ---");
+    console.log(`Iterations: ${iterations.toLocaleString()}`);
+    console.log(`Baseline (buildBodySchema.find): ${baselineTime.toFixed(2)} ms`);
+    console.log(`Optimized (segmentSchema map lookup): ${optimizedTime.toFixed(2)} ms`);
+    console.log(`Speedup: ${(baselineTime / optimizedTime).toFixed(2)}x (${((1 - optimizedTime / baselineTime) * 100).toFixed(1)}% reduction)`);
+    console.log("-------------------------\n");
+
+    expect(optimizedSum).toBeCloseTo(baselineSum);
   });
 });
