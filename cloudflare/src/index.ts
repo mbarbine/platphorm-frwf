@@ -149,7 +149,7 @@ async function route(request: Request, env: Env): Promise<Response> {
   if (path === '/api/mcp' || path === '/.well-known/mcp.json') return ok({ name: 'RINGFALL game backend', endpoint: '/api/mcp', transport: 'JSON-RPC 2.0', tools, auth: 'public read-only introspection; room creation is a protected REST operation' });
   if (path === '/.well-known/trust.json') return ok({ policy, auth: 'PLATPHORM_API_KEY', trustedDomains: ['*.platphormnews.com', 'frwf.ja1.io'], browserOrigin: env.PUBLIC_ORIGIN, publicReadAccess: true, protectedActions: ['room creation', 'map publication'], delegatedAccess: 'A room ticket authorizes one player seat for one hour; never exposes the platform key.', dataExposure: 'No player identity, IP, raw command body or credentials in public discovery.', unsupported: ['trace export', 'report generation', 'telemetry ingestion', 'public matchmaking'] });
   if (path === '/.well-known/agents.json' || path === '/.well-known/ai-plugin.json' || path === '/llms-index.json') return ok({ name: gameInfo.name, canonicalUrl: gameInfo.canonicalUrl, api: '/api/docs', mcp: '/api/mcp', capabilities: tools.map(tool => tool.name), game: gameInfo });
-  if (path === '/llms.txt' || path === '/llms-full.txt') return new Response(`# ${gameInfo.name}\n\nCloudflare serves the game and its private-room backend. Consult health for configured storage and auth. The deployed Durable Object match server uses ticketed WebSockets; the game client still needs a protocol bridge before online matches can be started from the lobby.\n\n- [Game](${gameInfo.canonicalUrl})\n- [API](/api/docs)\n- [Health](/api/health)\n- [MCP](/api/mcp)\n\n## Local game\n${JSON.stringify(gameInfo.local)}\n\n## Online limitations\n${gameInfo.online.limitations.join('\n')}\n`, { headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
+  if (path === '/llms.txt' || path === '/llms-full.txt') return new Response(`# ${gameInfo.name}\n\nCloudflare serves the game and its private-room backend. Consult health for configured storage and auth. Online matches use the ticket-authenticated Durable Object WebSocket; protected operator provisioning issues separate seat invitations.\n\n- [Game](${gameInfo.canonicalUrl})\n- [API](/api/docs)\n- [Health](/api/health)\n- [MCP](/api/mcp)\n\n## Local game\n${JSON.stringify(gameInfo.local)}\n\n## Online limitations\n${gameInfo.online.limitations.join('\n')}\n`, { headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
   if (path === '/robots.txt') return new Response(`User-agent: *\nAllow: /\nSitemap: ${env.PUBLIC_ORIGIN}/sitemap.xml\n`);
   if (path === '/.well-known/security.txt') return new Response('Contact: https://github.com/mbarbine/platphorm-frwf/security\nExpires: 2027-09-07T00:00:00Z\n');
   if (path === '/sitemap.xml' || path === '/sitemap-index.xml') return new Response(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${gameInfo.canonicalUrl}</loc></url></urlset>`, { headers: { 'Content-Type': 'application/xml' } });
@@ -170,10 +170,10 @@ export default {
         const pathname = new URL(request.url).pathname;
         const routeTag = /^\/api\/rooms\/[a-f0-9-]{36}\/socket$/.test(pathname) ? 'room_socket'
           : /^\/api\/maps\/assets\/[a-f0-9]{64}$/.test(pathname) ? 'published_map_asset'
-            : pathname.startsWith('/api/') ? pathname : 'platform_route';
+            : pathname.startsWith('/api/') ? 'api_route' : 'platform_route';
         // Never log request headers, query strings, room IDs, tickets, bodies, or exception messages.
         console.error({ event: 'frwf_request_failed', requestId, route: routeTag, method: request.method, status, code,
-          errorName: error instanceof Error ? error.name : 'UnknownError' });
+          errorName: error instanceof Error && /^[A-Za-z]{1,32}(?:Error|Exception)$/.test(error.name) ? error.name : 'UnknownError' });
       }
       response = fail(code, status, status >= 500 ? { requestId } : {});
     }

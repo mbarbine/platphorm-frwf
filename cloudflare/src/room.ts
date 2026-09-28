@@ -147,7 +147,8 @@ export class MatchRoom extends DurableObject<Env> {
       // Room IDs and player tickets stay out of logs. The stable event makes a
       // D1 write failure visible in Workers Observability while the alarm
       // continues retrying persistence in the background.
-      console.error({ event: 'frwf_match_persistence_failed', errorName: error instanceof Error ? error.name : 'UnknownError' });
+      const errorName = error instanceof Error && /^[A-Za-z]{1,32}(?:Error|Exception)$/.test(error.name) ? error.name : 'UnknownError';
+      console.error({ event: 'frwf_match_persistence_failed', errorName });
       this.broadcast({ type: 'persistence', status: 'degraded' });
       await this.ctx.storage.setAlarm(Date.now() + 15000);
     }

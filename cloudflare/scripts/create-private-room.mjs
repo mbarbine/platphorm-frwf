@@ -1,3 +1,4 @@
+/* global process, fetch, URL, console */
 const apiKey = process.env.PLATPHORM_API_KEY;
 if (!apiKey) throw new Error('Set PLATPHORM_API_KEY in the current shell; the key is never saved by this script.');
 
