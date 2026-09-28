@@ -1,6 +1,6 @@
 # FRWF one-year delivery roadmap
 
-**Planning period: September 12, 2026–September 11, 2027. Baseline: main `8a6abe8`, version 1.4.1.**
+**Planning period: September 12, 2026–September 11, 2027. Verified release baseline: Cloudflare 1.4.2, source snapshot `8c6f86e` (September 28, 2026).**
 
 FRWF is an original-roster wrestling game: quick local bouts and a developing explorable showground. Its central promise is a heavyweight wrestler whose movement, attacks and reactions look human, respond predictably and make a rematch appealing. Shared PlatPhorm services support that game; they do not replace it.
 
@@ -19,6 +19,8 @@ This is the canonical forward plan. Earlier release notes remain historical evid
 
 [Underground, originals and baseline increment](UNDERGROUND_UPGRADE_REPORT.md) records the subsequent content additions, interaction repairs and still-failing visual acceptance.
 
+[Execution status and evidence](EXECUTION_STATUS_2026-09-28.md) records the current gates, recent gameplay findings, multiplayer test coverage, and open parity work. Treat it as a dated checkpoint; it does not declare this roadmap complete.
+
 ## How to use this plan
 
 The requirements ledger is the single status authority for this planning snapshot. Workstream documents specify intended behavior, not separate completion claims. Statuses are **implemented/unaccepted**, **partial**, **planned**, and **verified infrastructure snapshot**. Close a requirement only with its acceptance evidence linked to a source SHA and asset version. Implementation and artistic acceptance are separate decisions.
@@ -27,6 +29,6 @@ Each delivery ticket must name a requirement ID, dependency, affected runtime pa
 
 ## Immediate decision
 
-Start **Upgrade 1: a complete heavyweight wrestling exchange**. Fix the anatomy/physics/rendering contract and gait/recovery alongside the shared control grammar. Then certify jab → cross → kick, timed defense, grapple → slam → get-up and rematch. Additional move counts, scenery and camera shake cannot substitute for that result. Keep existing quick play and accessible controls throughout.
+Continue **Upgrade 1: a complete heavyweight wrestling exchange**. First stabilize grounded locomotion and input-to-action response; then make contact, grapple control, lifting, throws, recoveries and post/rope/prop interactions share one readable physical contract. Certify jab → cross → kick, timed defense, grapple → slam → get-up, prop lifecycle, corner climb, rope rebound and rematch with visible evidence. Additional move counts, scenery and camera shake cannot substitute for that result. Keep quick play and accessible controls throughout.
 
-This turn creates the planning package and adds Josh as a provisional fifteenth playable roster entry; it does not implement or deploy the coming year's gameplay upgrades. Calendar windows are targets, not claims of staffing, cost, guaranteed delivery or completed gameplay.
+Calendar windows are targets, not claims of staffing, cost, guaranteed delivery or completed gameplay. The 1.4.2 Cloudflare release is an infrastructure baseline; it does not certify the still-incomplete match quality, multiplayer parity, likeness, or visual acceptance work.

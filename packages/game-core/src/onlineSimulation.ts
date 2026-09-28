@@ -24,6 +24,8 @@ export interface OnlineFighterState {
   running: boolean;
   guarding: boolean;
   phaseElapsed: number;
+  quickChainCount: number;
+  lastQuickStrikeAt: number;
   attackInstanceId: number;
   hitTargets: Set<string>;
   grappleTarget: string | null;
@@ -73,8 +75,18 @@ interface OnlineMove {
 
 const MOVES: Readonly<Record<string, OnlineMove>> = {
   jab: { id: 'jab', ...NETWORK_MOVE_TIMING.jab, stamina: 5, damage: 5.5, momentum: 7, startReach: .32, endReach: .94, colliderRadius: .11, targetRadius: .34, region: 'chest', kind: 'light' },
+  combo: { id: 'combo', anticipation: .11, active: .25, recovery: .26, stamina: 8, damage: 7, momentum: 9, startReach: .34, endReach: 1.18, colliderRadius: .13, targetRadius: .34, region: 'chest', kind: 'light' },
+  high_punch: { id: 'high_punch', anticipation: .14, active: .24, recovery: .22, stamina: 7, damage: 7, momentum: 9, startReach: .36, endReach: 1.3, colliderRadius: .13, targetRadius: .35, region: 'head', kind: 'light' },
   headbutt: { id: 'headbutt', ...NETWORK_MOVE_TIMING.headbutt, stamina: 9, damage: 9, momentum: 11, startReach: .22, endReach: .64, colliderRadius: .235, targetRadius: .235, region: 'head', kind: 'light' },
+  uppercut: { id: 'uppercut', anticipation: .3, active: .24, recovery: .34, stamina: 15, damage: 15, momentum: 15, startReach: .25, endReach: 1.22, colliderRadius: .18, targetRadius: .35, region: 'head', kind: 'heavy' },
+  heavy: { id: 'heavy', anticipation: .26, active: .16, recovery: .38, stamina: 17, damage: 13, momentum: 13, startReach: .28, endReach: 1.45, colliderRadius: .18, targetRadius: .34, region: 'head', kind: 'heavy' },
   low_kick: { id: 'low_kick', ...NETWORK_MOVE_TIMING.low_kick, stamina: 8, damage: 8, momentum: 9, startReach: .3, endReach: 1.08, colliderRadius: .14, targetRadius: .18, region: 'legs', kind: 'heavy' },
+  front_kick: { id: 'front_kick', anticipation: .22, active: .3, recovery: .36, stamina: 14, damage: 14, momentum: 14, startReach: .35, endReach: 1.65, colliderRadius: .18, targetRadius: .26, region: 'chest', kind: 'heavy' },
+  roundhouse: { id: 'roundhouse', anticipation: .3, active: .2, recovery: .48, stamina: 19, damage: 18, momentum: 18, startReach: .4, endReach: 1.82, colliderRadius: .2, targetRadius: .3, region: 'head', kind: 'heavy' },
+  high_kick: { id: 'high_kick', anticipation: .26, active: .32, recovery: .42, stamina: 16, damage: 16, momentum: 16, startReach: .36, endReach: 1.62, colliderRadius: .18, targetRadius: .32, region: 'head', kind: 'heavy' },
+  suplex: { id: 'suplex', anticipation: 1.12, active: .22, recovery: .78, stamina: 22, damage: 18, momentum: 19, startReach: .22, endReach: .56, colliderRadius: .3, targetRadius: .36, region: 'chest', kind: 'grapple' },
+  piledriver: { id: 'piledriver', anticipation: 1.52, active: .26, recovery: .82, stamina: 26, damage: 28, momentum: 26, startReach: .2, endReach: .5, colliderRadius: .32, targetRadius: .36, region: 'chest', kind: 'grapple' },
+  side_toss: { id: 'side_toss', anticipation: .86, active: .19, recovery: .58, stamina: 16, damage: 14, momentum: 16, startReach: .2, endReach: .62, colliderRadius: .28, targetRadius: .36, region: 'chest', kind: 'grapple' },
   grapple_miss: { id: 'grapple_miss', ...NETWORK_MOVE_TIMING.grapple_miss, stamina: 6, damage: 0, momentum: 0, startReach: .3, endReach: .82, colliderRadius: .18, targetRadius: .36, region: 'chest', kind: 'grapple' },
   slam: { id: 'slam', ...NETWORK_MOVE_TIMING.slam, stamina: 15, damage: 18, momentum: 20, startReach: .2, endReach: .52, colliderRadius: .32, targetRadius: .36, region: 'chest', kind: 'grapple' },
 };
@@ -83,7 +95,7 @@ const fighter = (sessionId: string, fighterId: FighterId, x: number, facing: num
   sessionId, fighterId, health: 100, stamina: 100, momentum: 0, posX: x, posZ: 0, facing,
   velocityX: 0, velocityZ: 0, combatState: 'idle', moveId: '', attackPhase: null,
   pinCount: 0, finisherPrimed: false, lastCommandSeq: 0, moveX: 0, moveZ: 0, movementLeaseUntil: 0,
-  running: false, guarding: false, phaseElapsed: 0, attackInstanceId: 0,
+  running: false, guarding: false, phaseElapsed: 0, quickChainCount: 0, lastQuickStrikeAt: -Infinity, attackInstanceId: 0,
   hitTargets: new Set(), grappleTarget: null, downTimer: 0,
 });
 
@@ -131,9 +143,10 @@ const separateFighters = (match: OnlineMatchState, minimumDistance = .62): void 
   }
 };
 
-const beginMove = (actor: OnlineFighterState, moveId: keyof typeof MOVES): boolean => {
+const beginMove = (actor: OnlineFighterState, moveId: keyof typeof MOVES, linkRecovery = false): boolean => {
   const move = MOVES[moveId];
-  if (!move || actor.stamina < move.stamina || !['idle', 'locomotion', 'blocking', 'grappling'].includes(actor.combatState)) return false;
+  const canLink = linkRecovery && actor.combatState === 'attacking' && actor.attackPhase === 'recovery';
+  if (!move || actor.stamina < move.stamina || (!canLink && !['idle', 'locomotion', 'blocking', 'grappling'].includes(actor.combatState))) return false;
   actor.stamina -= move.stamina; actor.moveId = move.id; actor.attackPhase = 'anticipation'; actor.phaseElapsed = 0;
   actor.combatState = move.id === 'grapple_miss' || move.id === 'slam' ? 'grappling' : 'attacking';
   actor.attackInstanceId += 1; actor.hitTargets.clear();
@@ -158,9 +171,27 @@ export const applyOnlineAction = (match: OnlineMatchState, sessionId: string, ev
     return true;
   }
   if (event.phase !== 'started') return true;
-  if (event.action === 'quickStrike') return beginMove(actor, z > .45 ? 'headbutt' : 'jab');
-  if (event.action === 'heavyStrike') return beginMove(actor, actor.grappleTarget ? 'slam' : 'low_kick');
-  if (event.action === 'grapple') return beginMove(actor, actor.grappleTarget ? 'slam' : 'grapple_miss');
+  if (event.action === 'quickStrike') {
+    const inChain = match.elapsed - actor.lastQuickStrikeAt <= .85;
+    const comboMoves = ['jab', 'combo', 'high_punch'] as const;
+    const chainIndex = inChain ? actor.quickChainCount % comboMoves.length : 0;
+    const moveId = z > .65 ? 'headbutt' : z < -.65 ? 'uppercut' : comboMoves[chainIndex] ?? 'jab';
+    const linked = actor.combatState === 'attacking' && actor.attackPhase === 'recovery';
+    if (!beginMove(actor, moveId, linked)) return false;
+    actor.lastQuickStrikeAt = match.elapsed;
+    actor.quickChainCount = z > .65 || z < -.65 ? 0 : chainIndex + 1;
+    return true;
+  }
+  if (event.action === 'heavyStrike') {
+    const moveId = actor.grappleTarget
+      ? z < -.65 ? 'piledriver' : x > .65 || x < -.65 ? 'side_toss' : 'slam'
+      : z < -.65 ? 'uppercut' : z > .65 ? 'front_kick' : x > .65 || x < -.65 ? 'roundhouse' : 'low_kick';
+    return beginMove(actor, moveId);
+  }
+  if (event.action === 'grapple') {
+    const moveId = actor.grappleTarget ? (x > .65 || x < -.65 ? 'suplex' : 'slam') : 'grapple_miss';
+    return beginMove(actor, moveId);
+  }
   return false;
 };
 
@@ -208,7 +239,7 @@ const resolveActiveContact = (match: OnlineMatchState, actor: OnlineFighterState
   const guarded = target.guarding && move.kind !== 'grapple'; const damage = guarded ? move.damage * .18 : move.damage;
   target.health = clamp(target.health - damage, 0, 100); actor.momentum = clamp(actor.momentum + move.momentum, 0, 100);
   match.hype = clamp(match.hype + (guarded ? 2 : move.kind === 'grapple' ? 14 : 5), 0, 100);
-  if (move.id === 'slam') {
+  if (move.kind === 'grapple') {
     actor.grappleTarget = null; target.grappleTarget = null; target.combatState = 'downed'; target.downTimer = 1.8;
   } else if (!guarded) {
     target.combatState = move.kind === 'heavy' && target.health < 55 ? 'downed' : 'staggered';

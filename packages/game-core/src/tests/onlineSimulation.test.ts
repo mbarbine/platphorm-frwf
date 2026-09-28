@@ -57,6 +57,37 @@ describe('online deterministic authority', () => {
     expect(match.fighters.get('p2')?.health).toBe(100);
   });
 
+  it('links a jab, cross, and high punch only after the prior recovery window opens', () => {
+    const match = createOnlineMatch([{ sessionId: 'p1', fighterId: 'atlas' }, { sessionId: 'p2', fighterId: 'nova' }]);
+    const p1 = match.fighters.get('p1');
+    if (!p1) throw new Error('missing player');
+    expect(applyOnlineAction(match, 'p1', action('quickStrike', 1), 1)).toBe(true);
+    expect(p1.moveId).toBe('jab');
+    expect(applyOnlineAction(match, 'p1', action('quickStrike', 2), 2)).toBe(false);
+    advance(match, .5);
+    expect(p1.attackPhase).toBe('recovery');
+    expect(applyOnlineAction(match, 'p1', action('quickStrike', 3), 3)).toBe(true);
+    expect(p1.moveId).toBe('combo');
+    advance(match, .55);
+    expect(p1.attackPhase).toBe('recovery');
+    expect(applyOnlineAction(match, 'p1', action('quickStrike', 4), 4)).toBe(true);
+    expect(p1.moveId).toBe('high_punch');
+  });
+
+  it('maps directional power inputs to a readable kick, roundhouse, or uppercut', () => {
+    const match = createOnlineMatch([{ sessionId: 'p1', fighterId: 'atlas' }, { sessionId: 'p2', fighterId: 'nova' }]);
+    const p1 = match.fighters.get('p1');
+    if (!p1) throw new Error('missing player');
+    expect(applyOnlineAction(match, 'p1', action('heavyStrike', 1, { x: 0, y: 1 }), 1)).toBe(true);
+    expect(p1.moveId).toBe('front_kick');
+    advance(match, 1.1);
+    expect(applyOnlineAction(match, 'p1', action('heavyStrike', 2, { x: 1, y: 0 }), 2)).toBe(true);
+    expect(p1.moveId).toBe('roundhouse');
+    advance(match, 1.1);
+    expect(applyOnlineAction(match, 'p1', action('heavyStrike', 3, { x: 0, y: -1 }), 3)).toBe(true);
+    expect(p1.moveId).toBe('uppercut');
+  });
+
   it('scores a visible-range jab only when its swept hand collider reaches the opponent', () => {
     const match = createOnlineMatch([{ sessionId: 'p1', fighterId: 'atlas' }, { sessionId: 'p2', fighterId: 'nova' }]);
     const p1 = match.fighters.get('p1'); const p2 = match.fighters.get('p2');

@@ -23,16 +23,21 @@ export function useHumanoidAsset(fighterId: FighterId) {
     const scene = clone(gltf.scene);
     const fit = fitHumanoid(scene, fighterId);
     const bones = new Map<BodySegmentId, Bone>();
+    const skinMaterials: MeshStandardMaterial[] = [];
     const fingers = bindFingerPoses(scene);
     scene.traverse((node) => {
       if (node instanceof Bone) {
         if (!/Thumb|Index|Middle|Ring|Little/.test(node.name)) bones.set(node.name as BodySegmentId, node);
       }
       if (node instanceof SkinnedMesh) {
-        if (node.material instanceof MeshStandardMaterial) { node.material = node.material.clone(); node.material.map = node.material.name === 'hair' ? hair : skin; node.material.roughness = node.material.name === 'hair' ? .92 : Math.max(.54, fighterVisual(fighterId).skinRoughness); }
+        if (node.material instanceof MeshStandardMaterial) {
+          node.material = node.material.clone(); node.material.map = node.material.name === 'hair' ? hair : skin;
+          node.material.roughness = node.material.name === 'hair' ? .92 : fighterVisual(fighterId).skinRoughness;
+          if (node.material.name !== 'hair') skinMaterials.push(node.material);
+        }
         node.castShadow = true; node.receiveShadow = true; node.frustumCulled = false; }
     });
-    return { scene, bones, fingers, modelScale: fit.scale, dispose: () => { fit.dispose(); scene.traverse(node => { if (node instanceof SkinnedMesh && node.material instanceof MeshStandardMaterial) node.material.dispose(); }); } };
+    return { scene, bones, fingers, skinMaterials, modelScale: fit.scale, dispose: () => { fit.dispose(); scene.traverse(node => { if (node instanceof SkinnedMesh && node.material instanceof MeshStandardMaterial) node.material.dispose(); }); } };
   }, [gltf, fighterId, skin, hair]);
   useEffect(() => () => instance.dispose(), [instance]);
   return instance;

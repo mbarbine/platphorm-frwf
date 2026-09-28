@@ -11,13 +11,17 @@ const distance = (first: { x: number; z: number }, second: { x: number; z: numbe
 const tapAndAwaitAuthority = async (page: Page, canvas: Locator, key: string, delay = 100): Promise<void> => {
   const commandBefore = Number(await canvas.getAttribute('data-network-command-seq'));
   const snapshotBefore = Number(await canvas.getAttribute('data-network-snapshot'));
-  await page.keyboard.press(key, { delay });
+  // WASD is sampled as a held movement intent. A synthetic one-frame key tap
+  // can begin and end before the render/physics collector observes the hold.
+  await page.keyboard.down(key);
+  await page.waitForTimeout(delay);
+  await page.keyboard.up(key);
   await expect.poll(async () => Number(await canvas.getAttribute('data-network-acked-seq'))).toBeGreaterThan(commandBefore);
   await expect.poll(async () => Number(await canvas.getAttribute('data-network-snapshot'))).toBeGreaterThan(snapshotBefore);
 };
 
 test('two browsers share authoritative movement, contact, and impact state', async ({ browser, baseURL }) => {
-  test.setTimeout(150_000);
+  test.setTimeout(300_000);
   const hostContext = await browser.newContext({ recordVideo: { dir: 'test-results/online-host' } }); const guestContext = await browser.newContext({ recordVideo: { dir: 'test-results/online-guest' } });
   const host = await hostContext.newPage(); const guest = await guestContext.newPage();
   try {

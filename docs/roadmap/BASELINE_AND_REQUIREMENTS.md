@@ -1,6 +1,6 @@
 # Baseline and requirements
 
-Snapshot: September 12, 2026, source `8a6abe8`. That commit adds the supplied No Mercy FAQ to `controller-map.md`; the preceding runtime release is `809deca`. Source references and prior verification records were inspected for this plan. Production was not re-probed during this documentation pass.
+Historical planning snapshot: September 12, 2026, source `8a6abe8`. Current infrastructure baseline: Cloudflare `1.4.2`, source snapshot `8c6f86e` (September 28, 2026). This does not certify gameplay quality; see the dated [execution status](EXECUTION_STATUS_2026-09-28.md) for current command evidence and limitations.
 
 ## What has been built
 
@@ -10,7 +10,7 @@ Snapshot: September 12, 2026, source `8a6abe8`. That commit adds the supplied No
 - Stamina-aware locomotion, physical jump acceptance, input interruption feedback, bone transform conversion, rope continuity and camera obstruction fixes have received work. User screenshots still show severe anatomical and motion defects.
 - Chair, wooden table and trash can from the completion pack are imported with hashed assets, bounded textures, collision metadata and shared prop rendering. Full weapon and break presentation remains unaccepted.
 - Crowd variation, signs, venue lighting/fog and showground encounters exist. The showground uses encounter transitions and local progression; it is not a seamless persistent open world.
-- Platform discovery and release identity exist. The previous handoff records `809deca` on Vercel and Cloudflare, operational Worker D1/R2 and protected room creation. The canonical host remained on Vercel. A Worker room endpoint is not connected browser multiplayer.
+- Platform discovery and release identity exist. The `1.4.2` handoff recorded Cloudflare as canonical, operational Worker D1/R2, and protected private-room provisioning. Ticket-authenticated browser WebSocket clients connect to a Durable Object, but online combat is separate from local Rapier gameplay and is not feature-parity certified.
 
 ## Evidence and limits
 
@@ -38,7 +38,7 @@ The user supplied direct failures: feet curled under bodies; weak punches and sl
 | R14 | Shared-runtime physics lab, input/contact/pose timeline and reproducible captures | partial | Lab requirements; months 1–2, then ongoing |
 | R15 | Fair AI spacing, attack commitment, recovery opportunities and difficulty | partial | Singles and multi-opponent bouts; months 2–4 |
 | R16 | Connected world, exploration, encounters, rivalries and saved progression | partial | World journeys; months 4–6 |
-| R17 | Authoritative online parity, rooms, reconnect, spectators and rematches | partial; incompatible paths | Two-client and load certification; months 7–9 |
+| R17 | Authoritative online parity, rooms, reconnect, spectators and rematches | partial; ticketed DO browser connected, combat feature gap remains | Two-client and load certification; months 7–9 |
 | R18 | Animation/mocap ingest, retargeting, paired clips, provenance and replay parity | partial | Canonical rig and clip gates; months 1–4 |
 | R19 | Sound weight, impact timing, crowd response, original footage and entrances | partial | Listening/visual review; months 2–5 |
 | R20 | Keyboard/gamepad/touch, accessibility, measured performance and XR | partial | Physical device matrix; ongoing, XR month 10 |
