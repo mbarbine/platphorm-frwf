@@ -80,7 +80,7 @@
       "vars": {
         "ENVIRONMENT": "production",
         "PUBLIC_ORIGIN": "https://frwf.ja1.io",
-        "RELEASE": "1.4.1"
+        "RELEASE": "1.4.2"
       },
       "durable_objects": {
         "bindings": [

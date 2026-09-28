@@ -20,6 +20,7 @@ cd "$repo_dir"
 # Wrangler's account selection can differ between product APIs; pin it for every call.
 export CLOUDFLARE_ACCOUNT_ID="$account_id"
 source_sha="$(git rev-parse HEAD)"
+release_version="$(node -p 'JSON.parse(require("node:fs").readFileSync("package.json", "utf8")).version')"
 workspace_state="$(git status --porcelain)"
 artifact_dir="$(mktemp -d "${TMPDIR:-/tmp}/frwf-cloudflare.XXXXXX")"
 trap 'rm -rf "$artifact_dir"' EXIT
@@ -82,6 +83,8 @@ const original = JSON.parse(fs.readFileSync(`${repo}/cloudflare/wrangler.jsonc`,
 const config = { ...original, ...original.env.production };
 delete config.env;
 delete config.$schema;
+const packageVersion = JSON.parse(fs.readFileSync(`${repo}/package.json`, 'utf8')).version;
+if (config.vars?.RELEASE !== packageVersion) throw new Error(`Cloudflare production RELEASE must match package version ${packageVersion}.`);
 config.main = `${artifact}/worker/index.js`;
 config.assets = { ...config.assets, directory: `${artifact}/assets` };
 config.vars = { ...config.vars, SOURCE_SHA: sha };
@@ -116,7 +119,7 @@ curl_domain=(--silent --show-error --fail --max-time 20 --resolve "frwf.ja1.io:4
 health_json=''
 for attempt in {1..24}; do
   if health_json="$(curl "${curl_domain[@]}" "$public_origin/api/health" 2>/dev/null)"; then
-    if EXPECTED_SOURCE_SHA="$source_sha" node --input-type=module -e 'let s="";for await(const c of process.stdin)s+=c;const body=JSON.parse(s);if(!body.ok||body.data.environment!=="production"||body.data.gitSha!==process.env.EXPECTED_SOURCE_SHA)process.exit(1)' <<<"$health_json"
+    if EXPECTED_SOURCE_SHA="$source_sha" EXPECTED_RELEASE="$release_version" node --input-type=module -e 'let s="";for await(const c of process.stdin)s+=c;const body=JSON.parse(s);if(!body.ok||body.data.environment!=="production"||body.data.gitSha!==process.env.EXPECTED_SOURCE_SHA||body.data.version!==process.env.EXPECTED_RELEASE)process.exit(1)' <<<"$health_json"
     then break; fi
   fi
   sleep 5
@@ -126,4 +129,4 @@ if [[ -z "$health_json" ]]; then echo 'Production health endpoint did not become
 page_html="$(curl "${curl_domain[@]}" "$public_origin/")"
 asset_path="$(node --input-type=module -e 'let s="";for await(const c of process.stdin)s+=c;const p=s.match(/src="([^\"]+\.js)"/)?.[1];if(!p)process.exit(1);process.stdout.write(p)' <<<"$page_html")"
 content_type="$(curl "${curl_domain[@]}" -o /dev/null -w '%{content_type}' "$public_origin$asset_path")"
-EXPECTED_SOURCE_SHA="$source_sha" EXPECTED_CONTENT_TYPE="$content_type" node --input-type=module -e 'let s="";for await(const c of process.stdin)s+=c;const body=JSON.parse(s);const contentType=process.env.EXPECTED_CONTENT_TYPE??"";if(!body?.ok||body.data.environment!=="production"||body.data.gitSha!==process.env.EXPECTED_SOURCE_SHA)throw new Error("Production deployment identity does not match the release");if(body.data.databaseStatus!=="operational"||body.data.assetStatus!=="operational")throw new Error("Production D1 or R2 probe is unhealthy");if(body.data.status!=="operational")throw new Error(`Production backend is degraded (auth: ${body.data.authStatus}); configure the Worker secret PLATPHORM_API_KEY before enabling room creation.`);if(!contentType.includes("javascript"))throw new Error("Game JavaScript asset is unavailable");console.log(JSON.stringify({origin:"https://frwf.ja1.io",status:body.data.status,databaseStatus:body.data.databaseStatus,assetStatus:body.data.assetStatus,authStatus:body.data.authStatus,gitSha:body.data.gitSha,multiplayerRuntime:"MatchRoom Durable Object deployed"},null,2));' <<<"$health_json"
+EXPECTED_SOURCE_SHA="$source_sha" EXPECTED_RELEASE="$release_version" EXPECTED_CONTENT_TYPE="$content_type" node --input-type=module -e 'let s="";for await(const c of process.stdin)s+=c;const body=JSON.parse(s);const contentType=process.env.EXPECTED_CONTENT_TYPE??"";if(!body?.ok||body.data.environment!=="production"||body.data.gitSha!==process.env.EXPECTED_SOURCE_SHA||body.data.version!==process.env.EXPECTED_RELEASE)throw new Error("Production deployment identity does not match the application release");if(body.data.databaseStatus!=="operational"||body.data.assetStatus!=="operational")throw new Error("Production D1 or R2 probe is unhealthy");if(body.data.status!=="operational")throw new Error(`Production backend is degraded (auth: ${body.data.authStatus}); configure the Worker secret PLATPHORM_API_KEY before enabling room creation.`);if(!contentType.includes("javascript"))throw new Error("Game JavaScript asset is unavailable");console.log(JSON.stringify({origin:"https://frwf.ja1.io",release:body.data.version,status:body.data.status,databaseStatus:body.data.databaseStatus,assetStatus:body.data.assetStatus,authStatus:body.data.authStatus,gitSha:body.data.gitSha,multiplayerRuntime:"MatchRoom Durable Object deployed"},null,2));' <<<"$health_json"
