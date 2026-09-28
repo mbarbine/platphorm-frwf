@@ -8,7 +8,8 @@ import type { Env } from './env';
 interface Seat { id: string; role: 'player1' | 'player2'; tokenHash: string; fighterId: FighterId; ready: boolean; rematch: boolean; disconnectedAt: number | null; lastSeen: number; lastSeq: number }
 interface SavedRoom {
   id: string; createdAt: number; expiresAt: number; ruleset: 'standard' | 'chaos'; seats: Seat[];
-  phase: 'lobby' | 'active' | 'result'; round: number; snapshotSeq: number;
+  hostSessionId: string | null;
+  phase: 'lobby' | 'active' | 'result' | 'closed'; round: number; snapshotSeq: number;
   model: string | null; result: MatchResultMessage | null; persisted: boolean; completedAt: string | null;
 }
 // Serialize the complete authoritative model, including attack deduplication.
@@ -31,12 +32,12 @@ export class MatchRoom extends DurableObject<Env> {
     if (this.room?.phase === 'active') this.startClock();
   }
 
-  async initialize(id: string, ruleset: 'standard' | 'chaos') {
+  async initialize(id: string, ruleset: 'standard' | 'chaos', hostFighterId: FighterId = 'atlas') {
     if (this.room) throw new Error('Room already exists');
     const tokens = [crypto.randomUUID().replaceAll('-', '') + crypto.randomUUID().replaceAll('-', ''), crypto.randomUUID().replaceAll('-', '') + crypto.randomUUID().replaceAll('-', '')];
     const now = Date.now();
-    const seats: Seat[] = await Promise.all(tokens.map(async (token, index) => ({ id: crypto.randomUUID(), role: index === 0 ? 'player1' as const : 'player2' as const, tokenHash: await digest(token), fighterId: index === 0 ? 'atlas' as const : 'nova' as const, ready: false, rematch: false, disconnectedAt: now, lastSeen: now, lastSeq: 0 })));
-    this.room = { id, createdAt: now, expiresAt: now + 3600000, ruleset, seats, phase: 'lobby', round: 0, snapshotSeq: 0, model: null, result: null, persisted: true, completedAt: null };
+    const seats: Seat[] = await Promise.all(tokens.map(async (token, index) => ({ id: crypto.randomUUID(), role: index === 0 ? 'player1' as const : 'player2' as const, tokenHash: await digest(token), fighterId: index === 0 ? hostFighterId : 'nova' as const, ready: false, rematch: false, disconnectedAt: now, lastSeen: now, lastSeq: 0 })));
+    this.room = { id, createdAt: now, expiresAt: now + 3600000, ruleset, seats, hostSessionId: seats[0]?.id ?? null, phase: 'lobby', round: 0, snapshotSeq: 0, model: null, result: null, persisted: true, completedAt: null };
     this.save(); await this.ctx.storage.setAlarm(now + 60000);
     return { roomId: id, expiresAt: this.room.expiresAt, tickets: tokens.map((ticket, index) => ({ role: seats[index]?.role, ticket })) };
   }
@@ -72,6 +73,14 @@ export class MatchRoom extends DurableObject<Env> {
     const parsed = clientMessage.safeParse(json); if (!parsed.success) { this.send(socket, { type: 'error', code: 'invalid_message' }); return; }
     const message = parsed.data; seat.lastSeen = Date.now();
     if (message.type === 'ping') { this.send(socket, { type: 'pong', clientTimestamp: message.clientTimestamp, serverTimestamp: Date.now() }); return; }
+    if (message.type === 'leave') { this.leaveSeat(seat); return; }
+    if (message.type === 'hostSettings' && this.room.phase === 'lobby' && this.room.hostSessionId === seat.id) {
+      const successor = this.room.seats.find(candidate => candidate.id !== seat.id && this.isConnected(candidate.id));
+      if (!successor) { this.closeRoom(); return; }
+      this.room.ruleset = message.ruleset;
+      this.room.hostSessionId = successor.id;
+      this.save(); this.broadcastState(); return;
+    }
     if (message.type === 'command') {
       const accepted = this.room.phase === 'active' && !!this.model && message.seq > seat.lastSeq && message.seq === message.event.sequence
         && applyOnlineAction(this.model, seat.id, message.event, message.seq);
@@ -90,7 +99,7 @@ export class MatchRoom extends DurableObject<Env> {
     const attachment = socket.deserializeAttachment() as { seatId: string };
     if (this.ctx.getWebSockets(attachment.seatId).some(other => other !== socket && other.readyState === 1)) return;
     const seat = this.room?.seats.find(candidate => candidate.id === attachment.seatId);
-    if (seat) { seat.disconnectedAt = Date.now(); seat.ready = false; seat.rematch = false; this.save(); }
+    if (seat) { seat.disconnectedAt = Date.now(); seat.ready = false; seat.rematch = false; this.transferHostOrClose(seat); this.save(); this.broadcastState(); }
     socket.close(1000, 'Closed');
   }
   webSocketError(socket: WebSocket) { this.webSocketClose(socket); }
@@ -102,6 +111,33 @@ export class MatchRoom extends DurableObject<Env> {
     for (const seat of room.seats) { const fighter = this.model.fighters.get(seat.id); if (fighter) fighter.lastCommandSeq = seat.lastSeq; seat.rematch = false; }
     room.round++; room.phase = 'active'; room.result = null; room.completedAt = null; room.persisted = false;
     this.save(); this.startClock();
+  }
+
+  private isConnected(sessionId: string): boolean {
+    return this.ctx.getWebSockets(sessionId).some(socket => socket.readyState === 1);
+  }
+
+  private leaveSeat(seat: Seat) {
+    if (!this.room) return;
+    seat.disconnectedAt = Date.now(); seat.ready = false; seat.rematch = false;
+    // Invalidate the old link on an explicit leave; a new host must issue a new room.
+    seat.tokenHash = '';
+    this.transferHostOrClose(seat); this.save(); this.broadcastState();
+    for (const socket of this.ctx.getWebSockets(seat.id)) socket.close(1000, 'Player left');
+  }
+
+  private transferHostOrClose(departing: Seat) {
+    const room = this.room; if (!room || room.hostSessionId !== departing.id) return;
+    const successor = room.seats.find(candidate => candidate.id !== departing.id && candidate.disconnectedAt === null && this.isConnected(candidate.id));
+    if (successor) room.hostSessionId = successor.id;
+    else this.closeRoom();
+  }
+
+  private closeRoom() {
+    if (!this.room) return;
+    this.room.phase = 'closed'; this.room.hostSessionId = null; this.room.expiresAt = Date.now(); this.save(); this.broadcastState();
+    for (const socket of this.ctx.getWebSockets()) socket.close(1000, 'Room closed');
+    void this.ctx.storage.setAlarm(Date.now());
   }
 
   private startClock() {
@@ -170,7 +206,7 @@ export class MatchRoom extends DurableObject<Env> {
   private broadcast(message: unknown) { for (const socket of this.ctx.getWebSockets()) this.send(socket, message); }
   private broadcastState() {
     if (!this.room) return;
-    this.broadcast({ type: 'roomState', phase: this.room.phase, roles: this.room.seats.map(({ id, role }) => ({ sessionId: id, role })), fighters: this.room.seats.map(({ id, fighterId }) => ({ sessionId: id, definitionId: fighterId })) });
+    this.broadcast({ type: 'roomState', phase: this.room.phase, hostSessionId: this.room.hostSessionId, roles: this.room.seats.map(({ id, role }) => ({ sessionId: id, role })), fighters: this.room.seats.map(({ id, fighterId }) => ({ sessionId: id, definitionId: fighterId })) });
   }
   private broadcastSnapshot() {
     if (!this.room || !this.model) return;

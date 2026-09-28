@@ -43,6 +43,7 @@ export function App() {
   const [beers, setBeers] = useState(0);
   const [runtimePreload, setRuntimePreload] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [joinRoomId, setJoinRoomId] = useState('');
+  const [multiplayerError, setMultiplayerError] = useState('');
 
   const physicsLab = new URLSearchParams(window.location.search).get('physicsLab') === '1';
   const toyTest = new URLSearchParams(window.location.search).get('toyTest') === '1';
@@ -91,6 +92,9 @@ export function App() {
   const multiplayerStatus = useMultiplayerStore((state) => state.status);
   const multiplayerRoomPhase = useMultiplayerStore((state) => state.roomPhase);
   const multiplayerRoomId = useMultiplayerStore((state) => state.roomId);
+  const multiplayerJoinInvite = useMultiplayerStore((state) => state.joinInvite);
+  const multiplayerHostSessionId = useMultiplayerStore((state) => state.hostSessionId);
+  const multiplayerSessionId = useMultiplayerStore((state) => state.sessionId);
   const multiplayerMyRole = useMultiplayerStore((state) => state.myRole);
   const multiplayerRoles = useMultiplayerStore((state) => state.roles);
   const multiplayerFightersMap = useMultiplayerStore((state) => state.fighters);
@@ -342,7 +346,7 @@ export function App() {
       <div className="section-heading"><span>CONNECT WITH RIVALS</span><h2>ONLINE MULTIPLAYER</h2></div>
 
       {multiplayerStatus === 'disconnected' && <div className="multiplayer-lobby__setup" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', width: '100%', maxWidth: '640px', margin: '0 auto' }}>
-        <p style={{ textAlign: 'center', margin: 0, color: '#aaa' }}>Join a private Cloudflare match with its secure invitation. Public matchmaking is not enabled yet.</p>
+        <p style={{ textAlign: 'center', margin: 0, color: '#aaa' }}>Host a private match for free, then share your one-seat invitation. No account or platform key needed.</p>
 
         <div className="versus" style={{ padding: '1rem', background: 'rgba(0,0,0,0.5)', borderRadius: '8px' }}>
           <div>
@@ -356,7 +360,12 @@ export function App() {
         <div className="option-grid" style={{ marginTop: '1rem' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', padding: '1.5rem', background: 'rgba(255,255,255,0.03)', borderRadius: '8px' }}>
             <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#7000ff' }}>HOST MATCH</h3>
-            <p style={{ margin: 0, color: '#aaa', lineHeight: 1.5 }}>Room provisioning is restricted to protect the platform key. Ask the operator for a private, one-seat invitation.</p>
+            <p style={{ margin: 0, color: '#aaa', lineHeight: 1.5 }}>Create a room and get a private link for your rival. If you leave, host control passes to the other player.</p>
+            <button className="button" onClick={async () => {
+              setMultiplayerError(''); audioEngine.play('confirm', settings);
+              try { await useMultiplayerStore.getState().createPrivateRoom({ fighterId: selected }); }
+              catch (error) { setMultiplayerError(error instanceof Error ? error.message : 'Could not host a match.'); }
+            }}>HOST A MATCH</button>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', padding: '1.5rem', background: 'rgba(255,255,255,0.03)', borderRadius: '8px' }}>
@@ -394,6 +403,7 @@ export function App() {
           </div>
         </div>
 
+        {multiplayerError && <p role="alert" style={{ margin: 0, color: '#ff819d', textAlign: 'center' }}>{multiplayerError}</p>}
       </div>}
 
       {multiplayerStatus === 'connecting' && <div className="multiplayer-lobby__loading" style={{ textAlign: 'center', padding: '3rem' }}>
@@ -412,6 +422,7 @@ export function App() {
       {multiplayerStatus === 'connected' && (() => {
         const p1State = getFighterByRole('player1');
         const p2State = getFighterByRole('player2');
+        const hostRole = [...multiplayerRoles].find(([sessionId]) => sessionId === multiplayerHostSessionId)?.[1];
         const p1FighterId = p1State && p1State.definitionId ? (p1State.definitionId as FighterId) : null;
         const p2FighterId = p2State && p2State.definitionId ? (p2State.definitionId as FighterId) : null;
         return <div className="multiplayer-lobby__connected" style={{ width: '100%', maxWidth: '640px', margin: '0 auto' }}>
@@ -419,29 +430,39 @@ export function App() {
             <div>
               <span>ROOM MATCHMAKER</span>
               <b style={{ color: '#00ffaa' }}>CONNECTION ESTABLISHED</b>
-              <small>Secure room connected. Each player needs a separate private invitation.</small>
+              <small>Private match · host control follows the connected players.</small>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem' }}>
-                <span style={{ fontSize: '0.8rem', color: '#888' }}>ROOM ID · NOT A JOIN CODE</span>
+                <span style={{ fontSize: '0.8rem', color: '#888' }}>ROOM ID · SHARE THE INVITE LINK</span>
               <strong data-testid="multiplayer-room-code" style={{ fontSize: '1.8rem', color: '#ff007b', letterSpacing: '4px', fontFamily: 'monospace' }}>{multiplayerRoomId}</strong>
+              {multiplayerJoinInvite && <button className="button button--quiet" onClick={async () => {
+                try { await navigator.clipboard.writeText(multiplayerJoinInvite); }
+                catch { setMultiplayerError('Clipboard unavailable. Copy the invitation from the browser address bar after opening it.'); }
+              }}>COPY CHALLENGER INVITE</button>}
             </div>
           </div>
 
           <div className="versus">
             <div>
-              <span style={{ color: '#00ccff' }}>PLAYER 1 (HOST)</span>
+              <span style={{ color: '#00ccff' }}>{hostRole === 'player1' ? 'PLAYER 1 (HOST)' : 'PLAYER 1'}</span>
               <b>{p1FighterId ? fighterById(p1FighterId).name : 'WAITING...'}</b>
               <small>{p1FighterId ? 'Ready to rumble' : 'Awaiting selection'}</small>
             </div>
             <strong>VS</strong>
             <div>
-              <span style={{ color: '#ff0055' }}>PLAYER 2 (CHALLENGER)</span>
+              <span style={{ color: '#ff0055' }}>{hostRole === 'player2' ? 'PLAYER 2 (HOST)' : 'PLAYER 2'}</span>
               <b>{p2FighterId ? fighterById(p2FighterId).name : 'AWAITING OPPONENT...'}</b>
               <small>{p2FighterId ? 'Ready to rumble' : 'Awaiting join'}</small>
             </div>
           </div>
 
           <div style={{ marginTop: '2rem', display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center' }}>
+            {multiplayerMyRole && multiplayerSessionId === multiplayerHostSessionId && multiplayerRoomPhase === 'lobby' && <label>HOST RULESET · changing it hands host control to your rival{' '}
+              <select aria-label="Host ruleset" value={rules} onChange={event => {
+                const next = event.target.value as Ruleset; setRules(next);
+                useMultiplayerStore.getState().updateRoomSettings(next);
+              }}><option value="standard">STANDARD</option><option value="chaos">CHAOS</option></select>
+            </label>}
             {multiplayerMyRole !== 'spectator' && <div style={{ display: 'flex', gap: '1.5rem' }}>
               <button className="button" onClick={() => {
                 const currentIndex = FIGHTERS.findIndex(f => f.id === selected);

@@ -63,7 +63,7 @@ const ORIGINAL_VISUALS: Readonly<Record<'atlas' | 'vex' | 'nova' | 'brick' | 'da
 export const FIGHTER_VISUALS: Readonly<Record<FighterId, FighterVisualProfile>> = { ...ORIGINAL_VISUALS,
   josh: { ...ORIGINAL_VISUALS.brick, hairColor: '#786044', browColor: '#786044', waistScale: .98, motionTempo: 1 },
   chelsea: {
-    ...ORIGINAL_VISUALS.vex, attire: 'striker', hair: 'longFlow',
+    ...ORIGINAL_VISUALS.vex, attire: 'brawler', hair: 'longFlow',
     chestScale: .92, waistScale: .79, shoulderScale: .9, armScale: .88, thighScale: .97, calfScale: .93, bootScale: .92,
     headScale: [.98, 1.05, .95], stanceWidth: .92, motionTempo: .94, stepWeight: .78, guardHeight: 1.06,
     hairColor: '#bd8050', browColor: '#765039', eyeColor: '#758567', soleColor: '#b7a7a0',

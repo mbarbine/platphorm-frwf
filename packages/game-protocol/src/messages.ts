@@ -43,12 +43,23 @@ export interface PauseMessage extends BaseClientMessage {
   paused: boolean;
 }
 
+/** A host-only lobby settings change yields host authority to the other seat. */
+export interface HostSettingsMessage extends BaseClientMessage {
+  type: 'hostSettings';
+  ruleset: 'standard' | 'chaos';
+}
+
+/** Explicitly relinquishes a seat; reconnecting requires a fresh invitation. */
+export interface LeaveMessage extends BaseClientMessage { type: 'leave'; }
+
 export type ClientMessage =
   | SelectFighterMessage
   | ReadyMessage
   | CommandMessage
   | RematchMessage
-  | PauseMessage;
+  | PauseMessage
+  | HostSettingsMessage
+  | LeaveMessage;
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Server → Client messages
@@ -65,9 +76,10 @@ export interface CommandAckMessage {
 /** Explicit room lifecycle/roster state, requested after client listeners attach. */
 export interface RoomStateMessage {
   type: 'roomState';
-  phase: 'lobby' | 'selection' | 'countdown' | 'active' | 'result';
+  phase: 'lobby' | 'selection' | 'countdown' | 'active' | 'result' | 'closed';
   roles: ReadonlyArray<{ sessionId: string; role: 'player1' | 'player2' | 'spectator' }>;
   fighters: ReadonlyArray<{ sessionId: string; definitionId: FighterId }>;
+  hostSessionId: string | null;
 }
 
 /** Server sends a compact match snapshot at the configured rate (~15–20 Hz). */

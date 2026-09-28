@@ -73,8 +73,17 @@ export class ColyseusClient {
   async joinRoom(_roomName: string, _options: { fighterId?: string } = {}): Promise<void> {
     throw new Error('Room names are not join codes. Use the room ID and private ticket from your invitation.');
   }
-  async createPrivateRoom(_options: { fighterId?: string; ruleset?: string } = {}): Promise<string> {
-    throw new Error('Room creation requires the protected operator API. Ask an operator for a private room invitation.');
+  async createPrivateRoom(options: { fighterId?: string; ruleset?: string } = {}): Promise<{ roomId: string; joinInvite: string }> {
+    if (!this.options.serverUrl) throw new Error('The Cloudflare match service is not configured for this environment.');
+    const endpoint = new URL('/api/rooms', this.options.serverUrl);
+    const response = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fighterId: options.fighterId ?? 'atlas', ruleset: options.ruleset ?? 'standard' }) });
+    const payload = await response.json() as { ok?: boolean; data?: { roomId?: string; hostInvite?: string; joinInvite?: string }; error?: { code?: string } };
+    if (!response.ok || !payload.ok || !payload.data?.roomId || !payload.data.hostInvite || !payload.data.joinInvite) {
+      throw new Error(payload.error?.code === 'room_host_rate_limited' ? 'Too many matches were hosted from this connection. Try again in a minute.' : 'Could not host a match. Check your connection and try again.');
+    }
+    await this.joinByRoomId(payload.data.hostInvite);
+    return { roomId: payload.data.roomId, joinInvite: payload.data.joinInvite };
   }
 
   async joinByRoomId(inviteOrUrl: string, _options: { fighterId?: string } = {}): Promise<void> {
@@ -112,7 +121,9 @@ export class ColyseusClient {
 
   async leave(_consented = true): Promise<void> {
     this.intentionalLeave = true;
-    const socket = this.socket; this.socket = null;
+    const socket = this.socket;
+    if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: 'leave', protocolVersion: PROTOCOL_VERSION }));
+    this.socket = null;
     if (socket && socket.readyState < WebSocket.CLOSING) socket.close(1000, 'Player left');
     this.roomIdValue = undefined; this.sessionIdValue = undefined;
     this.setStatus('disconnected');
@@ -130,6 +141,7 @@ export class ColyseusClient {
     this.send(msg); return this.commandSeq;
   }
   voteRematch(): void { this.send({ type: 'rematch', protocolVersion: PROTOCOL_VERSION }); }
+  updateRoomSettings(ruleset: 'standard' | 'chaos'): void { this.send({ type: 'hostSettings', ruleset, protocolVersion: PROTOCOL_VERSION }); }
 
   get roomId(): string | undefined { return this.roomIdValue; }
   get sessionId(): string | undefined { return this.sessionIdValue; }

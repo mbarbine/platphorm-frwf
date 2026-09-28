@@ -42,7 +42,7 @@ function openapi(env: Env) {
   return { openapi: '3.1.0', info: { title: 'RINGFALL game backend', version: env.RELEASE }, servers: [{ url: env.PUBLIC_ORIGIN }],
     paths: Object.fromEntries([
       ...paths.map(path => [path, { get: { responses: { '200': { description: 'Public read-only result' }, '503': { description: 'Dependency unavailable' } } } }]),
-      ['/api/rooms', { post: { security: [{ platformBearer: [] }, { platformKey: [] }], requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', additionalProperties: false, properties: { ruleset: { enum: ['standard', 'chaos'] } } } } } }, responses: { '201': { description: 'Room and two scoped player tickets. Keep tickets private.' }, '401': { description: 'PLATPHORM_API_KEY required' }, '429': { description: 'Rate limited' }, '503': { description: 'Not configured' } } } }],
+      ['/api/rooms', { post: { description: 'Host a private match from the game client. The browser origin must match the production origin. Each returned invitation grants a single seat; no platform API key is used.', requestBody: { required: true, content: { 'application/json': { schema: { type: 'object', additionalProperties: false, properties: { ruleset: { enum: ['standard', 'chaos'] }, fighterId: { enum: gameInfo.fighters } } } } } }, responses: { '201': { description: 'Host and challenger links with scoped seat tickets. Treat both as bearer invitations.' }, '403': { description: 'Origin is not allowed' }, '429': { description: 'Rate limited' }, '503': { description: 'Room service unavailable' } } } }],
     ]),
     components: { securitySchemes: { platformBearer: { type: 'http', scheme: 'bearer', description: 'PLATPHORM_API_KEY' }, platformKey: { type: 'apiKey', in: 'header', name: 'X-PlatPhorm-API-Key', description: 'PLATPHORM_API_KEY' } } },
   };
@@ -105,9 +105,21 @@ async function route(request: Request, env: Env): Promise<Response> {
     return results.length ? Response.json(Array.isArray(body) ? results : results[0]) : new Response(null, { status: 204 });
   }
   if (request.method === 'POST' && path === '/api/rooms') {
-    await authorize(request, env);
+    if (!origin || origin !== env.PUBLIC_ORIGIN) throw new HttpError(403, 'origin_required');
+    if (!env.DB) throw new HttpError(503, 'database_not_configured');
+    const clientAddress = request.headers.get('CF-Connecting-IP') ?? 'unknown';
+    const bucket = `room:${(await digest(clientAddress)).slice(0, 40)}`;
+    const minute = Math.floor(Date.now() / 60000);
+    const rate = await env.DB.prepare('INSERT INTO operator_rate_limits(bucket,window,count) VALUES (?, ?, 1) ON CONFLICT(bucket) DO UPDATE SET window=excluded.window,count=CASE WHEN window=excluded.window THEN count+1 ELSE 1 END RETURNING count').bind(bucket, minute).first<{ count: number }>();
+    if (!rate || rate.count > 4) throw new HttpError(429, 'room_host_rate_limited');
     const options = roomOptions.safeParse(await readJson(request)); if (!options.success) throw new HttpError(400, 'invalid_room_options');
-    const id = crypto.randomUUID(); return ok(await env.MATCHES.getByName(id).initialize(id, options.data.ruleset), 201);
+    const id = crypto.randomUUID();
+    const created = await env.MATCHES.getByName(id).initialize(id, options.data.ruleset, options.data.fighterId);
+    const invite = (ticket: string) => `${env.PUBLIC_ORIGIN}/#room=${id}.${ticket}`;
+    const hostTicket = created.tickets.find(seat => seat.role === 'player1')?.ticket;
+    const guestTicket = created.tickets.find(seat => seat.role === 'player2')?.ticket;
+    if (!hostTicket || !guestTicket) throw new HttpError(503, 'room_ticket_unavailable');
+    return ok({ roomId: id, expiresAt: created.expiresAt, hostInvite: invite(hostTicket), joinInvite: invite(guestTicket) }, 201);
   }
   if (request.method === 'POST' && path === '/api/maps/publish') {
     await authorize(request, env); if (!env.DB) throw new HttpError(503, 'database_not_configured');
@@ -145,11 +157,11 @@ async function route(request: Request, env: Env): Promise<Response> {
     return new Response(object.body, { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=31536000, immutable', ETag: object.httpEtag } });
   }
   if (path === '/api/openapi.json' || path === '/openapi.yaml') return Response.json(openapi(env), { headers: { 'Content-Type': path.endsWith('.yaml') ? 'application/yaml' : 'application/json' } });
-  if (path === '/api' || path === '/api/docs') return ok({ product: gameInfo.name, routes: paths, openapi: '/api/openapi.json', protected: ['/api/rooms', '/api/maps/publish'], websocket: { path: '/api/rooms/{roomId}/socket', protocols: ['frwf-v1', 'operator-issued player ticket'], heartbeatSeconds: 10, resumeSeconds: 30 }, limitations: gameInfo.online.limitations });
+  if (path === '/api' || path === '/api/docs') return ok({ product: gameInfo.name, routes: paths, openapi: '/api/openapi.json', protected: ['/api/maps/publish'], publicScopedActions: ['/api/rooms'], websocket: { path: '/api/rooms/{roomId}/socket', protocols: ['frwf-v1', 'single-seat invite ticket'], heartbeatSeconds: 10, resumeSeconds: 30 }, limitations: gameInfo.online.limitations });
   if (path === '/api/mcp' || path === '/.well-known/mcp.json') return ok({ name: 'RINGFALL game backend', endpoint: '/api/mcp', transport: 'JSON-RPC 2.0', tools, auth: 'public read-only introspection; room creation is a protected REST operation' });
-  if (path === '/.well-known/trust.json') return ok({ policy, auth: 'PLATPHORM_API_KEY', trustedDomains: ['*.platphormnews.com', 'frwf.ja1.io'], browserOrigin: env.PUBLIC_ORIGIN, publicReadAccess: true, protectedActions: ['room creation', 'map publication'], delegatedAccess: 'A room ticket authorizes one player seat for one hour; never exposes the platform key.', dataExposure: 'No player identity, IP, raw command body or credentials in public discovery.', unsupported: ['trace export', 'report generation', 'telemetry ingestion', 'public matchmaking'] });
+  if (path === '/.well-known/trust.json') return ok({ policy, auth: 'PLATPHORM_API_KEY', trustedDomains: ['*.platphormnews.com', 'frwf.ja1.io'], browserOrigin: env.PUBLIC_ORIGIN, publicReadAccess: true, protectedActions: ['map publication'], scopedPublicActions: ['rate-limited room hosting; invitation tickets grant one player seat'], delegatedAccess: 'A room invitation authorizes one player seat for up to one hour; it never exposes the platform key.', dataExposure: 'No player identity, IP, raw command body or credentials in public discovery.', unsupported: ['trace export', 'report generation', 'telemetry ingestion', 'public matchmaking'] });
   if (path === '/.well-known/agents.json' || path === '/.well-known/ai-plugin.json' || path === '/llms-index.json') return ok({ name: gameInfo.name, canonicalUrl: gameInfo.canonicalUrl, api: '/api/docs', mcp: '/api/mcp', capabilities: tools.map(tool => tool.name), game: gameInfo });
-  if (path === '/llms.txt' || path === '/llms-full.txt') return new Response(`# ${gameInfo.name}\n\nCloudflare serves the game and its private-room backend. Consult health for configured storage and auth. Online matches use the ticket-authenticated Durable Object WebSocket; protected operator provisioning issues separate seat invitations.\n\n- [Game](${gameInfo.canonicalUrl})\n- [API](/api/docs)\n- [Health](/api/health)\n- [MCP](/api/mcp)\n\n## Local game\n${JSON.stringify(gameInfo.local)}\n\n## Online limitations\n${gameInfo.online.limitations.join('\n')}\n`, { headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
+  if (path === '/llms.txt' || path === '/llms-full.txt') return new Response(`# ${gameInfo.name}\n\nCloudflare serves the game and its multiplayer Durable Object. Players can host a rate-limited private room without a platform key and share the challenger invitation. Seat tickets authorize one player and are kept in the URL fragment. The remaining player receives host authority when the host leaves or changes lobby settings.\n\n- [Game](${gameInfo.canonicalUrl})\n- [API](/api/docs)\n- [Health](/api/health)\n- [MCP](/api/mcp)\n\n## Local game\n${JSON.stringify(gameInfo.local)}\n\n## Online limitations\n${gameInfo.online.limitations.join('\n')}\n`, { headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
   if (path === '/robots.txt') return new Response(`User-agent: *\nAllow: /\nSitemap: ${env.PUBLIC_ORIGIN}/sitemap.xml\n`);
   if (path === '/.well-known/security.txt') return new Response('Contact: https://github.com/mbarbine/platphorm-frwf/security\nExpires: 2027-09-07T00:00:00Z\n');
   if (path === '/sitemap.xml' || path === '/sitemap-index.xml') return new Response(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${gameInfo.canonicalUrl}</loc></url></urlset>`, { headers: { 'Content-Type': 'application/xml' } });

@@ -20,6 +20,8 @@ export interface MultiplayerState {
   status: ConnectionStatus;
   roomId: string | null;
   sessionId: string | null;
+  joinInvite: string | null;
+  hostSessionId: string | null;
   myRole: 'player1' | 'player2' | 'spectator' | null;
 
   // Room phase (mirrored from server state)
@@ -50,6 +52,7 @@ export interface MultiplayerState {
   ready: () => void;
   sendAction: (event: ActionEvent) => void;
   voteRematch: () => void;
+  updateRoomSettings: (ruleset: 'standard' | 'chaos') => void;
 }
 
 export const useMultiplayerStore = create<MultiplayerState>((set) => {
@@ -89,6 +92,7 @@ export const useMultiplayerStore = create<MultiplayerState>((set) => {
       roomState.roles.forEach(({ sessionId, role }) => roles.set(sessionId, role));
       return {
         roomPhase: roomState.phase,
+        hostSessionId: roomState.hostSessionId,
         ...(roomState.phase === 'active' ? { matchResult: null } : {}),
         fighters,
         roles,
@@ -104,6 +108,8 @@ export const useMultiplayerStore = create<MultiplayerState>((set) => {
     status: 'disconnected',
     roomId: null,
     sessionId: null,
+    joinInvite: null,
+    hostSessionId: null,
     myRole: null,
     roomPhase: 'lobby',
     fighters: new Map(),
@@ -126,13 +132,13 @@ export const useMultiplayerStore = create<MultiplayerState>((set) => {
 
     async disconnect() {
       await colyseusClient.leave();
-      set({ roomId: null, sessionId: null, myRole: null, status: 'disconnected', fighters: new Map(), roles: new Map(), roomPhase: 'lobby', lastCommandSeq: 0, lastAckedSeq: 0, lastSnapshotSeq: 0, serverElapsed: 0, serverHype: 0, serverAnnouncement: null, lastImpact: null, matchResult: null });
+      set({ roomId: null, sessionId: null, joinInvite: null, hostSessionId: null, myRole: null, status: 'disconnected', fighters: new Map(), roles: new Map(), roomPhase: 'lobby', lastCommandSeq: 0, lastAckedSeq: 0, lastSnapshotSeq: 0, serverElapsed: 0, serverHype: 0, serverAnnouncement: null, lastImpact: null, matchResult: null });
     },
 
     async createPrivateRoom(options = {}) {
-      const id = await colyseusClient.createPrivateRoom(options);
-      set({ roomId: id, sessionId: colyseusClient.sessionId ?? null });
-      return id;
+      const created = await colyseusClient.createPrivateRoom(options);
+      set({ roomId: created.roomId, joinInvite: created.joinInvite, sessionId: colyseusClient.sessionId ?? null });
+      return created.roomId;
     },
 
     async joinByRoomId(roomId, options = {}) {
@@ -149,5 +155,6 @@ export const useMultiplayerStore = create<MultiplayerState>((set) => {
     },
 
     voteRematch() { colyseusClient.voteRematch(); },
+    updateRoomSettings(ruleset) { colyseusClient.updateRoomSettings(ruleset); },
   };
 });

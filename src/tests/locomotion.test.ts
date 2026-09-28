@@ -1,6 +1,7 @@
 import { LOCOMOTION_STYLES, type LocomotionStyleId, locomotionPose, proceduralLocomotionSource } from '../game/animation/locomotion';
 import { describe, expect, it } from 'vitest';
 import { fighterById } from '../game/data/fighters';
+import { FIGHTERS } from '../game/data/fighters';
 import { integrateLocomotion, locomotionProfile } from '../game/physics/bodyDynamics';
 import { advanceMatch, createMatch } from '../game/systems/combat';
 
@@ -187,5 +188,15 @@ describe("LOCOMOTION_STYLES", () => {
       expect(pose.rightShin).toHaveLength(3);
       expect(pose.torso).toHaveLength(3);
     }
+  });
+
+  it('uses each wrestler’s authored footwork profile in the live procedural pose', () => {
+    const input = { x: .55, z: 2.1 };
+    const signatures = FIGHTERS.map(({ id }) => JSON.stringify(locomotionPose(input, 0, Math.PI / 3, true, id)));
+    expect(new Set(signatures).size).toBeGreaterThan(12);
+
+    const women = ['nova', 'gil', 'chelsea', 'britt'] as const;
+    const characterGaits = women.map(id => JSON.stringify(locomotionPose(input, 0, Math.PI / 3, true, id)));
+    expect(new Set(characterGaits).size).toBe(women.length);
   });
 });

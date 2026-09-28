@@ -1,9 +1,9 @@
 import { z } from 'zod';
-import { PROTOCOL_VERSION } from '../../packages/game-protocol/src/version';
+import { FIGHTER_IDS, PROTOCOL_VERSION } from '../../packages/game-protocol/src/index';
 import { FRWF_ARENA } from '../../src/game/data/arena';
 
-export const fighterId = z.enum(['atlas', 'vex', 'nova', 'brick', 'chad']);
-export const roomOptions = z.object({ ruleset: z.enum(['standard', 'chaos']).default('standard') }).strict();
+export const fighterId = z.enum(FIGHTER_IDS);
+export const roomOptions = z.object({ ruleset: z.enum(['standard', 'chaos']).default('standard'), fighterId: fighterId.default('atlas') }).strict();
 const action = z.object({
   action: z.enum(['move', 'run', 'quickStrike', 'heavyStrike', 'grapple', 'guard']),
   phase: z.enum(['started', 'held', 'released']),
@@ -18,6 +18,8 @@ export const clientMessage = z.discriminatedUnion('type', [
   z.object({ type: z.literal('selectFighter'), ...version, fighterId }).strict(),
   z.object({ type: z.literal('ready'), ...version }).strict(),
   z.object({ type: z.literal('rematch'), ...version }).strict(),
+  z.object({ type: z.literal('leave'), ...version }).strict(),
+  z.object({ type: z.literal('hostSettings'), ...version, ruleset: z.enum(['standard', 'chaos']) }).strict(),
   z.object({ type: z.literal('ping'), ...version, clientTimestamp: z.number().finite().nonnegative() }).strict(),
 ]);
 
@@ -25,7 +27,7 @@ export const gameInfo = {
   name: 'RINGFALL: CHAOS CIRCUIT', canonicalUrl: 'https://frwf.ja1.io',
   map: 'turkey-dome', fighters: fighterId.options, protocolVersion: PROTOCOL_VERSION,
   local: { world: { locations: ['showground', 'backstage', 'ringside'], encounters: 6, venues: ['yard', 'backstage', 'dome', 'turkey_dome'], combat: 'instanced_bouts', persistence: 'device_local_only' }, wrestling: ['physical strikes', 'paired throws', 'supported breakfalls', 'contact-verified cross-body covers'], modes: ['singles', 'battle_royale'], rulesets: ['standard', 'chaos'], simulationHz: 60, renderer: 'Three.js + Rapier', inputs: ['keyboard', 'gamepad', 'touch', 'webxr'] },
-  online: { modes: ['private_singles'], simulationHz: 30, commands: ['move', 'run', 'quickStrike', 'heavyStrike', 'grapple', 'guard'], limitations: ['Online rules are a smaller swept-contact simulation; not BodyWorks parity.', 'Protected operator-created room tickets are required; each seat gets a separate invitation.', 'No public matchmaking or persistent player identity.'] },
+  online: { modes: ['private_singles'], simulationHz: 30, commands: ['move', 'run', 'quickStrike', 'heavyStrike', 'grapple', 'guard'], limitations: ['Online rules are a smaller swept-contact simulation; not BodyWorks parity.', 'Anyone can host a rate-limited private room; the invite link grants one seat and contains no platform key.', 'Host authority transfers to the remaining player when the host leaves or changes lobby settings. No public matchmaking or persistent player identity.', 'Network quality depends on player connections and region; zero-lag play is not guaranteed.'] },
 } as const;
 
 export const bundledMap = {

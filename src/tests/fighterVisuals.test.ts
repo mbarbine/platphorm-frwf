@@ -33,4 +33,24 @@ describe('blockbuster fighter presentation profiles', () => {
       expect(Math.max(...numeric)).toBeLessThan(1.6);
     }
   });
+
+  it('gives each woman a different silhouette, hair and gear profile', () => {
+    const women = ['nova', 'gil', 'chelsea', 'britt'] as const;
+    const profiles = women.map(fighterVisual);
+    expect(new Set(profiles.map(profile => profile.hair)).size).toBe(women.length);
+    expect(new Set(profiles.map(profile => profile.attire)).size).toBeGreaterThanOrEqual(3);
+    expect(new Set(profiles.map(profile => `${profile.chestScale}:${profile.waistScale}:${profile.shoulderScale}:${profile.thighScale}`)).size).toBe(women.length);
+    expect(fighterVisual('chelsea').hair).toBe('longFlow');
+    expect(fighterVisual('britt').hair).toBe('twinBraid');
+  });
+
+  it('does not reuse women’s core physical or gameplay attributes', () => {
+    const women = ['nova', 'gil', 'chelsea', 'britt'] as const;
+    const identities = women.map(id => {
+      const fighter = FIGHTERS.find(entry => entry.id === id);
+      expect(fighter).toBeDefined();
+      return JSON.stringify({ physics: fighter?.physics, stats: fighter?.stats, personality: fighter?.personality, palette: fighter?.palette });
+    });
+    expect(new Set(identities).size).toBe(women.length);
+  });
 });

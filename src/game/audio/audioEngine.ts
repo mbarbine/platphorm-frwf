@@ -1,6 +1,7 @@
 import { CrowdReaction } from './CrowdReaction';
 import type { ImpactEvent, Vec2 } from '../types/game';
 import type { Settings } from '../state/settings';
+import { impactVocalCue } from './impactVocal';
 
 type SoundName = 'confirm' | 'menu' | 'bell' | 'step' | 'jump' | 'land' | 'impact' | 'jab' | 'cross' | 'hook' | 'uppercut' | 'heavy' | 'lowKick' | 'highKick' | 'kick' | 'block' | 'grapple' | 'grip' | 'exertion' | 'slam' | 'suplex' | 'powerbomb' | 'spinebuster' | 'clothesline' | 'spear' | 'rope' | 'prop' | 'chair' | 'trash' | 'table' | 'aerial' | 'kickout' | 'cheer' | 'boo' | 'nearfall' | 'finisher' | 'victory';
 interface ListenerPose { position: readonly [number, number, number]; forward: readonly [number, number, number]; up: readonly [number, number, number] }
@@ -123,12 +124,47 @@ class AudioEngine {
     this.configure(settings);
     if (['light', 'heavy', 'blocked', 'grapple', 'weapon', 'finisher', 'table'].includes(event.kind)) this.impactTransient(event);
     else if (crowdEvent) this.play(sound, settings); else this.playAt(sound, settings, event.position);
+    const vocal = impactVocalCue(event);
+    if (vocal) this.playImpactVocal(vocal, event.position);
     if (crowdEvent && settings.crowdVolume > 0 && settings.masterVolume > 0 && !document.hidden) {
       if (!this.reaction?.play()) this.play('cheer', settings);
     }
   }
 
   stopReaction(): void { this.reaction?.stop(); }
+
+  /** Short breathy effort response layered under contact; deliberately synthetic. */
+  private playImpactVocal(cue: NonNullable<ReturnType<typeof impactVocalCue>>, position: Vec2): void {
+    if (!this.context || !this.effects || !this.noiseBuffer || document.hidden) return;
+    const now = this.context.currentTime;
+    const output = this.context.createGain();
+    const noise = this.context.createBufferSource();
+    const formant = this.context.createBiquadFilter();
+    const breath = this.context.createGain();
+    const voice = this.context.createOscillator();
+    const voiceFilter = this.context.createBiquadFilter();
+    const voiceGain = this.context.createGain();
+    const duration = cue.duration;
+    noise.buffer = this.noiseBuffer; noise.playbackRate.value = .82 + (cue.pitch - 102) / 180;
+    formant.type = 'bandpass'; formant.Q.value = 1.35;
+    formant.frequency.setValueAtTime(520 + (cue.pitch - 120) * 2, now);
+    formant.frequency.exponentialRampToValueAtTime(370 + (cue.pitch - 120), now + duration * .72);
+    breath.gain.setValueAtTime(.0001, now); breath.gain.exponentialRampToValueAtTime(cue.gain, now + .018);
+    breath.gain.exponentialRampToValueAtTime(.0001, now + duration);
+    voice.type = 'sawtooth'; voice.frequency.setValueAtTime(cue.pitch, now);
+    voice.frequency.exponentialRampToValueAtTime(cue.pitch * .72, now + duration);
+    voiceFilter.type = 'lowpass'; voiceFilter.frequency.value = 520;
+    voiceGain.gain.setValueAtTime(.0001, now); voiceGain.gain.exponentialRampToValueAtTime(cue.gain * .3, now + .02);
+    voiceGain.gain.exponentialRampToValueAtTime(.0001, now + duration);
+    noise.connect(formant); formant.connect(breath); breath.connect(output);
+    voice.connect(voiceFilter); voiceFilter.connect(voiceGain); voiceGain.connect(output);
+    const release = this.connectSpatial(output, this.effects, position);
+    voice.addEventListener('ended', () => {
+      noise.disconnect(); formant.disconnect(); breath.disconnect(); voice.disconnect(); voiceFilter.disconnect(); voiceGain.disconnect(); release();
+    }, { once: true });
+    noise.start(now, cue.noiseOffset); noise.stop(now + duration);
+    voice.start(now); voice.stop(now + duration + .01);
+  }
 
   private connectSpatial(node: AudioNode, output: AudioNode, position?: Vec2): () => void {
     if (!this.context || !position) { node.connect(output); return () => node.disconnect(); }
