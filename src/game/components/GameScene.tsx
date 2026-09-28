@@ -281,6 +281,9 @@ export function GameScene(props: Props) {
   const diagnosticModel = useMatchStore((state) => state.model); const toyTestMode = diagnosticModel.toyTestMode; const playerMove = diagnosticModel.player.moveId; const playerPosition = diagnosticModel.player.position; const opponentHealth = diagnosticModel[diagnosticModel.targets.player].health;
   const lab = physicsLabEnabled();
   const labDebug = usePhysicsLabStore((state) => state.debug);
+  const networkStatus = useMultiplayerStore((state) => state.status);
+  const networkCommandSeq = useMultiplayerStore((state) => state.lastCommandSeq);
+  const networkAckedSeq = useMultiplayerStore((state) => state.lastAckedSeq);
   const graphicsQuality = useSettings((state) => state.graphicsQuality); const reducedMotion = useSettings((state) => state.reducedMotion);
   const [automaticPerformanceFallback, setAutomaticPerformanceFallback] = useState(false);
   useEffect(() => { if (graphicsQuality !== 'auto') setAutomaticPerformanceFallback(false); }, [graphicsQuality]);
@@ -344,8 +347,9 @@ export function GameScene(props: Props) {
         data-online-role={props.onlineRole ?? 'offline'}
         data-network-authority={diagnosticModel.networkAuthority ? 'true' : 'false'}
         data-network-snapshot={useMultiplayerStore.getState().lastSnapshotSeq}
-        data-network-command-seq={networkDiagnostics.lastCommandSeq}
-        data-network-acked-seq={networkDiagnostics.lastAckedSeq}
+        data-network-status={networkStatus}
+        data-network-command-seq={networkCommandSeq}
+        data-network-acked-seq={networkAckedSeq}
         data-network-server-x={diagnosticServerFighter?.posX ?? ''}
         data-network-server-z={diagnosticServerFighter?.posZ ?? ''}
       >

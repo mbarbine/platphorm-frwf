@@ -65,6 +65,8 @@ test('two browsers share authoritative movement, contact, and impact state', asy
     await expect(guestCanvas).toHaveAttribute('data-online-role', 'player2', { timeout: 20_000 });
     await expect(hostCanvas).toHaveAttribute('data-network-authority', 'true');
     await expect(guestCanvas).toHaveAttribute('data-network-authority', 'true');
+    await expect(hostCanvas).toHaveAttribute('data-network-status', 'connected');
+    await expect(guestCanvas).toHaveAttribute('data-network-status', 'connected');
     await expect.poll(async () => Number(await hostCanvas.getAttribute('data-network-snapshot'))).toBeGreaterThan(0);
     await host.bringToFront();
     await expect(hostCanvas).toHaveAttribute('data-simulation-ready', 'true', { timeout: 45000 });
