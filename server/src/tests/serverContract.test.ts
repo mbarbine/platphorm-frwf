@@ -502,8 +502,11 @@ describe('authoritative server contract', () => {
     }
   });
 
-  it('rateLimiter middleware allows requests within limit and returns 429 when limit is exceeded', async () => {
-    const { rateLimiter, rateLimitMap } = await import('../index');
+  it('exports MAX_REQUESTS rate limit constant and enforces exact request threshold', async () => {
+    const { MAX_REQUESTS, rateLimiter, rateLimitMap } = await import('../index');
+
+    // Verify MAX_REQUESTS constant contract
+    expect(MAX_REQUESTS).toBe(100);
 
     // Clear any existing rate limit tracking to have a clean slate
     rateLimitMap.clear();
@@ -517,18 +520,18 @@ describe('authoritative server contract', () => {
     const res = createMockResponse();
     const next = vi.fn();
 
-    // 1. Send 100 requests. All should call next() and not return 429 status.
-    for (let i = 0; i < 100; i++) {
+    // 1. Send MAX_REQUESTS requests. All should call next() and not return 429 status.
+    for (let i = 0; i < MAX_REQUESTS; i++) {
       rateLimiter(req, res, next);
     }
 
-    expect(next).toHaveBeenCalledTimes(100);
+    expect(next).toHaveBeenCalledTimes(MAX_REQUESTS);
     expect(res.status).not.toHaveBeenCalled();
 
-    // 2. The 101st request should be rejected with status 429 and Retry-After header
+    // 2. Request MAX_REQUESTS + 1 should be rejected with status 429 and Retry-After header
     rateLimiter(req, res, next);
 
-    expect(next).toHaveBeenCalledTimes(100); // Should not have been called a 101st time
+    expect(next).toHaveBeenCalledTimes(MAX_REQUESTS); // Should not have been called again
     expect(res.setHeader).toHaveBeenCalledWith('Retry-After', expect.any(String));
     expect(res.status).toHaveBeenCalledWith(429);
     expect(res.json).toHaveBeenCalledWith({
