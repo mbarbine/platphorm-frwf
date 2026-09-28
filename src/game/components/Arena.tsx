@@ -9,7 +9,7 @@ import { arenaCollisionGroups, propCollisionGroups, turnbucklePostCollisionGroup
 import { bodyWorksRuntime } from '../physics/physicsRuntime';
 import type { FighterKey } from '../physics/physicsRuntime';
 import type { BodySegmentId } from '../physics/bodySchema';
-import type { PropRuntime } from '../types/game';
+import { FIGHTER_SLOTS, type PropRuntime } from '../types/game';
 import { Spectators as Crowd } from './Spectators';
 import { EntranceFog } from './EntranceFog';
 import { VenueAsset, venueAssets } from './VenueAsset';
@@ -33,6 +33,9 @@ function ArenaRibbon() {
     <mesh position={[FRWF_ARENA.barricade.halfWidth - .18, 0, 0]}><boxGeometry args={[.06, .12, vertical]} /><meshStandardMaterial color="#ff713a" emissive="#ff4e2d" emissiveIntensity={1.35} /></mesh>
   </group>;
 }
+
+// OPTIMIZATION: Module-level static Set avoids per-frame array allocations in Post useFrame loop
+const TOP_ROPE_AERIAL_MOVES = new Set(['aerial', 'aerial_elbow', 'aerial_kick']);
 
 // OPTIMIZATION: Pre-calculate static sine envelope table for rope vertices to avoid repeated Math.sin calls in hot render frames
 const ROPE_SEGMENT_COUNT = 7;
@@ -114,15 +117,21 @@ function Post({ x, z }: { x: number; z: number }) {
   const visual = useRef<Group>(null); const jewel = useRef<MeshStandardMaterial>(null); const core = useRef<RapierCollider>(null); const cushion = useRef<RapierCollider>(null); const impulse = useRef(0); const lastImpactId = useRef(0); const climbCollision = useRef(false);
   useFrame((_, dt) => {
     const actors = useMatchStore.getState().model;
-    const climbingHere = [actors.player, actors.opponent, actors.rival1, actors.rival2, actors.rival3].some((fighter) => {
+    // OPTIMIZATION: Use indexed for loop over FIGHTER_SLOTS and static Set.has() to avoid dynamic array and closure allocations on every frame across 4 turnbuckle posts
+    let climbingHere = false;
+    for (let index = 0; index < FIGHTER_SLOTS.length; index++) {
+      const fighter = actors[FIGHTER_SLOTS[index]];
       const dx = fighter.position.x - x; const dz = fighter.position.z - z;
       // Let only the active corner yield: disabling every post lets fighters
       // ghost through unrelated corners during a climb elsewhere in the ring.
       const climbing = fighter.state === 'climbing' && fighter.climbStage > 0;
-      const topRopeMove = fighter.state === 'attacking' && ['aerial', 'aerial_elbow', 'aerial_kick'].includes(fighter.moveId ?? '');
+      const topRopeMove = fighter.state === 'attacking' && TOP_ROPE_AERIAL_MOVES.has(fighter.moveId ?? '');
       const cornerDistanceSq = dx * dx + dz * dz;
-      return (climbing && cornerDistanceSq < 2 * 2) || (topRopeMove && cornerDistanceSq < 1.65 * 1.65);
-    });
+      if ((climbing && cornerDistanceSq < 2 * 2) || (topRopeMove && cornerDistanceSq < 1.65 * 1.65)) {
+        climbingHere = true;
+        break;
+      }
+    }
     if (core.current && climbingHere !== climbCollision.current) {
       const groups = climbingHere ? turnbucklePostCollisionGroups : arenaCollisionGroups;
       core.current.setCollisionGroups(groups); core.current.setSolverGroups(groups);
