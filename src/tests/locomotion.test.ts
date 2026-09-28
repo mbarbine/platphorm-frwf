@@ -1,4 +1,4 @@
-import { locomotionPose } from '../game/animation/locomotion';
+import { LOCOMOTION_STYLES, type LocomotionStyleId, locomotionPose, proceduralLocomotionSource } from '../game/animation/locomotion';
 import { describe, expect, it } from 'vitest';
 import { fighterById } from '../game/data/fighters';
 import { integrateLocomotion, locomotionProfile } from '../game/physics/bodyDynamics';
@@ -149,4 +149,43 @@ it('holding sprint while exhausted produces the same travel as exhausted walking
   }
   expect(sprinting.velocity).toEqual(walking.velocity);
   expect(sprinting.velocity.z).toBeCloseTo(locomotionProfile(definition).walkSpeed * .86);
+});
+
+
+describe("LOCOMOTION_STYLES", () => {
+  const expectedStyleIds: LocomotionStyleId[] = ["baseline", "powerhouse", "agile", "technical"];
+
+  it("contains all required locomotion style definitions with valid numeric parameters", () => {
+    expect(Object.keys(LOCOMOTION_STYLES).sort()).toEqual([...expectedStyleIds].sort());
+
+    for (const styleId of expectedStyleIds) {
+      const style = LOCOMOTION_STYLES[styleId];
+      expect(style).toBeDefined();
+      expect(Number.isFinite(style.stride)).toBe(true);
+      expect(Number.isFinite(style.guard)).toBe(true);
+      expect(Number.isFinite(style.armSwing)).toBe(true);
+      expect(Number.isFinite(style.stance)).toBe(true);
+
+      expect(style.stride).toBeGreaterThan(0);
+      expect(style.guard).toBeGreaterThan(0);
+      expect(style.armSwing).toBeGreaterThan(0);
+      expect(style.stance).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  it("uses styleId parameters from LOCOMOTION_STYLES to construct locomotion poses", () => {
+    const inputBase = { velocity: { x: 0, z: 2 }, facing: 0, phase: Math.PI / 4, combat: true };
+
+    for (const styleId of expectedStyleIds) {
+      const pose = proceduralLocomotionSource.pose({ ...inputBase, styleId });
+      expect(pose).toBeDefined();
+      expect(pose.leftLeg).toHaveLength(3);
+      expect(pose.rightLeg).toHaveLength(3);
+      expect(pose.leftArm).toHaveLength(3);
+      expect(pose.rightArm).toHaveLength(3);
+      expect(pose.leftShin).toHaveLength(3);
+      expect(pose.rightShin).toHaveLength(3);
+      expect(pose.torso).toHaveLength(3);
+    }
+  });
 });
