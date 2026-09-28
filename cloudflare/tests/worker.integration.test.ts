@@ -46,6 +46,7 @@ describe('real Worker / Durable Object / D1 / R2 integration', () => {
     const health = await worker.dispatchFetch(origin + '/api/health');
     expect(health.headers.get('X-Frame-Options')).toBe('DENY');
     expect(health.headers.get('Strict-Transport-Security')).toBe('max-age=31536000; includeSubDomains');
+    expect(health.headers.get('Permissions-Policy')).toBe('camera=(), microphone=(), geolocation=()');
     expect(await health.json()).toMatchObject({ ok: true, data: { databaseStatus: 'operational', assetStatus: 'operational', routeComplianceScore: null } });
     const release = await worker.dispatchFetch(origin + '/api/release');
     expect(await release.json()).toMatchObject({ data: { release: 'integration-test', gitSha: '1234567890abcdef' } });
