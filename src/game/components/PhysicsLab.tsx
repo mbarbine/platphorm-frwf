@@ -171,7 +171,7 @@ export function PhysicsLab() {
     }
     else if (scenario.id === 'cornerSmash') useMatchStore.getState().prepareLabScenario({ x: 3.72, z: 2.45 }, { x: 4.45, z: 3.02 });
     else if (scenario.id === 'apronReturn') useMatchStore.getState().prepareLabScenario({ x: 6.52, z: 0 }, { x: 0, z: 2.4 });
-    else if (scenario.id === 'tableCollapse') useMatchStore.getState().prepareLabScenario({ x: 0, z: -5.25 }, { x: 0, z: -6.05 });
+    else if (scenario.id === 'tableCollapse') useMatchStore.getState().prepareLabScenario({ x: 0, z: -4.75 }, { x: 0, z: -5.55 });
     // Guard certification starts outside body overlap with guard authority
     // already active. The scheduled held input still exercises the shipping
     // input path, while this state prevents a throttled runner from spending
@@ -207,7 +207,7 @@ export function PhysicsLab() {
     let blockedJabAttempts = 0;
     let reboundPressAt: number | null = null; let reboundReleased = false; let slamPressAt: number | null = null; let slamReleased = false;
     let stagedNextAttemptAt = SCENARIO_SETTLE_MS + 80;
-    let stagedLastClimbStage = -1; let stagedStartIssued = false; let stagedFinishIssued = false;
+    let stagedLastClimbStage = -1; let stagedStartIssued = false; let stagedFinishIssued = false; let tableSpotIssued = false;
     const scheduler = window.setInterval(() => {
       const current = useMatchStore.getState().model; const elapsedMs = (current.elapsed - startedAt) * 1_000;
       if (elapsedMs - sampledAt >= 50 && samples.current.length < 1200) { const physical = bodyWorksRuntime.fighterSnapshot('player'); samples.current.push({ time: elapsedMs / 1000, state: current.player.state, move: current.player.moveId, speed: physical.speed, supportFeet: physical.supportFeet, upright: physical.upright, leftFootY: physical.leftFootY, rightFootY: physical.rightFootY, damage: 100 - current.opponent.health, hits: current.player.comboStep, chain: current.player.comboInputs.join(','), combo: current.player.comboName }); sampledAt = elapsedMs; }
@@ -250,6 +250,17 @@ export function PhysicsLab() {
           }
           if (scenario.id === 'dive' && current.player.moveId && getMove(current.player.moveId).category === 'aerial') stagedFinishIssued = true;
         }
+      }
+      if (scenario.id === 'tableCollapse' && !tableSpotIssued
+        && current.player.state === 'grappling' && current.player.attackPhase === 'anticipation'
+        && current.grapple?.attacker === 'player') {
+        // The environmental spot is a deliberate follow-up to a physically
+        // acquired two-hand clinch. A lone grapple input only performs a
+        // generic body slam, which cannot target the commentary table.
+        const before = current.player.attackInstanceId;
+        useMatchStore.getState().requestLabCommand('player', 'context');
+        tableSpotIssued = useMatchStore.getState().model.player.attackInstanceId !== before;
+        if (tableSpotIssued) document.documentElement.dataset.labTableSpotIssued = 'true';
       }
       if (scenario.id === 'blockedJab' && !blockedJabQueued && current.player.state === 'blocking' && elapsedMs >= blockedJabNextAttemptAt) {
         blockedJabAttempts += 1;
