@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import type { ClientFighterState, ClientRoomState } from '../game/multiplayer/ColyseusClient';
 import type { ActionEvent } from '@frwf/game-protocol';
+import { PROTOCOL_VERSION } from '@frwf/game-protocol';
 
 interface MockRoomType {
   id: string;
@@ -121,7 +122,7 @@ describe('ColyseusClient', () => {
     expect(client.sessionId).toBe('mock-session-id');
 
     expect(mockJoinOrCreate).toHaveBeenCalledWith('wrestling', { fighterId: 'atlas' });
-    expect(mockSend).toHaveBeenCalledWith('version', expect.any(Object));
+    expect(mockSend).toHaveBeenCalledWith('version', expect.objectContaining({ protocolVersion: PROTOCOL_VERSION }));
   });
 
   it('handles connection error in joinOrCreate', async () => {
@@ -150,7 +151,7 @@ describe('ColyseusClient', () => {
     expect(client.sessionId).toBe('mock-session-id');
 
     expect(mockJoinOrCreate).toHaveBeenCalledWith('wrestling', { fighterId: 'atlas' });
-    expect(mockSend).toHaveBeenCalledWith('version', expect.any(Object));
+    expect(mockSend).toHaveBeenCalledWith('version', expect.objectContaining({ protocolVersion: PROTOCOL_VERSION }));
   });
 
   it('handles connection error in joinRoom', async () => {
@@ -213,7 +214,7 @@ describe('ColyseusClient', () => {
     expect(mockSend).toHaveBeenCalledWith('selectFighter', expect.objectContaining({ fighterId: 'vex' }));
 
     client.ready();
-    expect(mockSend).toHaveBeenCalledWith('ready', expect.any(Object));
+    expect(mockSend).toHaveBeenCalledWith('ready', expect.objectContaining({ protocolVersion: PROTOCOL_VERSION }));
 
     const dummyAction: ActionEvent = {
       action: 'move',
@@ -231,7 +232,7 @@ describe('ColyseusClient', () => {
     }));
 
     client.voteRematch();
-    expect(mockSend).toHaveBeenCalledWith('rematch', expect.any(Object));
+    expect(mockSend).toHaveBeenCalledWith('rematch', expect.objectContaining({ protocolVersion: PROTOCOL_VERSION }));
   });
 
   it('leaves the room cleanly when leave is called', async () => {
@@ -432,7 +433,7 @@ describe('MultiplayerStore', () => {
 
     // ready
     useMultiplayerStore.getState().ready();
-    expect(mockSend).toHaveBeenCalledWith('ready', expect.any(Object));
+    expect(mockSend).toHaveBeenCalledWith('ready', expect.objectContaining({ protocolVersion: PROTOCOL_VERSION }));
 
     // sendAction
     const dummyAction: ActionEvent = {
@@ -451,7 +452,7 @@ describe('MultiplayerStore', () => {
 
     // voteRematch
     useMultiplayerStore.getState().voteRematch();
-    expect(mockSend).toHaveBeenCalledWith('rematch', expect.any(Object));
+    expect(mockSend).toHaveBeenCalledWith('rematch', expect.objectContaining({ protocolVersion: PROTOCOL_VERSION }));
   });
 
   it('disconnects and clears state cleanly', async () => {
