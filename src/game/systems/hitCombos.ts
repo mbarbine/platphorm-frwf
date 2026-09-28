@@ -37,10 +37,11 @@ export function comboStrike(actor: FighterRuntime, input: StrikeInput): string |
   if (input === 'heavy') return inputs.length ? 'low_kick' : null;
   // Alternate arms between each character's distinctive opening and finisher.
   if (inputs.length === 0) return 'jab';
-  if (inputs.length === 1) return 'combo';
-  if (inputs.length === 2) return inputs.includes('heavy') ? 'high_punch' : WRESTLING_STYLES[actor.definitionId].chain[1] ?? 'high_punch';
-  if (inputs.length === 3) return 'combo';
-  return 'heavy';
+  if (inputs.length === 1) return 'right_hook';
+  if (inputs.length === 2) return inputs.includes('heavy') ? 'high_punch' : 'left_hook';
+  if (inputs.length === 3) return 'right_hook';
+  if (inputs.length === 4) return 'left_hook';
+  return 'uppercut';
 }
 
 export function confirmComboHit(actor: FighterRuntime, target: FighterSlot, now: number, move: MoveDefinition): void {
