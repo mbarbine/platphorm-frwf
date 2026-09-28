@@ -42,13 +42,6 @@ export function App() {
   const [beers, setBeers] = useState(0);
   const [runtimePreload, setRuntimePreload] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [joinRoomId, setJoinRoomId] = useState('');
-  const [copied, setCopied] = useState(false);
-
-  useEffect(() => {
-    if (!copied) return;
-    const timer = setTimeout(() => setCopied(false), 2000);
-    return () => clearTimeout(timer);
-  }, [copied]);
 
   const physicsLab = new URLSearchParams(window.location.search).get('physicsLab') === '1';
   const toyTest = new URLSearchParams(window.location.search).get('toyTest') === '1';
@@ -339,7 +332,7 @@ export function App() {
       <div className="section-heading"><span>CONNECT WITH RIVALS</span><h2>ONLINE MULTIPLAYER</h2></div>
 
       {multiplayerStatus === 'disconnected' && <div className="multiplayer-lobby__setup" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', width: '100%', maxWidth: '640px', margin: '0 auto' }}>
-        <p style={{ textAlign: 'center', margin: 0, color: '#aaa' }}>Host a private room, join an existing match code, or jump into a quick play session.</p>
+        <p style={{ textAlign: 'center', margin: 0, color: '#aaa' }}>Join a private Cloudflare match with its secure invitation. Public matchmaking is not enabled yet.</p>
 
         <div className="versus" style={{ padding: '1rem', background: 'rgba(0,0,0,0.5)', borderRadius: '8px' }}>
           <div>
@@ -353,14 +346,7 @@ export function App() {
         <div className="option-grid" style={{ marginTop: '1rem' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', padding: '1.5rem', background: 'rgba(255,255,255,0.03)', borderRadius: '8px' }}>
             <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#7000ff' }}>HOST MATCH</h3>
-            <button className="button button--hero" style={{ width: '100%', background: 'linear-gradient(135deg, #7000ff 0%, #ff007b 100%)' }} onClick={async () => {
-              audioEngine.play('confirm', settings);
-              try {
-                await useMultiplayerStore.getState().createPrivateRoom({ fighterId: selected });
-              } catch (err) {
-                console.error('Failed to create private room', err);
-              }
-            }}>CREATE PRIVATE ROOM</button>
+            <p style={{ margin: 0, color: '#aaa', lineHeight: 1.5 }}>Room provisioning is restricted to protect the platform key. Ask the operator for a private, one-seat invitation.</p>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', padding: '1.5rem', background: 'rgba(255,255,255,0.03)', borderRadius: '8px' }}>
@@ -368,7 +354,7 @@ export function App() {
             <input
               id="multiplayer-room-code-input"
               type="text"
-              placeholder="ENTER ROOM CODE..."
+              placeholder="PASTE PRIVATE INVITATION..."
               value={joinRoomId}
               autoCapitalize="none"
               autoCorrect="off"
@@ -398,12 +384,6 @@ export function App() {
           </div>
         </div>
 
-        <div style={{ textAlign: 'center', marginTop: '1rem' }}>
-          <button className="button" style={{ minWidth: '240px' }} onClick={() => {
-            audioEngine.play('confirm', settings);
-            void useMultiplayerStore.getState().connect('wrestling', { fighterId: selected }).catch(() => undefined);
-          }}>QUICK MATCH</button>
-        </div>
       </div>}
 
       {multiplayerStatus === 'connecting' && <div className="multiplayer-lobby__loading" style={{ textAlign: 'center', padding: '3rem' }}>
@@ -415,7 +395,7 @@ export function App() {
 
       {multiplayerStatus === 'error' && <div className="multiplayer-lobby__error" style={{ textAlign: 'center', padding: '3rem' }}>
         <h3 style={{ color: '#ff3b30' }}>CONNECTION ERROR</h3>
-        <p>{gameServerEndpoint ? 'The match connection failed. Check your connection and try again.' : 'Online play is not connected to a game server yet. Local matches are available while multiplayer is being rebuilt.'}</p>
+        <p>{gameServerEndpoint ? 'The invitation could not be used. Check that it includes a valid room ID and private seat ticket.' : 'The Cloudflare match service is not configured for this environment.'}</p>
         <button className="button" style={{ marginTop: '1.5rem' }} onClick={() => useMultiplayerStore.getState().disconnect()}>RETRY</button>
       </div>}
 
@@ -429,25 +409,11 @@ export function App() {
             <div>
               <span>ROOM MATCHMAKER</span>
               <b style={{ color: '#00ffaa' }}>CONNECTION ESTABLISHED</b>
-              <small>Private Room ID is active. Share code below with another wrestler to fight.</small>
+              <small>Secure room connected. Each player needs a separate private invitation.</small>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem' }}>
-              <span style={{ fontSize: '0.8rem', color: '#888' }}>ROOM CODE</span>
+                <span style={{ fontSize: '0.8rem', color: '#888' }}>ROOM ID · NOT A JOIN CODE</span>
               <strong data-testid="multiplayer-room-code" style={{ fontSize: '1.8rem', color: '#ff007b', letterSpacing: '4px', fontFamily: 'monospace' }}>{multiplayerRoomId}</strong>
-              <div aria-live="polite" style={{ display: 'inline-flex' }}>
-                <button
-                  className="button button--quiet"
-                  style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem' }}
-                  aria-label={copied ? "Room code copied to clipboard" : "Copy room code to clipboard"}
-                  onClick={() => {
-                    navigator.clipboard.writeText(multiplayerRoomId || '');
-                    audioEngine.play('menu', settings);
-                    setCopied(true);
-                  }}
-                >
-                  {copied ? 'COPIED!' : 'COPY CODE'}
-                </button>
-              </div>
             </div>
           </div>
 

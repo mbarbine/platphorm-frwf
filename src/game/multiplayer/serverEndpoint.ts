@@ -13,4 +13,10 @@ export function resolveGameServer(configured: string | undefined, location?: { h
   } catch { return null; }
 }
 
-export const gameServerEndpoint = resolveGameServer(import.meta.env.VITE_GAME_SERVER_URL, typeof window === 'undefined' ? undefined : window.location);
+const runtimeLocation = typeof window === 'undefined' ? undefined : window.location;
+const defaultEndpoint = runtimeLocation
+  ? ['localhost', '127.0.0.1', '[::1]'].includes(runtimeLocation.hostname)
+    ? 'http://localhost:8787'
+    : runtimeLocation.origin
+  : undefined;
+export const gameServerEndpoint = resolveGameServer(import.meta.env.VITE_GAME_SERVER_URL ?? defaultEndpoint, runtimeLocation);

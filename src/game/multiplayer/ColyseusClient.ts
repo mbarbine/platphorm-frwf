@@ -1,60 +1,20 @@
 import { gameServerEndpoint } from './serverEndpoint';
-import { Client } from 'colyseus.js';
-import type { Room } from 'colyseus.js';
 import type { ActionEvent, CommandMessage, SelectFighterMessage } from '@frwf/game-protocol';
 import type { CommandAckMessage, ImpactEventMessage, MatchResultMessage, RoomStateMessage, SnapshotMessage } from '@frwf/game-protocol';
 import { PROTOCOL_VERSION } from '@frwf/game-protocol';
 
-// Client-side view of the server room state.
-// Uses a plain interface — no Colyseus schema decorators.
-// The server's MatchRoomStateSchema must stay in the server package.
 export interface ClientRoomState {
-  phase: string;
-  resolved: boolean;
-  elapsed: number;
-  hype: number;
-  announcement: string;
-  ruleset: string;
-  difficulty: string;
-  winnerSessionId: string;
-  winMethod: string;
-  fighters: Map<string, ClientFighterState>;
-  roles: Map<string, string>;
+  phase: string; resolved: boolean; elapsed: number; hype: number; announcement: string;
+  ruleset: string; difficulty: string; winnerSessionId: string; winMethod: string;
+  fighters: Map<string, ClientFighterState>; roles: Map<string, string>;
 }
-
 export interface ClientFighterState {
-  definitionId: string;
-  health: number;
-  stamina: number;
-  momentum: number;
-  posX: number;
-  posZ: number;
-  facing: number;
-  velocityX: number;
-  velocityZ: number;
-  combatState: string;
-  moveId: string;
-  attackPhase: string;
-  phaseElapsed: number;
-  grappleTargetSessionId: string | null;
-  pinCount: number;
-  finisherPrimed: boolean;
-  lastCommandSeq: number;
+  definitionId: string; health: number; stamina: number; momentum: number; posX: number; posZ: number;
+  facing: number; velocityX: number; velocityZ: number; combatState: string; moveId: string;
+  attackPhase: string; phaseElapsed: number; grappleTargetSessionId: string | null; pinCount: number;
+  finisherPrimed: boolean; lastCommandSeq: number;
 }
-
-// ──────────────────────────────────────────────────────────────────────────────
-// ColyseusClient — thin wrapper around the Colyseus SDK.
-//
-// Authority model:
-//   CLIENT: local prediction, camera, effects, audio, HUD
-//   SERVER: match state, damage, grapple ownership, pin result, knockout
-//
-// The client buffers commands, sends them with a sequence number, and reconciles
-// when the server's acknowledged sequence diverges from the local prediction.
-// ──────────────────────────────────────────────────────────────────────────────
-
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'reconnecting' | 'error';
-
 export interface ColyseusClientOptions {
   serverUrl?: string;
   onStatusChange?: (status: ConnectionStatus) => void;
@@ -67,24 +27,35 @@ export interface ColyseusClientOptions {
   onVersionRejected?: (info: { serverVersion: string }) => void;
 }
 
-const DEFAULT_SERVER_URL = gameServerEndpoint;
+const INVITE = /^([a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12})\.([a-f0-9]{64})$/i;
+export function parseRoomInvite(value: string): { roomId: string; ticket: string } | null {
+  let candidate = value.trim();
+  try {
+    if (/^https?:\/\//i.test(candidate)) {
+      const url = new URL(candidate);
+      candidate = url.hash.replace(/^#(?:room=)?/, '');
+      if (candidate.includes('&')) candidate = new URLSearchParams(candidate).get('room') ?? '';
+    }
+  } catch { return null; }
+  const match = INVITE.exec(candidate);
+  return match?.[1] && match[2] ? { roomId: match[1].toLowerCase(), ticket: match[2].toLowerCase() } : null;
+}
 
+/** Ticket-authenticated Cloudflare Durable Object WebSocket client. The historical
+ * export name remains stable for the Zustand and game-state adapters. */
 export class ColyseusClient {
-  private sdkInstance: Client | null = null;
-
-  private get sdk(): Client {
-    if (!this.options.serverUrl) throw new Error('Online play is not connected to a game server yet.');
-    return this.sdkInstance ??= new Client(this.options.serverUrl);
-  }
-  private room: Room<ClientRoomState> | null = null;
+  private socket: WebSocket | null = null;
   private commandSeq = 0;
   private status: ConnectionStatus = 'disconnected';
+  private roomIdValue: string | undefined;
+  private sessionIdValue: string | undefined;
+  private ticket: string | undefined;
   private intentionalLeave = false;
   private readonly options: Required<ColyseusClientOptions>;
 
   constructor(options: ColyseusClientOptions = {}) {
     this.options = {
-      serverUrl: options.serverUrl ?? DEFAULT_SERVER_URL ?? '',
+      serverUrl: options.serverUrl ?? gameServerEndpoint ?? '',
       onStatusChange: options.onStatusChange ?? (() => undefined),
       onStateChange: options.onStateChange ?? (() => undefined),
       onSnapshot: options.onSnapshot ?? (() => undefined),
@@ -94,174 +65,108 @@ export class ColyseusClient {
       onRoomState: options.onRoomState ?? (() => undefined),
       onVersionRejected: options.onVersionRejected ?? (() => undefined),
     };
-    if (typeof window !== 'undefined') window.addEventListener('pagehide', () => {
-      this.intentionalLeave = true;
-      void this.room?.leave(true).catch(() => undefined);
+    if (typeof window !== 'undefined') window.addEventListener('pagehide', () => { void this.leave(true); }, { once: true });
+  }
+
+  async joinOrCreate(_roomName: string, _options: { fighterId?: string; spectate?: boolean } = {}): Promise<void> {
+    throw new Error('Quick matchmaking is unavailable. Join with a private room invitation.');
+  }
+  async joinRoom(_roomName: string, _options: { fighterId?: string } = {}): Promise<void> {
+    throw new Error('Room names are not join codes. Use the room ID and private ticket from your invitation.');
+  }
+  async createPrivateRoom(_options: { fighterId?: string; ruleset?: string } = {}): Promise<string> {
+    throw new Error('Room creation requires the protected operator API. Ask an operator for a private room invitation.');
+  }
+
+  async joinByRoomId(inviteOrUrl: string, _options: { fighterId?: string } = {}): Promise<void> {
+    const invite = parseRoomInvite(inviteOrUrl);
+    if (!invite) throw new Error('Enter a complete private room invitation (room ID and seat ticket).');
+    if (!this.options.serverUrl) throw new Error('The Cloudflare match service is not configured for this environment.');
+    this.intentionalLeave = false;
+    this.roomIdValue = invite.roomId; this.ticket = invite.ticket; this.commandSeq = 0;
+    this.setStatus('connecting');
+    const base = new URL(this.options.serverUrl);
+    base.protocol = base.protocol === 'https:' || base.protocol === 'wss:' ? 'wss:' : 'ws:';
+    base.pathname = `/api/rooms/${invite.roomId}/socket`; base.search = ''; base.hash = '';
+    await new Promise<void>((resolve, reject) => {
+      const socket = new WebSocket(base.toString(), ['frwf-v1', invite.ticket]);
+      this.socket = socket;
+      const timeout = setTimeout(() => { socket.close(); reject(new Error('Match server connection timed out.')); }, 12000);
+      socket.addEventListener('open', () => {
+        clearTimeout(timeout);
+        if (socket.protocol !== 'frwf-v1') { socket.close(1002, 'Protocol mismatch'); this.setStatus('error'); reject(new Error('Match server protocol mismatch.')); return; }
+        this.setStatus('connected'); resolve();
+      }, { once: true });
+      socket.addEventListener('error', () => {
+        clearTimeout(timeout); this.setStatus('error'); reject(new Error('Could not connect to the private match. Check the invitation and try again.'));
+      }, { once: true });
+      socket.addEventListener('message', event => this.receive(event.data));
+      socket.addEventListener('close', event => {
+        clearTimeout(timeout);
+        if (this.socket !== socket) return;
+        this.socket = null;
+        if (this.intentionalLeave || event.code === 1000) this.setStatus('disconnected');
+        else this.setStatus('error');
+      });
     });
   }
 
-  // ── Connection ─────────────────────────────────────────────────────────────
-
-  async joinOrCreate(roomName: string, options: { fighterId?: string; spectate?: boolean } = {}): Promise<void> {
-    this.intentionalLeave = false;
-    this.setStatus('connecting');
-    try {
-      this.room = await this.sdk.joinOrCreate<ClientRoomState>(roomName, options);
-      this.setStatus('connected');
-      this.attachRoomListeners();
-      this.room.send('version', { protocolVersion: PROTOCOL_VERSION, clientVersion: PROTOCOL_VERSION });
-    } catch (err) {
-      this.setStatus('error');
-      throw err;
-    }
-  }
-
-  async joinRoom(roomName: string, options: { fighterId?: string } = {}): Promise<void> {
-    this.setStatus('connecting');
-    try {
-      this.room = await this.sdk.joinOrCreate<ClientRoomState>(roomName, options);
-      this.setStatus('connected');
-      this.attachRoomListeners();
-      this.room.send('version', { protocolVersion: PROTOCOL_VERSION, clientVersion: PROTOCOL_VERSION });
-    } catch (err) {
-      this.setStatus('error');
-      throw err;
-    }
-  }
-
-  async joinByRoomId(roomId: string, options: { fighterId?: string } = {}): Promise<void> {
-    this.intentionalLeave = false;
-    this.setStatus('connecting');
-    try {
-      this.room = await this.sdk.joinById<ClientRoomState>(roomId, options);
-      this.setStatus('connected');
-      this.attachRoomListeners();
-      this.room.send('version', { protocolVersion: PROTOCOL_VERSION, clientVersion: PROTOCOL_VERSION });
-    } catch (err) {
-      this.setStatus('error');
-      throw err;
-    }
-  }
-
-  async createPrivateRoom(options: { fighterId?: string; ruleset?: string } = {}): Promise<string> {
-    this.intentionalLeave = false;
-    this.setStatus('connecting');
-    try {
-      this.room = await this.sdk.create<ClientRoomState>('practice', { ...options, private: true });
-      this.setStatus('connected');
-      this.attachRoomListeners();
-      this.room.send('version', { protocolVersion: PROTOCOL_VERSION, clientVersion: PROTOCOL_VERSION });
-      return this.room.id;
-    } catch (err) {
-      this.setStatus('error');
-      throw err;
-    }
-  }
-
-  async leave(consented = true): Promise<void> {
+  async leave(_consented = true): Promise<void> {
     this.intentionalLeave = true;
-    const room = this.room;
-    this.room = null;
-    await room?.leave(consented);
+    const socket = this.socket; this.socket = null;
+    if (socket && socket.readyState < WebSocket.CLOSING) socket.close(1000, 'Player left');
+    this.roomIdValue = undefined; this.sessionIdValue = undefined; this.ticket = undefined;
     this.setStatus('disconnected');
   }
 
-  // ── Messages ───────────────────────────────────────────────────────────────
-
   selectFighter(fighterId: string): void {
     const msg: SelectFighterMessage = { type: 'selectFighter', fighterId: fighterId as SelectFighterMessage['fighterId'], protocolVersion: PROTOCOL_VERSION };
-    this.room?.send('selectFighter', msg);
+    this.send(msg);
   }
-
-  ready(): void {
-    this.room?.send('ready', { protocolVersion: PROTOCOL_VERSION });
-  }
-
-  /** Send one semantic action. Returns the network sequence used for reconciliation. */
+  ready(): void { this.send({ type: 'ready', protocolVersion: PROTOCOL_VERSION }); }
   sendAction(event: ActionEvent): number {
     this.commandSeq += 1;
-    const msg: CommandMessage = {
-      type: 'command',
-      event: { ...event, sequence: this.commandSeq, source: 'network' },
-      seq: this.commandSeq,
-      clientTimestamp: performance.now(),
-      protocolVersion: PROTOCOL_VERSION,
-    };
-    this.room?.send('command', msg);
-    return this.commandSeq;
+    const msg: CommandMessage = { type: 'command', event: { ...event, sequence: this.commandSeq, source: 'network' },
+      seq: this.commandSeq, clientTimestamp: performance.now(), protocolVersion: PROTOCOL_VERSION };
+    this.send(msg); return this.commandSeq;
   }
+  voteRematch(): void { this.send({ type: 'rematch', protocolVersion: PROTOCOL_VERSION }); }
 
-  voteRematch(): void {
-    this.room?.send('rematch', { protocolVersion: PROTOCOL_VERSION });
-  }
-
-  // ── Room info ──────────────────────────────────────────────────────────────
-
-  get roomId(): string | undefined { return this.room?.id; }
-  get sessionId(): string | undefined { return this.room?.sessionId; }
+  get roomId(): string | undefined { return this.roomIdValue; }
+  get sessionId(): string | undefined { return this.sessionIdValue; }
   get currentStatus(): ConnectionStatus { return this.status; }
   get isConnected(): boolean { return this.status === 'connected'; }
 
-  setEventHandlers(handlers: Partial<Pick<ColyseusClientOptions, 'onStatusChange' | 'onStateChange' | 'onSnapshot' | 'onImpactEvent' | 'onMatchResult' | 'onCommandAck' | 'onRoomState'>>): void {
-    if (handlers.onStatusChange) this.options.onStatusChange = handlers.onStatusChange;
-    if (handlers.onStateChange) this.options.onStateChange = handlers.onStateChange;
-    if (handlers.onSnapshot) this.options.onSnapshot = handlers.onSnapshot;
-    if (handlers.onImpactEvent) this.options.onImpactEvent = handlers.onImpactEvent;
-    if (handlers.onMatchResult) this.options.onMatchResult = handlers.onMatchResult;
-    if (handlers.onCommandAck) this.options.onCommandAck = handlers.onCommandAck;
-    if (handlers.onRoomState) this.options.onRoomState = handlers.onRoomState;
+  setEventHandlers(handlers: Partial<ColyseusClientOptions>): void { Object.assign(this.options, handlers); }
+
+  private send(message: unknown) {
+    if (this.socket?.readyState === WebSocket.OPEN) this.socket.send(JSON.stringify(message));
   }
-
-  // ── Private ────────────────────────────────────────────────────────────────
-
-  private attachRoomListeners(): void {
-    if (!this.room) return;
-    const attachedRoom = this.room;
-
-    this.room.onStateChange((state) => this.options.onStateChange(state));
-    this.room.onMessage('snapshot', (msg) => this.options.onSnapshot(msg));
-    this.room.onMessage('impactEvent', (msg) => this.options.onImpactEvent(msg));
-    this.room.onMessage('matchResult', (msg) => this.options.onMatchResult(msg));
-    this.room.onMessage('commandAck', (msg) => this.options.onCommandAck(msg));
-    this.room.onMessage('roomState', (msg) => this.options.onRoomState(msg));
-    this.room.onMessage('versionRejected', (msg) => this.options.onVersionRejected(msg));
-    this.room.onLeave((code) => {
-      if (this.room !== attachedRoom) return;
-      if (code === 1000 || this.intentionalLeave) {
-        this.setStatus('disconnected');
-      } else {
-        this.setStatus('reconnecting');
-        void this.attemptReconnect();
+  private receive(raw: unknown) {
+    if (typeof raw !== 'string') return;
+    let message: Record<string, unknown>;
+    try { message = JSON.parse(raw) as Record<string, unknown>; } catch { return; }
+    switch (message.type) {
+      case 'welcome':
+        if (typeof message.sessionId === 'string') this.sessionIdValue = message.sessionId;
+        if (typeof message.lastCommandSeq === 'number') this.commandSeq = message.lastCommandSeq;
+        break;
+      case 'roomState': {
+        const state = message as unknown as RoomStateMessage;
+        this.options.onRoomState(state);
+        const fighters = new Map(state.fighters.map(f => [f.sessionId, { definitionId: f.definitionId } as ClientFighterState]));
+        const roles = new Map(state.roles.map(r => [r.sessionId, r.role]));
+        this.options.onStateChange({ phase: state.phase, resolved: state.phase === 'result', elapsed: 0, hype: 0, announcement: '', ruleset: 'standard', difficulty: 'normal', winnerSessionId: '', winMethod: '', fighters, roles });
+        break;
       }
-    });
-    this.room.onError((code, message) => {
-      console.error(`[ColyseusClient] Room error ${code}: ${message}`);
-      this.setStatus('error');
-    });
-    // Colyseus resolves join only after decoding the initial schema. Listener
-    // registration does not replay that already-decoded state, so publish it
-    // once here and let subsequent patches flow through onStateChange.
-    if (this.room.state) this.options.onStateChange(this.room.state);
-    this.room.send('syncState', { protocolVersion: PROTOCOL_VERSION });
-  }
-
-  private async attemptReconnect(): Promise<void> {
-    if (!this.room) return;
-    const reconnectionToken = this.room.reconnectionToken;
-    try {
-      this.room = await this.sdk.reconnect<ClientRoomState>(reconnectionToken);
-      this.attachRoomListeners();
-      this.setStatus('connected');
-    } catch {
-      this.setStatus('error');
+      case 'snapshot': this.options.onSnapshot(message as unknown as SnapshotMessage); break;
+      case 'impactEvent': this.options.onImpactEvent(message as unknown as ImpactEventMessage); break;
+      case 'matchResult': this.options.onMatchResult(message as unknown as MatchResultMessage); break;
+      case 'commandAck': this.options.onCommandAck(message as unknown as CommandAckMessage); break;
+      case 'versionRejected': this.options.onVersionRejected({ serverVersion: String(message.serverVersion ?? 'unknown') }); break;
     }
   }
-
-  private setStatus(status: ConnectionStatus): void {
-    this.status = status;
-    this.options.onStatusChange(status);
-  }
+  private setStatus(status: ConnectionStatus): void { this.status = status; this.options.onStatusChange(status); }
 }
 
-/** Singleton client for the current browser session. */
 export const colyseusClient = new ColyseusClient();
