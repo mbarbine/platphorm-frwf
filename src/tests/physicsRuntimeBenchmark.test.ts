@@ -132,4 +132,80 @@ describe('PhysicsRuntime Hot Loop Benchmark', () => {
     expect(sum3).toBe(sum1);
     expect(sum4).toBe(sum1);
   });
+
+  test('measures cover controller slot lookup performance', () => {
+    const iterations = 5_000_000;
+
+    const slots = ['player', 'opponent', 'rival1', 'rival2'] as const;
+    type FighterSlot = typeof slots[number];
+
+    interface MockModel {
+      player: { state: string };
+      opponent: { state: string };
+      rival1: { state: string };
+      rival2: { state: string };
+      pinCover?: { attacker: FighterSlot; defender: FighterSlot };
+    }
+
+    const model: MockModel = {
+      player: { state: 'pinning' },
+      opponent: { state: 'pinned' },
+      rival1: { state: 'idle' },
+      rival2: { state: 'locomotion' },
+      pinCover: { attacker: 'player', defender: 'opponent' },
+    };
+
+    // Baseline: FIGHTER_SLOTS.find(...) every call
+    const startBaseline = performance.now();
+    let baselineHits = 0;
+    for (let i = 0; i < iterations; i++) {
+      const attacker = slots.find(slot => model[slot].state === 'pinning');
+      const defender = slots.find(slot => model[slot].state === 'pinned');
+      if (attacker && defender) {
+        baselineHits++;
+      }
+    }
+    const baselineTime = performance.now() - startBaseline;
+
+    // Optimized: Check pinCover first, fallback to indexed for loop
+    const startOptimized = performance.now();
+    let optimizedHits = 0;
+    for (let i = 0; i < iterations; i++) {
+      let attacker: FighterSlot | undefined;
+      let defender: FighterSlot | undefined;
+
+      const cover = model.pinCover;
+      if (
+        cover &&
+        model[cover.attacker].state === 'pinning' &&
+        model[cover.defender].state === 'pinned'
+      ) {
+        attacker = cover.attacker;
+        defender = cover.defender;
+      } else {
+        for (let j = 0; j < slots.length; j++) {
+          const slot = slots[j];
+          if (slot) {
+            const st = model[slot].state;
+            if (st === 'pinning') attacker = slot;
+            else if (st === 'pinned') defender = slot;
+          }
+        }
+      }
+
+      if (attacker && defender) {
+        optimizedHits++;
+      }
+    }
+    const optimizedTime = performance.now() - startOptimized;
+
+    console.log(`\n--- BENCHMARK RESULTS (Cover Controller Lookup) ---`);
+    console.log(`Iterations: ${iterations.toLocaleString()}`);
+    console.log(`Baseline (Array.find): ${baselineTime.toFixed(2)} ms`);
+    console.log(`Optimized (pinCover direct + indexed for fallback): ${optimizedTime.toFixed(2)} ms`);
+    console.log(`Speedup: ${(baselineTime / optimizedTime).toFixed(2)}x (${((1 - optimizedTime / baselineTime) * 100).toFixed(1)}% reduction)`);
+    console.log(`-------------------------\n`);
+
+    expect(baselineHits).toBe(optimizedHits);
+  });
 });
