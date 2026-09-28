@@ -119,6 +119,7 @@ export class ColyseusClient {
         else this.setStatus('error');
       });
     });
+    this.send({ type: 'requestRoomState', protocolVersion: PROTOCOL_VERSION });
     if (options.fighterId) this.selectFighter(options.fighterId);
   }
 
