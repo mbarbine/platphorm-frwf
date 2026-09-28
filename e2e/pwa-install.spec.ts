@@ -16,9 +16,10 @@ test('RINGFALL install entry remains playable from the cached app shell without 
     const cacheNames = await caches.keys();
     const shell = cacheNames.includes('ringfall-shell-v1') ? await caches.open('ringfall-shell-v1') : null;
     const keys = shell ? (await shell.keys()).map(request => new URL(request.url).pathname) : [];
-    return { supported: true, controlled: !!navigator.serviceWorker.controller, cache: !!shell, cachedHome: keys.includes('/'), cachedApi: keys.some(path => path.startsWith('/api/')) };
+    return { supported: true, controlled: !!navigator.serviceWorker.controller, cache: !!shell, keys, cachedAssetCount: keys.filter(path => path.startsWith('/assets/')).length, cachedHome: keys.includes('/'), cachedApi: keys.some(path => path.startsWith('/api/')) };
   });
-  expect(cacheState).toMatchObject({ supported: true, cache: true, cachedHome: true, cachedApi: false });
+  expect(cacheState).toMatchObject({ supported: true, controlled: true, cache: true, cachedHome: true, cachedApi: false });
+  expect(cacheState.cachedAssetCount).toBeGreaterThan(0);
 
   await context.setOffline(true);
   await page.reload();
