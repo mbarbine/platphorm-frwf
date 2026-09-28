@@ -658,4 +658,59 @@ describe('authoritative server contract', () => {
     expect(app.disabled("x-powered-by")).toBe(true);
   });
 
+  it("cleanExpiredRateLimits purges expired entries and handles exact resetTime boundaries", async () => {
+    const { rateLimitMap, cleanExpiredRateLimits } = await import("../index");
+
+    rateLimitMap.clear();
+    vi.useFakeTimers();
+
+    const baseTime = 1000000;
+    vi.setSystemTime(baseTime);
+
+    // 1. Empty map handling
+    expect(() => cleanExpiredRateLimits()).not.toThrow();
+
+    // 2. Exact resetTime boundary checks:
+    // Entry 1: resetTime < baseTime (expired)
+    rateLimitMap.set("10.0.0.1", { count: 1, resetTime: baseTime - 1 });
+    // Entry 2: resetTime === baseTime (not expired yet, since now > resetTime is false)
+    rateLimitMap.set("10.0.0.2", { count: 2, resetTime: baseTime });
+    // Entry 3: resetTime > baseTime (not expired)
+    rateLimitMap.set("10.0.0.3", { count: 3, resetTime: baseTime + 1000 });
+
+    cleanExpiredRateLimits();
+
+    expect(rateLimitMap.has("10.0.0.1")).toBe(false);
+    expect(rateLimitMap.has("10.0.0.2")).toBe(true);
+    expect(rateLimitMap.has("10.0.0.3")).toBe(true);
+
+    // Advance time past Entry 2 and 3 reset times
+    vi.setSystemTime(baseTime + 1001);
+    cleanExpiredRateLimits();
+
+    expect(rateLimitMap.has("10.0.0.2")).toBe(false);
+    expect(rateLimitMap.has("10.0.0.3")).toBe(false);
+
+    vi.useRealTimers();
+    rateLimitMap.clear();
+  });
+
+  it("cleanupInterval is exported as an unref-capable timer and cleared during test imports", async () => {
+    vi.resetModules();
+    vi.stubEnv("NODE_ENV", "test");
+    vi.stubEnv("VITEST", "true");
+
+    const clearIntervalSpy = vi.spyOn(globalThis, "clearInterval");
+
+    const { cleanupInterval } = await import("../index");
+
+    expect(cleanupInterval).toBeDefined();
+    expect(typeof cleanupInterval.unref).toBe("function");
+    expect(clearIntervalSpy).toHaveBeenCalledWith(cleanupInterval);
+
+    clearIntervalSpy.mockRestore();
+    vi.unstubAllEnvs();
+    vi.resetModules();
+  });
+
 });
