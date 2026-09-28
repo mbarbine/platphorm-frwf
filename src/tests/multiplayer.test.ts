@@ -334,7 +334,6 @@ describe('ColyseusClient', () => {
   it('sets status to error when reconnection fails', async () => {
     await client.joinOrCreate('wrestling');
 
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     mockReconnect.mockRejectedValueOnce(new Error('Reconnection token expired'));
 
     if (mockRoom._leaveCallback) {
@@ -342,8 +341,6 @@ describe('ColyseusClient', () => {
     }
 
     expect(client.currentStatus).toBe('error');
-    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Reconnect failed'));
-    warnSpy.mockRestore();
   });
 });
 

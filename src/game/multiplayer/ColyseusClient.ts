@@ -254,7 +254,6 @@ export class ColyseusClient {
       this.setStatus('connected');
     } catch {
       this.setStatus('error');
-      console.warn('[ColyseusClient] Reconnect failed');
     }
   }
 
