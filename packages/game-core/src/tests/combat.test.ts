@@ -34,6 +34,8 @@ describe('combat simulation API exports', () => {
       running: false,
       guarding: false,
       phaseElapsed: 0,
+      quickChainCount: 0,
+      lastQuickStrikeAt: -Infinity,
       attackInstanceId: 0,
       hitTargets: expect.any(Set),
       grappleTarget: null,
