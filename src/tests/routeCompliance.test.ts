@@ -111,4 +111,40 @@ describe('Route Compliance Serverless Handler Security Checks', () => {
     expect(res.status).toHaveBeenCalledWith(405);
     expect(res.setHeader).toHaveBeenCalledWith('Allow', 'GET, HEAD');
   });
+
+  it('rejects invalid hostnames and improper subdomains', () => {
+    const invalidHosts = [
+      'attacker.com',
+      'bad$host.platphormnews.com',
+      'sub_domain.platphormnews.com',
+      '-invalid.platphormnews.com',
+    ];
+
+    for (const host of invalidHosts) {
+      const req: MockRequest = {
+        method: 'GET',
+        headers: { host },
+        query: {},
+      };
+      const res: MockResponse = {
+        status: vi.fn(),
+        setHeader: vi.fn(),
+        json: vi.fn(),
+      };
+      res.status.mockReturnValue(res);
+
+      handler(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ok: false,
+          error: expect.objectContaining({
+            code: 'untrusted_domain',
+            details: { domain: host.toLowerCase() },
+          }),
+        })
+      );
+    }
+  });
 });

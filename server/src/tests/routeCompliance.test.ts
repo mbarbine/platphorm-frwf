@@ -283,4 +283,42 @@ describe('Route Compliance Serverless Handler', () => {
       'https://base.platphormnews.com/api/v1/route-compliance?domain=sub.platphormnews.com&mode=full&timeoutMs=1200'
     );
   });
+
+  it('rejects host headers with special characters, spaces, or invalid subdomain syntax', () => {
+    const invalidHosts = [
+      'evil.com.platphormnews.com.attacker.com',
+      'sub_domain.platphormnews.com',
+      'sub domain.platphormnews.com',
+      'bad$sub.platphormnews.com',
+      'platphormnews.com.evil.com',
+      '-sub.platphormnews.com',
+    ];
+
+    for (const host of invalidHosts) {
+      const req: MockRequest = {
+        method: 'GET',
+        headers: { host },
+        query: {},
+      };
+      const res: MockResponse = {
+        status: vi.fn(),
+        setHeader: vi.fn(),
+        json: vi.fn(),
+      };
+      res.status.mockReturnValue(res);
+
+      handler(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ok: false,
+          error: expect.objectContaining({
+            code: 'untrusted_domain',
+            details: { domain: host.toLowerCase() },
+          }),
+        })
+      );
+    }
+  });
 });

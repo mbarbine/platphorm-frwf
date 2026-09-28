@@ -1,5 +1,8 @@
+const TRUSTED_DOMAIN_PATTERN = /^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)*platphormnews\.com$/
+
 function trustedSite(hostname) {
-  return hostname === "platphormnews.com" || hostname.endsWith(".platphormnews.com")
+  if (typeof hostname !== "string" || !hostname) return false
+  return TRUSTED_DOMAIN_PATTERN.test(hostname)
 }
 
 export default function handler(request, response) {
