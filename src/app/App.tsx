@@ -115,15 +115,6 @@ export function App() {
     void useMultiplayerStore.getState().joinByRoomId(privateInvite, { fighterId: selected }).catch(() => undefined);
   }, []);
 
-  const getFighterByRole = (role: 'player1' | 'player2') => {
-    for (const [sessionId, r] of multiplayerRoles.entries()) {
-      if (r === role) {
-        return multiplayerFightersMap.get(sessionId);
-      }
-    }
-    return null;
-  };
-
   useEffect(() => {
     document.documentElement.style.setProperty('--ui-scale', String(settings.uiScale));
     document.documentElement.dataset.highContrast = settings.highContrast ? 'true' : 'false';
@@ -427,11 +418,10 @@ export function App() {
       </div>}
 
       {multiplayerStatus === 'connected' && (() => {
-        const hostRole = [...multiplayerRoles].find(([sessionId]) => sessionId === multiplayerHostSessionId)?.[1];
         const roster = [...multiplayerRoles.entries()].sort((a, b) => Number(a[1].slice(-1)) - Number(b[1].slice(-1)));
         const readyCount = roster.filter(([id]) => multiplayerConnectedPlayers.get(id) && multiplayerReadyPlayers.get(id)).length;
         const connectedCount = roster.filter(([id]) => multiplayerConnectedPlayers.get(id)).length;
-        const canStart = multiplayerMyRole === 'player1' && connectedCount === 2 && readyCount === connectedCount;
+        const canStart = multiplayerSessionId === multiplayerHostSessionId && connectedCount === 2 && readyCount === connectedCount;
         return <div className="multiplayer-lobby__connected" style={{ width: '100%', maxWidth: '900px', margin: '0 auto' }}>
           <div className="locker-room" style={{ background: 'rgba(0,0,0,0.5)', padding: '1.5rem', borderRadius: '8px', marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>

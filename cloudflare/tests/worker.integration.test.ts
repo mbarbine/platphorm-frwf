@@ -111,6 +111,16 @@ describe('real Worker / Durable Object / D1 / R2 integration', () => {
     try {
       const activeFirst = nextSocketMessage<{ phase: string }>(first as unknown as WebSocket, message => message.type === 'roomState' && message.phase === 'active');
       const activeSecond = nextSocketMessage<{ phase: string }>(second as unknown as WebSocket, message => message.type === 'roomState' && message.phase === 'active');
+      const waitingError = nextSocketMessage<{ code: string }>(first as unknown as WebSocket, message => message.type === 'error' && message.code === 'players_not_ready');
+      first.send(JSON.stringify({ type: 'startMatch', protocolVersion: '2.0.0' }));
+      await waitingError;
+      const sixSeatsWait = nextSocketMessage<{ roles: Array<{ role: string; ready: boolean; connected: boolean }> }>(first as unknown as WebSocket, message => message.type === 'roomState' && Array.isArray(message.roles) && message.roles.length === 6);
+      const sixSeats = await sixSeatsWait;
+      expect(sixSeats.roles.filter(entry => entry.role === 'player1' && entry.ready)).toHaveLength(1);
+      expect(sixSeats.roles.filter(entry => entry.connected)).toHaveLength(2);
+      const chat = nextSocketMessage<{ text: string; type: string }>(first as unknown as WebSocket, message => message.type === 'lobbyChatEvent');
+      second.send(JSON.stringify({ type: 'lobbyChat', text: 'Ready to rumble', protocolVersion: '2.0.0' }));
+      expect(await chat).toMatchObject({ type: 'lobbyChatEvent', text: 'Ready to rumble' });
       second.send(JSON.stringify({ type: 'ready', ready: true, protocolVersion: '2.0.0' }));
       first.send(JSON.stringify({ type: 'startMatch', protocolVersion: '2.0.0' }));
       await Promise.all([activeFirst, activeSecond]);
