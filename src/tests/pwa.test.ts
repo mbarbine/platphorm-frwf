@@ -55,7 +55,7 @@ describe('RINGFALL installable web app', () => {
     expect(prompt).not.toHaveBeenCalled();
     fireEvent.click(button);
     await waitFor(() => expect(prompt).toHaveBeenCalledTimes(1));
-    expect(await screen.findByRole('status')).toHaveTextContent('RINGFALL is installing.');
+    expect((await screen.findByRole('status')).textContent).toContain('RINGFALL is installing.');
   });
 
   it('registers a same-origin offline shell while excluding APIs, multiplayer sockets, and cross-origin requests from caching', () => {

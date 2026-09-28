@@ -1,4 +1,4 @@
-/* global process, fetch, URL, console */
+/* global process, fetch, console */
 const origin = (process.env.FRWF_ORIGIN ?? 'https://frwf.ja1.io').replace(/\/$/, '');
 const response = await fetch(`${origin}/api/rooms`, {
   method: 'POST',

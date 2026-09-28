@@ -1,4 +1,5 @@
 /* RINGFALL app shell and same-origin static game-resource cache. API and sockets are never cached. */
+/* global self, caches, fetch, URL, Response */
 const CACHE_NAME = 'ringfall-shell-v1';
 const CORE_URLS = ['/', '/manifest.webmanifest', '/offline.html', '/favicon.svg', '/icons/ringfall-192.png', '/icons/ringfall-512.png', '/icons/ringfall-maskable-512.png', '/icons/ringfall-180.png'];
 const CACHEABLE_PREFIXES = ['/assets/', '/characters/', '/venue/', '/audio/', '/archive/'];
