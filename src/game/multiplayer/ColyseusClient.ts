@@ -1,6 +1,6 @@
 import { gameServerEndpoint } from './serverEndpoint';
 import type { ActionEvent, CommandMessage, SelectFighterMessage } from '@frwf/game-protocol';
-import type { CommandAckMessage, ImpactEventMessage, MatchResultMessage, RoomStateMessage, SnapshotMessage } from '@frwf/game-protocol';
+import type { CommandAckMessage, ImpactEventMessage, LobbyChatEventMessage, MatchResultMessage, RoomStateMessage, SnapshotMessage } from '@frwf/game-protocol';
 import { PROTOCOL_VERSION } from '@frwf/game-protocol';
 
 export interface ClientRoomState {
@@ -24,6 +24,7 @@ export interface ColyseusClientOptions {
   onMatchResult?: (result: MatchResultMessage) => void;
   onCommandAck?: (ack: CommandAckMessage) => void;
   onRoomState?: (state: RoomStateMessage) => void;
+  onLobbyChat?: (event: LobbyChatEventMessage) => void;
   onVersionRejected?: (info: { serverVersion: string }) => void;
 }
 
@@ -62,6 +63,7 @@ export class ColyseusClient {
       onMatchResult: options.onMatchResult ?? (() => undefined),
       onCommandAck: options.onCommandAck ?? (() => undefined),
       onRoomState: options.onRoomState ?? (() => undefined),
+      onLobbyChat: options.onLobbyChat ?? (() => undefined),
       onVersionRejected: options.onVersionRejected ?? (() => undefined),
     };
     if (typeof window !== 'undefined') window.addEventListener('pagehide', () => { void this.leave(true); }, { once: true });
@@ -73,17 +75,17 @@ export class ColyseusClient {
   async joinRoom(_roomName: string, _options: { fighterId?: string } = {}): Promise<void> {
     throw new Error('Room names are not join codes. Use the room ID and private ticket from your invitation.');
   }
-  async createPrivateRoom(options: { fighterId?: string; ruleset?: string } = {}): Promise<{ roomId: string; joinInvite: string }> {
+  async createPrivateRoom(options: { fighterId?: string; ruleset?: string } = {}): Promise<{ roomId: string; joinInvite: string; guestInvites: string[] }> {
     if (!this.options.serverUrl) throw new Error('The Cloudflare match service is not configured for this environment.');
     const endpoint = new URL('/api/rooms', this.options.serverUrl);
     const response = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ fighterId: options.fighterId ?? 'atlas', ruleset: options.ruleset ?? 'standard' }) });
-    const payload = await response.json() as { ok?: boolean; data?: { roomId?: string; hostInvite?: string; joinInvite?: string }; error?: { code?: string } };
+    const payload = await response.json() as { ok?: boolean; data?: { roomId?: string; hostInvite?: string; joinInvite?: string; guestInvites?: string[] }; error?: { code?: string } };
     if (!response.ok || !payload.ok || !payload.data?.roomId || !payload.data.hostInvite || !payload.data.joinInvite) {
       throw new Error(payload.error?.code === 'room_host_rate_limited' ? 'Too many matches were hosted from this connection. Try again in a minute.' : 'Could not host a match. Check your connection and try again.');
     }
     await this.joinByRoomId(payload.data.hostInvite);
-    return { roomId: payload.data.roomId, joinInvite: payload.data.joinInvite };
+    return { roomId: payload.data.roomId, joinInvite: payload.data.joinInvite, guestInvites: payload.data.guestInvites ?? [payload.data.joinInvite] };
   }
 
   async joinByRoomId(inviteOrUrl: string, options: { fighterId?: string } = {}): Promise<void> {
@@ -134,7 +136,9 @@ export class ColyseusClient {
     const msg: SelectFighterMessage = { type: 'selectFighter', fighterId: fighterId as SelectFighterMessage['fighterId'], protocolVersion: PROTOCOL_VERSION };
     this.send(msg);
   }
-  ready(): void { this.send({ type: 'ready', protocolVersion: PROTOCOL_VERSION }); }
+  ready(ready = true): void { this.send({ type: 'ready', ready, protocolVersion: PROTOCOL_VERSION }); }
+  startMatch(): void { this.send({ type: 'startMatch', protocolVersion: PROTOCOL_VERSION }); }
+  sendLobbyChat(text: string): void { this.send({ type: 'lobbyChat', text, protocolVersion: PROTOCOL_VERSION }); }
   sendAction(event: ActionEvent): number {
     this.commandSeq += 1;
     const msg: CommandMessage = { type: 'command', event: { ...event, sequence: this.commandSeq, source: 'network' },
@@ -171,6 +175,7 @@ export class ColyseusClient {
         this.options.onStateChange({ phase: state.phase, resolved: state.phase === 'result', elapsed: 0, hype: 0, announcement: '', ruleset: state.ruleset, difficulty: 'normal', winnerSessionId: '', winMethod: '', fighters, roles });
         break;
       }
+      case 'lobbyChatEvent': this.options.onLobbyChat(message as unknown as LobbyChatEventMessage); break;
       case 'snapshot': this.options.onSnapshot(message as unknown as SnapshotMessage); break;
       case 'impactEvent': this.options.onImpactEvent(message as unknown as ImpactEventMessage); break;
       case 'matchResult': this.options.onMatchResult(message as unknown as MatchResultMessage); break;

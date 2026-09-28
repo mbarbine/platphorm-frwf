@@ -5,12 +5,14 @@ import type { FighterId, MatchResultMessage, SnapshotMessage } from '../../packa
 import { clientMessage, digest } from './contracts';
 import type { Env } from './env';
 
-interface Seat { id: string; role: 'player1' | 'player2'; tokenHash: string; fighterId: FighterId; ready: boolean; rematch: boolean; disconnectedAt: number | null; lastSeen: number; lastSeq: number }
+type PlayerRole = 'player1' | 'player2' | 'player3' | 'player4' | 'player5' | 'player6';
+interface Seat { id: string; role: PlayerRole; tokenHash: string; fighterId: FighterId; ready: boolean; rematch: boolean; disconnectedAt: number | null; lastSeen: number; lastSeq: number }
 interface SavedRoom {
   id: string; createdAt: number; expiresAt: number; ruleset: 'standard' | 'chaos'; seats: Seat[];
   hostSessionId: string | null;
   phase: 'lobby' | 'active' | 'result' | 'closed'; round: number; snapshotSeq: number;
   model: string | null; result: MatchResultMessage | null; persisted: boolean; completedAt: string | null;
+  chat: Array<{ sessionId: string; text: string; timestamp: number }>;
 }
 // Serialize the complete authoritative model, including attack deduplication.
 const serialize = (model: OnlineMatchState) => JSON.stringify(model, (_key, value) => value instanceof Map ? { $map: [...value] } : value instanceof Set ? { $set: [...value] } : value);
@@ -34,10 +36,11 @@ export class MatchRoom extends DurableObject<Env> {
 
   async initialize(id: string, ruleset: 'standard' | 'chaos', hostFighterId: FighterId = 'atlas') {
     if (this.room) throw new Error('Room already exists');
-    const tokens = [crypto.randomUUID().replaceAll('-', '') + crypto.randomUUID().replaceAll('-', ''), crypto.randomUUID().replaceAll('-', '') + crypto.randomUUID().replaceAll('-', '')];
+    const roles: PlayerRole[] = ['player1', 'player2', 'player3', 'player4', 'player5', 'player6'];
+    const tokens = roles.map(() => crypto.randomUUID().replaceAll('-', '') + crypto.randomUUID().replaceAll('-', ''));
     const now = Date.now();
-    const seats: Seat[] = await Promise.all(tokens.map(async (token, index) => ({ id: crypto.randomUUID(), role: index === 0 ? 'player1' as const : 'player2' as const, tokenHash: await digest(token), fighterId: index === 0 ? hostFighterId : 'nova' as const, ready: false, rematch: false, disconnectedAt: now, lastSeen: now, lastSeq: 0 })));
-    this.room = { id, createdAt: now, expiresAt: now + 3600000, ruleset, seats, hostSessionId: seats[0]?.id ?? null, phase: 'lobby', round: 0, snapshotSeq: 0, model: null, result: null, persisted: true, completedAt: null };
+    const seats: Seat[] = await Promise.all(tokens.map(async (token, index) => ({ id: crypto.randomUUID(), role: roles[index]!, tokenHash: await digest(token), fighterId: index === 0 ? hostFighterId : 'nova' as const, ready: index === 0, rematch: false, disconnectedAt: now, lastSeen: now, lastSeq: 0 })));
+    this.room = { id, createdAt: now, expiresAt: now + 3600000, ruleset, seats, hostSessionId: seats[0]?.id ?? null, phase: 'lobby', round: 0, snapshotSeq: 0, model: null, result: null, persisted: true, completedAt: null, chat: [] };
     this.save(); await this.ctx.storage.setAlarm(now + 60000);
     return { roomId: id, expiresAt: this.room.expiresAt, tickets: tokens.map((ticket, index) => ({ role: seats[index]?.role, ticket })) };
   }
@@ -74,6 +77,20 @@ export class MatchRoom extends DurableObject<Env> {
     const message = parsed.data; seat.lastSeen = Date.now();
     if (message.type === 'ping') { this.send(socket, { type: 'pong', clientTimestamp: message.clientTimestamp, serverTimestamp: Date.now() }); return; }
     if (message.type === 'leave') { this.leaveSeat(seat); return; }
+    if (message.type === 'lobbyChat' && this.room.phase === 'lobby') {
+      const entry = { sessionId: seat.id, text: message.text.replace(/[\u0000-\u001f\u007f]/g, '').slice(0, 240), timestamp: Date.now() };
+      if (!entry.text.trim()) return;
+      this.room.chat.push(entry); if (this.room.chat.length > 40) this.room.chat.splice(0, this.room.chat.length - 40);
+      this.save(); this.broadcast({ type: 'lobbyChatEvent', ...entry }); return;
+    }
+    if (message.type === 'startMatch') {
+      if (this.room.phase !== 'lobby' || this.room.hostSessionId !== seat.id) { this.send(socket, { type: 'error', code: 'host_only' }); return; }
+      const participants = this.room.seats.filter(player => player.disconnectedAt === null);
+      if (participants.length < 2 || participants.some(player => !player.ready)) { this.send(socket, { type: 'error', code: 'players_not_ready' }); return; }
+      // Do not silently exclude extra ready players from the current 1v1 engine.
+      if (participants.length !== 2) { this.send(socket, { type: 'error', code: 'six_player_simulation_unavailable' }); return; }
+      this.beginMatch(); this.broadcastState(); return;
+    }
     if (message.type === 'hostSettings' && this.room.phase === 'lobby' && this.room.hostSessionId === seat.id) {
       const successor = this.room.seats.find(candidate => candidate.id !== seat.id && this.isConnected(candidate.id));
       if (!successor) { this.closeRoom(); return; }
@@ -87,11 +104,9 @@ export class MatchRoom extends DurableObject<Env> {
       if (message.seq > seat.lastSeq) seat.lastSeq = message.seq;
       this.save(); this.send(socket, { type: 'commandAck', seq: message.seq, accepted, serverTimestamp: Date.now() }); return;
     }
-    if (message.type === 'selectFighter' && this.room.phase === 'lobby') { seat.fighterId = message.fighterId; seat.ready = false; }
-    if (message.type === 'ready' && this.room.phase === 'lobby') seat.ready = true;
+    if (message.type === 'selectFighter' && this.room.phase === 'lobby') { seat.fighterId = message.fighterId; if (seat.id !== this.room.hostSessionId) seat.ready = false; }
+    if (message.type === 'ready' && this.room.phase === 'lobby') seat.ready = message.ready;
     if (message.type === 'rematch' && this.room.phase === 'result' && this.room.persisted) seat.rematch = true;
-    if ((this.room.phase === 'lobby' && this.room.seats.every(player => player.ready && player.disconnectedAt === null))
-      || (this.room.phase === 'result' && this.room.seats.every(player => player.rematch && player.disconnectedAt === null))) this.beginMatch();
     this.save(); this.broadcastState();
   }
 
@@ -206,7 +221,9 @@ export class MatchRoom extends DurableObject<Env> {
   private broadcast(message: unknown) { for (const socket of this.ctx.getWebSockets()) this.send(socket, message); }
   private broadcastState() {
     if (!this.room) return;
-    this.broadcast({ type: 'roomState', phase: this.room.phase, ruleset: this.room.ruleset, hostSessionId: this.room.hostSessionId, roles: this.room.seats.map(({ id, role }) => ({ sessionId: id, role })), fighters: this.room.seats.map(({ id, fighterId }) => ({ sessionId: id, definitionId: fighterId })) });
+    this.broadcast({ type: 'roomState', phase: this.room.phase, ruleset: this.room.ruleset, hostSessionId: this.room.hostSessionId,
+      roles: this.room.seats.map(({ id, role, ready, disconnectedAt }) => ({ sessionId: id, role, ready, connected: disconnectedAt === null })),
+      fighters: this.room.seats.map(({ id, fighterId }) => ({ sessionId: id, definitionId: fighterId })), chat: this.room.chat });
   }
   private broadcastSnapshot() {
     if (!this.room || !this.model) return;

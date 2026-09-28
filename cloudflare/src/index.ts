@@ -117,9 +117,9 @@ async function route(request: Request, env: Env): Promise<Response> {
     const created = await env.MATCHES.getByName(id).initialize(id, options.data.ruleset, options.data.fighterId);
     const invite = (ticket: string) => `${env.PUBLIC_ORIGIN}/#room=${id}.${ticket}`;
     const hostTicket = created.tickets.find(seat => seat.role === 'player1')?.ticket;
-    const guestTicket = created.tickets.find(seat => seat.role === 'player2')?.ticket;
-    if (!hostTicket || !guestTicket) throw new HttpError(503, 'room_ticket_unavailable');
-    return ok({ roomId: id, expiresAt: created.expiresAt, hostInvite: invite(hostTicket), joinInvite: invite(guestTicket) }, 201);
+    const guestInvites = created.tickets.filter(seat => seat.role !== 'player1').map(seat => invite(seat.ticket));
+    if (!hostTicket || guestInvites.length !== 5) throw new HttpError(503, 'room_ticket_unavailable');
+    return ok({ roomId: id, expiresAt: created.expiresAt, hostInvite: invite(hostTicket), joinInvite: guestInvites[0], guestInvites }, 201);
   }
   if (request.method === 'POST' && path === '/api/maps/publish') {
     await authorize(request, env); if (!env.DB) throw new HttpError(503, 'database_not_configured');
