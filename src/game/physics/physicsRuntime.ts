@@ -1210,8 +1210,22 @@ export class BodyWorksRuntime {
   }
 
   private applyCoverController(key: FighterKey, fighter: FighterRuntime, rig: FighterRigRegistration, model: MatchModel, dt: number): void {
-    const attacker = FIGHTER_SLOTS.find(slot => model[slot].state === 'pinning');
-    const defender = FIGHTER_SLOTS.find(slot => model[slot].state === 'pinned');
+    let attacker: FighterSlot | undefined;
+    let defender: FighterSlot | undefined;
+    const existingCover = model.pinCover;
+    if (existingCover && model[existingCover.attacker].state === 'pinning' && model[existingCover.defender].state === 'pinned') {
+      attacker = existingCover.attacker;
+      defender = existingCover.defender;
+    } else {
+      const slots = model.matchMode === 'battle_royale' ? FIGHTER_SLOTS : SINGLES_FIGHTER_SLOTS;
+      for (let i = 0; i < slots.length; i++) {
+        const slot = slots[i];
+        if (!slot) continue;
+        const state = model[slot].state;
+        if (state === 'pinning') attacker = slot;
+        else if (state === 'pinned') defender = slot;
+      }
+    }
     if (!attacker || !defender) return;
     if (!model.pinCover || model.pinCover.attacker !== attacker || model.pinCover.defender !== defender) {
       model.pinCover = { attacker, defender, age: 0, contactAge: 99, established: false, separation: 99, shoulderHeight: 99, lostSeconds: 0, facing: model[defender].facing };
