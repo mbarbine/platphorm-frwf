@@ -25,21 +25,26 @@ describe('PlatPhorm static game contract', () => {
 
   it('reports real game capabilities and honest static limitations', () => {
     const index = JSON.parse(read('public/llms-index.json')) as { data: { capabilities: string[] } };
-    expect(index.data.capabilities).toEqual(expect.arrayContaining(['singles_match', 'five_wrestler_battle_royale', 'battle_royale_target_cycle', 'battle_royale_spectator_controls', 'physical_grapple_and_slam', 'rope_rebound_and_ring_traversal', 'turnbuckle_aerials', 'webxr_arena_mode', 'spatial_audio']));
+    expect(index.data.capabilities).toEqual(expect.arrayContaining(['singles_match', 'five_wrestler_battle_royale', 'battle_royale_target_cycle', 'battle_royale_spectator_controls', 'physical_grapple_and_slam', 'rope_rebound_and_ring_traversal', 'turnbuckle_aerials', 'webxr_arena_mode', 'spatial_audio', 'installable_pwa', 'best_effort_cached_offline_single_player']));
     const health = JSON.parse(read('public/api/health')) as { data: Record<string, unknown> };
     expect(health.data).toMatchObject({ status: 'unknown', routeComplianceScore: null, traceEnabled: false, vercelMetadataCaptured: false });
     expect(health.data.releaseIdentity).toMatchObject({ fighterCount: 19, moveCount: 59, criticalAssetCount: 1 });
     expect(health.data.observabilityComplianceScore).toBeNull();
   });
 
-  it('uses the shared auth name, canonical host, trust policy, and XR delivery permission without leaking a key', () => {
+  it('uses the shared auth name, Cloudflare canonical host, trust policy, and install-worker delivery policy without leaking a key', () => {
     const publicText = routes.map(read).join('\n');
     for (const forbidden of ['TRACE_API_KEY', 'CLAWS_API_KEY', 'BROWSEROPS_API_KEY', 'DOCS_API_KEY', 'PLATPHORM_MCP_API_KEY']) expect(publicText).not.toContain(forbidden);
-    expect(read('public/openapi.yaml')).toContain('https://frwf.platphormnews.com');
+    expect(read('public/openapi.yaml')).toContain('https://frwf.ja1.io');
+    expect(read('public/robots.txt')).toContain('https://frwf.ja1.io/sitemap.xml');
+    expect(read('public/sitemap.xml')).toContain('https://frwf.ja1.io/');
+    expect(read('public/rss.xml')).toContain('https://frwf.ja1.io/');
     expect(read('public/.well-known/trust.json')).toContain('PLATPHORM_API_KEY');
-    expect(read('vercel.json')).toContain('xr-spatial-tracking=(self)');
-    const hosting = JSON.parse(read('vercel.json')) as { headers: { source: string; headers: { key: string; value: string }[] }[] };
-    expect(hosting.headers.find(rule => rule.source === '/api/(health|v1/health|docs|release)')?.headers).toContainEqual({ key: 'Content-Type', value: 'application/json; charset=utf-8' });
+    expect(read('public/_headers')).toContain('xr-spatial-tracking=(self)');
+    expect(read('public/_headers')).toContain('Service-Worker-Allowed: /');
+    expect(read('public/_headers')).toContain('Cache-Control: no-cache');
+    expect(read('cloudflare/wrangler.jsonc')).toContain('frwf.ja1.io');
+    expect(read('cloudflare/wrangler.jsonc')).toContain('"directory": "../dist"');
   });
 });
 

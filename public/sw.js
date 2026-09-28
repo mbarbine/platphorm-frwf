@@ -4,6 +4,7 @@ const CACHE_NAME = 'ringfall-shell-v1';
 const CORE_URLS = ['/', '/manifest.webmanifest', '/offline.html', '/favicon.svg', '/icons/ringfall-192.png', '/icons/ringfall-512.png', '/icons/ringfall-maskable-512.png', '/icons/ringfall-180.png'];
 const CACHEABLE_PREFIXES = ['/assets/', '/characters/', '/venue/', '/audio/', '/archive/'];
 const MAX_RUNTIME_ENTRIES = 80;
+const MAX_RUNTIME_BYTES = 96 * 1024 * 1024;
 const MAX_RESOURCE_BYTES = 24 * 1024 * 1024;
 
 self.addEventListener('install', event => {
@@ -16,7 +17,8 @@ self.addEventListener('install', event => {
     const references = [...html.matchAll(/(?:src|href)="(\/assets\/[^"]+)"/g)].map(match => match[1]);
     await Promise.allSettled(references.map(async path => {
       const response = await fetch(path, { cache: 'reload' });
-      if (response.ok && response.type === 'basic') await cache.put(path, response);
+      const length = Number(response.headers.get('content-length') || 0);
+      if (response.ok && response.type === 'basic' && length > 0 && length <= MAX_RESOURCE_BYTES) await cache.put(path, response);
     }));
     await self.skipWaiting();
   })());
@@ -56,14 +58,26 @@ self.addEventListener('fetch', event => {
     if (cached) return cached;
     const response = await fetch(request);
     const length = Number(response.headers.get('content-length') || 0);
-    if (response.ok && response.type === 'basic' && length <= MAX_RESOURCE_BYTES) {
+    if (response.ok && response.type === 'basic' && length > 0 && length <= MAX_RESOURCE_BYTES) {
       await cache.put(request, response.clone());
       const entries = await cache.keys();
       const runtimeEntries = entries.filter(entry => {
         const path = new URL(entry.url).pathname;
         return CACHEABLE_PREFIXES.some(prefix => path.startsWith(prefix));
       });
-      for (const oldEntry of runtimeEntries.slice(0, Math.max(0, runtimeEntries.length - MAX_RUNTIME_ENTRIES))) await cache.delete(oldEntry);
+      const sizes = await Promise.all(runtimeEntries.map(async entry => {
+        const cachedResponse = await cache.match(entry);
+        return Number(cachedResponse?.headers.get('content-length') || 0);
+      }));
+      let count = runtimeEntries.length;
+      let bytes = sizes.reduce((sum, size) => sum + size, 0);
+      for (let index = 0; index < runtimeEntries.length && (count > MAX_RUNTIME_ENTRIES || bytes > MAX_RUNTIME_BYTES); index++) {
+        const entry = runtimeEntries[index];
+        if (entry && await cache.delete(entry)) {
+          count--;
+          bytes -= sizes[index] || 0;
+        }
+      }
     }
     return response;
   })());
