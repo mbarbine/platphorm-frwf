@@ -30,7 +30,7 @@ export class MatchRoom extends DurableObject<Env> {
     super(ctx, env);
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS room (id INTEGER PRIMARY KEY CHECK(id = 1), state TEXT NOT NULL)');
     const row = ctx.storage.sql.exec<{ state: string }>('SELECT state FROM room WHERE id = 1').toArray()[0];
-    if (row) { this.room = JSON.parse(row.state); if (this.room && !this.room.hostSessionId) this.room.hostSessionId = this.room.seats.find(seat => seat.role === 'player1')?.id ?? null; this.model = this.room?.model ? deserialize(this.room.model) : null; }
+    if (row) { this.room = JSON.parse(row.state); if (this.room) { this.room.chat ??= []; if (!this.room.hostSessionId) this.room.hostSessionId = this.room.seats.find(seat => seat.role === 'player1')?.id ?? null; } this.model = this.room?.model ? deserialize(this.room.model) : null; }
     if (this.room?.phase === 'active') this.startClock();
   }
 
@@ -39,7 +39,7 @@ export class MatchRoom extends DurableObject<Env> {
     const roles: PlayerRole[] = ['player1', 'player2', 'player3', 'player4', 'player5', 'player6'];
     const tokens = roles.map(() => crypto.randomUUID().replaceAll('-', '') + crypto.randomUUID().replaceAll('-', ''));
     const now = Date.now();
-    const seats: Seat[] = await Promise.all(tokens.map(async (token, index) => ({ id: crypto.randomUUID(), role: roles[index]!, tokenHash: await digest(token), fighterId: index === 0 ? hostFighterId : 'nova' as const, ready: index === 0, rematch: false, disconnectedAt: now, lastSeen: now, lastSeq: 0 })));
+    const seats: Seat[] = await Promise.all(tokens.map(async (token, index) => ({ id: crypto.randomUUID(), role: roles[index] ?? 'player6', tokenHash: await digest(token), fighterId: index === 0 ? hostFighterId : 'nova' as const, ready: index === 0, rematch: false, disconnectedAt: now, lastSeen: now, lastSeq: 0 })));
     this.room = { id, createdAt: now, expiresAt: now + 3600000, ruleset, seats, hostSessionId: seats[0]?.id ?? null, phase: 'lobby', round: 0, snapshotSeq: 0, model: null, result: null, persisted: true, completedAt: null, chat: [] };
     this.save(); await this.ctx.storage.setAlarm(now + 60000);
     return { roomId: id, expiresAt: this.room.expiresAt, tickets: tokens.map((ticket, index) => ({ role: seats[index]?.role, ticket })) };
@@ -79,7 +79,8 @@ export class MatchRoom extends DurableObject<Env> {
     if (message.type === 'requestRoomState') { this.sendRoomState(socket); return; }
     if (message.type === 'leave') { this.leaveSeat(seat); return; }
     if (message.type === 'lobbyChat' && this.room.phase === 'lobby') {
-      const entry = { sessionId: seat.id, text: message.text.replace(/[\u0000-\u001f\u007f]/g, '').slice(0, 240), timestamp: Date.now() };
+      const text = Array.from(message.text, character => character.charCodeAt(0) >= 32 && character.charCodeAt(0) !== 127 ? character : '').join('').slice(0, 240);
+      const entry = { sessionId: seat.id, text, timestamp: Date.now() };
       if (!entry.text.trim()) return;
       this.room.chat.push(entry); if (this.room.chat.length > 40) this.room.chat.splice(0, this.room.chat.length - 40);
       this.save(); this.broadcast({ type: 'lobbyChatEvent', ...entry }); return;
@@ -97,6 +98,7 @@ export class MatchRoom extends DurableObject<Env> {
       if (!successor) { this.closeRoom(); return; }
       this.room.ruleset = message.ruleset;
       this.room.hostSessionId = successor.id;
+      successor.ready = true;
       this.save(); this.broadcastState(); return;
     }
     if (message.type === 'command') {
@@ -145,7 +147,7 @@ export class MatchRoom extends DurableObject<Env> {
   private transferHostOrClose(departing: Seat) {
     const room = this.room; if (!room || room.hostSessionId !== departing.id) return;
     const successor = room.seats.find(candidate => candidate.id !== departing.id && candidate.disconnectedAt === null && this.isConnected(candidate.id));
-    if (successor) room.hostSessionId = successor.id;
+    if (successor) { room.hostSessionId = successor.id; successor.ready = true; }
     else this.closeRoom();
   }
 

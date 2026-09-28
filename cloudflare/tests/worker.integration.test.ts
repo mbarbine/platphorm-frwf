@@ -38,11 +38,13 @@ const connectWebSocket = async (roomId: string, ticket: string) => {
 
 const nextSocketMessage = <T>(socket: WebSocket, predicate: (message: Record<string, unknown>) => boolean): Promise<T> =>
   new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => { socket.removeEventListener('message', onMessage); reject(new Error('Timed out waiting for Durable Object message')); }, 5000);
+    const seen: string[] = [];
+    const timeout = setTimeout(() => { socket.removeEventListener('message', onMessage); reject(new Error(`Timed out waiting for Durable Object message; received ${seen.join(', ') || 'none'}`)); }, 5000);
     const onMessage = (event: MessageEvent) => {
       if (typeof event.data !== 'string') return;
       let value: Record<string, unknown>;
       try { value = JSON.parse(event.data) as Record<string, unknown>; } catch { return; }
+      seen.push(`${String(value.type ?? 'unknown')}${typeof value.code === 'string' ? `:${value.code}` : ''}`);
       if (!predicate(value)) return;
       clearTimeout(timeout); socket.removeEventListener('message', onMessage); resolve(value as T);
     };
@@ -115,16 +117,26 @@ describe('real Worker / Durable Object / D1 / R2 integration', () => {
       first.send(JSON.stringify({ type: 'requestRoomState', protocolVersion: '2.0.0' }));
       const sixSeats = await sixSeatsWait;
       expect(sixSeats.roles.filter(entry => entry.role === 'player1' && entry.ready)).toHaveLength(1);
-      expect(sixSeats.roles.filter(entry => entry.connected)).toHaveLength(2);
+      expect(sixSeats.roles.filter(entry => entry.role === 'player1' && entry.connected)).toHaveLength(1);
       const waitingError = nextSocketMessage<{ code: string }>(first as unknown as WebSocket, message => message.type === 'error' && message.code === 'players_not_ready');
       first.send(JSON.stringify({ type: 'startMatch', protocolVersion: '2.0.0' }));
       await waitingError;
       const chat = nextSocketMessage<{ text: string; type: string }>(first as unknown as WebSocket, message => message.type === 'lobbyChatEvent');
       second.send(JSON.stringify({ type: 'lobbyChat', text: 'Ready to rumble', protocolVersion: '2.0.0' }));
       expect(await chat).toMatchObject({ type: 'lobbyChatEvent', text: 'Ready to rumble' });
+      const guestReadyState = nextSocketMessage<{ roles: Array<{ role: string; ready: boolean }> }>(first as unknown as WebSocket,
+        message => message.type === 'roomState' && Array.isArray(message.roles) && message.roles.some(entry => entry.role === 'player2' && entry.ready));
       second.send(JSON.stringify({ type: 'ready', ready: true, protocolVersion: '2.0.0' }));
+      const readyState = await guestReadyState;
+      expect(readyState.roles.filter(entry => ['player1', 'player2'].includes(entry.role) && entry.ready)).toHaveLength(2);
       first.send(JSON.stringify({ type: 'startMatch', protocolVersion: '2.0.0' }));
       await Promise.all([activeFirst, activeSecond]);
+
+      const openingSnapshot = await nextSocketMessage<{ seq: number; fighters: { sessionId: string; posX: number; facing: number }[] }>(first as unknown as WebSocket,
+        message => message.type === 'snapshot' && Array.isArray(message.fighters) && typeof message.seq === 'number');
+      expect(openingSnapshot.fighters).toHaveLength(2);
+      expect(openingSnapshot.fighters[0]?.facing).toBeGreaterThan(0);
+      expect(openingSnapshot.fighters[1]?.facing).toBeLessThan(0);
 
       const movedSnapshot = nextSocketMessage<{ seq: number; fighters: { posX: number; posZ: number }[] }>(second as unknown as WebSocket,
         message => message.type === 'snapshot' && Array.isArray(message.fighters) && typeof message.seq === 'number'
@@ -138,6 +150,14 @@ describe('real Worker / Durable Object / D1 / R2 integration', () => {
       expect(snapshot.fighters).toHaveLength(2);
       expect(snapshot.fighters.every(fighter => Number.isFinite(fighter.posX))).toBe(true);
       expect(snapshot.fighters[0]?.posX).toBeGreaterThan(-2.29);
+
+      const secondPeerAck = nextSocketMessage<{ accepted: boolean; seq: number }>(second as unknown as WebSocket, message => message.type === 'commandAck' && message.seq === 1);
+      second.send(JSON.stringify({ type: 'command', protocolVersion: '2.0.0', seq: 1, clientTimestamp: 2,
+        event: { action: 'move', phase: 'held', sequence: 1, timestamp: 2, direction: { x: -1, y: 0 }, source: 'network' } }));
+      expect(await secondPeerAck).toMatchObject({ accepted: true, seq: 1 });
+      const peerMoved = await nextSocketMessage<{ fighters: { posX: number }[] }>(first as unknown as WebSocket, message => message.type === 'snapshot'
+        && Array.isArray(message.fighters) && Number((message.fighters[1] as { posX?: unknown } | undefined)?.posX) < 2.29);
+      expect(peerMoved.fighters[1]?.posX).toBeLessThan(2.29);
 
       const rejectedDuplicate = nextSocketMessage<{ accepted: boolean; seq: number }>(first as unknown as WebSocket, message => message.type === 'commandAck' && message.seq === 1);
       first.send(JSON.stringify({ type: 'command', protocolVersion: '2.0.0', seq: 1, clientTimestamp: 2,

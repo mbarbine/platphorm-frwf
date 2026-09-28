@@ -72,9 +72,10 @@ describe('Cloudflare room invitations', () => {
     const action: ActionEvent = { action: 'quickStrike', phase: 'started', sequence: 0, timestamp: Date.now(), direction: { x: 1, y: 0 }, source: 'keyboard' };
     expect(client.sendAction(action)).toBe(1); client.voteRematch();
     const sent = socket.sent.map(value => JSON.parse(value));
-    expect(sent.map(message => message.type)).toEqual(['selectFighter', 'ready', 'command', 'rematch']);
-    expect(sent[0]).toMatchObject({ fighterId: 'nova', protocolVersion: PROTOCOL_VERSION });
-    expect(sent[2]).toMatchObject({ seq: 1, event: { source: 'network', sequence: 1 }, protocolVersion: PROTOCOL_VERSION });
+    expect(sent.map(message => message.type)).toEqual(['requestRoomState', 'selectFighter', 'ready', 'command', 'rematch']);
+    expect(sent[1]).toMatchObject({ fighterId: 'nova', protocolVersion: PROTOCOL_VERSION });
+    expect(sent[2]).toMatchObject({ ready: true, protocolVersion: PROTOCOL_VERSION });
+    expect(sent[3]).toMatchObject({ seq: 1, event: { source: 'network', sequence: 1 }, protocolVersion: PROTOCOL_VERSION });
   });
 
   it('rejects incomplete join codes', async () => {
@@ -86,12 +87,12 @@ describe('Cloudflare room invitations', () => {
     vi.stubGlobal('WebSocket', FakeWebSocket);
     const joinInvite = `https://frwf.ja1.io/#room=${roomId}.${'b'.repeat(64)}`;
     const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => Response.json({ ok: true, data: {
-      roomId, hostInvite: `https://frwf.ja1.io/#room=${invite}`, joinInvite,
+      roomId, hostInvite: `https://frwf.ja1.io/#room=${invite}`, joinInvite, guestInvites: [joinInvite],
     } }, { status: 201 }));
     vi.stubGlobal('fetch', fetchMock);
     const client = new ColyseusClient({ serverUrl: 'https://frwf.ja1.io' });
     const result = await client.createPrivateRoom({ fighterId: 'chelsea' });
-    expect(result).toEqual({ roomId, joinInvite });
+    expect(result).toEqual({ roomId, joinInvite, guestInvites: [joinInvite] });
     expect(fetchMock).toHaveBeenCalledWith(new URL('https://frwf.ja1.io/api/rooms'), expect.objectContaining({ method: 'POST', headers: { 'Content-Type': 'application/json' } }));
     const socket = (client as unknown as { socket: FakeWebSocket }).socket;
     expect(socket.protocols).toEqual(['frwf-v1', ticket]);
