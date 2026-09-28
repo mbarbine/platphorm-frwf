@@ -33,6 +33,34 @@ interface Props {
 
 type GroupRef = MutableRefObject<Group | null>;
 
+// OPTIMIZATION: Module-scoped static Sets and pre-allocated segment lookups eliminate dynamic array and template string allocations in 60Hz FighterModel useFrame render loops.
+const LOCOMOTION_ANIMATION_KEYS = new Set(['walk', 'run']);
+const PAIRED_VICTIM_STATES = new Set(['grabbed', 'airborne', 'downed', 'staggered']);
+const IDLE_ANIMATION_KEYS = new Set(['combatIdle', 'idle', 'taunt']);
+const LOCOMOTION_LEAN_STATES = new Set(['idle', 'forward', 'backward', 'strafe-left', 'strafe-right', 'diagonal', 'run', 'braking']);
+const PAIN_STATES = new Set(['grabbed', 'staggered', 'airborne', 'downed', 'pinned', 'defeated']);
+const THICK_TRAIL_MOVES = new Set(['aerial', 'aerial_kick', 'aerial_elbow']);
+
+const LIMB_SIDES = ['left', 'right'] as const;
+const LIMB_SEGMENTS = {
+  left: {
+    upperId: 'leftUpperArm' as BodySegmentId,
+    lowerId: 'leftForearm' as BodySegmentId,
+    handId: 'leftHand' as BodySegmentId,
+    thighId: 'leftThigh' as BodySegmentId,
+    shinId: 'leftShin' as BodySegmentId,
+    footId: 'leftFoot' as BodySegmentId,
+  },
+  right: {
+    upperId: 'rightUpperArm' as BodySegmentId,
+    lowerId: 'rightForearm' as BodySegmentId,
+    handId: 'rightHand' as BodySegmentId,
+    thighId: 'rightThigh' as BodySegmentId,
+    shinId: 'rightShin' as BodySegmentId,
+    footId: 'rightFoot' as BodySegmentId,
+  },
+} as const;
+
 interface PartProps {
   fighter: FighterDefinition;
   profile: FighterVisualProfile;
@@ -521,7 +549,7 @@ export function FighterModel({ runtime, counterpart, fighterId, preview = false,
     let key = animationFor(runtime, preview);
     if (movement?.state === 'braking') key = 'walk';
     let animatedPose = POSES[key];
-    if (movement && ['walk', 'run'].includes(key)) {
+    if (movement && LOCOMOTION_ANIMATION_KEYS.has(key)) {
       const runningPose = movement.state === 'run';
       const guardLift = (profile.guardHeight - 1) * .7;
       animatedPose = {
@@ -541,7 +569,7 @@ export function FighterModel({ runtime, counterpart, fighterId, preview = false,
         : getPairedPose(move, 'actor', runtime.attackPhase, runtime.phaseElapsed, runtime.definitionId) ?? getStrikePose(move, runtime.attackPhase, runtime.phaseElapsed) ?? animatedPose;
     }
     let pairedVictim = false;
-    if (runtime && counterpart?.moveId && ['grabbed', 'airborne', 'downed', 'staggered'].includes(runtime.state)) {
+    if (runtime && counterpart?.moveId && PAIRED_VICTIM_STATES.has(runtime.state)) {
       const holdingMove = getMove(counterpart.moveId);
       const pairedPose = getPairedPose(holdingMove, 'victim', counterpart.attackPhase, counterpart.phaseElapsed, counterpart.definitionId);
       pairedVictim = pairedPose !== null;
@@ -562,7 +590,7 @@ export function FighterModel({ runtime, counterpart, fighterId, preview = false,
     const speedScale = key === 'run' ? Math.min(1.35, .85 + movementSpeed * .07) : 1;
     const poseResponse = runtime?.attackPhase === 'active' ? 38 : runtime?.attackPhase === 'anticipation' ? 21 : runtime?.attackPhase === 'recovery' ? 11 : 14 * profile.motionTempo;
     const smooth = 1 - Math.exp(-clampedDelta * poseResponse);
-    const idle = ['combatIdle', 'idle', 'taunt'].includes(key);
+    const idle = IDLE_ANIMATION_KEYS.has(key);
     const groundedBob = idle
       ? Math.sin(t * 2.25 * tempo + phaseOffset) * .022 * profile.stepWeight
       : Math.abs(Math.sin(t * 6.8 * tempo * speedScale + phaseOffset)) * .035 * profile.stepWeight;
@@ -580,7 +608,7 @@ export function FighterModel({ runtime, counterpart, fighterId, preview = false,
     root.current.position.x += (animatedPose.rootX - root.current.position.x) * smooth;
     root.current.position.y += ((authoredRootY + groundedBob - pelvisDrop) - root.current.position.y) * smooth;
     root.current.position.z += (animatedPose.rootZ - root.current.position.z) * smooth;
-    const locomotionLean = movement && ['idle', 'forward', 'backward', 'strafe-left', 'strafe-right', 'diagonal', 'run', 'braking'].includes(movement.state);
+    const locomotionLean = movement && LOCOMOTION_LEAN_STATES.has(movement.state);
     const physicalForwardLean = safeNumber(runtime?.body?.leanForward, 0);
     const physicalSideLean = safeNumber(runtime?.body?.leanSide, 0);
     if (side === 'player') {
@@ -699,17 +727,19 @@ export function FighterModel({ runtime, counterpart, fighterId, preview = false,
         fit.landmark(root.current, pelvisBody, [0, 1.02 * height, 0]);
         fit.landmark(torso.current, chestBody, [0, .25, 0]);
         fit.landmark(head.current, headBody, [0, 0, 0]);
-        for (const limbSide of ['left', 'right'] as const) {
-          const upperId = `${limbSide}UpperArm` as BodySegmentId;
-          const lowerId = `${limbSide}Forearm` as BodySegmentId;
+        for (let i = 0; i < LIMB_SIDES.length; i++) {
+          const limbSide = LIMB_SIDES[i];
+          const segs = LIMB_SEGMENTS[limbSide];
+          const upperId = segs.upperId;
+          const lowerId = segs.lowerId;
           const upper = bodyWorksRuntime.segmentSnapshot(side, upperId);
           const lower = bodyWorksRuntime.segmentSnapshot(side, lowerId);
-          const hand = bodyWorksRuntime.segmentSnapshot(side, `${limbSide}Hand` as BodySegmentId);
-          const thighId = `${limbSide}Thigh` as BodySegmentId;
-          const shinId = `${limbSide}Shin` as BodySegmentId;
+          const hand = bodyWorksRuntime.segmentSnapshot(side, segs.handId);
+          const thighId = segs.thighId;
+          const shinId = segs.shinId;
           const thigh = bodyWorksRuntime.segmentSnapshot(side, thighId);
           const shin = bodyWorksRuntime.segmentSnapshot(side, shinId);
-          const foot = bodyWorksRuntime.segmentSnapshot(side, `${limbSide}Foot` as BodySegmentId);
+          const foot = bodyWorksRuntime.segmentSnapshot(side, segs.footId);
           const points = jointPoints.current;
           if (upper && lower && hand) {
             const upperSchema = segmentSchema(fighter, upperId);
@@ -788,7 +818,7 @@ export function FighterModel({ runtime, counterpart, fighterId, preview = false,
           trail.position.copy(vectors.midpoint);
           trail.quaternion.setFromUnitVectors(vectors.up, vectors.direction);
           const thickness = runtime.moveId === 'uppercut' ? 2.45
-            : ['aerial', 'aerial_kick', 'aerial_elbow'].includes(runtime.moveId ?? '') ? 2.8
+            : THICK_TRAIL_MOVES.has(runtime.moveId ?? '') ? 2.8
             : 1.0;
           trail.scale.set(thickness, Math.max(.08, distance), thickness);
           trail.visible = true;
@@ -810,7 +840,7 @@ export function FighterModel({ runtime, counterpart, fighterId, preview = false,
       root.current.rotation.y = Math.sin(t * .45 * tempo) * .16;
     }
 
-    const pain = runtime ? ['grabbed', 'staggered', 'airborne', 'downed', 'pinned', 'defeated'].includes(runtime.state) : false;
+    const pain = runtime ? PAIN_STATES.has(runtime.state) : false;
     const exertion = runtime ? runtime.moveId !== null || runtime.state === 'climbing' || runtime.state === 'recovering' : preview;
     const confidence = preview || runtime?.state === 'victorious' || (runtime?.momentum ?? 0) > 82;
     if (browLeft.current && browRight.current && mouth.current) {
