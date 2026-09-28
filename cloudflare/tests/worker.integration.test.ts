@@ -126,7 +126,8 @@ describe('real Worker / Durable Object / D1 / R2 integration', () => {
     const first = await connectWebSocket(json.data.roomId, host); const second = await connectWebSocket(json.data.roomId, guest);
     try {
       const transferred = nextSocketMessage<{ hostSessionId: string; roles: { sessionId: string; role: string }[] }>(second as unknown as WebSocket,
-        message => message.type === 'roomState' && message.hostSessionId === message.roles?.find((entry: { role: string }) => entry.role === 'player2')?.sessionId);
+        message => message.type === 'roomState' && Array.isArray(message.roles)
+          && message.hostSessionId === message.roles.find((entry: { sessionId: string; role: string }) => entry.role === 'player2')?.sessionId);
       first.send(JSON.stringify({ type: 'leave', protocolVersion: '2.0.0' }));
       const state = await transferred;
       expect(state.hostSessionId).toBe(state.roles.find(entry => entry.role === 'player2')?.sessionId);
