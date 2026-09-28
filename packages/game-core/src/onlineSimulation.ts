@@ -104,6 +104,33 @@ const clamp = (value: number, minimum: number, maximum: number): number => Math.
 // which is a CPU intensive operation. Since our simulation coordinate space is small and bound, Math.sqrt is completely safe and runs ~8x faster.
 const length = (x: number, z: number): number => Math.sqrt(x * x + z * z);
 
+/** Apply bounded acceleration so network input changes intent, not body velocity. */
+const approach = (current: number, target: number, maximumDelta: number): number =>
+  current < target ? Math.min(current + maximumDelta, target) : Math.max(current - maximumDelta, target);
+
+const separateFighters = (match: OnlineMatchState, minimumDistance = .62): void => {
+  const [first, second] = match.fighters.values();
+  if (!first || !second || first.grappleTarget === second.sessionId || second.grappleTarget === first.sessionId) return;
+  const dx = second.posX - first.posX; const dz = second.posZ - first.posZ;
+  const distanceSquared = dx * dx + dz * dz;
+  if (distanceSquared >= minimumDistance * minimumDistance) return;
+  const distance = Math.sqrt(distanceSquared);
+  const nx = distance > .001 ? dx / distance : 1;
+  const nz = distance > .001 ? dz / distance : 0;
+  const correction = (minimumDistance - distance) * .5;
+  first.posX = clamp(first.posX - nx * correction, -5.55, 5.55);
+  first.posZ = clamp(first.posZ - nz * correction, -4.05, 4.05);
+  second.posX = clamp(second.posX + nx * correction, -5.55, 5.55);
+  second.posZ = clamp(second.posZ + nz * correction, -4.05, 4.05);
+  const closingSpeed = (second.velocityX - first.velocityX) * nx + (second.velocityZ - first.velocityZ) * nz;
+  if (closingSpeed < 0) {
+    first.velocityX += nx * closingSpeed * .5;
+    first.velocityZ += nz * closingSpeed * .5;
+    second.velocityX -= nx * closingSpeed * .5;
+    second.velocityZ -= nz * closingSpeed * .5;
+  }
+};
+
 const beginMove = (actor: OnlineFighterState, moveId: keyof typeof MOVES): boolean => {
   const move = MOVES[moveId];
   if (!move || actor.stamina < move.stamina || !['idle', 'locomotion', 'blocking', 'grappling'].includes(actor.combatState)) return false;
@@ -222,10 +249,16 @@ export const stepOnlineMatch = (match: OnlineMatchState, dt: number): readonly O
       if (dx * dx + dz * dz < 20.25) actor.facing = Math.atan2(dx, dz);
     }
     if (!actor.moveId && !actor.grappleTarget) {
-      const speed = actor.guarding ? 1.1 : actor.running ? 4.9 : 2.3; actor.velocityX = actor.moveX * speed; actor.velocityZ = actor.moveZ * speed;
+      const speed = actor.guarding ? 1.1 : actor.running ? 3.15 : 1.85;
+      const inputMagnitude = Math.sqrt(actor.moveX * actor.moveX + actor.moveZ * actor.moveZ);
+      const targetVelocityX = inputMagnitude > .05 ? actor.moveX * speed : 0;
+      const targetVelocityZ = inputMagnitude > .05 ? actor.moveZ * speed : 0;
+      const acceleration = (inputMagnitude > .05 ? (actor.running ? 10.5 : 8.5) : 14) * step;
+      actor.velocityX = approach(actor.velocityX, targetVelocityX, acceleration);
+      actor.velocityZ = approach(actor.velocityZ, targetVelocityZ, acceleration);
       actor.posX = clamp(actor.posX + actor.velocityX * step, -5.55, 5.55); actor.posZ = clamp(actor.posZ + actor.velocityZ * step, -4.05, 4.05);
-      // OPTIMIZATION: Use squared magnitude check instead of length to avoid calling Math.sqrt for locomotion detection.
-      actor.combatState = actor.guarding ? 'blocking' : (actor.moveX * actor.moveX + actor.moveZ * actor.moveZ) > 0.0025 ? 'locomotion' : 'idle';
+      const moving = actor.velocityX * actor.velocityX + actor.velocityZ * actor.velocityZ > .0025;
+      actor.combatState = actor.guarding ? 'blocking' : moving ? 'locomotion' : 'idle';
       continue;
     }
     actor.velocityX = 0; actor.velocityZ = 0;
@@ -246,5 +279,6 @@ export const stepOnlineMatch = (match: OnlineMatchState, dt: number): readonly O
       if (actor.combatState !== 'victorious' && actor.combatState !== 'defeated') actor.combatState = actor.grappleTarget ? 'grappling' : actor.guarding ? 'blocking' : 'idle';
     }
   }
+  separateFighters(match);
   return impacts;
 };
