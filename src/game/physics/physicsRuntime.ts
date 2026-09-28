@@ -1953,7 +1953,17 @@ export class BodyWorksRuntime {
       && this.grappleEnvironmentTarget.defender === grapple.defender
       && this.grappleEnvironmentTarget.attackInstanceId === attacker.attackInstanceId;
     if (!environmentTargetMatches) {
-      const table = model.props.find((prop) => prop.kind === 'table' && !prop.broken);
+      const primaryTable = model.propsById['table-1'];
+      let table: PropRuntime | undefined = primaryTable && !primaryTable.broken ? primaryTable : undefined;
+      if (!table) {
+        for (let i = 0; i < model.props.length; i++) {
+          const prop = model.props[i];
+          if (prop && prop.kind === 'table' && !prop.broken) {
+            table = prop;
+            break;
+          }
+        }
+      }
       // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt for ~8x speedup.
       const tableDistance = table ? Math.sqrt((table.position.x - defender.position.x) * (table.position.x - defender.position.x) + (table.position.z - defender.position.z) * (table.position.z - defender.position.z)) : Number.POSITIVE_INFINITY;
       if (venueFor(model).hasRing && move.id === 'corner_smash') {

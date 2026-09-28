@@ -132,4 +132,74 @@ describe('PhysicsRuntime Hot Loop Benchmark', () => {
     expect(sum3).toBe(sum1);
     expect(sum4).toBe(sum1);
   });
+
+  test('measures table prop lookup performance in advancePhysicalGrapple', () => {
+    const iterations = 10_000_000;
+
+    const mockProps = [
+      { id: 'chair-1', kind: 'chair', broken: false, position: { x: 1, z: 2 } },
+      { id: 'trash-1', kind: 'trash', broken: false, position: { x: -2, z: 3 } },
+      { id: 'sign-1', kind: 'sign', broken: false, position: { x: -1, z: 1 } },
+      { id: 'chair-2', kind: 'chair', broken: false, position: { x: 3, z: 2 } },
+      { id: 'trash-2', kind: 'trash', broken: true, position: { x: -4, z: 0 } },
+      { id: 'table-1', kind: 'table', broken: false, position: { x: 4, z: 5 } },
+    ];
+    const mockPropsById: Record<string, typeof mockProps[number]> = {};
+    for (const p of mockProps) mockPropsById[p.id] = p;
+
+    // Baseline: Array.prototype.find
+    const startBaseline = performance.now();
+    let baselineCount = 0;
+    for (let i = 0; i < iterations; i++) {
+      const table = mockProps.find((prop) => prop.kind === 'table' && !prop.broken);
+      if (table) baselineCount++;
+    }
+    const baselineTime = performance.now() - startBaseline;
+
+    // Option A: Indexed for loop
+    const startLoop = performance.now();
+    let loopCount = 0;
+    for (let i = 0; i < iterations; i++) {
+      let table: typeof mockProps[number] | undefined;
+      for (let j = 0; j < mockProps.length; j++) {
+        const prop = mockProps[j];
+        if (prop && prop.kind === 'table' && !prop.broken) {
+          table = prop;
+          break;
+        }
+      }
+      if (table) loopCount++;
+    }
+    const loopTime = performance.now() - startLoop;
+
+    // Option B: Map / propsById direct lookup if table-1 is unbroken, fallback to loop
+    const startDirect = performance.now();
+    let directCount = 0;
+    for (let i = 0; i < iterations; i++) {
+      const primaryTable = mockPropsById['table-1'];
+      let table = primaryTable && !primaryTable.broken ? primaryTable : undefined;
+      if (!table) {
+        for (let j = 0; j < mockProps.length; j++) {
+          const prop = mockProps[j];
+          if (prop && prop.kind === 'table' && !prop.broken) {
+            table = prop;
+            break;
+          }
+        }
+      }
+      if (table) directCount++;
+    }
+    const directTime = performance.now() - startDirect;
+
+    console.log(`\n--- BENCHMARK RESULTS (Table Prop Lookup) ---`);
+    console.log(`Iterations: ${iterations.toLocaleString()}`);
+    console.log(`Baseline (Array.find): ${baselineTime.toFixed(2)} ms`);
+    console.log(`Option A (Indexed for loop): ${loopTime.toFixed(2)} ms`);
+    console.log(`Option B (Direct propsById['table-1'] check): ${directTime.toFixed(2)} ms`);
+    console.log(`Speedup Direct vs Baseline: ${(baselineTime / directTime).toFixed(2)}x (${((1 - directTime / baselineTime) * 100).toFixed(1)}% reduction)`);
+    console.log(`-------------------------\n`);
+
+    expect(loopCount).toBe(baselineCount);
+    expect(directCount).toBe(baselineCount);
+  });
 });
