@@ -62,13 +62,13 @@ describe('grounded walking and running', () => {
     expect(proceduralLocomotionSource.pose(input)).toEqual(locomotionPose(input.velocity, input.facing, input.phase, true, input.fighterId));
   });
 
-  it('keeps character gait selection separate from signature and combat style data', () => {
+  it('provides distinct broad gait presets and character-authored motion profiles', () => {
     const baseline = LOCOMOTION_STYLES.baseline;
-    expect(LOCOMOTION_STYLES.powerhouse).toEqual(baseline);
-    expect(LOCOMOTION_STYLES.agile).toEqual(baseline);
-    expect(LOCOMOTION_STYLES.technical).toEqual(baseline);
+    expect(LOCOMOTION_STYLES.powerhouse).not.toEqual(baseline);
+    expect(LOCOMOTION_STYLES.agile).not.toEqual(baseline);
+    expect(LOCOMOTION_STYLES.technical).not.toEqual(baseline);
     const atlas = proceduralLocomotionSource.pose({ velocity: { x: 0, z: 2 }, facing: 0, phase: .7, fighterId: 'atlas' });
     const vex = proceduralLocomotionSource.pose({ velocity: { x: 0, z: 2 }, facing: 0, phase: .7, fighterId: 'vex' });
-    expect(atlas).toEqual(vex);
+    expect(atlas).not.toEqual(vex);
   });
 });

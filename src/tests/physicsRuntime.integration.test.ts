@@ -151,19 +151,20 @@ describe('Rapier-backed Bodyworks integration', () => {
     try {
       model.labMode = true;
       for (let frame = 0; frame < 240; frame++) stepHarness(world, runtime, model);
-      let peakSpeed = 0; let peakWristAngle = 0;
+      let peakSpeed = 0; let peakSegment = ''; let peakWristAngle = 0;
       for (let frame = 0; frame < 180; frame++) {
         stepHarness(world, runtime, model);
         for (const side of ['left', 'right'] as const) {
           for (const part of ['UpperArm', 'Forearm', 'Hand'] as const) {
             const spin = rig.bodies[`${side}${part}`].angvel();
-            peakSpeed = Math.max(peakSpeed, Math.hypot(spin.x, spin.y, spin.z));
+            const speed = Math.hypot(spin.x, spin.y, spin.z);
+            if (speed > peakSpeed) { peakSpeed = speed; peakSegment = `${side}${part}`; }
           }
           const error = shortestQuaternionError(rig.bodies[`${side}Hand`].rotation(), rig.bodies[`${side}Forearm`].rotation());
           peakWristAngle = Math.max(peakWristAngle, Math.hypot(error.x, error.y, error.z));
         }
       }
-      expect(peakSpeed, `Idle arm angular speed: ${peakSpeed}; wrist error: ${peakWristAngle}`).toBeLessThan(1);
+      expect(peakSpeed, `Idle arm angular speed: ${peakSpeed} at ${peakSegment}; wrist error: ${peakWristAngle}`).toBeLessThan(1);
       expect(peakWristAngle).toBeLessThan(.35);
       expect(runtime.metrics.emergencyResetCount).toBe(0);
     } finally { runtime.reset(); world.free(); }
@@ -743,7 +744,7 @@ it.each([
   ['jab', 'quick', { x: 0, z: 0 }],
   ['uppercut', 'quick', { x: 0, z: -1 }],
   ['high_punch', 'quick', { x: 1, z: 0 }],
-  ['combo', 'quick', { x: -1, z: 0 }],
+  ['left_hook', 'quick', { x: -1, z: 0 }],
   ['low_kick', 'heavy', { x: 0, z: 1 }],
   ['front_kick', 'heavy', { x: 0, z: 0 }],
   ['high_kick', 'heavy', { x: 0, z: -1 }],

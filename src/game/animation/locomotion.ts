@@ -30,7 +30,7 @@ export interface LocomotionStyle {
 
 /** Gait tuning is independent of combat tendencies and signature moves. */
 export const LOCOMOTION_STYLES: Readonly<Record<LocomotionStyleId, LocomotionStyle>> = {
-  baseline: { stride: 1, guard: 1, armSwing: .82, stance: .035 },
+  baseline: { stride: 1, guard: 1, armSwing: .82, stance: 0 },
   powerhouse: { stride: .88, guard: .84, armSwing: .68, stance: .075 },
   agile: { stride: 1.12, guard: 1.1, armSwing: 1.12, stance: .018 },
   technical: { stride: .96, guard: 1.16, armSwing: .76, stance: .028 },

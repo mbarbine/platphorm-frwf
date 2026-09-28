@@ -34,12 +34,14 @@ export function comboStrike(actor: FighterRuntime, input: StrikeInput): string |
   const recipe = HIT_COMBOS.find(combo => combo.inputs === code);
   if (recipe) return recipe.finish;
   if (input === 'heavy') return inputs.length ? 'low_kick' : null;
-  // Readable shared boxing chain; wrestler-specific signatures remain separate.
+  // Build a readable boxing cadence from distinct authored moves. A clean
+  // straight jab sets up the cross; alternating hooks turn the opponent before
+  // the rising uppercut closes the six-hit chain.
   if (inputs.length === 0) return 'jab';
-  if (inputs.length === 1) return 'right_hook';
-  if (inputs.length === 2) return inputs.includes('heavy') ? 'high_punch' : 'left_hook';
-  if (inputs.length === 3) return 'right_hook';
-  if (inputs.length === 4) return 'left_hook';
+  if (inputs.length === 1) return 'combo';
+  if (inputs.length === 2) return 'high_punch';
+  if (inputs.length === 3) return 'left_hook';
+  if (inputs.length === 4) return 'right_hook';
   return 'uppercut';
 }
 
