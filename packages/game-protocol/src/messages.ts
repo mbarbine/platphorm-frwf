@@ -20,7 +20,11 @@ export interface SelectFighterMessage extends BaseClientMessage {
 /** Player signals they are ready to start the match. */
 export interface ReadyMessage extends BaseClientMessage {
   type: 'ready';
+  ready: boolean;
 }
+
+export interface StartMatchMessage extends BaseClientMessage { type: 'startMatch' }
+export interface LobbyChatMessage extends BaseClientMessage { type: 'lobbyChat'; text: string }
 
 /** Player action — semantically resolved, buffered, sequenced, and deduplicated on the server. */
 export interface CommandMessage extends BaseClientMessage {
@@ -55,6 +59,8 @@ export interface LeaveMessage extends BaseClientMessage { type: 'leave'; }
 export type ClientMessage =
   | SelectFighterMessage
   | ReadyMessage
+  | StartMatchMessage
+  | LobbyChatMessage
   | CommandMessage
   | RematchMessage
   | PauseMessage
@@ -78,10 +84,13 @@ export interface RoomStateMessage {
   type: 'roomState';
   phase: 'lobby' | 'selection' | 'countdown' | 'active' | 'result' | 'closed';
   ruleset: 'standard' | 'chaos';
-  roles: ReadonlyArray<{ sessionId: string; role: 'player1' | 'player2' | 'spectator' }>;
+  roles: ReadonlyArray<{ sessionId: string; role: 'player1' | 'player2' | 'player3' | 'player4' | 'player5' | 'player6' | 'spectator'; connected: boolean; ready: boolean }>;
   fighters: ReadonlyArray<{ sessionId: string; definitionId: FighterId }>;
   hostSessionId: string | null;
+  chat: ReadonlyArray<{ sessionId: string; text: string; timestamp: number }>;
 }
+
+export interface LobbyChatEventMessage { type: 'lobbyChatEvent'; sessionId: string; text: string; timestamp: number }
 
 /** Server sends a compact match snapshot at the configured rate (~15–20 Hz). */
 export interface SnapshotMessage {
@@ -145,6 +154,7 @@ export interface VersionRejectedMessage {
 
 export type ServerMessage =
   | RoomStateMessage
+  | LobbyChatEventMessage
   | CommandAckMessage
   | SnapshotMessage
   | ImpactEventMessage

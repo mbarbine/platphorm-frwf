@@ -7,7 +7,7 @@ export const FIGHTER_IDS = ['atlas', 'vex', 'nova', 'brick', 'chad', 'dale', 'th
 export type FighterId = typeof FIGHTER_IDS[number];
 export type Ruleset = 'standard' | 'chaos';
 export type Difficulty = 'normal' | 'hard';
-export type PlayerRole = 'player1' | 'player2' | 'spectator';
+export type PlayerRole = 'player1' | 'player2' | 'player3' | 'player4' | 'player5' | 'player6' | 'spectator';
 
 export type FighterState =
   | 'idle' | 'locomotion' | 'jumping' | 'attacking' | 'grappling' | 'grabbed' | 'airborne'

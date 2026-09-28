@@ -16,7 +16,9 @@ const version = { protocolVersion: z.literal(PROTOCOL_VERSION) };
 export const clientMessage = z.discriminatedUnion('type', [
   z.object({ type: z.literal('command'), ...version, seq: z.number().int().positive().max(Number.MAX_SAFE_INTEGER), event: action, clientTimestamp: z.number().finite().nonnegative() }).strict(),
   z.object({ type: z.literal('selectFighter'), ...version, fighterId }).strict(),
-  z.object({ type: z.literal('ready'), ...version }).strict(),
+  z.object({ type: z.literal('ready'), ...version, ready: z.boolean() }).strict(),
+  z.object({ type: z.literal('startMatch'), ...version }).strict(),
+  z.object({ type: z.literal('lobbyChat'), ...version, text: z.string().trim().min(1).max(240) }).strict(),
   z.object({ type: z.literal('rematch'), ...version }).strict(),
   z.object({ type: z.literal('leave'), ...version }).strict(),
   z.object({ type: z.literal('hostSettings'), ...version, ruleset: z.enum(['standard', 'chaos']) }).strict(),
