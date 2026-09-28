@@ -244,6 +244,7 @@ const DYNAMIC_ARM_PROFILES = new Set<MotorProfileId>([
 const PHYSICAL_REACH_MOVES = new Set<string>(['grapple_miss', 'prop_pickup', 'prop_drop']);
 const GROUNDED_POSE_STATES = new Set<string>(['idle', 'locomotion', 'blocking']);
 const GROUNDED_CONTROL_STATES = new Set<string>(['idle', 'locomotion', 'blocking', 'attacking', 'grappling', 'recovering', 'staggered', 'victorious']);
+const TORSO_COVER_SEGMENTS: readonly BodySegmentId[] = ['chest', 'abdomen'] as const;
 const JOINT_LINKS: readonly (readonly [BodySegmentId, BodySegmentId])[] = [
   ['pelvis', 'abdomen'], ['abdomen', 'chest'], ['chest', 'head'],
   ['chest', 'leftUpperArm'], ['chest', 'rightUpperArm'],
@@ -1241,9 +1242,11 @@ export class BodyWorksRuntime {
     const cover = model.pinCover;
     if (!cover) return;
     if (model[cover.attacker].state !== 'pinning' || model[cover.defender].state !== 'pinned') { model.pinCover = undefined; return; }
-    const actor = this.rigs.get(cover.attacker)?.bodies.chest;
-    const defender = this.rigs.get(cover.defender)?.bodies.chest;
-    if (!actor || !defender) { cover.established = false; return; }
+    const attackerRig = this.rigs.get(cover.attacker);
+    const defenderRig = this.rigs.get(cover.defender);
+    const actor = attackerRig?.bodies.chest;
+    const defender = defenderRig?.bodies.chest;
+    if (!actor || !defender || !attackerRig || !defenderRig) { cover.established = false; return; }
     const a = actor.translation(); const b = defender.translation(); const q = defender.rotation();
     const floor = this.isRingside(model[cover.defender].position) ? .4 : FRWF_ARENA.ring.deckY;
     // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt for ~8x speedup on high-frequency cover pin checks
@@ -1252,11 +1255,21 @@ export class BodyWorksRuntime {
     cover.separation = Math.sqrt(dxCover * dxCover + dzCover * dzCover);
     cover.shoulderHeight = b.y - floor;
     let torsoContact = false;
-    for (const aSegment of ['chest', 'abdomen'] as const) for (const bSegment of ['chest', 'abdomen'] as const) {
-      const aBody = this.rigs.get(cover.attacker)?.bodies[aSegment]; const bBody = this.rigs.get(cover.defender)?.bodies[bSegment];
-      if (aBody?.numColliders() && bBody?.numColliders()) this.world?.contactPair(aBody.collider(0), bBody.collider(0), manifold => {
-        torsoContact ||= manifold.numSolverContacts() > 0;
-      });
+    if (this.world) {
+      for (const aSegment of TORSO_COVER_SEGMENTS) {
+        const aBody = attackerRig.bodies[aSegment];
+        if (!aBody || !aBody.numColliders()) continue;
+        const aCollider = aBody.collider(0);
+        for (const bSegment of TORSO_COVER_SEGMENTS) {
+          const bBody = defenderRig.bodies[bSegment];
+          if (!bBody || !bBody.numColliders()) continue;
+          this.world.contactPair(aCollider, bBody.collider(0), manifold => {
+            if (manifold.numSolverContacts() > 0) torsoContact = true;
+          });
+          if (torsoContact) break;
+        }
+        if (torsoContact) break;
+      }
     }
     cover.contactAge = torsoContact ? 0 : (cover.contactAge ?? 99) + this.currentFixedDt;
     cover.established = hasPhysicalCover({ torsoContact: cover.contactAge < .1, separation: cover.separation, chestClearance: a.y - b.y, shoulderHeight: cover.shoulderHeight,

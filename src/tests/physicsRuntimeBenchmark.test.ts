@@ -132,4 +132,88 @@ describe('PhysicsRuntime Hot Loop Benchmark', () => {
     expect(sum3).toBe(sum1);
     expect(sum4).toBe(sum1);
   });
+
+  test("measures torso contact check performance in cover evidence refresh", { timeout: 30000 }, () => {
+    const iterations = 2_000_000;
+
+    const TORSO_COVER_SEGMENTS: readonly BodySegmentId[] = ["chest", "abdomen"] as const;
+
+    const createMockBody = () => ({
+      numColliders: () => 1,
+      collider: (_index: number) => ({ id: "collider" }),
+    });
+
+    const attackerBodies: Record<string, ReturnType<typeof createMockBody>> = {
+      chest: createMockBody(),
+      abdomen: createMockBody(),
+    };
+
+    const defenderBodies: Record<string, ReturnType<typeof createMockBody>> = {
+      chest: createMockBody(),
+      abdomen: createMockBody(),
+    };
+
+    const rigsMap = new Map<string, { bodies: typeof attackerBodies }>();
+    rigsMap.set("attacker", { bodies: attackerBodies });
+    rigsMap.set("defender", { bodies: defenderBodies });
+
+    const cover = { attacker: "attacker" as const, defender: "defender" as const };
+
+    const mockWorld = {
+      contactPair: (_c1: unknown, _c2: unknown, cb: (manifold: { numSolverContacts: () => number }) => void) => {
+        cb({ numSolverContacts: () => 1 });
+      },
+    };
+
+    const startBaseline = performance.now();
+    let baselineContacts = 0;
+    for (let i = 0; i < iterations; i++) {
+      let torsoContact = false;
+      for (const aSegment of ["chest", "abdomen"] as const) for (const bSegment of ["chest", "abdomen"] as const) {
+        const aBody = rigsMap.get(cover.attacker)?.bodies[aSegment];
+        const bBody = rigsMap.get(cover.defender)?.bodies[bSegment];
+        if (aBody?.numColliders() && bBody?.numColliders()) mockWorld.contactPair(aBody.collider(0), bBody.collider(0), manifold => {
+          torsoContact ||= manifold.numSolverContacts() > 0;
+        });
+      }
+      if (torsoContact) baselineContacts++;
+    }
+    const baselineTime = performance.now() - startBaseline;
+
+    const startOptimized = performance.now();
+    let optimizedContacts = 0;
+    for (let i = 0; i < iterations; i++) {
+      let torsoContact = false;
+      const attackerRig = rigsMap.get(cover.attacker);
+      const defenderRig = rigsMap.get(cover.defender);
+      if (attackerRig && defenderRig && mockWorld) {
+        for (const aSegment of TORSO_COVER_SEGMENTS) {
+          const aBody = attackerRig.bodies[aSegment];
+          if (!aBody || !aBody.numColliders()) continue;
+          const aCollider = aBody.collider(0);
+          for (const bSegment of TORSO_COVER_SEGMENTS) {
+            const bBody = defenderRig.bodies[bSegment];
+            if (!bBody || !bBody.numColliders()) continue;
+            mockWorld.contactPair(aCollider, bBody.collider(0), manifold => {
+              if (manifold.numSolverContacts() > 0) torsoContact = true;
+            });
+            if (torsoContact) break;
+          }
+          if (torsoContact) break;
+        }
+      }
+      if (torsoContact) optimizedContacts++;
+    }
+    const optimizedTime = performance.now() - startOptimized;
+
+    console.log(`\n--- BENCHMARK RESULTS (Torso Contact Check) ---`);
+    console.log(`Iterations: ${iterations.toLocaleString()}`);
+    console.log(`Baseline (Repeated lookups & no early break): ${baselineTime.toFixed(2)} ms`);
+    console.log(`Optimized (Pre-cached rigs & early break): ${optimizedTime.toFixed(2)} ms`);
+    console.log(`Speedup: ${(baselineTime / optimizedTime).toFixed(2)}x (${((1 - optimizedTime / baselineTime) * 100).toFixed(1)}% reduction)`);
+    console.log(`-------------------------\n`);
+
+    expect(optimizedContacts).toBe(baselineContacts);
+  });
+
 });
