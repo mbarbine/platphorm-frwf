@@ -76,6 +76,7 @@ export class MatchRoom extends DurableObject<Env> {
     const parsed = clientMessage.safeParse(json); if (!parsed.success) { this.send(socket, { type: 'error', code: 'invalid_message' }); return; }
     const message = parsed.data; seat.lastSeen = Date.now();
     if (message.type === 'ping') { this.send(socket, { type: 'pong', clientTimestamp: message.clientTimestamp, serverTimestamp: Date.now() }); return; }
+    if (message.type === 'requestRoomState') { this.sendRoomState(socket); return; }
     if (message.type === 'leave') { this.leaveSeat(seat); return; }
     if (message.type === 'lobbyChat' && this.room.phase === 'lobby') {
       const entry = { sessionId: seat.id, text: message.text.replace(/[\u0000-\u001f\u007f]/g, '').slice(0, 240), timestamp: Date.now() };
@@ -221,9 +222,15 @@ export class MatchRoom extends DurableObject<Env> {
   private broadcast(message: unknown) { for (const socket of this.ctx.getWebSockets()) this.send(socket, message); }
   private broadcastState() {
     if (!this.room) return;
-    this.broadcast({ type: 'roomState', phase: this.room.phase, ruleset: this.room.ruleset, hostSessionId: this.room.hostSessionId,
+    this.broadcastRoomState();
+  }
+  private sendRoomState(socket: WebSocket) { this.broadcastRoomState(socket); }
+  private broadcastRoomState(socket?: WebSocket) {
+    if (!this.room) return;
+    const state = { type: 'roomState', phase: this.room.phase, ruleset: this.room.ruleset, hostSessionId: this.room.hostSessionId,
       roles: this.room.seats.map(({ id, role, ready, disconnectedAt }) => ({ sessionId: id, role, ready, connected: disconnectedAt === null })),
-      fighters: this.room.seats.map(({ id, fighterId }) => ({ sessionId: id, definitionId: fighterId })), chat: this.room.chat });
+      fighters: this.room.seats.map(({ id, fighterId }) => ({ sessionId: id, definitionId: fighterId })), chat: this.room.chat };
+    if (socket) this.send(socket, state); else this.broadcast(state);
   }
   private broadcastSnapshot() {
     if (!this.room || !this.model) return;

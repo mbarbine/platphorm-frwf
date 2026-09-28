@@ -25,6 +25,7 @@ export interface ReadyMessage extends BaseClientMessage {
 
 export interface StartMatchMessage extends BaseClientMessage { type: 'startMatch' }
 export interface LobbyChatMessage extends BaseClientMessage { type: 'lobbyChat'; text: string }
+export interface RequestRoomStateMessage extends BaseClientMessage { type: 'requestRoomState' }
 
 /** Player action — semantically resolved, buffered, sequenced, and deduplicated on the server. */
 export interface CommandMessage extends BaseClientMessage {
@@ -61,6 +62,7 @@ export type ClientMessage =
   | ReadyMessage
   | StartMatchMessage
   | LobbyChatMessage
+  | RequestRoomStateMessage
   | CommandMessage
   | RematchMessage
   | PauseMessage

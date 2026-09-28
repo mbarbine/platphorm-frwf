@@ -19,6 +19,7 @@ export const clientMessage = z.discriminatedUnion('type', [
   z.object({ type: z.literal('ready'), ...version, ready: z.boolean() }).strict(),
   z.object({ type: z.literal('startMatch'), ...version }).strict(),
   z.object({ type: z.literal('lobbyChat'), ...version, text: z.string().trim().min(1).max(240) }).strict(),
+  z.object({ type: z.literal('requestRoomState'), ...version }).strict(),
   z.object({ type: z.literal('rematch'), ...version }).strict(),
   z.object({ type: z.literal('leave'), ...version }).strict(),
   z.object({ type: z.literal('hostSettings'), ...version, ruleset: z.enum(['standard', 'chaos']) }).strict(),
