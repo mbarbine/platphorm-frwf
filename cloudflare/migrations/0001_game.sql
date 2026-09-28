@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS match_results (
   map_id TEXT NOT NULL CHECK(map_id = 'volt-dome'),
   ruleset TEXT NOT NULL CHECK(ruleset IN ('standard', 'chaos')),
   release TEXT NOT NULL,
-  winner_fighter TEXT CHECK(winner_fighter IN ('atlas','vex','nova','brick','chad')),
+  winner_fighter TEXT CHECK(winner_fighter IN ('atlas','vex','nova','brick','chad','dale','thomas','sonny','wrecking_ball','steve','john','justin','mondo','gil','josh','chelsea','britt','beer_bandit_bill','beer_bandit_ted')),
   method TEXT NOT NULL CHECK(method IN ('KNOCKOUT','TIMEOUT','FORFEIT')),
   duration REAL NOT NULL CHECK(duration >= 0 AND duration <= 601),
   hype REAL NOT NULL CHECK(hype >= 0 AND hype <= 100),
