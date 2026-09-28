@@ -21,6 +21,8 @@ const HAND_STRIKE: StrikeDriveProfile = { source: 'rightHand', target: 'chest', 
 export const strikeDriveProfile = (moveId: string): StrikeDriveProfile | null => {
   if (moveId === 'jab') return HAND_STRIKE;
   if (moveId === 'combo') return { source: 'leftHand', target: 'chest', speed: 17, response: 28, maximumAcceleration: 460, pelvisAcceleration: 3.2 };
+  if (moveId === 'right_hook') return { source: 'rightHand', target: 'head', speed: 15.5, response: 25, maximumAcceleration: 360, pelvisAcceleration: 4.1 };
+  if (moveId === 'left_hook') return { source: 'leftHand', target: 'head', speed: 15.5, response: 25, maximumAcceleration: 360, pelvisAcceleration: 4.1 };
   if (moveId === 'high_punch') return { source: 'rightHand', target: 'head', speed: 18, response: 28, maximumAcceleration: 440, pelvisAcceleration: 2.7 };
   if (moveId === 'heavy') return { source: 'rightHand', target: 'head', speed: 17, response: 25, maximumAcceleration: 390, pelvisAcceleration: 3.4 };
   if (moveId === 'uppercut') return { source: 'rightHand', target: 'head', speed: 13.5, response: 32, maximumAcceleration: 520, pelvisAcceleration: 4.2 };

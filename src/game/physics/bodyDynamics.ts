@@ -213,7 +213,7 @@ export const stepBodyDynamics = (fighter: FighterRuntime, dt: number): { landed:
 };
 
 export const bodyRegionForMove = (move: MoveDefinition, sequence: number): BodyRegion => {
-  if (move.id === 'jab' || move.id === 'high_punch' || move.id === 'heavy' || move.id === 'uppercut' || move.id === 'headbutt' || move.id === 'high_kick' || move.id === 'roundhouse' || move.id === 'stiff_arm') return 'head';
+  if (move.id === 'jab' || move.id === 'high_punch' || move.id === 'right_hook' || move.id === 'left_hook' || move.id === 'heavy' || move.id === 'uppercut' || move.id === 'headbutt' || move.id === 'high_kick' || move.id === 'roundhouse' || move.id === 'stiff_arm') return 'head';
   if (move.id === 'low_kick') return sequence % 2 === 0 ? 'leftLeg' : 'rightLeg';
   if (move.id === 'combo' || move.id === 'ground') return 'ribs';
   if (move.category === 'grapple' || move.category === 'finisher') return move.id === 'clutch' ? 'head' : 'pelvis';
