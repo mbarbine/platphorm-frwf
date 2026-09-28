@@ -3,7 +3,7 @@ import type { Env } from './env';
 export { MatchRoom } from './room';
 
 const ok = (data: unknown, status = 200) => Response.json({ ok: true, data }, { status });
-const fail = (code: string, status: number) => Response.json({ ok: false, error: { code, message: code.replaceAll('_', ' '), details: {} } }, { status });
+const fail = (code: string, status: number, details: Record<string, unknown> = {}) => Response.json({ ok: false, error: { code, message: code.replaceAll('_', ' '), details } }, { status });
 const policy = 'Web dashboard, public-safe discovery, browser-based operations, trusted-domain discovery, standard route compliance, Vercel metadata capture, trace inspection, and agentic workflow discovery are intentionally supported for public read-only debugging and operator workflows. Mutating, administrative, ingestion, replay, fork, remediation, deployment, sync, test-triggering, reporting, and write actions require PLATPHORM_API_KEY.';
 
 async function authorize(request: Request, env: Env) {
@@ -161,8 +161,22 @@ async function route(request: Request, env: Env): Promise<Response> {
 
 export default {
   async fetch(request: Request, env: Env) {
+    const requestId = crypto.randomUUID();
     let response: Response;
-    try { response = await route(request, env); } catch (error) { response = error instanceof HttpError ? fail(error.code, error.status) : fail('backend_unavailable', 503); }
+    try { response = await route(request, env); } catch (error) {
+      const status = error instanceof HttpError ? error.status : 503;
+      const code = error instanceof HttpError ? error.code : 'backend_unavailable';
+      if (status >= 500) {
+        const pathname = new URL(request.url).pathname;
+        const routeTag = /^\/api\/rooms\/[a-f0-9-]{36}\/socket$/.test(pathname) ? 'room_socket'
+          : /^\/api\/maps\/assets\/[a-f0-9]{64}$/.test(pathname) ? 'published_map_asset'
+            : pathname.startsWith('/api/') ? pathname : 'platform_route';
+        // Never log request headers, query strings, room IDs, tickets, bodies, or exception messages.
+        console.error({ event: 'frwf_request_failed', requestId, route: routeTag, method: request.method, status, code,
+          errorName: error instanceof Error ? error.name : 'UnknownError' });
+      }
+      response = fail(code, status, status >= 500 ? { requestId } : {});
+    }
     if (response.status === 101) return response;
     const headers = new Headers(response.headers);
     headers.set('X-Content-Type-Options', 'nosniff'); headers.set('Referrer-Policy', 'no-referrer');
@@ -176,7 +190,7 @@ export default {
     const traceId = match?.[1] && match[2] && !/^0+$/.test(match[1]) && !/^0+$/.test(match[2]) ? match[1] : crypto.randomUUID().replaceAll('-', '');
     const spanId = crypto.randomUUID().replaceAll('-', '').slice(0, 16);
     headers.set('traceparent', `00-${traceId}-${spanId}-01`); headers.set('X-PlatPhorm-Trace-Id', traceId);
-    headers.set('X-PlatPhorm-Request-Id', crypto.randomUUID());
+    headers.set('X-PlatPhorm-Request-Id', requestId);
     if (response.status === 429) headers.set('Retry-After', '60');
     if (request.headers.get('Origin') === env.PUBLIC_ORIGIN) {
       headers.set('Access-Control-Allow-Origin', env.PUBLIC_ORIGIN); headers.set('Vary', 'Origin');

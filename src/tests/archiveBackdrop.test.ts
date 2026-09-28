@@ -38,7 +38,7 @@ describe('ArchiveBackdrop & ArenaLoading components', () => {
     const video = container.querySelector('video');
     expect(video).toBeTruthy();
     expect(video?.getAttribute('poster')).toBe(archive.poster);
-    expect(video?.getAttribute('src')).toBe(archive.clips[0].src);
+    expect(video?.getAttribute('src')).toBe(archive.clips[0]?.src);
     expect(video?.getAttribute('aria-hidden')).toBe('true');
 
     expect(screen.getByText('FRWF ORIGINALS · REAL RINGSIDE FOOTAGE')).toBeTruthy();
@@ -120,11 +120,11 @@ describe('ArchiveBackdrop & ArenaLoading components', () => {
     const video = container.querySelector('video');
     expect(video).toBeTruthy();
     if (!video) return;
-    expect(video.getAttribute('src')).toBe(archive.clips[0].src);
+    expect(video.getAttribute('src')).toBe(archive.clips[0]?.src);
 
     fireEvent.ended(video);
 
-    const nextClipSrc = archive.clips[1 % archive.clips.length].src;
+    const nextClipSrc = archive.clips[1 % archive.clips.length]?.src;
     expect(video.getAttribute('src')).toBe(nextClipSrc);
   });
 

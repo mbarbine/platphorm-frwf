@@ -120,7 +120,9 @@ function Post({ x, z }: { x: number; z: number }) {
     // OPTIMIZATION: Use indexed for loop over FIGHTER_SLOTS and static Set.has() to avoid dynamic array and closure allocations on every frame across 4 turnbuckle posts
     let climbingHere = false;
     for (let index = 0; index < FIGHTER_SLOTS.length; index++) {
-      const fighter = actors[FIGHTER_SLOTS[index]];
+      const slot = FIGHTER_SLOTS[index];
+      if (!slot) continue;
+      const fighter = actors[slot];
       const dx = fighter.position.x - x; const dz = fighter.position.z - z;
       // Let only the active corner yield: disabling every post lets fighters
       // ghost through unrelated corners during a climb elsewhere in the ring.

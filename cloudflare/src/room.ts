@@ -143,7 +143,14 @@ export class MatchRoom extends DurableObject<Env> {
       await this.env.DB.prepare('INSERT OR IGNORE INTO match_results (match_id,map_id,ruleset,release,winner_fighter,method,duration,hype,completed_at) VALUES (?,?,?,?,?,?,?,?,?)')
         .bind(`${room.id}:${room.round}`, 'volt-dome', room.ruleset, this.env.RELEASE, room.seats.find(seat => seat.id === room.result?.winner)?.fighterId ?? null, room.result.method, room.result.duration, room.result.hype, room.completedAt).run();
       room.persisted = true; this.save(); this.broadcast({ type: 'persistence', status: 'saved' });
-    } catch { this.broadcast({ type: 'persistence', status: 'degraded' }); await this.ctx.storage.setAlarm(Date.now() + 15000); }
+    } catch (error) {
+      // Room IDs and player tickets stay out of logs. The stable event makes a
+      // D1 write failure visible in Workers Observability while the alarm
+      // continues retrying persistence in the background.
+      console.error({ event: 'frwf_match_persistence_failed', errorName: error instanceof Error ? error.name : 'UnknownError' });
+      this.broadcast({ type: 'persistence', status: 'degraded' });
+      await this.ctx.storage.setAlarm(Date.now() + 15000);
+    }
   }
   async alarm() {
     if (!this.room) return;

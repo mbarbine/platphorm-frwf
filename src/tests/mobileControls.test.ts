@@ -164,7 +164,7 @@ describe('MobileControls component', () => {
 
       let frameInput = mobileInput.read();
       expect(frameInput.actions).toHaveLength(1);
-      expect(frameInput.actions[0].action).toBe('quickStrike');
+      expect(frameInput.actions?.[0]?.action).toBe('quickStrike');
 
       const powerBtn = screen.getByRole('button', { name: /^Power strike:/i });
       // Keyboard click passes detail === 0
@@ -172,7 +172,7 @@ describe('MobileControls component', () => {
 
       frameInput = mobileInput.read();
       expect(frameInput.actions).toHaveLength(1);
-      expect(frameInput.actions[0].action).toBe('heavyStrike');
+      expect(frameInput.actions?.[0]?.action).toBe('heavyStrike');
     });
 
     it('ignores click events when detail > 0 to prevent double queueing after pointerDown', () => {

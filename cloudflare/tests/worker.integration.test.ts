@@ -164,4 +164,16 @@ describe('real Worker / Durable Object / D1 / R2 integration', () => {
     const batch = await post('/api/mcp', Array.from({ length: 21 }, () => ({ jsonrpc: '2.0', id: 1, method: 'ping' })));
     expect(await batch.json()).toMatchObject({ error: { code: -32600 } });
   });
+
+  it('returns a traceable generic 503 and logs only safe metadata for unexpected backend failures', async () => {
+    const db = await worker.getD1Database('DB');
+    await db.prepare('DROP TABLE match_results').run();
+    const response = await worker.dispatchFetch(origin + '/api/leaderboards');
+    const body = await response.json() as { ok: boolean; error: { code: string; details: { requestId?: string } } };
+    expect(response.status).toBe(503);
+    expect(body).toMatchObject({ ok: false, error: { code: 'backend_unavailable' } });
+    expect(body.error.details.requestId).toBe(response.headers.get('X-PlatPhorm-Request-Id'));
+    expect(await db.prepare('CREATE TABLE match_results (match_id TEXT PRIMARY KEY, map_id TEXT NOT NULL, ruleset TEXT NOT NULL, release TEXT NOT NULL, winner_fighter TEXT, method TEXT NOT NULL, duration REAL NOT NULL, hype REAL NOT NULL, completed_at TEXT NOT NULL)').run()).toBeTruthy();
+    await db.prepare('CREATE INDEX IF NOT EXISTS results_completed ON match_results(completed_at DESC)').run();
+  });
 });
