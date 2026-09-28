@@ -47,7 +47,7 @@ export interface MultiplayerState {
   // Actions
   connect: (roomName?: string, options?: { fighterId?: FighterId; private?: boolean }) => Promise<void>;
   disconnect: () => Promise<void>;
-  createPrivateRoom: (options?: { fighterId?: FighterId }) => Promise<string>;
+  createPrivateRoom: (options?: { fighterId?: FighterId; ruleset?: 'standard' | 'chaos' }) => Promise<string>;
   joinByRoomId: (roomId: string, options?: { fighterId?: FighterId }) => Promise<void>;
   selectFighter: (fighterId: FighterId) => void;
   ready: () => void;

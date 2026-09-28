@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Miniflare, convertV4MiniflareOptions } from 'miniflare';
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 
 const origin = 'https://frwf.platphormnews.com';
 const testKey = 'local-test-operator-only';
@@ -13,8 +13,11 @@ beforeAll(async () => {
     bindings: { ENVIRONMENT: 'development', PUBLIC_ORIGIN: origin, RELEASE: 'integration-test', SOURCE_SHA: '1234567890abcdef', PLATPHORM_API_KEY: testKey },
   }));
   const db = await worker.getD1Database('DB');
-  const migration = await readFile('migrations/0001_game.sql', 'utf8');
-  for (const statement of migration.split(';').map(s => s.trim()).filter(Boolean)) await db.prepare(statement).run();
+  const migrationFiles = (await readdir('migrations')).filter(file => /^\\d+_.*\\.sql$/.test(file)).sort();
+  for (const file of migrationFiles) {
+    const migration = await readFile(`migrations/${file}`, 'utf8');
+    for (const statement of migration.split(';').map(s => s.trim()).filter(Boolean)) await db.prepare(statement).run();
+  }
 });
 
 afterAll(async () => { await worker?.dispose(); });
