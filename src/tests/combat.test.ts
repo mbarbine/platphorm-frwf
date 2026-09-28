@@ -574,8 +574,12 @@ describe('deterministic combat rules', () => {
 
   it('keeps directionless rescue controls punch-first and kick-first', () => {
     expect(selectDirectionalStrike({ x: 0, z: 0 }, 'quick', 0)).toBe('jab');
-    expect(selectDirectionalStrike({ x: 0, z: 0 }, 'quick', 1)).toBe('combo');
-    expect(selectDirectionalStrike({ x: 0, z: 0 }, 'quick', 2)).toBe('uppercut');
+    expect(selectDirectionalStrike({ x: 0, z: 0 }, 'quick', 1)).toBe('right_hook');
+    expect(selectDirectionalStrike({ x: 0, z: 0 }, 'quick', 2)).toBe('left_hook');
+    expect(selectDirectionalStrike({ x: 0, z: 0 }, 'quick', 3)).toBe('uppercut');
+    expect(selectDirectionalStrike({ x: -1, z: 0 }, 'quick')).toBe('left_hook');
+    expect(selectDirectionalStrike({ x: 1, z: 0 }, 'quick')).toBe('right_hook');
+    for (const id of ['jab', 'left_hook', 'right_hook', 'uppercut']) expect(getStrikePose(getMove(id), 'active', getMove(id).anticipationDuration + .04)).not.toBeNull();
     expect(selectDirectionalStrike({ x: 0, z: 0 }, 'heavy')).toBe('front_kick');
   });
 
