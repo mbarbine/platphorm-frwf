@@ -91,6 +91,7 @@ export function App() {
   // Multiplayer hooks
   const multiplayerStatus = useMultiplayerStore((state) => state.status);
   const multiplayerRoomPhase = useMultiplayerStore((state) => state.roomPhase);
+  const multiplayerRuleset = useMultiplayerStore((state) => state.ruleset);
   const multiplayerRoomId = useMultiplayerStore((state) => state.roomId);
   const multiplayerJoinInvite = useMultiplayerStore((state) => state.joinInvite);
   const multiplayerHostSessionId = useMultiplayerStore((state) => state.hostSessionId);
@@ -363,7 +364,7 @@ export function App() {
             <p style={{ margin: 0, color: '#aaa', lineHeight: 1.5 }}>Create a room and get a private link for your rival. If you leave, host control passes to the other player.</p>
             <button className="button" onClick={async () => {
               setMultiplayerError(''); audioEngine.play('confirm', settings);
-              try { await useMultiplayerStore.getState().createPrivateRoom({ fighterId: selected }); }
+              try { await useMultiplayerStore.getState().createPrivateRoom({ fighterId: selected, ruleset: rules }); }
               catch (error) { setMultiplayerError(error instanceof Error ? error.message : 'Could not host a match.'); }
             }}>HOST A MATCH</button>
           </div>
@@ -435,10 +436,13 @@ export function App() {
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem' }}>
                 <span style={{ fontSize: '0.8rem', color: '#888' }}>ROOM ID · SHARE THE INVITE LINK</span>
               <strong data-testid="multiplayer-room-code" style={{ fontSize: '1.8rem', color: '#ff007b', letterSpacing: '4px', fontFamily: 'monospace' }}>{multiplayerRoomId}</strong>
-              {multiplayerJoinInvite && <button className="button button--quiet" onClick={async () => {
-                try { await navigator.clipboard.writeText(multiplayerJoinInvite); }
-                catch { setMultiplayerError('Clipboard unavailable. Copy the invitation from the browser address bar after opening it.'); }
-              }}>COPY CHALLENGER INVITE</button>}
+              {multiplayerJoinInvite && <div style={{ display: 'flex', width: 'min(100%, 420px)', gap: '.5rem', marginTop: '.5rem' }}>
+                <input aria-label="Challenger invitation link" data-testid="multiplayer-join-invite" readOnly value={multiplayerJoinInvite} onFocus={event => event.currentTarget.select()} style={{ minWidth: 0, flex: 1, color: '#ddd', background: '#111018', border: '1px solid #55446d', borderRadius: 4, padding: '.55rem', fontSize: '.76rem' }} />
+                <button className="button button--quiet" onClick={async () => {
+                  try { await navigator.clipboard.writeText(multiplayerJoinInvite); }
+                  catch { setMultiplayerError('Clipboard unavailable. Select and copy the invitation link.'); }
+                }}>COPY LINK</button>
+              </div>}
             </div>
           </div>
 
@@ -458,7 +462,7 @@ export function App() {
 
           <div style={{ marginTop: '2rem', display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center' }}>
             {multiplayerMyRole && multiplayerSessionId === multiplayerHostSessionId && multiplayerRoomPhase === 'lobby' && <label>HOST RULESET · changing it hands host control to your rival{' '}
-              <select aria-label="Host ruleset" value={rules} onChange={event => {
+              <select aria-label="Host ruleset" value={multiplayerRuleset} onChange={event => {
                 const next = event.target.value as Ruleset; setRules(next);
                 useMultiplayerStore.getState().updateRoomSettings(next);
               }}><option value="standard">STANDARD</option><option value="chaos">CHAOS</option></select>

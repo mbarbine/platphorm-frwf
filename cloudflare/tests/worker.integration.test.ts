@@ -134,6 +134,22 @@ describe('real Worker / Durable Object / D1 / R2 integration', () => {
     } finally { first.close(); second.close(); }
   });
 
+  it('hands host authority to the challenger after a host settings change', async () => {
+    const response = await post('/api/rooms', { ruleset: 'standard' });
+    const json = await response.json() as { data: { roomId: string; hostInvite: string; joinInvite: string } };
+    const host = ticketFrom(json.data.hostInvite); const guest = ticketFrom(json.data.joinInvite);
+    if (!host || !guest) throw new Error('Room invitations were not issued');
+    const first = await connectWebSocket(json.data.roomId, host); const second = await connectWebSocket(json.data.roomId, guest);
+    try {
+      const transferred = nextSocketMessage<{ hostSessionId: string; roles: { sessionId: string; role: string }[] }>(second as unknown as WebSocket,
+        message => message.type === 'roomState' && Array.isArray(message.roles)
+          && message.hostSessionId === message.roles.find((entry: { sessionId: string; role: string }) => entry.role === 'player2')?.sessionId);
+      first.send(JSON.stringify({ type: 'hostSettings', ruleset: 'chaos', protocolVersion: '2.0.0' }));
+      const state = await transferred;
+      expect(state.hostSessionId).toBe(state.roles.find(entry => entry.role === 'player2')?.sessionId);
+    } finally { first.close(); second.close(); }
+  });
+
   describe('MatchRoom WebSocket error handling', () => {
     it('closes room WebSocket with code 1008 on invalid JSON message', async () => {
       const response = await post('/api/rooms', { ruleset: 'standard' });

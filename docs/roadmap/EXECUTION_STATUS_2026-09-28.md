@@ -39,3 +39,10 @@ The browser multiplayer run confirms that a key press reaches the game input col
 ## Scope discipline
 
 “Tests for everything” is tracked as a subsystem acceptance matrix rather than an assertion that every possible game state has been tested. Each movement, move family, grip, recovery orientation, prop interaction, rope/post transition, controller path, network fault and device tier needs representative boundary and end-to-end cases. Deterministic tests prove rules and geometry; browser and visual tests prove that the player can see and perform them. Production verification remains a separate release gate.
+
+
+## Multiplayer and combat follow-up (source changes, not deployed)
+
+The current working tree now removes the platform-key requirement from browser room hosting. The Worker requires the configured same-origin header, applies a per-address rate limit keyed by a SHA-256 digest, and returns separate host/challenger invitation links containing one-seat tickets in fragments. Explicit leave and lobby ruleset changes hand host authority to the connected player; the room closes if no takeover is available. The 30 Hz server tick does not guarantee zero latency.
+
+The online browser test now follows the player's host-and-share flow without injecting an operator key. New jab/right-hook/left-hook/uppercut choices have authored strike poses and per-move physics/audio mapping in local combat; the online simulator also sequences them. Synthetic impact breath cues are used instead of recorded performer voice. Focused game and Worker tests passed during this follow-up; deployment, remote matchmaking quality and a two-browser run against the local Worker are still pending.

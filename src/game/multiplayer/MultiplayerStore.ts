@@ -26,6 +26,7 @@ export interface MultiplayerState {
 
   // Room phase (mirrored from server state)
   roomPhase: string;
+  ruleset: 'standard' | 'chaos';
 
   // Synchronized state Maps
   fighters: Map<string, ClientFighterState>;
@@ -66,6 +67,7 @@ export const useMultiplayerStore = create<MultiplayerState>((set) => {
         const roles = copyStateMap(state.roles);
         return {
         roomPhase: state.phase ?? '',
+        ruleset: state.ruleset,
         fighters,
         roles,
         myRole: colyseusClient.sessionId ? (roles.get(colyseusClient.sessionId) as 'player1' | 'player2' | 'spectator' | undefined) ?? null : null,
@@ -92,6 +94,7 @@ export const useMultiplayerStore = create<MultiplayerState>((set) => {
       roomState.roles.forEach(({ sessionId, role }) => roles.set(sessionId, role));
       return {
         roomPhase: roomState.phase,
+        ruleset: roomState.ruleset,
         hostSessionId: roomState.hostSessionId,
         ...(roomState.phase === 'active' ? { matchResult: null } : {}),
         fighters,
@@ -112,6 +115,7 @@ export const useMultiplayerStore = create<MultiplayerState>((set) => {
     hostSessionId: null,
     myRole: null,
     roomPhase: 'lobby',
+    ruleset: 'standard',
     fighters: new Map(),
     roles: new Map(),
     rtt: 0,

@@ -9,16 +9,20 @@ After upload, the script verifies production health identity, the game page and 
 The Lawnmower provider permits embedding from `*.platphormnews.com`, not localhost or workers.dev. Run the live mower journey against the canonical FRWF deployment with `RUN_LIVE_INTEGRATION_TESTS=true PLAYWRIGHT_PORT=4342 pnpm exec playwright test e2e/mower-archive.spec.ts`. The default local journey verifies the archive and launcher/return flow; it does not certify remote iframe readiness.
 # Private multiplayer room invitations
 
-Online rooms use the `frwf-game-production` Durable Object service. Room
-provisioning requires the shared `PLATPHORM_API_KEY`; never put it in Vite
-variables, the browser, or a committed env file. From an operator shell where
-that key is already available, run `pnpm --dir cloudflare room:create`. The
-command prints two one-seat invite URLs. Send each player their own URL; the
-seat ticket is a bearer credential stored in the URL fragment, so it is not
-sent to the Worker as an HTTP path or referrer. Invitations expire with the
-one-hour room. Do not publish, screenshot, or log invite links.
+Match hosting is a public, same-origin game action and does not require
+`PLATPHORM_API_KEY`. `POST /api/rooms` creates two single-seat invitation links;
+the host connects automatically and shares the challenger link from the lobby.
+Links carry a one-hour bearer ticket in the URL fragment, which is not sent to
+the Worker as an HTTP path or referrer. Do not post invitation links publicly.
 
-The client joins these invitations over `/api/rooms/{id}/socket` using the
-`frwf-v1` ticket subprotocol. Anonymous room creation and random public
-matchmaking remain disabled until player authentication and abuse controls are
-available.
+The Worker checks the browser origin and limits room creation by a one-way hash
+of the connecting address. The Durable Object stores ticket hashes only. An
+explicit host leave or a lobby ruleset change gives host control to the other
+connected player; the room closes when no connected player can take over. The
+shared platform key remains server-side and is still required for publishing
+maps and other protected platform operations.
+
+The client joins through `/api/rooms/{id}/socket` using the `frwf-v1` ticket
+subprotocol. Private rooms are not public matchmaking and do not create a
+persistent player identity. The simulation runs at 30 Hz; real-world latency
+still depends on network conditions and has not been certified as lag-free.

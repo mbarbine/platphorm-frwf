@@ -206,7 +206,7 @@ export class MatchRoom extends DurableObject<Env> {
   private broadcast(message: unknown) { for (const socket of this.ctx.getWebSockets()) this.send(socket, message); }
   private broadcastState() {
     if (!this.room) return;
-    this.broadcast({ type: 'roomState', phase: this.room.phase, hostSessionId: this.room.hostSessionId, roles: this.room.seats.map(({ id, role }) => ({ sessionId: id, role })), fighters: this.room.seats.map(({ id, fighterId }) => ({ sessionId: id, definitionId: fighterId })) });
+    this.broadcast({ type: 'roomState', phase: this.room.phase, ruleset: this.room.ruleset, hostSessionId: this.room.hostSessionId, roles: this.room.seats.map(({ id, role }) => ({ sessionId: id, role })), fighters: this.room.seats.map(({ id, fighterId }) => ({ sessionId: id, definitionId: fighterId })) });
   }
   private broadcastSnapshot() {
     if (!this.room || !this.model) return;

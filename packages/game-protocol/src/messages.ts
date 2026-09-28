@@ -77,6 +77,7 @@ export interface CommandAckMessage {
 export interface RoomStateMessage {
   type: 'roomState';
   phase: 'lobby' | 'selection' | 'countdown' | 'active' | 'result' | 'closed';
+  ruleset: 'standard' | 'chaos';
   roles: ReadonlyArray<{ sessionId: string; role: 'player1' | 'player2' | 'spectator' }>;
   fighters: ReadonlyArray<{ sessionId: string; definitionId: FighterId }>;
   hostSessionId: string | null;

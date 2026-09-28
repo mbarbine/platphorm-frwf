@@ -5,7 +5,7 @@ import { PROTOCOL_VERSION } from '@frwf/game-protocol';
 
 export interface ClientRoomState {
   phase: string; resolved: boolean; elapsed: number; hype: number; announcement: string;
-  ruleset: string; difficulty: string; winnerSessionId: string; winMethod: string;
+  ruleset: 'standard' | 'chaos'; difficulty: string; winnerSessionId: string; winMethod: string;
   fighters: Map<string, ClientFighterState>; roles: Map<string, string>;
 }
 export interface ClientFighterState {
@@ -86,7 +86,7 @@ export class ColyseusClient {
     return { roomId: payload.data.roomId, joinInvite: payload.data.joinInvite };
   }
 
-  async joinByRoomId(inviteOrUrl: string, _options: { fighterId?: string } = {}): Promise<void> {
+  async joinByRoomId(inviteOrUrl: string, options: { fighterId?: string } = {}): Promise<void> {
     const invite = parseRoomInvite(inviteOrUrl);
     if (!invite) throw new Error('Enter a complete private room invitation (room ID and seat ticket).');
     if (!this.options.serverUrl) throw new Error('The Cloudflare match service is not configured for this environment.');
@@ -117,6 +117,7 @@ export class ColyseusClient {
         else this.setStatus('error');
       });
     });
+    if (options.fighterId) this.selectFighter(options.fighterId);
   }
 
   async leave(_consented = true): Promise<void> {
@@ -167,7 +168,7 @@ export class ColyseusClient {
         this.options.onRoomState(state);
         const fighters = new Map(state.fighters.map(f => [f.sessionId, { definitionId: f.definitionId } as ClientFighterState]));
         const roles = new Map(state.roles.map(r => [r.sessionId, r.role]));
-        this.options.onStateChange({ phase: state.phase, resolved: state.phase === 'result', elapsed: 0, hype: 0, announcement: '', ruleset: 'standard', difficulty: 'normal', winnerSessionId: '', winMethod: '', fighters, roles });
+        this.options.onStateChange({ phase: state.phase, resolved: state.phase === 'result', elapsed: 0, hype: 0, announcement: '', ruleset: state.ruleset, difficulty: 'normal', winnerSessionId: '', winMethod: '', fighters, roles });
         break;
       }
       case 'snapshot': this.options.onSnapshot(message as unknown as SnapshotMessage); break;
