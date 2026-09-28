@@ -2,6 +2,7 @@ import type { FighterId } from "../types/game";
 import { gaitCycle, gaitRunBlend } from "./gaitCycle";
 import type { Vec2 } from "../types/game";
 import { POSES, type Pose } from "./poses";
+import { WRESTLING_STYLES } from "../data/wrestlingStyles";
 
 /**
  * Stable locomotion input shared by procedural animation and future captured
@@ -29,10 +30,10 @@ export interface LocomotionStyle {
 
 /** Gait tuning is independent of combat tendencies and signature moves. */
 export const LOCOMOTION_STYLES: Readonly<Record<LocomotionStyleId, LocomotionStyle>> = {
-  baseline: { stride: 1, guard: 1, armSwing: .8, stance: 0 },
-  powerhouse: { stride: 1, guard: 1, armSwing: .8, stance: 0 },
-  agile: { stride: 1, guard: 1, armSwing: .8, stance: 0 },
-  technical: { stride: 1, guard: 1, armSwing: .8, stance: 0 },
+  baseline: { stride: 1, guard: 1, armSwing: .82, stance: .035 },
+  powerhouse: { stride: .88, guard: .84, armSwing: .68, stance: .075 },
+  agile: { stride: 1.12, guard: 1.1, armSwing: 1.12, stance: .018 },
+  technical: { stride: .96, guard: 1.16, armSwing: .76, stance: .028 },
 };
 
 export interface LocomotionPoseSource {
@@ -40,9 +41,12 @@ export interface LocomotionPoseSource {
 }
 
 /** Gait follows solved travel in the wrestler's facing space, including backsteps. */
-function proceduralLocomotionPose({ velocity, facing, phase, combat = true, styleId = 'baseline', massKg = 90 }: LocomotionPoseInput): Pose {
+function proceduralLocomotionPose({ velocity, facing, phase, combat = true, fighterId, styleId = 'baseline', massKg = 90 }: LocomotionPoseInput): Pose {
   // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt for ~8x speedup in 2D speed calculations on hot animation tick paths.
-  const style = LOCOMOTION_STYLES[styleId];
+  // Character-authored footwork is the primary source. The broad style remains
+  // a useful fallback for previews and future imported/mocap performers.
+  const authored = fighterId ? WRESTLING_STYLES[fighterId] : undefined;
+  const style = authored ?? LOCOMOTION_STYLES[styleId];
   const speed = Math.sqrt(velocity.x * velocity.x + velocity.z * velocity.z);
   const amount = Math.min(1, speed / 1.8);
   // Loaded bodies carry less vertical bounce without tying gait style to a

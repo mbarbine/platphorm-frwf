@@ -200,6 +200,22 @@ function Leg({ fighter, profile, side, legRef, shinRef }: PartProps & { side: -1
 }
 
 function Headwear({ fighter, profile }: PartProps) {
+  if (profile.hair === 'longFlow') {
+    return <group>
+      <mesh position={[0, .29, -.025]} scale={[.33, .16, .31]}><sphereGeometry args={[1, 16, 10]} /><meshStandardMaterial color={profile.hairColor} roughness={.92} /></mesh>
+      <mesh position={[0, -.02, -.255]} scale={[.3, .36, .12]}><sphereGeometry args={[1, 16, 10]} /><meshStandardMaterial color={profile.hairColor} roughness={.92} /></mesh>
+      {[-1, 1].map(side => <mesh key={side} position={[side * .285, -.12, -.04]} rotation={[.12, 0, side * -.08]} scale={[.075, .34, .09]}><capsuleGeometry args={[1, 1, 6, 10]} /><meshStandardMaterial color={profile.hairColor} roughness={.92} /></mesh>)}
+    </group>;
+  }
+  if (profile.hair === 'twinBraid') {
+    return <group>
+      <mesh position={[0, .29, -.015]} scale={[.32, .16, .3]}><sphereGeometry args={[1, 16, 10]} /><meshStandardMaterial color={profile.hairColor} roughness={.92} /></mesh>
+      {[-1, 1].map(side => <group key={side} position={[side * .25, .02, -.11]} rotation={[.08, 0, side * .12]}>
+        <mesh position={[0, -.19, 0]}><capsuleGeometry args={[.055, .24, 6, 10]} /><meshStandardMaterial color={profile.hairColor} roughness={.92} /></mesh>
+        <mesh position={[0, -.4, .025]} rotation={[.12, 0, side * .08]}><capsuleGeometry args={[.045, .2, 6, 10]} /><meshStandardMaterial color={profile.hairColor} roughness={.92} /></mesh>
+      </group>)}
+    </group>;
+  }
   if (profile.hair === 'crownFade') {
     return (
       <group position={[0, .3, -.025]}>

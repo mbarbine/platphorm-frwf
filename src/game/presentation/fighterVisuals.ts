@@ -1,7 +1,7 @@
 import type { FighterId } from '../types/game';
 
 export type AttireStyle = 'conqueror' | 'striker' | 'technician' | 'brawler' | 'roughneck';
-export type HairStyle = 'crownFade' | 'voltHawk' | 'fangMask' | 'bandana' | 'mullet';
+export type HairStyle = 'crownFade' | 'voltHawk' | 'fangMask' | 'bandana' | 'mullet' | 'longFlow' | 'twinBraid';
 
 export interface FighterVisualProfile {
   attire: AttireStyle;
@@ -62,8 +62,18 @@ const ORIGINAL_VISUALS: Readonly<Record<'atlas' | 'vex' | 'nova' | 'brick' | 'da
 
 export const FIGHTER_VISUALS: Readonly<Record<FighterId, FighterVisualProfile>> = { ...ORIGINAL_VISUALS,
   josh: { ...ORIGINAL_VISUALS.brick, hairColor: '#786044', browColor: '#786044', waistScale: .98, motionTempo: 1 },
-  chelsea: { ...ORIGINAL_VISUALS.brick, hairColor: '#a57b50', motionTempo: 0.91 },
-  britt: { ...ORIGINAL_VISUALS.brick, hairColor: '#433329', motionTempo: 1.03 },
+  chelsea: {
+    ...ORIGINAL_VISUALS.vex, attire: 'striker', hair: 'longFlow',
+    chestScale: .92, waistScale: .79, shoulderScale: .9, armScale: .88, thighScale: .97, calfScale: .93, bootScale: .92,
+    headScale: [.98, 1.05, .95], stanceWidth: .92, motionTempo: .94, stepWeight: .78, guardHeight: 1.06,
+    hairColor: '#bd8050', browColor: '#765039', eyeColor: '#758567', soleColor: '#b7a7a0',
+  },
+  britt: {
+    ...ORIGINAL_VISUALS.nova, attire: 'technician', hair: 'twinBraid',
+    chestScale: 1.04, waistScale: .94, shoulderScale: 1.02, armScale: .98, thighScale: 1.06, calfScale: 1.02, bootScale: .98,
+    headScale: [1.04, .99, 1.01], stanceWidth: 1.08, motionTempo: .89, stepWeight: .94, guardHeight: 1.12,
+    hairColor: '#542a27', browColor: '#482621', eyeColor: '#718078', soleColor: '#e14798',
+  },
   beer_bandit_bill: { ...ORIGINAL_VISUALS.brick, hairColor: '#433329', motionTempo: 0.93 },
   beer_bandit_ted: { ...ORIGINAL_VISUALS.brick, hairColor: '#433329', motionTempo: 1.07 },
   thomas: { ...ORIGINAL_VISUALS.dale, hairColor: '#c5ab68', browColor: '#8e7549' },
