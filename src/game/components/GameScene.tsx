@@ -10,7 +10,7 @@ import { AdaptiveDpr, OrbitControls } from '@react-three/drei';
 import { Physics, useAfterPhysicsStep, useBeforePhysicsStep, useRapier } from '@react-three/rapier';
 import { JointData } from '@dimforge/rapier3d-compat';
 import { Component, lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { ErrorInfo, ReactNode } from 'react';
+import type { ErrorInfo, ReactNode, RefObject } from 'react';
 import { Vector3 } from 'three';
 import type { Group } from 'three';
 import type { WebGLRenderer } from 'three';
@@ -218,12 +218,18 @@ function ArenaPhysicsClock({ labEnabled }: { labEnabled: boolean }) {
   return null;
 }
 
-function RuntimeDiagnosticsSampler({ onSustainedSlow }: { onSustainedSlow: () => void }) {
+function RuntimeDiagnosticsSampler({ onSustainedSlow, gameCanvas }: { onSustainedSlow: () => void; gameCanvas: RefObject<HTMLDivElement | null> }) {
   const { gl } = useThree();
-  const startedAt = useRef(0); const fallbackIssued = useRef(false);
+  const startedAt = useRef(0); const fallbackIssued = useRef(false); const stepSampleTime = useRef(0);
   useEffect(() => { resetRenderDiagnostics(); return resetRenderDiagnostics; }, []);
   useFrame((state, dt) => {
     sampleRenderDiagnostics(gl, dt);
+    // These counters mutate in the fixed-step loop, outside React state. Keep
+    // the browser-test/diagnostic surface live without rerendering the game UI.
+    if (state.clock.elapsedTime - stepSampleTime.current >= .1) {
+      gameCanvas.current?.setAttribute('data-physics-steps', String(bodyWorksRuntime.metrics.fixedSteps));
+      stepSampleTime.current = state.clock.elapsedTime;
+    }
     if (startedAt.current === 0) startedAt.current = state.clock.elapsedTime;
     if (!fallbackIssued.current && state.clock.elapsedTime - startedAt.current >= 4 && shouldUsePerformanceFallback(renderDiagnostics)) {
       fallbackIssued.current = true; onSustainedSlow();
@@ -276,6 +282,7 @@ function PlayerControlBeacon() {
 }
 
 export function GameScene(props: Props) {
+  const gameCanvas = useRef<HTMLDivElement | null>(null);
   const paused = useMatchStore((state) => state.model.paused);
   const replayActive = useMatchStore((state) => state.replayActive);
   const diagnosticModel = useMatchStore((state) => state.model); const toyTestMode = diagnosticModel.toyTestMode; const playerMove = diagnosticModel.player.moveId; const playerPosition = diagnosticModel.player.position; const opponentHealth = diagnosticModel[diagnosticModel.targets.player].health;
@@ -317,6 +324,7 @@ export function GameScene(props: Props) {
   return (
     <SceneBoundary>
       <div
+        ref={gameCanvas}
         className="game-canvas"
         data-testid="game-canvas"
         data-match-mode={diagnosticModel.matchMode}
@@ -388,7 +396,7 @@ export function GameScene(props: Props) {
           <RendererHealth onLost={contextLost} onRestored={contextRestored} />
           <CameraRig />
           <SpectatorFreeCamera />
-          <RuntimeDiagnosticsSampler onSustainedSlow={() => { if (graphicsQuality === 'auto') setAutomaticPerformanceFallback(true); }} />
+          <RuntimeDiagnosticsSampler gameCanvas={gameCanvas} onSustainedSlow={() => { if (graphicsQuality === 'auto') setAutomaticPerformanceFallback(true); }} />
           <AdaptiveDpr />
         </Canvas>
         <RosterLoading />
