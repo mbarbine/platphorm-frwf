@@ -658,4 +658,76 @@ describe('authoritative server contract', () => {
     expect(app.disabled("x-powered-by")).toBe(true);
   });
 
+
+  it("purges expired entries first when MAX_MAP_SIZE is reached", async () => {
+    const { rateLimiter, rateLimitMap, MAX_MAP_SIZE } = await import("../index");
+    rateLimitMap.clear();
+    vi.useFakeTimers();
+
+    const now = 100000;
+    vi.setSystemTime(now);
+
+    const res = createMockResponse();
+    const next = vi.fn();
+
+    // Populate map up to MAX_MAP_SIZE - 2 with active entries
+    for (let i = 0; i < MAX_MAP_SIZE - 2; i++) {
+      rateLimitMap.set(`10.0.${Math.floor(i / 256)}.${i % 256}`, { count: 1, resetTime: now + 60000 });
+    }
+
+    // Add 2 expired entries
+    rateLimitMap.set("expired-1", { count: 1, resetTime: now - 5000 });
+    rateLimitMap.set("expired-2", { count: 1, resetTime: now - 1000 });
+
+    expect(rateLimitMap.size).toBe(MAX_MAP_SIZE);
+
+    // Request from a new IP
+    const req = { ip: "192.168.1.100", socket: {} } as unknown as Request;
+    rateLimiter(req, res, next);
+
+    // Expired entries should be purged, map size should be MAX_MAP_SIZE - 2 + 1 = MAX_MAP_SIZE - 1
+    expect(rateLimitMap.has("expired-1")).toBe(false);
+    expect(rateLimitMap.has("expired-2")).toBe(false);
+    expect(rateLimitMap.has("192.168.1.100")).toBe(true);
+    expect(rateLimitMap.size).toBe(MAX_MAP_SIZE - 1);
+
+    vi.useRealTimers();
+    rateLimitMap.clear();
+  });
+
+  it("evicts the oldest entry (FIFO) when MAX_MAP_SIZE is reached and all entries are active", async () => {
+    const { rateLimiter, rateLimitMap, MAX_MAP_SIZE } = await import("../index");
+    rateLimitMap.clear();
+    vi.useFakeTimers();
+
+    const now = 100000;
+    vi.setSystemTime(now);
+
+    const res = createMockResponse();
+    const next = vi.fn();
+
+    // Set first entry
+    rateLimitMap.set("first-ip", { count: 1, resetTime: now + 60000 });
+
+    // Fill remaining up to MAX_MAP_SIZE
+    for (let i = 1; i < MAX_MAP_SIZE; i++) {
+      rateLimitMap.set(`10.0.${Math.floor(i / 256)}.${i % 256}`, { count: 1, resetTime: now + 60000 });
+    }
+
+    expect(rateLimitMap.size).toBe(MAX_MAP_SIZE);
+    expect(rateLimitMap.has("first-ip")).toBe(true);
+
+    // Request from a new IP when all existing entries are unexpired
+    const req = { ip: "192.168.2.1", socket: {} } as unknown as Request;
+    rateLimiter(req, res, next);
+
+    // Oldest key "first-ip" should be evicted to make room
+    expect(rateLimitMap.has("first-ip")).toBe(false);
+    expect(rateLimitMap.has("192.168.2.1")).toBe(true);
+    expect(rateLimitMap.size).toBe(MAX_MAP_SIZE);
+
+    vi.useRealTimers();
+    rateLimitMap.clear();
+  });
+
 });
