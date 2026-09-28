@@ -94,7 +94,6 @@ export function App() {
   const multiplayerRoomPhase = useMultiplayerStore((state) => state.roomPhase);
   const multiplayerRuleset = useMultiplayerStore((state) => state.ruleset);
   const multiplayerRoomId = useMultiplayerStore((state) => state.roomId);
-  const multiplayerJoinInvite = useMultiplayerStore((state) => state.joinInvite);
   const multiplayerHostSessionId = useMultiplayerStore((state) => state.hostSessionId);
   const multiplayerSessionId = useMultiplayerStore((state) => state.sessionId);
   const multiplayerMyRole = useMultiplayerStore((state) => state.myRole);
@@ -419,6 +418,7 @@ export function App() {
 
       {multiplayerStatus === 'connected' && (() => {
         const roster = [...multiplayerRoles.entries()].sort((a, b) => Number(a[1].slice(-1)) - Number(b[1].slice(-1)));
+        const currentSessionId = multiplayerSessionId;
         const readyCount = roster.filter(([id]) => multiplayerConnectedPlayers.get(id) && multiplayerReadyPlayers.get(id)).length;
         const connectedCount = roster.filter(([id]) => multiplayerConnectedPlayers.get(id)).length;
         const canStart = multiplayerSessionId === multiplayerHostSessionId && connectedCount === 2 && readyCount === connectedCount;
@@ -462,7 +462,7 @@ export function App() {
                 useMultiplayerStore.getState().updateRoomSettings(next);
               }}><option value="standard">STANDARD</option><option value="chaos">CHAOS</option></select>
             </label>}
-            {multiplayerMyRole && multiplayerMyRole !== 'spectator' && multiplayerSessionId !== multiplayerHostSessionId && <div style={{ display: 'flex', gap: '1.5rem' }}>
+            {multiplayerMyRole && multiplayerMyRole !== 'spectator' && currentSessionId && currentSessionId !== multiplayerHostSessionId && <div style={{ display: 'flex', gap: '1.5rem' }}>
               <button className="button" onClick={() => {
                 const currentIndex = FIGHTERS.findIndex(f => f.id === selected);
                 const nextFighterObj = FIGHTERS[(currentIndex + 1) % FIGHTERS.length];
@@ -472,9 +472,9 @@ export function App() {
                 audioEngine.play('menu', settings);
               }}>CHANGE FIGHTER</button>
               <button className="button button--hero" onClick={() => {
-                useMultiplayerStore.getState().setReady(!multiplayerReadyPlayers.get(multiplayerSessionId));
+                useMultiplayerStore.getState().setReady(!multiplayerReadyPlayers.get(currentSessionId));
                 audioEngine.play('confirm', settings);
-              }}>{multiplayerReadyPlayers.get(multiplayerSessionId) ? 'READY · CLICK TO WAIT' : 'READY TO FIGHT'}</button>
+              }}>{multiplayerReadyPlayers.get(currentSessionId) ? 'READY · CLICK TO WAIT' : 'READY TO FIGHT'}</button>
             </div>}
             {multiplayerSessionId === multiplayerHostSessionId && <div style={{ display: 'grid', justifyItems: 'center', gap: '.5rem' }}>
               <strong style={{ color: canStart ? '#caff49' : '#ffbe40' }}>READY · {readyCount}/{connectedCount} CONNECTED PLAYERS</strong>

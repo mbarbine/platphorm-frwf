@@ -45,7 +45,7 @@ import { ReplayDirector } from './ReplayFighter';
 import { useMultiplayerStore } from '../multiplayer/MultiplayerStore';
 import type { ActionEvent } from '../input/actionLayer';
 
-interface Props { onPause: () => void; onDevice: (device: ControlDevice) => void; onFinished: () => void; inputEnabled?: boolean; onlineRole?: 'player1' | 'player2' | 'spectator' | null }
+interface Props { onPause: () => void; onDevice: (device: ControlDevice) => void; onFinished: () => void; inputEnabled?: boolean; onlineRole?: 'player1' | 'player2' | 'player3' | 'player4' | 'player5' | 'player6' | 'spectator' | null }
 
 const BodyWorksDebugOverlay = lazy(async () => ({ default: (await import('./BodyWorksDebugOverlay')).BodyWorksDebugOverlay }));
 
