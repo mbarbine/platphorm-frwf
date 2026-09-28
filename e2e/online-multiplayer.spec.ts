@@ -15,6 +15,10 @@ const tapAndAwaitAuthority = async (page: Page, canvas: Locator, key: string, de
   // can begin and end before the render/physics collector observes the hold.
   await page.keyboard.down(key);
   await page.waitForTimeout(delay);
+  await expect.poll(async () => Number(await page.locator('html').getAttribute('data-input-action-count')),
+    { message: `the active browser should collect the ${key} movement edge` }).toBeGreaterThan(0);
+  await expect.poll(async () => Number(await canvas.getAttribute('data-network-command-seq')),
+    { message: `the ${key} movement edge should be sent to the room` }).toBeGreaterThan(commandBefore);
   await page.keyboard.up(key);
   await expect.poll(async () => Number(await canvas.getAttribute('data-network-acked-seq'))).toBeGreaterThan(commandBefore);
   await expect.poll(async () => Number(await canvas.getAttribute('data-network-snapshot'))).toBeGreaterThan(snapshotBefore);
@@ -68,9 +72,11 @@ test('two browsers share authoritative movement, contact, and impact state', asy
     await guest.bringToFront();
     await expect(guestCanvas).toHaveAttribute('data-simulation-ready', 'true', { timeout: 45000 });
     await expect(guest.locator('html')).toHaveAttribute('data-game-input-ready', 'true');
+    // Browser contexts are foreground-throttled one at a time. Restore host
+    // visibility before expecting its rAF-driven physics clock to advance.
+    await host.bringToFront();
     await expect.poll(async () => Number(await hostCanvas.getAttribute('data-physics-steps')), { timeout: 20_000 }).toBeGreaterThan(30);
 
-    await host.bringToFront();
     const sampleStart = await serverPosition(hostCanvas); const sampleTarget = await serverPosition(guestCanvas);
     await tapAndAwaitAuthority(host, hostCanvas, 'w');
     const sampleEnd = await serverPosition(hostCanvas); const sampleDx = sampleEnd.x - sampleStart.x; const sampleDz = sampleEnd.z - sampleStart.z; const sampleMagnitude = Math.hypot(sampleDx, sampleDz);

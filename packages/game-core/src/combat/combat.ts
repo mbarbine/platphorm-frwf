@@ -37,6 +37,8 @@ export const createFighterRuntime = (
   running: false,
   guarding: false,
   phaseElapsed: 0,
+  quickChainCount: 0,
+  lastQuickStrikeAt: -Infinity,
   attackInstanceId: 0,
   hitTargets: new Set(),
   grappleTarget: null,
