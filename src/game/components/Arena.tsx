@@ -316,12 +316,15 @@ function EntranceLane() {
 
   useFrame((_, dt) => {
     elapsed.current += dt;
-    mats.current.forEach((mat, index) => {
-      if (!mat) return;
+    // OPTIMIZATION: Use indexed for loop instead of forEach to eliminate 60 closure allocations per second inside 60Hz useFrame
+    const laneMats = mats.current;
+    for (let index = 0; index < laneMats.length; index++) {
+      const mat = laneMats[index];
+      if (!mat) continue;
       // Runway light animation pattern with phase offset per lane
       const wave = Math.sin(elapsed.current * 4.5 - index * 0.9) * 0.5 + 0.5;
       mat.emissiveIntensity = 0.8 + wave * 1.8;
-    });
+    }
   });
 
   return <RigidBody type="fixed" colliders={false} position={[x, .38, z]} collisionGroups={arenaCollisionGroups} solverGroups={arenaCollisionGroups} userData={{ surface: true, kind: 'entrance-ramp' }}>
@@ -659,7 +662,7 @@ function StunningAssets() {
     // Slowly rotate the entire halo
     assetsGroup.current.rotation.y = elapsed.current * 0.15;
 
-    // OPTIMIZATION: Use indexed for loop instead of forEach to eliminate closure allocations inside useFrame
+    // OPTIMIZATION: Use indexed for loop instead of forEach to eliminate 60 closure allocations per second inside 60Hz useFrame
     const children = assetsGroup.current.children;
     for (let i = 0; i < children.length; i++) {
       const child = children[i];
