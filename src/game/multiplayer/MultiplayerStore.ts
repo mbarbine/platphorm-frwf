@@ -137,13 +137,15 @@ export const useMultiplayerStore = create<MultiplayerState>((set) => {
 
     async createPrivateRoom(options = {}) {
       const created = await colyseusClient.createPrivateRoom(options);
-      set({ roomId: created.roomId, joinInvite: created.joinInvite, sessionId: colyseusClient.sessionId ?? null });
+      const sessionId = colyseusClient.sessionId ?? null;
+      set((state) => ({ roomId: created.roomId, joinInvite: created.joinInvite, sessionId, myRole: sessionId ? state.roles.get(sessionId) as MultiplayerState['myRole'] ?? null : null }));
       return created.roomId;
     },
 
     async joinByRoomId(roomId, options = {}) {
       await colyseusClient.joinByRoomId(roomId, options);
-      set({ roomId: colyseusClient.roomId ?? null, sessionId: colyseusClient.sessionId ?? null });
+      const sessionId = colyseusClient.sessionId ?? null;
+      set((state) => ({ roomId: colyseusClient.roomId ?? null, sessionId, myRole: sessionId ? state.roles.get(sessionId) as MultiplayerState['myRole'] ?? null : null }));
     },
 
     selectFighter(fighterId) { colyseusClient.selectFighter(fighterId); },

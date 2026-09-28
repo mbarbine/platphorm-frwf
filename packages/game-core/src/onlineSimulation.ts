@@ -76,6 +76,8 @@ interface OnlineMove {
 const MOVES: Readonly<Record<string, OnlineMove>> = {
   jab: { id: 'jab', ...NETWORK_MOVE_TIMING.jab, stamina: 5, damage: 5.5, momentum: 7, startReach: .32, endReach: .94, colliderRadius: .11, targetRadius: .34, region: 'chest', kind: 'light' },
   combo: { id: 'combo', anticipation: .11, active: .25, recovery: .26, stamina: 8, damage: 7, momentum: 9, startReach: .34, endReach: 1.18, colliderRadius: .13, targetRadius: .34, region: 'chest', kind: 'light' },
+  right_hook: { id: 'right_hook', anticipation: .18, active: .2, recovery: .27, stamina: 9, damage: 9, momentum: 10, startReach: .32, endReach: 1.16, colliderRadius: .16, targetRadius: .36, region: 'head', kind: 'light' },
+  left_hook: { id: 'left_hook', anticipation: .18, active: .2, recovery: .27, stamina: 9, damage: 9, momentum: 10, startReach: .32, endReach: 1.16, colliderRadius: .16, targetRadius: .36, region: 'head', kind: 'light' },
   high_punch: { id: 'high_punch', anticipation: .14, active: .24, recovery: .22, stamina: 7, damage: 7, momentum: 9, startReach: .36, endReach: 1.3, colliderRadius: .13, targetRadius: .35, region: 'head', kind: 'light' },
   headbutt: { id: 'headbutt', ...NETWORK_MOVE_TIMING.headbutt, stamina: 9, damage: 9, momentum: 11, startReach: .22, endReach: .64, colliderRadius: .235, targetRadius: .235, region: 'head', kind: 'light' },
   uppercut: { id: 'uppercut', anticipation: .3, active: .24, recovery: .34, stamina: 15, damage: 15, momentum: 15, startReach: .25, endReach: 1.22, colliderRadius: .18, targetRadius: .35, region: 'head', kind: 'heavy' },
@@ -173,13 +175,13 @@ export const applyOnlineAction = (match: OnlineMatchState, sessionId: string, ev
   if (event.phase !== 'started') return true;
   if (event.action === 'quickStrike') {
     const inChain = match.elapsed - actor.lastQuickStrikeAt <= .85;
-    const comboMoves = ['jab', 'combo', 'high_punch'] as const;
+    const comboMoves = ['jab', 'right_hook', 'left_hook', 'uppercut'] as const;
     const chainIndex = inChain ? actor.quickChainCount % comboMoves.length : 0;
-    const moveId = z > .65 ? 'headbutt' : z < -.65 ? 'uppercut' : comboMoves[chainIndex] ?? 'jab';
+    const moveId = z > .65 ? 'headbutt' : z < -.65 ? 'uppercut' : x > .65 ? 'right_hook' : x < -.65 ? 'left_hook' : comboMoves[chainIndex] ?? 'jab';
     const linked = actor.combatState === 'attacking' && actor.attackPhase === 'recovery';
     if (!beginMove(actor, moveId, linked)) return false;
     actor.lastQuickStrikeAt = match.elapsed;
-    actor.quickChainCount = z > .65 || z < -.65 ? 0 : chainIndex + 1;
+    actor.quickChainCount = z > .65 || z < -.65 || Math.abs(x) > .65 ? 0 : chainIndex + 1;
     return true;
   }
   if (event.action === 'heavyStrike') {

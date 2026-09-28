@@ -77,9 +77,24 @@ describe('Cloudflare room invitations', () => {
     expect(sent[2]).toMatchObject({ seq: 1, event: { source: 'network', sequence: 1 }, protocolVersion: PROTOCOL_VERSION });
   });
 
-  it('rejects incomplete join codes and explains protected room creation', async () => {
+  it('rejects incomplete join codes', async () => {
     const client = new ColyseusClient({ serverUrl: 'https://frwf.ja1.io' });
     await expect(client.joinByRoomId(roomId)).rejects.toThrow('complete private room invitation');
-    await expect(client.createPrivateRoom()).rejects.toThrow('protected operator API');
+  });
+
+  it('creates a room without a platform credential, connects the host seat, and returns a shareable opponent link', async () => {
+    vi.stubGlobal('WebSocket', FakeWebSocket);
+    const joinInvite = `https://frwf.ja1.io/#room=${roomId}.${'b'.repeat(64)}`;
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => Response.json({ ok: true, data: {
+      roomId, hostInvite: `https://frwf.ja1.io/#room=${invite}`, joinInvite,
+    } }, { status: 201 }));
+    vi.stubGlobal('fetch', fetchMock);
+    const client = new ColyseusClient({ serverUrl: 'https://frwf.ja1.io' });
+    const result = await client.createPrivateRoom({ fighterId: 'chelsea' });
+    expect(result).toEqual({ roomId, joinInvite });
+    expect(fetchMock).toHaveBeenCalledWith(new URL('https://frwf.ja1.io/api/rooms'), expect.objectContaining({ method: 'POST', headers: { 'Content-Type': 'application/json' } }));
+    const socket = (client as unknown as { socket: FakeWebSocket }).socket;
+    expect(socket.protocols).toEqual(['frwf-v1', ticket]);
+    expect(JSON.parse(fetchMock.mock.calls[0]?.[1]?.body as string)).toEqual({ fighterId: 'chelsea', ruleset: 'standard' });
   });
 });

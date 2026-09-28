@@ -5,7 +5,7 @@ import { readFile } from 'node:fs/promises';
 const origin = 'https://frwf.platphormnews.com';
 const testKey = 'local-test-operator-only';
 let worker: Miniflare;
-const post = (path: string, body: unknown, authorized = false) => worker.dispatchFetch(origin + path, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(authorized ? { Authorization: `Bearer ${testKey}` } : {}) }, body: JSON.stringify(body) });
+const post = (path: string, body: unknown, authorized = false) => worker.dispatchFetch(origin + path, { method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json', ...(authorized ? { Authorization: `Bearer ${testKey}` } : {}) }, body: JSON.stringify(body) });
 
 beforeAll(async () => {
   worker = new Miniflare(convertV4MiniflareOptions({ modules: true, scriptPath: 'dist/index.js', compatibilityDate: '2026-09-07',
@@ -19,6 +19,7 @@ beforeAll(async () => {
 
 afterAll(async () => { await worker?.dispose(); });
 
+const ticketFrom = (url: string) => url.match(/\.([a-f0-9]{64})$/i)?.[1];
 const connectWebSocket = async (roomId: string, ticket: string) => {
   const socketRes = await worker.dispatchFetch(`${origin}/api/rooms/${roomId}/socket`, {
     headers: { Origin: origin, Upgrade: 'websocket', 'Sec-WebSocket-Protocol': `frwf-v1, ${ticket}` },
@@ -68,21 +69,23 @@ describe('real Worker / Durable Object / D1 / R2 integration', () => {
     const trust = await worker.dispatchFetch(origin + '/.well-known/trust.json'); expect(await trust.text()).not.toContain(testKey);
   });
 
-  it('requires the platform key before allocating a room and issues separate scoped tickets', async () => {
-    expect((await post('/api/rooms', {})).status).toBe(401);
-    const response = await post('/api/rooms', { ruleset: 'standard' }, true); expect(response.status).toBe(201);
-    const json = await response.json() as { data: { roomId: string; tickets: { role: string; ticket: string }[] } };
-    expect(json.data.tickets).toHaveLength(2); expect(json.data.tickets[0]?.ticket).not.toBe(json.data.tickets[1]?.ticket);
-    expect(JSON.stringify(json)).not.toContain(testKey);
+  it('hosts without a platform key, issues distinct scoped invite links, and rejects foreign origins', async () => {
+    const response = await post('/api/rooms', { ruleset: 'standard', fighterId: 'chelsea' }); expect(response.status).toBe(201);
+    const json = await response.json() as { data: { roomId: string; hostInvite: string; joinInvite: string } };
+    expect(ticketFrom(json.data.hostInvite)).toMatch(/^[a-f0-9]{64}$/); expect(ticketFrom(json.data.joinInvite)).toMatch(/^[a-f0-9]{64}$/);
+    expect(json.data.hostInvite).not.toBe(json.data.joinInvite);
+    expect(json.data.hostInvite).toContain('#room='); expect(JSON.stringify(json)).not.toContain(testKey);
+    const foreign = await worker.dispatchFetch(`${origin}/api/rooms`, { method: 'POST', headers: { Origin: 'https://attacker.invalid', 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
+    expect(foreign.status).toBe(403);
     const rejected = await worker.dispatchFetch(`${origin}/api/rooms/${json.data.roomId}/socket`, { headers: { Origin: origin, Upgrade: 'websocket', 'Sec-WebSocket-Protocol': 'frwf-v1,invalid' } });
     expect(rejected.status).toBe(401);
   });
 
   it('runs a real private match lobby through authoritative movement and sequence acknowledgement', async () => {
-    const response = await post('/api/rooms', { ruleset: 'standard' }, true);
-    const json = await response.json() as { data: { roomId: string; tickets: { role: string; ticket: string }[] } };
-    const firstTicket = json.data.tickets.find(ticket => ticket.role === 'player1')?.ticket;
-    const secondTicket = json.data.tickets.find(ticket => ticket.role === 'player2')?.ticket;
+    const response = await post('/api/rooms', { ruleset: 'standard' });
+    const json = await response.json() as { data: { roomId: string; hostInvite: string; joinInvite: string } };
+    const firstTicket = ticketFrom(json.data.hostInvite);
+    const secondTicket = ticketFrom(json.data.joinInvite);
     if (!firstTicket || !secondTicket) throw new Error('Both scoped player tickets must be issued');
     const first = await connectWebSocket(json.data.roomId, firstTicket);
     const second = await connectWebSocket(json.data.roomId, secondTicket);
@@ -115,11 +118,26 @@ describe('real Worker / Durable Object / D1 / R2 integration', () => {
     }
   });
 
+  it('hands host authority to the connected challenger when the host leaves', async () => {
+    const response = await post('/api/rooms', { fighterId: 'josh' });
+    const json = await response.json() as { data: { roomId: string; hostInvite: string; joinInvite: string } };
+    const host = ticketFrom(json.data.hostInvite); const guest = ticketFrom(json.data.joinInvite);
+    if (!host || !guest) throw new Error('Room invitations were not issued');
+    const first = await connectWebSocket(json.data.roomId, host); const second = await connectWebSocket(json.data.roomId, guest);
+    try {
+      const transferred = nextSocketMessage<{ hostSessionId: string; roles: { sessionId: string; role: string }[] }>(second as unknown as WebSocket,
+        message => message.type === 'roomState' && message.hostSessionId === message.roles?.find((entry: { role: string }) => entry.role === 'player2')?.sessionId);
+      first.send(JSON.stringify({ type: 'leave', protocolVersion: '2.0.0' }));
+      const state = await transferred;
+      expect(state.hostSessionId).toBe(state.roles.find(entry => entry.role === 'player2')?.sessionId);
+    } finally { first.close(); second.close(); }
+  });
+
   describe('MatchRoom WebSocket error handling', () => {
     it('closes room WebSocket with code 1008 on invalid JSON message', async () => {
-      const response = await post('/api/rooms', { ruleset: 'standard' }, true);
-      const json = await response.json() as { data: { roomId: string; tickets: { role: string; ticket: string }[] } };
-      const ticket = json.data.tickets[0]?.ticket;
+      const response = await post('/api/rooms', { ruleset: 'standard' });
+      const json = await response.json() as { data: { roomId: string; hostInvite: string; joinInvite: string } };
+      const ticket = ticketFrom(json.data.hostInvite);
       if (!ticket) throw new Error('Player WebSocket ticket was not issued');
       const ws = await connectWebSocket(json.data.roomId, ticket);
 
@@ -135,9 +153,9 @@ describe('real Worker / Durable Object / D1 / R2 integration', () => {
     });
 
     it('closes room WebSocket with code 1009 on oversized message (> 4096 bytes)', async () => {
-      const response = await post('/api/rooms', { ruleset: 'standard' }, true);
-      const json = await response.json() as { data: { roomId: string; tickets: { role: string; ticket: string }[] } };
-      const ticket = json.data.tickets[0]?.ticket;
+      const response = await post('/api/rooms', { ruleset: 'standard' });
+      const json = await response.json() as { data: { roomId: string; hostInvite: string; joinInvite: string } };
+      const ticket = ticketFrom(json.data.hostInvite);
       if (!ticket) throw new Error('Player WebSocket ticket was not issued');
       const ws = await connectWebSocket(json.data.roomId, ticket);
 
@@ -154,9 +172,9 @@ describe('real Worker / Durable Object / D1 / R2 integration', () => {
     });
 
     it('closes room WebSocket with code 1008 when message rate limit is exceeded (> 120 msgs/sec)', async () => {
-      const response = await post('/api/rooms', { ruleset: 'standard' }, true);
-      const json = await response.json() as { data: { roomId: string; tickets: { role: string; ticket: string }[] } };
-      const ticket = json.data.tickets[0]?.ticket;
+      const response = await post('/api/rooms', { ruleset: 'standard' });
+      const json = await response.json() as { data: { roomId: string; hostInvite: string; joinInvite: string } };
+      const ticket = ticketFrom(json.data.hostInvite);
       if (!ticket) throw new Error('Player WebSocket ticket was not issued');
       const ws = await connectWebSocket(json.data.roomId, ticket);
 
@@ -175,9 +193,9 @@ describe('real Worker / Durable Object / D1 / R2 integration', () => {
     });
 
     it('returns error message with code invalid_message when JSON payload fails schema validation', async () => {
-      const response = await post('/api/rooms', { ruleset: 'standard' }, true);
-      const json = await response.json() as { data: { roomId: string; tickets: { role: string; ticket: string }[] } };
-      const ticket = json.data.tickets[0]?.ticket;
+      const response = await post('/api/rooms', { ruleset: 'standard' });
+      const json = await response.json() as { data: { roomId: string; hostInvite: string; joinInvite: string } };
+      const ticket = ticketFrom(json.data.hostInvite);
       if (!ticket) throw new Error('Player WebSocket ticket was not issued');
       const ws = await connectWebSocket(json.data.roomId, ticket);
 

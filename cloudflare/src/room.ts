@@ -28,7 +28,7 @@ export class MatchRoom extends DurableObject<Env> {
     super(ctx, env);
     ctx.storage.sql.exec('CREATE TABLE IF NOT EXISTS room (id INTEGER PRIMARY KEY CHECK(id = 1), state TEXT NOT NULL)');
     const row = ctx.storage.sql.exec<{ state: string }>('SELECT state FROM room WHERE id = 1').toArray()[0];
-    if (row) { this.room = JSON.parse(row.state); this.model = this.room?.model ? deserialize(this.room.model) : null; }
+    if (row) { this.room = JSON.parse(row.state); if (this.room && !this.room.hostSessionId) this.room.hostSessionId = this.room.seats.find(seat => seat.role === 'player1')?.id ?? null; this.model = this.room?.model ? deserialize(this.room.model) : null; }
     if (this.room?.phase === 'active') this.startClock();
   }
 
