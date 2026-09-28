@@ -31,6 +31,19 @@ const connectWebSocket = async (roomId: string, ticket: string) => {
   return ws;
 };
 
+const nextSocketMessage = <T>(socket: WebSocket, predicate: (message: Record<string, unknown>) => boolean): Promise<T> =>
+  new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => { socket.removeEventListener('message', onMessage); reject(new Error('Timed out waiting for Durable Object message')); }, 5000);
+    const onMessage = (event: MessageEvent) => {
+      if (typeof event.data !== 'string') return;
+      let value: Record<string, unknown>;
+      try { value = JSON.parse(event.data) as Record<string, unknown>; } catch { return; }
+      if (!predicate(value)) return;
+      clearTimeout(timeout); socket.removeEventListener('message', onMessage); resolve(value as T);
+    };
+    socket.addEventListener('message', onMessage);
+  });
+
 describe('real Worker / Durable Object / D1 / R2 integration', () => {
   it('serves the new Turkey Dome map beside the compatible original arena map', async () => {
     const response = await worker.dispatchFetch(origin + '/api/maps');
@@ -63,6 +76,43 @@ describe('real Worker / Durable Object / D1 / R2 integration', () => {
     expect(JSON.stringify(json)).not.toContain(testKey);
     const rejected = await worker.dispatchFetch(`${origin}/api/rooms/${json.data.roomId}/socket`, { headers: { Origin: origin, Upgrade: 'websocket', 'Sec-WebSocket-Protocol': 'frwf-v1,invalid' } });
     expect(rejected.status).toBe(401);
+  });
+
+  it('runs a real private match lobby through authoritative movement and sequence acknowledgement', async () => {
+    const response = await post('/api/rooms', { ruleset: 'standard' }, true);
+    const json = await response.json() as { data: { roomId: string; tickets: { role: string; ticket: string }[] } };
+    const firstTicket = json.data.tickets.find(ticket => ticket.role === 'player1')?.ticket;
+    const secondTicket = json.data.tickets.find(ticket => ticket.role === 'player2')?.ticket;
+    if (!firstTicket || !secondTicket) throw new Error('Both scoped player tickets must be issued');
+    const first = await connectWebSocket(json.data.roomId, firstTicket);
+    const second = await connectWebSocket(json.data.roomId, secondTicket);
+    try {
+      const activeFirst = nextSocketMessage<{ phase: string }>(first as unknown as WebSocket, message => message.type === 'roomState' && message.phase === 'active');
+      const activeSecond = nextSocketMessage<{ phase: string }>(second as unknown as WebSocket, message => message.type === 'roomState' && message.phase === 'active');
+      first.send(JSON.stringify({ type: 'ready', protocolVersion: '2.0.0' }));
+      second.send(JSON.stringify({ type: 'ready', protocolVersion: '2.0.0' }));
+      await Promise.all([activeFirst, activeSecond]);
+
+      const movedSnapshot = nextSocketMessage<{ seq: number; fighters: { posX: number; posZ: number }[] }>(second as unknown as WebSocket,
+        message => message.type === 'snapshot' && Array.isArray(message.fighters) && typeof message.seq === 'number'
+          && Number((message.fighters[0] as { posX?: unknown } | undefined)?.posX) > -2.29);
+      const accepted = nextSocketMessage<{ accepted: boolean; seq: number }>(first as unknown as WebSocket, message => message.type === 'commandAck' && message.seq === 1);
+      first.send(JSON.stringify({ type: 'command', protocolVersion: '2.0.0', seq: 1, clientTimestamp: 1,
+        event: { action: 'move', phase: 'held', sequence: 1, timestamp: 1, direction: { x: 1, y: 0 }, source: 'network' } }));
+      expect(await accepted).toMatchObject({ accepted: true, seq: 1 });
+
+      const snapshot = await movedSnapshot;
+      expect(snapshot.fighters).toHaveLength(2);
+      expect(snapshot.fighters.every(fighter => Number.isFinite(fighter.posX))).toBe(true);
+      expect(snapshot.fighters[0]?.posX).toBeGreaterThan(-2.29);
+
+      const rejectedDuplicate = nextSocketMessage<{ accepted: boolean; seq: number }>(first as unknown as WebSocket, message => message.type === 'commandAck' && message.seq === 1);
+      first.send(JSON.stringify({ type: 'command', protocolVersion: '2.0.0', seq: 1, clientTimestamp: 2,
+        event: { action: 'move', phase: 'released', sequence: 1, timestamp: 2, direction: { x: 0, y: 0 }, source: 'network' } }));
+      expect(await rejectedDuplicate).toMatchObject({ accepted: false, seq: 1 });
+    } finally {
+      first.close(); second.close();
+    }
   });
 
   describe('MatchRoom WebSocket error handling', () => {

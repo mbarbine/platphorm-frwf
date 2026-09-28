@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, request, test } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
 
 const serverPosition = async (canvas: Locator): Promise<{ x: number; z: number }> => ({
@@ -21,18 +21,31 @@ test('two browsers share authoritative movement, contact, and impact state', asy
   const hostContext = await browser.newContext({ recordVideo: { dir: 'test-results/online-host' } }); const guestContext = await browser.newContext({ recordVideo: { dir: 'test-results/online-guest' } });
   const host = await hostContext.newPage(); const guest = await guestContext.newPage();
   try {
+    const operator = await request.newContext({ extraHTTPHeaders: { Authorization: 'Bearer local-e2e-test-only' } });
+    const provision = await operator.post('http://127.0.0.1:8787/api/rooms', { data: { ruleset: 'standard' } });
+    expect(provision.status(), 'the isolated local Worker provisions a test room').toBe(201);
+    const room = (await provision.json() as { data: { roomId: string; tickets: { role: string; ticket: string }[] } }).data;
+    await operator.dispose();
+    const inviteFor = (role: 'player1' | 'player2') => {
+      const seat = room.tickets.find(candidate => candidate.role === role);
+      if (!seat) throw new Error(`Missing local test ticket for ${role}`);
+      return `${room.roomId}.${seat.ticket}`;
+    };
+
     for (const page of [host, guest]) {
       await page.goto(baseURL ?? '/');
       await page.getByRole('button', { name: 'ENTER RINGFALL' }).click();
       await page.getByRole('button', { name: 'PLAY ONLINE' }).click();
     }
 
-    await host.getByRole('button', { name: 'CREATE PRIVATE ROOM' }).click();
-    const roomCode = (await host.getByTestId('multiplayer-room-code').textContent())?.trim();
-    expect(roomCode).toBeTruthy();
-    await guest.getByPlaceholder('ENTER ROOM CODE...').fill(roomCode ?? '');
-    await guest.getByRole('button', { name: 'JOIN MATCH' }).click();
-    await expect(host.getByText('PLAYER 2 (CHALLENGER)')).toBeVisible();
+    await host.getByPlaceholder('PASTE PRIVATE INVITATION...').fill(inviteFor('player1'));
+    await guest.getByPlaceholder('PASTE PRIVATE INVITATION...').fill(inviteFor('player2'));
+    await Promise.all([
+      host.getByRole('button', { name: 'JOIN MATCH' }).click(),
+      guest.getByRole('button', { name: 'JOIN MATCH' }).click(),
+    ]);
+    await expect(host.getByText('PLAYER 2 (CHALLENGER)')).toBeVisible({ timeout: 20_000 });
+    await expect(guest.getByText('PLAYER 1 (HOST)')).toBeVisible({ timeout: 20_000 });
     await expect(host.getByText('AWAITING OPPONENT...')).toHaveCount(0);
 
     await Promise.all([
