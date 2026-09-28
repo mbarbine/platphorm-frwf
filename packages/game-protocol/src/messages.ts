@@ -78,6 +78,7 @@ export interface CommandAckMessage {
   type: 'commandAck';
   seq: number;
   serverTimestamp: number;
+  clientTimestamp: number;
   accepted: boolean;
 }
 

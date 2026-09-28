@@ -113,7 +113,10 @@ export const useMultiplayerStore = create<MultiplayerState>((set) => {
         myRole: current.sessionId ? (roles.get(current.sessionId) as MultiplayerState['myRole']) ?? null : current.myRole,
       };
     }),
-    onCommandAck: (ack) => set({ lastAckedSeq: ack.seq, lastServerTimestamp: ack.serverTimestamp }),
+    onCommandAck: (ack) => set(state => {
+      const sample = Number.isFinite(ack.clientTimestamp) ? Math.max(0, performance.now() - ack.clientTimestamp) : 0;
+      return { lastAckedSeq: ack.seq, lastServerTimestamp: ack.serverTimestamp, rtt: sample ? state.rtt === 0 ? sample : state.rtt * .75 + sample * .25 : state.rtt };
+    }),
     onImpactEvent: (impact) => set({ lastImpact: impact }),
     onLobbyChat: (event) => set(state => ({ lobbyChat: [...state.lobbyChat, event].slice(-40) })),
     onMatchResult: (matchResult) => set({ matchResult, roomPhase: 'result' }),

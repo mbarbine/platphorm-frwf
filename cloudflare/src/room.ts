@@ -105,7 +105,7 @@ export class MatchRoom extends DurableObject<Env> {
       const accepted = this.room.phase === 'active' && !!this.model && message.seq > seat.lastSeq && message.seq === message.event.sequence
         && applyOnlineAction(this.model, seat.id, message.event, message.seq);
       if (message.seq > seat.lastSeq) seat.lastSeq = message.seq;
-      this.save(); this.send(socket, { type: 'commandAck', seq: message.seq, accepted, serverTimestamp: Date.now() }); return;
+      this.save(); this.send(socket, { type: 'commandAck', seq: message.seq, accepted, clientTimestamp: message.clientTimestamp, serverTimestamp: Date.now() }); return;
     }
     if (message.type === 'selectFighter' && this.room.phase === 'lobby') { seat.fighterId = message.fighterId; if (seat.id !== this.room.hostSessionId) seat.ready = false; }
     if (message.type === 'ready' && this.room.phase === 'lobby') seat.ready = message.ready;

@@ -92,6 +92,7 @@ export function App() {
   // Multiplayer hooks
   const multiplayerStatus = useMultiplayerStore((state) => state.status);
   const multiplayerRoomPhase = useMultiplayerStore((state) => state.roomPhase);
+  const multiplayerRtt = useMultiplayerStore((state) => state.rtt);
   const multiplayerRuleset = useMultiplayerStore((state) => state.ruleset);
   const multiplayerRoomId = useMultiplayerStore((state) => state.roomId);
   const multiplayerHostSessionId = useMultiplayerStore((state) => state.hostSessionId);
@@ -343,7 +344,7 @@ export function App() {
       <div className="section-heading"><span>CONNECT WITH RIVALS</span><h2>ONLINE MULTIPLAYER</h2></div>
 
       {multiplayerStatus === 'disconnected' && <div className="multiplayer-lobby__setup" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', width: '100%', maxWidth: '640px', margin: '0 auto' }}>
-        <p style={{ textAlign: 'center', margin: 0, color: '#aaa' }}>Host a private match for free, then share your one-seat invitation. No account or platform key needed.</p>
+        <p style={{ textAlign: 'center', margin: 0, color: '#aaa' }}>Host a private lobby for free, then share a guest seat link. No account or platform key needed.</p>
 
         <div className="versus" style={{ padding: '1rem', background: 'rgba(0,0,0,0.5)', borderRadius: '8px' }}>
           <div>
@@ -428,9 +429,10 @@ export function App() {
               <span>ROOM MATCHMAKER</span>
               <b style={{ color: '#00ffaa' }}>CONNECTION ESTABLISHED</b>
               <small>Private match · host control follows the connected players.</small>
+              <small aria-label="Network round trip time">NETWORK RTT · {multiplayerRtt > 0 ? `${Math.round(multiplayerRtt)} ms` : 'MEASURING'}</small>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem' }}>
-                <span style={{ fontSize: '0.8rem', color: '#888' }}>ROOM ID · SHARE THE INVITE LINK</span>
+                <span style={{ fontSize: '0.8rem', color: '#888' }}>ROOM ID · SHARE A GUEST SEAT LINK</span>
               <strong data-testid="multiplayer-room-code" style={{ fontSize: '1.8rem', color: '#ff007b', letterSpacing: '4px', fontFamily: 'monospace' }}>{multiplayerRoomId}</strong>
               {multiplayerGuestInvites.length > 0 && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '.4rem', width: 'min(100%, 700px)', marginTop: '.5rem' }}>
                 {multiplayerGuestInvites.map((invite, index) => <button key={invite} className="button button--quiet" aria-label={`Copy player ${index + 2} invitation`} onClick={async () => {
