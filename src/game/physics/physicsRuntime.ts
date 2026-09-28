@@ -2872,6 +2872,8 @@ export class BodyWorksRuntime {
       if (!body.isValid()) continue;
       const point = body.translation();
       if (![point.x, point.y, point.z].every(Number.isFinite)) continue;
+      // Guard against extreme transient or corrupted body positions (e.g. outside [-100, 100])
+      if (Math.abs(point.x) > 100 || Math.abs(point.y) > 100 || Math.abs(point.z) > 100) continue;
       bounds.min.x = Math.min(bounds.min.x, point.x - .35);
       bounds.min.y = Math.min(bounds.min.y, point.y - .35);
       bounds.min.z = Math.min(bounds.min.z, point.z - .35);

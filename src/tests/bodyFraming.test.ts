@@ -25,4 +25,22 @@ describe('body-aware broadcast framing', () => {
       });
     }
   }
+
+  it('clamps extreme bounding boxes so framing distance never exceeds far plane or becomes NaN/Infinity', () => {
+    const extremeBounds = { min: { x: -1000, y: -1000, z: -1000 }, max: { x: 1000, y: 1000, z: 1000 } };
+    const target = { x: 0, y: 2.2, z: 0 };
+    const distance = bodyFramingDistance(extremeBounds, target, 48, 1.7778, 0);
+    expect(Number.isFinite(distance)).toBe(true);
+    expect(distance).toBeLessThanOrEqual(68.0);
+    expect(distance).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('handles NaN/Infinity bounds or targets gracefully', () => {
+    const nanBounds = { min: { x: NaN, y: NaN, z: NaN }, max: { x: Infinity, y: Infinity, z: Infinity } };
+    const target = { x: NaN, y: NaN, z: NaN };
+    const distance = bodyFramingDistance(nanBounds, target, NaN, NaN, 0);
+    expect(Number.isFinite(distance)).toBe(true);
+    expect(distance).toBeGreaterThanOrEqual(4.5);
+    expect(distance).toBeLessThanOrEqual(68.0);
+  });
 });

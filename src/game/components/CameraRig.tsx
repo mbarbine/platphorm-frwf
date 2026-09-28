@@ -318,11 +318,15 @@ export function CameraRig() {
       maximumZ = fallbackZ;
     }
 
-    const middleX = (minimumX + maximumX) / 2;
-    const middleZ = (minimumZ + maximumZ) / 2;
+    const safeMinX = safeNumber(minimumX, 0);
+    const safeMaxX = safeNumber(maximumX, 0);
+    const safeMinZ = safeNumber(minimumZ, 0);
+    const safeMaxZ = safeNumber(maximumZ, 0);
+    const middleX = (safeMinX + safeMaxX) / 2;
+    const middleZ = (safeMinZ + safeMaxZ) / 2;
     const bounds = bodyBounds.current;
-    bounds.min.x = minimumX - .5; bounds.max.x = maximumX + .5;
-    bounds.min.z = minimumZ - .5; bounds.max.z = maximumZ + .5;
+    bounds.min.x = safeMinX - .5; bounds.max.x = safeMaxX + .5;
+    bounds.min.z = safeMinZ - .5; bounds.max.z = safeMaxZ + .5;
     const floor = venueFor(model).hasRing && isRingside(model.player.position) ? 0 : 1.5;
     bounds.min.y = floor; bounds.max.y = floor + 2.3;
     for (let i = 0; i < framingSlotsCount; i++) {
@@ -587,7 +591,7 @@ export function CameraRig() {
     const fallbackTargetY = 2.2 + maximumAir * 0.35;
     // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt for ~8x performance gain in fallback radius calculation
     const fallbackRadius = Math.max(3.4, 4.2 + Math.min(1.3, Math.sqrt(middleX * middleX + middleZ * middleZ)));
-    sanitizeVector(desired, middleX + Math.cos(elapsed.current) * fallbackRadius, 4.25 + maximumAir * 0.4, middleZ + Math.sin(elapsed.current) * fallbackRadius);
+    sanitizeVector(desired, safeNumber(middleX, 0) + Math.cos(elapsed.current) * fallbackRadius, 4.25 + safeNumber(maximumAir, 0) * 0.4, safeNumber(middleZ, 0) + Math.sin(elapsed.current) * fallbackRadius);
     const impact = model.lastImpact;
     if (impact && impact.id !== impactId.current) {
       impactId.current = impact.id;
@@ -664,6 +668,8 @@ export function CameraRig() {
       if (!Number.isFinite(perspective.fov) || perspective.fov <= 0) perspective.fov = 48;
       if (!Number.isFinite(perspective.near) || perspective.near <= 0) perspective.near = 0.1;
       if (!Number.isFinite(perspective.far) || perspective.far <= perspective.near) perspective.far = 72;
+      sanitizeVector(camera.position, 0, 5, 12);
+      sanitizeVector(smoothedTarget, 0, 2.2, 0);
 
       const baseFov = shot.current === 'replay'
         ? 39
