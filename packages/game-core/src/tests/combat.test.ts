@@ -9,11 +9,37 @@ describe('combat simulation API exports', () => {
     expect(match.resolved).toBe(false);
   });
 
-  it('creates a fighter runtime instance', () => {
-    const runtime = createFighterRuntime('atlas', { x: -1, z: 0 });
-    expect(runtime.fighterId).toBe('atlas');
-    expect(runtime.posX).toBe(-1);
-    expect(runtime.health).toBe(100);
+  it('creates a fighter runtime instance with default properties and positions', () => {
+    const runtime = createFighterRuntime('atlas', { x: -1.5, z: 2.5 });
+    expect(runtime).toEqual({
+      sessionId: 'p1',
+      fighterId: 'atlas',
+      health: 100,
+      stamina: 100,
+      momentum: 0,
+      posX: -1.5,
+      posZ: 2.5,
+      facing: 0,
+      velocityX: 0,
+      velocityZ: 0,
+      combatState: 'idle',
+      moveId: '',
+      attackPhase: null,
+      pinCount: 0,
+      finisherPrimed: false,
+      lastCommandSeq: 0,
+      moveX: 0,
+      moveZ: 0,
+      movementLeaseUntil: 0,
+      running: false,
+      guarding: false,
+      phaseElapsed: 0,
+      attackInstanceId: 0,
+      hitTargets: expect.any(Set),
+      grappleTarget: null,
+      downTimer: 0,
+    });
+    expect(runtime.hitTargets.size).toBe(0);
   });
 
   it('advances a match simulation frame', () => {
