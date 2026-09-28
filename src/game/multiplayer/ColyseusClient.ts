@@ -49,7 +49,6 @@ export class ColyseusClient {
   private status: ConnectionStatus = 'disconnected';
   private roomIdValue: string | undefined;
   private sessionIdValue: string | undefined;
-  private ticket: string | undefined;
   private intentionalLeave = false;
   private readonly options: Required<ColyseusClientOptions>;
 
@@ -83,7 +82,7 @@ export class ColyseusClient {
     if (!invite) throw new Error('Enter a complete private room invitation (room ID and seat ticket).');
     if (!this.options.serverUrl) throw new Error('The Cloudflare match service is not configured for this environment.');
     this.intentionalLeave = false;
-    this.roomIdValue = invite.roomId; this.ticket = invite.ticket; this.commandSeq = 0;
+    this.roomIdValue = invite.roomId; this.commandSeq = 0;
     this.setStatus('connecting');
     const base = new URL(this.options.serverUrl);
     base.protocol = base.protocol === 'https:' || base.protocol === 'wss:' ? 'wss:' : 'ws:';
@@ -115,7 +114,7 @@ export class ColyseusClient {
     this.intentionalLeave = true;
     const socket = this.socket; this.socket = null;
     if (socket && socket.readyState < WebSocket.CLOSING) socket.close(1000, 'Player left');
-    this.roomIdValue = undefined; this.sessionIdValue = undefined; this.ticket = undefined;
+    this.roomIdValue = undefined; this.sessionIdValue = undefined;
     this.setStatus('disconnected');
   }
 

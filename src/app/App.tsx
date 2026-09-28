@@ -20,6 +20,7 @@ import { SpectatorControls } from '../ui/SpectatorControls';
 import { useWorldSession } from '../game/world/worldSession';
 import type { WorldEncounter } from '../game/world/showground';
 import { useMultiplayerStore } from '../game/multiplayer/MultiplayerStore';
+import { parseRoomInvite } from '../game/multiplayer/ColyseusClient';
 
 const importGameScene = () => import('../game/components/GameScene');
 let gameScenePromise: ReturnType<typeof importGameScene> | null = null;
@@ -93,6 +94,15 @@ export function App() {
   const multiplayerMyRole = useMultiplayerStore((state) => state.myRole);
   const multiplayerRoles = useMultiplayerStore((state) => state.roles);
   const multiplayerFightersMap = useMultiplayerStore((state) => state.fighters);
+
+  useEffect(() => {
+    const invite = parseRoomInvite(window.location.href);
+    if (!invite) return;
+    const privateInvite = window.location.href;
+    window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
+    setScreen('multiplayer_lobby');
+    void useMultiplayerStore.getState().joinByRoomId(privateInvite, { fighterId: selected }).catch(() => undefined);
+  }, []);
 
   const getFighterByRole = (role: 'player1' | 'player2') => {
     for (const [sessionId, r] of multiplayerRoles.entries()) {
