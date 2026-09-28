@@ -262,7 +262,12 @@ describe('real Worker / Durable Object / D1 / R2 integration', () => {
     expect(response.status).toBe(503);
     expect(body).toMatchObject({ ok: false, error: { code: 'backend_unavailable' } });
     expect(body.error.details.requestId).toBe(response.headers.get('X-PlatPhorm-Request-Id'));
-    expect(await db.prepare('CREATE TABLE match_results (match_id TEXT PRIMARY KEY, map_id TEXT NOT NULL, ruleset TEXT NOT NULL, release TEXT NOT NULL, winner_fighter TEXT, method TEXT NOT NULL, duration REAL NOT NULL, hype REAL NOT NULL, completed_at TEXT NOT NULL)').run()).toBeTruthy();
-    await db.prepare('CREATE INDEX IF NOT EXISTS results_completed ON match_results(completed_at DESC)').run();
+    await db.prepare("CREATE TABLE match_results (match_id TEXT PRIMARY KEY, map_id TEXT NOT NULL CHECK(map_id = 'volt-dome'), ruleset TEXT NOT NULL CHECK(ruleset IN ('standard','chaos')), release TEXT NOT NULL, winner_fighter TEXT CHECK(winner_fighter IN ('atlas','vex','nova','brick','chad')), method TEXT NOT NULL CHECK(method IN ('KNOCKOUT','TIMEOUT','FORFEIT')), duration REAL NOT NULL CHECK(duration >= 0 AND duration <= 601), hype REAL NOT NULL CHECK(hype >= 0 AND hype <= 100), completed_at TEXT NOT NULL)").run();
+    await db.prepare("INSERT INTO match_results VALUES ('legacy-match','volt-dome','standard','old-release','atlas','KNOCKOUT',12,60,'2026-09-01T00:00:00Z')").run();
+    const migration = (await readFile('migrations/0002_expand_match_roster.sql', 'utf8')).replace(/^\s*--.*$/gm, '');
+    for (const statement of migration.split(';').map(s => s.trim()).filter(Boolean)) await db.prepare(statement).run();
+    const preserved = await db.prepare('SELECT winner_fighter FROM match_results WHERE match_id = ?').bind('legacy-match').first<{ winner_fighter: string }>();
+    expect(preserved?.winner_fighter).toBe('atlas');
+    await db.prepare("INSERT INTO match_results VALUES ('new-roster-match','volt-dome','standard','new-release','beer_bandit_bill','KNOCKOUT',15,70,'2026-09-28T00:00:00Z')").run();
   });
 });
