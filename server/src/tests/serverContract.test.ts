@@ -658,4 +658,57 @@ describe('authoritative server contract', () => {
     expect(app.disabled("x-powered-by")).toBe(true);
   });
 
+  it("cleanExpiredRateLimits safely handles empty rateLimitMap, purges expired entries, preserves unexpired/boundary entries", async () => {
+    const { rateLimitMap, cleanExpiredRateLimits } = await import("../index");
+
+    rateLimitMap.clear();
+    vi.useFakeTimers();
+
+    const baseTime = 100000;
+    vi.setSystemTime(baseTime);
+
+    // 1. Calling on an empty map should not throw
+    expect(() => cleanExpiredRateLimits()).not.toThrow();
+    expect(rateLimitMap.size).toBe(0);
+
+    // 2. Populate map with various resetTime values relative to baseTime (100000)
+    // Expired entries (resetTime < baseTime)
+    rateLimitMap.set("192.168.1.1", { count: 10, resetTime: baseTime - 5000 });
+    rateLimitMap.set("192.168.1.2", { count: 1, resetTime: baseTime - 1 });
+
+    // Boundary condition (resetTime === baseTime) -> strictly now > resetTime is false, so preserved
+    rateLimitMap.set("192.168.1.3", { count: 5, resetTime: baseTime });
+
+    // Unexpired entries (resetTime > baseTime)
+    rateLimitMap.set("192.168.1.4", { count: 2, resetTime: baseTime + 1000 });
+    rateLimitMap.set("192.168.1.5", { count: 8, resetTime: baseTime + 60000 });
+
+    expect(rateLimitMap.size).toBe(5);
+
+    cleanExpiredRateLimits();
+
+    // Expired entries purged
+    expect(rateLimitMap.has("192.168.1.1")).toBe(false);
+    expect(rateLimitMap.has("192.168.1.2")).toBe(false);
+
+    // Boundary and unexpired entries kept
+    expect(rateLimitMap.has("192.168.1.3")).toBe(true);
+    expect(rateLimitMap.has("192.168.1.4")).toBe(true);
+    expect(rateLimitMap.has("192.168.1.5")).toBe(true);
+    expect(rateLimitMap.size).toBe(3);
+
+    // 3. Advance time past boundary and first unexpired entry (now = 101001 ms)
+    vi.setSystemTime(baseTime + 1001);
+    cleanExpiredRateLimits();
+
+    // 192.168.1.3 (resetTime 100000) and 192.168.1.4 (resetTime 101000) now have now > resetTime
+    expect(rateLimitMap.has("192.168.1.3")).toBe(false);
+    expect(rateLimitMap.has("192.168.1.4")).toBe(false);
+    expect(rateLimitMap.has("192.168.1.5")).toBe(true);
+    expect(rateLimitMap.size).toBe(1);
+
+    vi.useRealTimers();
+    rateLimitMap.clear();
+  });
+
 });
