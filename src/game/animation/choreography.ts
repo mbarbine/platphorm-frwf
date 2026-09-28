@@ -326,6 +326,19 @@ const strikeFrames = (moveId: string): readonly PoseKeyframe[] => {
     { at: .8, pose: pose({ torso: [.1, .34, 0], leftArm: [-1.64, .06, -.03], leftForearm: [-.02, 0, 0], rightArm: [-.78, 0, .46], rightForearm: [-1.15, 0, 0], rootYaw: .22, rootZ: .22, rootTilt: .12 }) },
     { at: 1, pose: POSES.combatIdle },
   ];
+  if (moveId === 'right_hook' || moveId === 'left_hook') {
+    const left = moveId === 'left_hook';
+    const arm = left ? 'leftArm' : 'rightArm'; const forearm = left ? 'leftForearm' : 'rightForearm';
+    const guard = left ? 'rightArm' : 'leftArm'; const guardForearm = left ? 'rightForearm' : 'leftForearm';
+    const sign = left ? -1 : 1;
+    return [
+      { at: 0, pose: POSES.combatIdle },
+      { at: .42, pose: pose({ torso: [-.12, sign * .62, -.06], [arm]: [.2, sign * -.12, sign * .9], [forearm]: [-1.24, 0, 0], [guard]: [-.9, 0, sign * -.38], [guardForearm]: [-1.12, 0, 0], [leftLeg]: [.12, 0, 0], [rightLeg]: [-.12, 0, 0], rootYaw: sign * .54, rootRoll: sign * -.08 }) },
+      { at: .69, pose: pose({ torso: [.16, sign * -.58, .04], [arm]: [-1.34, sign * -.12, sign * .66], [forearm]: [-.12, 0, 0], [guard]: [-.82, 0, sign * -.42], [guardForearm]: [-1.08, 0, 0], rootZ: .12, rootYaw: sign * -.48, rootRoll: sign * .1, rootTilt: .14 }) },
+      { at: .8, pose: pose({ torso: [.12, sign * -.48, .02], [arm]: [-1.12, sign * -.08, sign * .5], [forearm]: [-.18, 0, 0], [guard]: [-.84, 0, sign * -.4], [guardForearm]: [-1.08, 0, 0], rootYaw: sign * -.3, rootTilt: .1 }) },
+      { at: 1, pose: POSES.combatIdle },
+    ];
+  }
   if (moveId === 'high_punch') return [
     { at: 0, pose: POSES.combatIdle },
     { at: .44, pose: pose({ torso: [-.14, .32, -.08], rightArm: [-.65, -.08, .28], rightForearm: [-1.34, 0, 0], leftArm: [-.86, 0, -.42], leftForearm: [-1.14, 0, 0], rightLeg: [-.12, 0, 0], rootYaw: .26, rootY: -.04 }) },

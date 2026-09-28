@@ -1,5 +1,4 @@
 import type { FighterRuntime, FighterSlot, MoveDefinition } from '../types/game';
-import { WRESTLING_STYLES } from '../data/wrestlingStyles';
 
 export type StrikeInput = 'quick' | 'heavy';
 export const COMBO_LINK_SECONDS = 1.45;
@@ -35,7 +34,7 @@ export function comboStrike(actor: FighterRuntime, input: StrikeInput): string |
   const recipe = HIT_COMBOS.find(combo => combo.inputs === code);
   if (recipe) return recipe.finish;
   if (input === 'heavy') return inputs.length ? 'low_kick' : null;
-  // Alternate arms between each character's distinctive opening and finisher.
+  // Readable shared boxing chain; wrestler-specific signatures remain separate.
   if (inputs.length === 0) return 'jab';
   if (inputs.length === 1) return 'right_hook';
   if (inputs.length === 2) return inputs.includes('heavy') ? 'high_punch' : 'left_hook';
