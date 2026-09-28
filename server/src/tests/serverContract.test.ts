@@ -658,4 +658,62 @@ describe('authoritative server contract', () => {
     expect(app.disabled("x-powered-by")).toBe(true);
   });
 
+
+  it("uses LIMIT_WINDOW_MS for rate limit reset window and allows requests after window expires", async () => {
+    const { rateLimiter, rateLimitMap, LIMIT_WINDOW_MS } = await import("../index");
+
+    expect(LIMIT_WINDOW_MS).toBe(60000);
+
+    rateLimitMap.clear();
+    vi.useFakeTimers();
+
+    const startTime = 1000000;
+    vi.setSystemTime(startTime);
+
+    const ip = "192.168.10.5";
+    const req = {
+      ip,
+      socket: { remoteAddress: ip },
+    } as unknown as Request;
+
+    const res = createMockResponse();
+    const next = vi.fn();
+
+    // Initial request sets resetTime to startTime + LIMIT_WINDOW_MS
+    rateLimiter(req, res, next);
+    expect(next).toHaveBeenCalledTimes(1);
+
+    const entry = rateLimitMap.get(ip);
+    expect(entry).toBeDefined();
+    expect(entry?.resetTime).toBe(startTime + LIMIT_WINDOW_MS);
+
+    // Max out the rate limit (100 total requests)
+    for (let i = 0; i < 99; i++) {
+      rateLimiter(req, res, next);
+    }
+    expect(next).toHaveBeenCalledTimes(100);
+
+    // 101st request is rate limited
+    rateLimiter(req, res, next);
+    expect(next).toHaveBeenCalledTimes(100);
+    expect(res.status).toHaveBeenCalledWith(429);
+
+    // Advance time past LIMIT_WINDOW_MS
+    vi.setSystemTime(startTime + LIMIT_WINDOW_MS + 100);
+
+    // Request after window expiration should succeed and reset rate limit counters
+    next.mockClear();
+    res.status.mockClear();
+
+    rateLimiter(req, res, next);
+    expect(next).toHaveBeenCalledTimes(1);
+    expect(res.status).not.toHaveBeenCalled();
+
+    const resetEntry = rateLimitMap.get(ip);
+    expect(resetEntry?.count).toBe(1);
+    expect(resetEntry?.resetTime).toBe(startTime + LIMIT_WINDOW_MS + 100 + LIMIT_WINDOW_MS);
+
+    vi.useRealTimers();
+    rateLimitMap.clear();
+  });
 });
