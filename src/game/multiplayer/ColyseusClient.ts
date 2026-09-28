@@ -252,7 +252,6 @@ export class ColyseusClient {
       this.room = await this.sdk.reconnect<ClientRoomState>(reconnectionToken);
       this.attachRoomListeners();
       this.setStatus('connected');
-      console.log('[ColyseusClient] Reconnected');
     } catch {
       this.setStatus('error');
       console.warn('[ColyseusClient] Reconnect failed');
