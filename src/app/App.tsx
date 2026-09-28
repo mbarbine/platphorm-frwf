@@ -100,6 +100,11 @@ export function App() {
   const multiplayerMyRole = useMultiplayerStore((state) => state.myRole);
   const multiplayerRoles = useMultiplayerStore((state) => state.roles);
   const multiplayerFightersMap = useMultiplayerStore((state) => state.fighters);
+  const multiplayerReadyPlayers = useMultiplayerStore((state) => state.readyPlayers);
+  const multiplayerConnectedPlayers = useMultiplayerStore((state) => state.connected);
+  const multiplayerGuestInvites = useMultiplayerStore((state) => state.guestInvites);
+  const multiplayerChat = useMultiplayerStore((state) => state.lobbyChat);
+  const [lobbyChatText, setLobbyChatText] = useState('');
 
   useEffect(() => {
     const invite = parseRoomInvite(window.location.href);
@@ -422,12 +427,12 @@ export function App() {
       </div>}
 
       {multiplayerStatus === 'connected' && (() => {
-        const p1State = getFighterByRole('player1');
-        const p2State = getFighterByRole('player2');
         const hostRole = [...multiplayerRoles].find(([sessionId]) => sessionId === multiplayerHostSessionId)?.[1];
-        const p1FighterId = p1State && p1State.definitionId ? (p1State.definitionId as FighterId) : null;
-        const p2FighterId = p2State && p2State.definitionId ? (p2State.definitionId as FighterId) : null;
-        return <div className="multiplayer-lobby__connected" style={{ width: '100%', maxWidth: '640px', margin: '0 auto' }}>
+        const roster = [...multiplayerRoles.entries()].sort((a, b) => Number(a[1].slice(-1)) - Number(b[1].slice(-1)));
+        const readyCount = roster.filter(([id]) => multiplayerConnectedPlayers.get(id) && multiplayerReadyPlayers.get(id)).length;
+        const connectedCount = roster.filter(([id]) => multiplayerConnectedPlayers.get(id)).length;
+        const canStart = multiplayerMyRole === 'player1' && connectedCount === 2 && readyCount === connectedCount;
+        return <div className="multiplayer-lobby__connected" style={{ width: '100%', maxWidth: '900px', margin: '0 auto' }}>
           <div className="locker-room" style={{ background: 'rgba(0,0,0,0.5)', padding: '1.5rem', borderRadius: '8px', marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <span>ROOM MATCHMAKER</span>
@@ -437,28 +442,27 @@ export function App() {
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem' }}>
                 <span style={{ fontSize: '0.8rem', color: '#888' }}>ROOM ID · SHARE THE INVITE LINK</span>
               <strong data-testid="multiplayer-room-code" style={{ fontSize: '1.8rem', color: '#ff007b', letterSpacing: '4px', fontFamily: 'monospace' }}>{multiplayerRoomId}</strong>
-              {multiplayerJoinInvite && <div style={{ display: 'flex', width: 'min(100%, 420px)', gap: '.5rem', marginTop: '.5rem' }}>
-                <input aria-label="Challenger invitation link" data-testid="multiplayer-join-invite" readOnly value={multiplayerJoinInvite} onFocus={event => event.currentTarget.select()} style={{ minWidth: 0, flex: 1, color: '#ddd', background: '#111018', border: '1px solid #55446d', borderRadius: 4, padding: '.55rem', fontSize: '.76rem' }} />
-                <button className="button button--quiet" onClick={async () => {
-                  try { await navigator.clipboard.writeText(multiplayerJoinInvite); }
-                  catch { setMultiplayerError('Clipboard unavailable. Select and copy the invitation link.'); }
-                }}>COPY LINK</button>
+              {multiplayerGuestInvites.length > 0 && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '.4rem', width: 'min(100%, 700px)', marginTop: '.5rem' }}>
+                {multiplayerGuestInvites.map((invite, index) => <button key={invite} className="button button--quiet" aria-label={`Copy player ${index + 2} invitation`} onClick={async () => {
+                  try { await navigator.clipboard.writeText(invite); }
+                  catch { setMultiplayerError('Clipboard unavailable. Copy the invitation from the address bar after opening it.'); }
+                }}>COPY SEAT {index + 2} LINK</button>)}
               </div>}
             </div>
           </div>
 
-          <div className="versus">
-            <div>
-              <span style={{ color: '#00ccff' }}>{hostRole === 'player1' ? 'PLAYER 1 (HOST)' : 'PLAYER 1'}</span>
-              <b>{p1FighterId ? fighterById(p1FighterId).name : 'WAITING...'}</b>
-              <small>{p1FighterId ? 'Ready to rumble' : 'Awaiting selection'}</small>
-            </div>
-            <strong>VS</strong>
-            <div>
-              <span style={{ color: '#ff0055' }}>{hostRole === 'player2' ? 'PLAYER 2 (HOST)' : 'PLAYER 2'}</span>
-              <b>{p2FighterId ? fighterById(p2FighterId).name : 'AWAITING OPPONENT...'}</b>
-              <small>{p2FighterId ? 'Ready to rumble' : 'Awaiting join'}</small>
-            </div>
+          <div aria-label="Room players and readiness" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '.75rem' }}>
+            {roster.map(([id, role]) => {
+              const fighterId = multiplayerFightersMap.get(id)?.definitionId as FighterId | undefined;
+              const isConnected = multiplayerConnectedPlayers.get(id) === true;
+              const isReady = multiplayerReadyPlayers.get(id) === true;
+              const isHost = id === multiplayerHostSessionId;
+              return <article key={id} aria-label={`${role.toUpperCase()} ${isConnected ? isReady ? 'READY' : 'WAITING' : 'OPEN SEAT'}`} style={{ padding: '1rem', border: `1px solid ${isConnected && isReady ? '#baff37' : '#494255'}`, background: isConnected && isReady ? 'rgba(186,255,55,.1)' : 'rgba(5,5,12,.65)', borderRadius: 8 }}>
+                <span style={{ color: isHost ? '#ffbe40' : '#b8b1c7', fontWeight: 800 }}>{role.toUpperCase()}{isHost ? ' · HOST' : ''}</span>
+                <b style={{ display: 'block', fontSize: '1.1rem', marginTop: '.35rem' }}>{isConnected && fighterId ? fighterById(fighterId).name : 'OPEN SEAT'}</b>
+                <strong style={{ display: 'block', marginTop: '.25rem', color: isConnected && isReady ? '#caff49' : '#ff9dba' }}>{!isConnected ? 'WAITING FOR PLAYER' : isReady ? 'READY TO FIGHT' : 'WAITING · NOT READY'}</strong>
+              </article>;
+            })}
           </div>
 
           <div style={{ marginTop: '2rem', display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center' }}>
@@ -468,7 +472,7 @@ export function App() {
                 useMultiplayerStore.getState().updateRoomSettings(next);
               }}><option value="standard">STANDARD</option><option value="chaos">CHAOS</option></select>
             </label>}
-            {multiplayerMyRole !== 'spectator' && <div style={{ display: 'flex', gap: '1.5rem' }}>
+            {multiplayerMyRole && multiplayerMyRole !== 'spectator' && multiplayerSessionId !== multiplayerHostSessionId && <div style={{ display: 'flex', gap: '1.5rem' }}>
               <button className="button" onClick={() => {
                 const currentIndex = FIGHTERS.findIndex(f => f.id === selected);
                 const nextFighterObj = FIGHTERS[(currentIndex + 1) % FIGHTERS.length];
@@ -478,12 +482,28 @@ export function App() {
                 audioEngine.play('menu', settings);
               }}>CHANGE FIGHTER</button>
               <button className="button button--hero" onClick={() => {
-                useMultiplayerStore.getState().ready();
+                useMultiplayerStore.getState().setReady(!multiplayerReadyPlayers.get(multiplayerSessionId));
                 audioEngine.play('confirm', settings);
-              }}>READY TO FIGHT</button>
+              }}>{multiplayerReadyPlayers.get(multiplayerSessionId) ? 'READY · CLICK TO WAIT' : 'READY TO FIGHT'}</button>
+            </div>}
+            {multiplayerSessionId === multiplayerHostSessionId && <div style={{ display: 'grid', justifyItems: 'center', gap: '.5rem' }}>
+              <strong style={{ color: canStart ? '#caff49' : '#ffbe40' }}>READY · {readyCount}/{connectedCount} CONNECTED PLAYERS</strong>
+              {connectedCount > 2 && <span role="status">The current live match engine is singles only; this room cannot start with more than two connected wrestlers yet.</span>}
+              <button className="button button--hero" disabled={!canStart} onClick={() => useMultiplayerStore.getState().startMatch()}>START MATCH</button>
             </div>}
             {multiplayerMyRole === 'spectator' && <p style={{ color: '#aaa', fontStyle: 'italic' }}>You are spectating this room lobby.</p>}
           </div>
+
+          <section aria-label="Lobby chat" style={{ marginTop: '1.5rem', padding: '1rem', background: 'rgba(0,0,0,.5)', border: '1px solid #383044', borderRadius: 8 }}>
+            <h3>LOCKER ROOM CHAT</h3>
+            <div aria-live="polite" style={{ minHeight: '5rem', maxHeight: '10rem', overflowY: 'auto', display: 'grid', alignContent: 'start', gap: '.35rem', marginBottom: '.75rem' }}>
+              {multiplayerChat.length === 0 ? <span style={{ color: '#999' }}>No messages yet. Say something to the room.</span> : multiplayerChat.map((entry, index) => <p key={`${entry.timestamp}-${index}`} style={{ margin: 0 }}><b>{multiplayerRoles.get(entry.sessionId)?.toUpperCase() ?? 'PLAYER'}:</b> {entry.text}</p>)}
+            </div>
+            <form style={{ display: 'flex', gap: '.5rem' }} onSubmit={event => { event.preventDefault(); const text = lobbyChatText.trim(); if (text) { useMultiplayerStore.getState().sendLobbyChat(text); setLobbyChatText(''); } }}>
+              <input aria-label="Lobby chat message" maxLength={240} value={lobbyChatText} onChange={event => setLobbyChatText(event.target.value)} placeholder="Message the room" style={{ flex: 1, minWidth: 0, padding: '.7rem', color: '#fff', background: '#111018', border: '1px solid #55446d', borderRadius: 4 }} />
+              <button className="button" disabled={!lobbyChatText.trim()}>SEND</button>
+            </form>
+          </section>
         </div>;
       })()}
 

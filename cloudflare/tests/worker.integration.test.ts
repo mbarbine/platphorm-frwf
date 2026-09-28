@@ -88,8 +88,10 @@ describe('real Worker / Durable Object / D1 / R2 integration', () => {
 
   it('hosts without a platform key, issues distinct scoped invite links, and rejects foreign origins', async () => {
     const response = await post('/api/rooms', { ruleset: 'standard', fighterId: 'chelsea' }); expect(response.status).toBe(201);
-    const json = await response.json() as { data: { roomId: string; hostInvite: string; joinInvite: string } };
+    const json = await response.json() as { data: { roomId: string; hostInvite: string; joinInvite: string; guestInvites: string[] } };
     expect(ticketFrom(json.data.hostInvite)).toMatch(/^[a-f0-9]{64}$/); expect(ticketFrom(json.data.joinInvite)).toMatch(/^[a-f0-9]{64}$/);
+    expect(json.data.guestInvites).toHaveLength(5);
+    expect(new Set(json.data.guestInvites.map(ticketFrom)).size).toBe(5);
     expect(json.data.hostInvite).not.toBe(json.data.joinInvite);
     expect(json.data.hostInvite).toContain('#room='); expect(JSON.stringify(json)).not.toContain(testKey);
     const foreign = await worker.dispatchFetch(`${origin}/api/rooms`, { method: 'POST', headers: { Origin: 'https://attacker.invalid', 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
@@ -109,8 +111,8 @@ describe('real Worker / Durable Object / D1 / R2 integration', () => {
     try {
       const activeFirst = nextSocketMessage<{ phase: string }>(first as unknown as WebSocket, message => message.type === 'roomState' && message.phase === 'active');
       const activeSecond = nextSocketMessage<{ phase: string }>(second as unknown as WebSocket, message => message.type === 'roomState' && message.phase === 'active');
-      first.send(JSON.stringify({ type: 'ready', protocolVersion: '2.0.0' }));
-      second.send(JSON.stringify({ type: 'ready', protocolVersion: '2.0.0' }));
+      second.send(JSON.stringify({ type: 'ready', ready: true, protocolVersion: '2.0.0' }));
+      first.send(JSON.stringify({ type: 'startMatch', protocolVersion: '2.0.0' }));
       await Promise.all([activeFirst, activeSecond]);
 
       const movedSnapshot = nextSocketMessage<{ seq: number; fighters: { posX: number; posZ: number }[] }>(second as unknown as WebSocket,
