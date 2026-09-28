@@ -2,13 +2,13 @@ openapi: 3.1.0
 info:
   title: RINGFALL CHAOS CIRCUIT Public API
   version: 1.0.0
-  description: Read-only discovery for the static browser game. No protected or mutating API is implemented.
+  description: Cloudflare-hosted game health and discovery APIs, scoped private-room hosting, and protected map publication. Private-room invitations are limited to a single seat and do not expose the platform key.
 servers:
-  - url: https://frwf.platphormnews.com
+  - url: https://frwf.ja1.io
 paths:
   /api/health:
     get:
-      summary: Full public-safe static health declaration
+      summary: Live public-safe Cloudflare Worker health checks
       responses:
         '200':
           description: Health payload
