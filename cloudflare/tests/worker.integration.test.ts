@@ -13,10 +13,11 @@ beforeAll(async () => {
     bindings: { ENVIRONMENT: 'development', PUBLIC_ORIGIN: origin, RELEASE: 'integration-test', SOURCE_SHA: '1234567890abcdef', PLATPHORM_API_KEY: testKey },
   }));
   const db = await worker.getD1Database('DB');
-  const migrationFiles = (await readdir('migrations')).filter(file => /^\\d+_.*\\.sql$/.test(file)).sort();
+  const migrationFiles = (await readdir('migrations')).filter(file => /^\d+_.*\.sql$/.test(file)).sort();
   for (const file of migrationFiles) {
     const migration = await readFile(`migrations/${file}`, 'utf8');
-    for (const statement of migration.split(';').map(s => s.trim()).filter(Boolean)) await db.prepare(statement).run();
+    const executableSql = migration.replace(/^\s*--.*$/gm, '');
+    for (const statement of executableSql.split(';').map(s => s.trim()).filter(Boolean)) await db.prepare(statement).run();
   }
 });
 
