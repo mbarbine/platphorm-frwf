@@ -56,6 +56,13 @@ describe('Fighter Select Keyboard and ARIA Accessibility', () => {
     // Verify select screen heading
     expect(screen.getByText('FIGHTER SELECT')).toBeTruthy();
 
+    // Verify action buttons have accessible ARIA labels starting with visible text
+    const backBtn = screen.getByRole('button', { name: /Back: return to main menu/i });
+    expect(backBtn).toBeTruthy();
+
+    const lockInBtn = screen.getByRole('button', { name: /Lock in ATLAS REX: confirm wrestler selection and proceed/i });
+    expect(lockInBtn).toBeTruthy();
+
     // The default selected fighter is "ATLAS REX" (atlas)
     const atlasCard = document.querySelector('[data-fighter-select-id="atlas"]') as HTMLButtonElement;
     expect(atlasCard).toBeTruthy();
