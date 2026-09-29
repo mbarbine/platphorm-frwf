@@ -53,7 +53,13 @@ export function InstallGame() {
 
   const steps = installationSteps();
   return <div className="install-game">
-    <button className="button button--quiet install-game__button" type="button" onClick={() => { void install(); }} aria-expanded={showHelp}>
+    <button
+      className="button button--quiet install-game__button"
+      type="button"
+      onClick={() => { void install(); }}
+      aria-expanded={showHelp}
+      aria-label={promptEvent ? 'INSTALL RINGFALL: install app to your device' : 'INSTALL / ADD TO HOME SCREEN: view device installation instructions'}
+    >
       {promptEvent ? 'INSTALL RINGFALL' : 'INSTALL / ADD TO HOME SCREEN'}
     </button>
     {showHelp && <aside className="install-game__help" aria-live="polite">
