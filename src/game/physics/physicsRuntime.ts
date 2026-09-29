@@ -10,7 +10,7 @@ import type { FrameInput } from '../systems/combat';
 import { AI_FIGHTER_SLOTS, FALL_REASONS, FIGHTER_SLOTS, SINGLES_FIGHTER_SLOTS } from '../types/game';
 import type { AttackPhase, BodyRegion, FighterRuntime, FighterSlot, GameCommand, MatchModel, PropRuntime, RecoveryOrientation, Vec2 } from '../types/game';
 import { clamp } from '../utils/math';
-import { ALL_BODY_SEGMENTS, CORE_SEGMENTS, HEAD_COLLIDER_RADIUS, buildBodySchema, torsoColliderArgs } from './bodySchema';
+import { ALL_BODY_SEGMENTS, CORE_SEGMENTS, HEAD_COLLIDER_RADIUS, segmentSchema, torsoColliderArgs } from './bodySchema';
 import type { BodySegmentId } from './bodySchema';
 import { chasePoseAngularVelocity, strikePoseChain } from './motorController';
 import { PhysicsReplayBuffer } from './replayBuffer';
@@ -2735,7 +2735,7 @@ export class BodyWorksRuntime {
       if (!body?.isValid()) return lowest;
       let radius: number = coreRadii[segment];
       if (segment !== 'head') {
-        const schema = buildBodySchema(fighterById(fighter.definitionId)).find(entry => entry.id === segment);
+        const schema = segmentSchema(fighterById(fighter.definitionId), segment as BodySegmentId);
         const args = schema && torsoColliderArgs(schema); const q = body.rotation();
         if (args) radius = Math.abs(2 * (q.x * q.y + q.w * q.z)) * args[0]
           + Math.abs(1 - 2 * (q.x * q.x + q.z * q.z)) * args[1]
