@@ -41,6 +41,8 @@ export function createApp(): express.Express {
     res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
     // Enforce Permissions-Policy to restrict browser feature usage (CWE-693)
     res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+    // Prevent sensitive/operational data and error response caching (CWE-524)
+    res.setHeader('Cache-Control', 'no-store, max-age=0');
     next();
   });
 

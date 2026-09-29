@@ -100,6 +100,7 @@ describe('createApp Express application unit tests', () => {
       expect(res.setHeader).toHaveBeenCalledWith('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
       expect(res.setHeader).toHaveBeenCalledWith('Referrer-Policy', 'strict-origin-when-cross-origin');
       expect(res.setHeader).toHaveBeenCalledWith('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+      expect(res.setHeader).toHaveBeenCalledWith('Cache-Control', 'no-store, max-age=0');
       expect(next).toHaveBeenCalled();
     }
   });

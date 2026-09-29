@@ -436,7 +436,7 @@ describe('authoritative server contract', () => {
     });
   });
 
-  it('Express middleware sets Referrer-Policy and Permissions-Policy security headers', async () => {
+  it('Express middleware sets Referrer-Policy, Permissions-Policy, and Cache-Control security headers', async () => {
     const middleware = (_req: Request, res: Response, next: NextFunction) => {
       res.setHeader('X-Content-Type-Options', 'nosniff');
       res.setHeader('X-Frame-Options', 'DENY');
@@ -445,6 +445,7 @@ describe('authoritative server contract', () => {
       res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
       res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
       res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+      res.setHeader('Cache-Control', 'no-store, max-age=0');
       next();
     };
 
@@ -457,6 +458,7 @@ describe('authoritative server contract', () => {
     expect(res.setHeader).toHaveBeenCalledWith('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
     expect(res.setHeader).toHaveBeenCalledWith('Referrer-Policy', 'strict-origin-when-cross-origin');
     expect(res.setHeader).toHaveBeenCalledWith('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+    expect(res.setHeader).toHaveBeenCalledWith('Cache-Control', 'no-store, max-age=0');
     expect(next).toHaveBeenCalled();
   });
 
