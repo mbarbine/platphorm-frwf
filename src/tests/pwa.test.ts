@@ -38,7 +38,9 @@ describe('RINGFALL installable web app', () => {
   it('gives iPhone and iPad users clear Add to Home Screen steps when no prompt API exists', () => {
     Object.defineProperty(navigator, 'userAgent', { configurable: true, value: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile Safari/604.1' });
     render(React.createElement(InstallGame));
-    fireEvent.click(screen.getByRole('button', { name: 'INSTALL / ADD TO HOME SCREEN' }));
+    const button = screen.getByRole('button', { name: /INSTALL \/ ADD TO HOME SCREEN/ });
+    expect(button.getAttribute('aria-label')).toBe('INSTALL / ADD TO HOME SCREEN: view device installation instructions');
+    fireEvent.click(button);
     expect(screen.getByText('Add RINGFALL to your Home Screen')).toBeTruthy();
     expect(screen.getByText(/tap Share, choose “Add to Home Screen”/)).toBeTruthy();
   });
@@ -51,7 +53,8 @@ describe('RINGFALL installable web app', () => {
       userChoice: Promise.resolve({ outcome: 'accepted' as const, platform: 'web' }),
     });
     window.dispatchEvent(event);
-    const button = await screen.findByRole('button', { name: 'INSTALL RINGFALL' });
+    const button = await screen.findByRole('button', { name: /INSTALL RINGFALL/ });
+    expect(button.getAttribute('aria-label')).toBe('INSTALL RINGFALL: install app to your device');
     expect(prompt).not.toHaveBeenCalled();
     fireEvent.click(button);
     await waitFor(() => expect(prompt).toHaveBeenCalledTimes(1));
