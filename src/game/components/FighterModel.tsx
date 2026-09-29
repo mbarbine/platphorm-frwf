@@ -729,6 +729,7 @@ export function FighterModel({ runtime, counterpart, fighterId, preview = false,
         fit.landmark(head.current, headBody, [0, 0, 0]);
         for (let i = 0; i < LIMB_SIDES.length; i++) {
           const limbSide = LIMB_SIDES[i];
+          if (!limbSide) continue;
           const segs = LIMB_SEGMENTS[limbSide];
           const upperId = segs.upperId;
           const lowerId = segs.lowerId;
