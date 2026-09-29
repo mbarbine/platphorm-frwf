@@ -6,9 +6,8 @@ import { useMatchStore } from '../state/matchStore';
 import { fogBurstEnvelope } from '../presentation/crowdActivity';
 
 /** Pooled soft particles stay at the entrance, below the view into the ring. */
-// OPTIMIZATION: Pre-calculate static fog particle offset factors to avoid repeated modulo operations per frame inside useFrame.
+// OPTIMIZATION: Pre-calculate static particle offsets and hoist camera quaternion copying outside particle loop to avoid redundant matrix operations inside 60Hz useFrame.
 const FOG_PARTICLES = Array.from({ length: 24 }, (_, i) => ({
-  i,
   timeOffset: i * .31,
   baseX: i % 2 ? -3.2 : 3.2,
   dirX: i % 3 - 1,
@@ -32,12 +31,17 @@ export function EntranceFog() {
     const envelope = reduced ? 0 : fogBurstEnvelope(age.current);
     mesh.current.visible = envelope > .001; material.current.opacity = envelope*.2;
     if(envelope <= .001) return;
-    for(let i=0;i<FOG_PARTICLES.length;i++) {
+    // OPTIMIZATION: Hoist dummy quaternion copy out of loop (24x -> 1x per frame) and cache age.current
+    dummy.quaternion.copy(camera.quaternion);
+    const currentAge = age.current;
+    for(let i = 0; i < FOG_PARTICLES.length; i++) {
       const p = FOG_PARTICLES[i];
       if (!p) continue;
-      const life=((age.current+p.timeOffset)%3)/3;
-      dummy.position.set(p.baseX+p.dirX*life*.8,.55+life*1.2,p.baseZ+life*2);
-      dummy.quaternion.copy(camera.quaternion);dummy.scale.setScalar(.35+life*1.7);dummy.updateMatrix();mesh.current.setMatrixAt(i,dummy.matrix);
+      const life = ((currentAge + p.timeOffset) % 3) * 0.3333333333333333;
+      dummy.position.set(p.baseX + p.dirX * life * .8, .55 + life * 1.2, p.baseZ + life * 2);
+      dummy.scale.setScalar(.35 + life * 1.7);
+      dummy.updateMatrix();
+      mesh.current.setMatrixAt(i, dummy.matrix);
     }
     mesh.current.instanceMatrix.needsUpdate=true;
   });
