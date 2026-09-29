@@ -30,6 +30,6 @@ export function FighterSelection({ selected, onSelect, onBack, onConfirm }: Prop
         {photo ? <img src={photo.url} alt="" loading="lazy" style={{ objectPosition: photo.position, transformOrigin: photo.position }} /> : <span className="selection-tile-initials" style={{ color: candidate.palette.primary }}>{candidate.name.replace(/[“”]/g, '').split(' ').map(word => word[0]).slice(0, 2).join('')}</span>}
         <b>{candidate.name}</b>{candidate.id === selected && <small>SELECTED</small>}
       </button>; })}
-    </div><footer className="selection-actions"><button className="button button--quiet" onClick={onBack}>BACK</button><span aria-live="polite">Selected fighter: {fighter.name}, {fighter.archetype}</span><button className="button button--hero" onClick={onConfirm}>LOCK IN {fighter.name} <span aria-hidden="true">↗</span></button></footer></div>
+    </div><footer className="selection-actions"><button className="button button--quiet" onClick={onBack} aria-label="Back: return to main menu">BACK</button><span aria-live="polite">Selected fighter: {fighter.name}, {fighter.archetype}</span><button className="button button--hero" onClick={onConfirm} aria-label={`Lock in ${fighter.name}: confirm wrestler selection and proceed`}>LOCK IN {fighter.name} <span aria-hidden="true">↗</span></button></footer></div>
   </section>;
 }

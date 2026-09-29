@@ -195,7 +195,7 @@ export function App() {
     {screen === 'settings' && <Suspense fallback={<div className="canvas-fallback"><b>OPENING CONTROL ROOM</b></div>}><SettingsPanel onBack={() => confirm('main')} /></Suspense>}
     {screen === 'select' && <FighterSelection selected={selected} onSelect={id => { setSelected(id); setBeers(0); audioEngine.play('menu', settings); }} onBack={() => confirm('main')} onConfirm={() => { if (selectionTarget === 'world') { useWorldSession.getState().enter(selected); confirm('world'); } else if (selectionTarget === 'online') confirm('multiplayer_lobby'); else confirm('rules'); }} />}
     {screen === "rules" && (
-      <section className="panel rules-screen">
+      <section className="panel rules-screen" aria-label="Match setup and rules">
         <div className="section-heading">
           <span>TALE OF THE TAPE</span>
           <h2>MATCH SETUP</h2>
@@ -331,10 +331,10 @@ export function App() {
         </div>
 
         <div className="button-row">
-          <button className="button button--quiet" onClick={() => confirm("select")}>
+          <button className="button button--quiet" onClick={() => confirm("select")} aria-label="Change fighter: return to fighter select">
             CHANGE FIGHTER
           </button>
-          <button className="button button--hero" onClick={start}>
+          <button className="button button--hero" onClick={start} aria-label={`Start match: ${physicsLab || matchMode === "singles" ? "start singles match" : "start Battle Royale match"}`}>
             {physicsLab || matchMode === "singles" ? "START MATCH" : "START MATCH · BATTLE ROYALE"}
           </button>
         </div>
