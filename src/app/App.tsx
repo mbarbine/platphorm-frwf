@@ -433,10 +433,7 @@ export function App() {
               <strong data-testid="multiplayer-room-code" style={{ fontSize: '1.8rem', color: '#ff007b', letterSpacing: '4px', fontFamily: 'monospace' }}>{multiplayerRoomId}</strong>
               {multiplayerGuestInvites.length > 0 && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '.4rem', width: 'min(100%, 700px)', marginTop: '.5rem' }}>
                 <input aria-label="First guest invitation" data-testid="multiplayer-join-invite" readOnly value={multiplayerGuestInvites[0] ?? ''} onFocus={event => event.currentTarget.select()} style={{ gridColumn: '1 / -1', minWidth: 0, width: '100%' }} />
-                {multiplayerGuestInvites.map((invite, index) => <button key={invite} className="button button--quiet" aria-label={`Copy player ${index + 2} invitation`} onClick={async () => {
-                  try { await navigator.clipboard.writeText(invite); }
-                  catch { setMultiplayerError('Clipboard unavailable. Copy the invitation from the address bar after opening it.'); }
-                }}>COPY SEAT {index + 2} LINK</button>)}
+                {multiplayerGuestInvites.map((invite, index) => <CopySeatButton key={invite} invite={invite} index={index} onError={setMultiplayerError} />)}
               </div>}
             </div>
           </div>
@@ -508,6 +505,47 @@ export function App() {
     {screen === 'match' && <section className="match-screen"><Suspense fallback={<ArenaLoading />}><GameScene onPause={togglePause} onDevice={setDevice} onFinished={finish} onlineRole={useMatchStore.getState().model.networkAuthority ? multiplayerMyRole : null} /></Suspense>{!toyTest && !replayActive && <><HUD device={device} paused={paused} />{settings.controlDeckMode !== 'hidden' && <Tutorial device={device} />}<MobileControls onPause={togglePause} paused={paused || replayActive} /><SpectatorControls /></>}{physicsLab && <Suspense fallback={null}><PhysicsLab /></Suspense>}{replayActive && <ReplayOverlay />}{paused && matchSettings && <div className="pause-overlay pause-overlay--settings"><Suspense fallback={null}><SettingsPanel onBack={() => setMatchSettings(false)} /></Suspense></div>}{paused && !matchSettings && <div className="pause-overlay"><Logo compact /><span>MATCH PAUSED</span><button className="button button--hero" onClick={togglePause}>RESUME</button><button className="button button--quiet" onClick={() => { setMatchSettings(true); }}>SETTINGS</button><button className="button button--quiet" onClick={() => { useMatchStore.getState().pause(false); useMatchStore.getState().setNetworkAuthority(false); void useMultiplayerStore.getState().disconnect(); setPaused(false); if (worldEncounter) returnToWorld(); else setScreen('main'); }}>{worldEncounter ? 'RETURN TO SHOWGROUND' : 'QUIT TO MENU'}</button></div>}</section>}
     {screen === 'results' && result && <Results result={result} winnerName={fighterById(useMatchStore.getState().model[result.winner].definitionId).name} onWorld={worldEncounter ? returnToWorld : undefined} onRematch={doRematch} onChange={() => { setWorldEncounter(null); setSelectionTarget('match'); confirm('select'); }} onMenu={() => { setWorldEncounter(null); confirm('main'); }} />}
   </main>;
+}
+
+export function CopySeatButton({ invite, index, onError }: { invite: string; index: number; onError: (msg: string) => void }) {
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (!copied) return;
+    const timer = window.setTimeout(() => setCopied(false), 2000);
+    return () => window.clearTimeout(timer);
+  }, [copied]);
+
+  const seatNumber = index + 2;
+  const visualText = copied ? `SEAT ${seatNumber} LINK COPIED!` : `COPY SEAT ${seatNumber} LINK`;
+  const ariaLabel = copied
+    ? `SEAT ${seatNumber} LINK COPIED!: copied seat ${seatNumber} invitation link to clipboard`
+    : `COPY SEAT ${seatNumber} LINK: copy player ${seatNumber} invitation link`;
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(invite);
+      setCopied(true);
+    } catch {
+      onError('Clipboard unavailable. Copy the invitation from the address bar after opening it.');
+    }
+  };
+
+  return (
+    <>
+      <p className="sr-only" role="status" aria-live="polite">
+        {copied ? `Copied seat ${seatNumber} invitation link to clipboard.` : ''}
+      </p>
+      <button
+        type="button"
+        className={`button button--quiet${copied ? ' button--copied' : ''}`}
+        aria-label={ariaLabel}
+        onClick={() => { void handleCopy(); }}
+      >
+        {visualText}
+      </button>
+    </>
+  );
 }
 
 export function ReplayOverlay() {
