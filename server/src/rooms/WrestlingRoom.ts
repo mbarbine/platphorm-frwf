@@ -40,7 +40,10 @@ const actionEventSchema = z.object({
   direction: z.object({ x: z.number().finite().min(-1).max(1), y: z.number().finite().min(-1).max(1) }),
   source: z.enum(['keyboard', 'gamepad', 'touch', 'xr', 'ai', 'replay', 'network']),
 });
-const commandSchema = z.object({ event: actionEventSchema, seq: z.number().int().positive().max(Number.MAX_SAFE_INTEGER) });
+const commandSchema = z.object({
+  event: actionEventSchema,
+  seq: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+}).refine(data => data.seq === data.event.sequence, { message: 'Command sequence number must match event sequence number' });
 
 // ──────────────────────────────────────────────────────────────────────────────
 // WrestlingRoom
