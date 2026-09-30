@@ -14,8 +14,9 @@ import { applyPhysicalBonePose } from '../presentation/physicalSkinBinding';
 import { fighterVisual } from '../presentation/fighterVisuals';
 import { skinRoughnessForEffort } from '../presentation/skinFinish';
 
-// OPTIMIZATION: Extract inline gripping state array to static constant to eliminate per-frame GC allocations in useFrame.
+// OPTIMIZATION: Extract inline state arrays to static constants to eliminate per-frame GC allocations in useFrame.
 const GRIPPING_STATES = new Set(['grappling', 'grabbed', 'climbing']);
+const ACTIVE_EFFORT_STATES = new Set(['attacking', 'grappling', 'grabbed', 'recovering']);
 
 /** A standard skinned glTF asset, driven by the same solved bones as contact. */
 export function HumanoidFighter({ runtime, side, replayFrame }: { runtime: FighterRuntime; side: FighterSlot; replayFrame?: RefObject<PhysicsReplayFrame | null> }) {
@@ -44,7 +45,7 @@ export function HumanoidFighter({ runtime, side, replayFrame }: { runtime: Fight
     finishTimer.current += dt;
     if (finishTimer.current >= .12) {
       finishTimer.current %= .12;
-      const active = Boolean(runtime.moveId) || ['attacking', 'grappling', 'grabbed', 'recovering'].includes(runtime.state);
+      const active = Boolean(runtime.moveId) || ACTIVE_EFFORT_STATES.has(runtime.state);
       const roughness = skinRoughnessForEffort(baseSkinRoughness, runtime.stamina, runtime.staminaCap, active);
       for (const material of skinMaterials) material.roughness = roughness;
     }
