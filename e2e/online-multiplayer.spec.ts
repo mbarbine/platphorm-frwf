@@ -117,7 +117,9 @@ test('two browsers share authoritative movement, contact, and impact state', asy
     await guest.keyboard.press('Escape');
     await guest.getByRole('button', { name: 'QUIT TO MENU' }).click();
     await host.bringToFront();
-    await expect(host.locator('html')).toHaveAttribute('data-camera-shot', 'online-last-standing-finish', { timeout: 10_000 });
+    // The room gives a disconnected player a 30-second reconnect grace window
+    // before declaring a forfeit; the finish presentation starts after that.
+    await expect(host.locator('html')).toHaveAttribute('data-camera-shot', 'online-last-standing-finish', { timeout: 45_000 });
     const finishHud = host.locator('.hud');
     await expect(finishHud).toHaveAttribute('data-player-state', 'victorious');
     await expect(finishHud).toHaveAttribute('data-opponent-state', 'defeated');

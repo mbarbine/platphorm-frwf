@@ -786,6 +786,7 @@ const updatePin = (model: MatchModel, dt: number, playerInput: FrameInput): void
   let pinnedKey: FighterSlot | null = null;
   for (let i = 0; i < slots.length; i++) {
     const slot = slots[i];
+    if (!slot) continue;
     const state = model[slot].state;
     if (state === 'pinning') pinningKey = slot;
     else if (state === 'pinned') pinnedKey = slot;
@@ -1030,7 +1031,8 @@ const updateChaos = (model: MatchModel, dt: number): void => {
   // OPTIMIZATION: Indexed for loop replaces .some() to eliminate closure allocations in 60Hz match update.
   const chaosSlots = activeFighterSlots(model);
   for (let i = 0; i < chaosSlots.length; i++) {
-    if (model[chaosSlots[i]].state === 'pinning') return;
+    const slot = chaosSlots[i];
+    if (slot && model[slot].state === 'pinning') return;
   }
   const types = ['PROP DROP', 'CROWD SURGE', 'OVERDRIVE ROPES', 'SPOTLIGHT SHOWDOWN'] as const;
   const [roll, nextSeed] = seededRandom(model.seed); model.seed = nextSeed;
@@ -1143,7 +1145,8 @@ export const advanceMatch = (model: MatchModel, dt: number, playerInput: FrameIn
   // OPTIMIZATION: Indexed for loop replaces .some() to eliminate closure allocations in 60Hz match tick.
   const activeSlots = activeFighterSlots(model);
   for (let i = 0; i < activeSlots.length; i++) {
-    if (model[activeSlots[i]].state === 'pinned') return model;
+    const slot = activeSlots[i];
+    if (slot && model[slot].state === 'pinned') return model;
   }
 
   if (playerInput.block) requestCommand(model, 'player', 'block', playerInput.move, playerInput.run);
