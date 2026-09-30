@@ -47,6 +47,8 @@ const EMPTY_HIGHLIGHTS = (): MatchHighlights => ({ bestSpot: null, bestSlam: nul
 const BATTLE_ROYALE_OPENING_BELL_SECONDS = 4.2;
 const PHYSICAL_CONTACT_HANDOFF_SECONDS = .075;
 const PERFECT_PARRY_WINDOW_SECONDS = .08;
+// OPTIMIZATION: Static Set avoids inline array allocations in 60Hz retargetFighters loop.
+const NON_RETARGETABLE_STATES = new Set<string>(['attacking', 'grappling', 'grabbed', 'pinning', 'pinned']);
 
 const contactCapturedDuringActiveWindow = (model: MatchModel, contact: BodyWorksContact): boolean => {
   const contactAge = model.elapsed - contact.time;
@@ -775,9 +777,17 @@ export const resolveMatch = (model: MatchModel, winner: FighterSlot, method: Mat
   if (method !== 'FORFEIT') addImpact(model, model[winner].position, method === 'KNOCKOUT' ? 'ko' : 'finisher', 2.4);
 };
 
+// OPTIMIZATION: Single pass indexed for loop eliminates closure allocations from slots.find() in 60Hz advanceMatch tick.
 const updatePin = (model: MatchModel, dt: number, playerInput: FrameInput): void => {
-  const slots = activeFighterSlots(model); const pinningKey = slots.find((slot) => model[slot].state === 'pinning') ?? null;
-  const pinnedKey = slots.find((slot) => model[slot].state === 'pinned') ?? null;
+  const slots = activeFighterSlots(model);
+  let pinningKey: FighterSlot | null = null;
+  let pinnedKey: FighterSlot | null = null;
+  for (let i = 0; i < slots.length; i++) {
+    const slot = slots[i];
+    const state = model[slot].state;
+    if (state === 'pinning') pinningKey = slot;
+    else if (state === 'pinned') pinnedKey = slot;
+  }
   if (!pinningKey || !pinnedKey) {
     if (pinningKey || pinnedKey) unwindPinState(model, null);
     return;
@@ -1014,7 +1024,12 @@ const updateChaos = (model: MatchModel, dt: number): void => {
     if (model.chaosEvent.remaining <= 0) model.chaosEvent = null;
     return;
   }
-  if (model.elapsed < model.nextChaosAt || activeFighterSlots(model).some((slot) => model[slot].state === 'pinning')) return;
+  if (model.elapsed < model.nextChaosAt) return;
+  // OPTIMIZATION: Indexed for loop replaces .some() to eliminate closure allocations in 60Hz match update.
+  const chaosSlots = activeFighterSlots(model);
+  for (let i = 0; i < chaosSlots.length; i++) {
+    if (model[chaosSlots[i]].state === 'pinning') return;
+  }
   const types = ['PROP DROP', 'CROWD SURGE', 'OVERDRIVE ROPES', 'SPOTLIGHT SHOWDOWN'] as const;
   const [roll, nextSeed] = seededRandom(model.seed); model.seed = nextSeed;
   const type = types[Math.floor(roll * types.length)] ?? 'PROP DROP';
@@ -1067,12 +1082,18 @@ const sampleReplay = (model: MatchModel, dt: number): void => {
   if (model.replayFrames.length > 75) model.replayFrames.splice(0, model.replayFrames.length - 75);
 };
 
+// OPTIMIZATION: Early return for singles mode bypasses array filtering, array allocations, and sorting in 60Hz match ticks.
 const retargetFighters = (model: MatchModel): void => {
+  if (model.matchMode === 'singles') {
+    model.targets.player = 'opponent';
+    model.targets.opponent = 'player';
+    return;
+  }
   const active = activeFighterSlots(model).filter((slot) => !['defeated', 'victorious'].includes(model[slot].state));
   for (const slot of active) {
     if (slot === 'player' && model.playerTargetLock > 0) continue;
     // Prevent AIs from retargeting mid-move (when attacking, grappling, grabbed, pinning, or pinned)
-    if (slot !== 'player' && ['attacking', 'grappling', 'grabbed', 'pinning', 'pinned'].includes(model[slot].state)) continue;
+    if (slot !== 'player' && NON_RETARGETABLE_STATES.has(model[slot].state)) continue;
 
     const candidates = active.filter((candidate) => candidate !== slot);
     if (candidates.length === 0) continue;
@@ -1117,7 +1138,11 @@ export const advanceMatch = (model: MatchModel, dt: number, playerInput: FrameIn
   updateChaos(model, step);
   retargetFighters(model);
   updatePin(model, step, playerInput);
-  if (activeFighterSlots(model).some((slot) => model[slot].state === 'pinned')) return model;
+  // OPTIMIZATION: Indexed for loop replaces .some() to eliminate closure allocations in 60Hz match tick.
+  const activeSlots = activeFighterSlots(model);
+  for (let i = 0; i < activeSlots.length; i++) {
+    if (model[activeSlots[i]].state === 'pinned') return model;
+  }
 
   if (playerInput.block) requestCommand(model, 'player', 'block', playerInput.move, playerInput.run);
   for (const event of playerInput.actions ?? []) if (event.phase === 'started') requestAction(model, 'player', event, playerInput.run);
