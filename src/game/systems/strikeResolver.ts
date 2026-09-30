@@ -26,7 +26,7 @@ export function situationalStrike(actor: FighterRuntime, target: FighterRuntime,
       if (target.state === 'staggered' && gap > 1.35 && actor.stamina >= getMove('high_kick').staminaCost) return 'high_kick';
     }
   }
-  return selectDirectionalStrike(direction, button, actor.comboStep);
+  return selectDirectionalStrike(direction, button, actor.comboStep, actor.definitionId);
 }
 
 /** A brief reachable interception, not a remote or permanently held counter. */

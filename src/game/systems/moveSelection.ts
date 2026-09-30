@@ -1,5 +1,7 @@
 import type { Vec2 } from '../types/game';
 import { QUICK_STRIKE_CHAIN } from '@frwf/game-protocol';
+import { WRESTLING_STYLES } from '../data/wrestlingStyles';
+import type { FighterId } from '../types/game';
 
 export type GrappleButton = 'quick' | 'heavy' | 'grapple';
 export type CombatDirection = 'neutral' | 'up' | 'down' | 'left' | 'right';
@@ -48,13 +50,14 @@ export const selectGrappleEntryMove = (direction: Vec2): string => {
   return selectDirectionalGrapple(direction, 'grapple');
 };
 
-export const selectDirectionalStrike = (direction: Vec2, button: StrikeButton, comboStep = 0): string => {
+export const selectDirectionalStrike = (direction: Vec2, button: StrikeButton, comboStep = 0, fighterId?: FighterId): string => {
   const directionId = combatDirection(direction);
   if (button === 'quick') {
     // J / quick is the close-strike family: fists in neutral/side/forward,
     // and a short-range headbutt while holding back/down.
     if (directionId === 'neutral') {
-      return QUICK_STRIKE_CHAIN[comboStep % QUICK_STRIKE_CHAIN.length] ?? 'jab';
+      const chain = fighterId ? WRESTLING_STYLES[fighterId].chain : QUICK_STRIKE_CHAIN;
+      return chain[comboStep % chain.length] ?? 'jab';
     }
     // Keep this whitelist synchronized with the physical source colliders.
     const raw = STRIKE_GRID[directionId].quick;

@@ -17,6 +17,7 @@ import { createActionEvent, gameCommandToAction } from '../input/actionLayer';
 import { beginFall } from '../systems/falls';
 import { FALL_REASONS } from '../types/game';
 import { canTraverseRopes, resolveContextAction, resolvePropAction } from '../systems/contextResolver';
+import { FIGHTER_STRIKE_CHAINS } from '@frwf/game-protocol';
 
 interface MatchStore {
   model: MatchModel;
@@ -101,6 +102,34 @@ export const useMatchStore = create<MatchStore>((set) => ({
     if (model.networkAuthority) {
       // Online outcomes belong to the server. Local commands previously spent
       // stamina, began different moves, and advanced pins between snapshots.
+      // Predict only the local attack pose while the room verifies the command.
+      // Damage, stamina, contact and outcomes remain exclusively server-owned.
+      for (const event of input.actions ?? []) {
+        if (event.phase !== 'started' || !['quickStrike', 'heavyStrike', 'grapple'].includes(event.action)) continue;
+        const actor = model.player;
+        if (!['idle', 'locomotion', 'blocking', 'attacking', 'grappling'].includes(actor.state)) continue;
+        const x = event.direction.x; const y = event.direction.y;
+        const linked = actor.state === 'attacking' && actor.attackPhase === 'recovery';
+        if (actor.state === 'attacking' && !linked) continue;
+        let moveId: string;
+        if (event.action === 'quickStrike') {
+          const chain = FIGHTER_STRIKE_CHAINS[actor.definitionId];
+          const chainIndex = actor.attackInstanceId % chain.length;
+          moveId = y > .65 ? 'headbutt' : y < -.65 ? 'uppercut' : x > .65 ? 'right_hook' : x < -.65 ? 'left_hook' : chain[chainIndex] ?? 'jab';
+        } else if (event.action === 'heavyStrike') {
+          moveId = model.grapple?.attacker === 'player'
+            ? y < -.65 ? 'piledriver' : Math.abs(x) > .65 ? 'side_toss' : 'slam'
+            : y < -.65 ? 'uppercut' : y > .65 ? 'front_kick' : Math.abs(x) > .65 ? 'roundhouse' : 'low_kick';
+        } else {
+          moveId = model.grapple?.attacker === 'player' ? (Math.abs(x) > .65 ? 'suplex' : 'slam') : 'grapple_miss';
+        }
+        actor.moveId = moveId;
+        actor.attackInstanceId += 1;
+        actor.attackPhase = 'anticipation';
+        actor.phaseElapsed = 0;
+        actor.stateElapsed = 0;
+        actor.state = event.action === 'grapple' || moveId === 'slam' || moveId === 'grapple_miss' ? 'grappling' : 'attacking';
+      }
       bodyWorksRuntime.captureInput('player', { ...input, actions: [], commands: [] }, model.elapsed);
       model.elapsed += dt;
       model.announcementTimer = Math.max(0, model.announcementTimer - dt);
