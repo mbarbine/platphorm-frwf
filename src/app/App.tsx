@@ -431,18 +431,9 @@ export function App() {
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem' }}>
                 <span style={{ fontSize: '0.8rem', color: '#888' }}>ROOM ID · ONE LINK FOR ALL GUESTS</span>
               <strong data-testid="multiplayer-room-code" style={{ fontSize: '1.8rem', color: '#ff007b', letterSpacing: '4px', fontFamily: 'monospace' }}>{multiplayerRoomId}</strong>
-<<<<<<< HEAD
-              {multiplayerGuestInvites.length > 0 && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '.4rem', width: 'min(100%, 700px)', marginTop: '.5rem' }}>
-                <input aria-label="First guest invitation" data-testid="multiplayer-join-invite" readOnly value={multiplayerGuestInvites[0] ?? ''} onFocus={event => event.currentTarget.select()} style={{ gridColumn: '1 / -1', minWidth: 0, width: '100%' }} />
-                {multiplayerGuestInvites.map((invite, index) => <CopySeatButton key={invite} invite={invite} index={index} onError={setMultiplayerError} />)}
-=======
               {multiplayerJoinInvite && <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: '.4rem', width: 'min(100%, 700px)', marginTop: '.5rem' }}>
                 <input aria-label="Guest invitation link" data-testid="multiplayer-join-invite" readOnly value={multiplayerJoinInvite} onFocus={event => event.currentTarget.select()} style={{ minWidth: 0, width: '100%' }} />
-                <button className="button button--quiet" aria-label="Copy guest invitation link" onClick={async () => {
-                  try { await navigator.clipboard.writeText(multiplayerJoinInvite); }
-                  catch { setMultiplayerError('Clipboard unavailable. Copy the invitation from the address bar after opening it.'); }
-                }}>COPY INVITE LINK</button>
->>>>>>> 58a4d2c (update)
+                <CopyInviteButton invite={multiplayerJoinInvite} onError={setMultiplayerError} />
               </div>}
             </div>
           </div>
@@ -516,7 +507,7 @@ export function App() {
   </main>;
 }
 
-export function CopySeatButton({ invite, index, onError }: { invite: string; index: number; onError: (msg: string) => void }) {
+export function CopyInviteButton({ invite, onError }: { invite: string; onError: (msg: string) => void }) {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -525,11 +516,8 @@ export function CopySeatButton({ invite, index, onError }: { invite: string; ind
     return () => window.clearTimeout(timer);
   }, [copied]);
 
-  const seatNumber = index + 2;
-  const visualText = copied ? `SEAT ${seatNumber} LINK COPIED!` : `COPY SEAT ${seatNumber} LINK`;
-  const ariaLabel = copied
-    ? `SEAT ${seatNumber} LINK COPIED!: copied seat ${seatNumber} invitation link to clipboard`
-    : `COPY SEAT ${seatNumber} LINK: copy player ${seatNumber} invitation link`;
+  const visualText = copied ? 'INVITE LINK COPIED!' : 'COPY INVITE LINK';
+  const ariaLabel = copied ? 'Invite link copied to clipboard' : 'Copy guest invitation link';
 
   const handleCopy = async () => {
     try {
@@ -543,7 +531,7 @@ export function CopySeatButton({ invite, index, onError }: { invite: string; ind
   return (
     <>
       <p className="sr-only" role="status" aria-live="polite">
-        {copied ? `Copied seat ${seatNumber} invitation link to clipboard.` : ''}
+        {copied ? 'Copied guest invitation link to clipboard.' : ''}
       </p>
       <button
         type="button"
