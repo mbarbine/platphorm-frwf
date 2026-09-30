@@ -42,7 +42,9 @@ describe('RINGFALL installable web app', () => {
     expect(button.getAttribute('aria-label')).toBe('INSTALL / ADD TO HOME SCREEN: view device installation instructions');
     fireEvent.click(button);
     expect(screen.getByText('Add RINGFALL to your Home Screen')).toBeTruthy();
-    expect(screen.getByText(/tap Share, choose “Add to Home Screen”/)).toBeTruthy();
+    expect(screen.getAllByText(/tap Share, choose “Add to Home Screen”/).length).toBeGreaterThan(0);
+    const liveRegion = screen.getByRole('status');
+    expect(liveRegion.textContent).toContain('Installation instructions expanded: Add RINGFALL to your Home Screen');
   });
 
   it('uses the browser install prompt only after a user click and reports its result', async () => {

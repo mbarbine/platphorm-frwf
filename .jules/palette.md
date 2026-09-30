@@ -29,9 +29,11 @@
 ## 2025-02-28 - Standardized Progressbar ARIA Semantics on HUD Meters
 **Learning:** Status indicators and gauges (such as health, stamina, balance, and momentum meters) that display numerical values visually can be difficult for screen readers to convey as quantifiable progress bars unless explicitly annotated with progressbar ARIA semantics. Adding `role="progressbar"`, `aria-label`, `aria-valuenow`, `aria-valuemin`, and `aria-valuemax` attributes ensures assistive technologies announce current values and ranges cleanly.
 **Action:** Always annotate custom graphical meters/bars with `role="progressbar"` and appropriate `aria-value*` attributes.
+
 ## 2025-02-25 - Action-Prefixed ARIA Labels for Dynamic Mobile Action Controls
 **Learning:** In dynamic mobile action overlays, buttons displaying dynamic move names (such as 'CIRCUIT JAB' or 'VOLTAGE SLAM') can be ambiguous for screen reader users if announced without action category context. Prefixing `aria-label` attributes with the explicit control category (e.g. 'Quick strike: CIRCUIT JAB' or 'Prop action: PICK UP CHAIR') provides screen reader users with immediate clarity on both the action category and the dynamic move intent.
 **Action:** Always prefix dynamic move or contextual action labels with explicit action category names in ARIA labels on touch and mobile control buttons.
+
 ## 2025-02-25 - Standard ARIA Progressbar Semantics on Custom Meter Tracks
 **Learning:** Custom visual meter bars (like Health, Stamina, Balance, and Momentum) need explicit `role="progressbar"` along with `aria-label`, `aria-valuenow`, `aria-valuemin`, and `aria-valuemax` attributes so screen readers accurately announce progress meter values and state updates.
 **Action:** Always attach `role="progressbar"` and numeric ARIA range attributes (`aria-valuenow`, `aria-valuemin`, `aria-valuemax`) to custom meter components.
@@ -59,3 +61,7 @@
 ## 2025-03-06 - Label in Name Alignment for Accessible Action Buttons
 **Learning:** Overriding a button's visual text label (such as 'DONE') with an `aria-label` that omits the visible string breaks voice recognition users who navigate by speaking visual button names (WCAG 2.5.3 - Label in Name). Ensuring that `aria-label` attributes prefix or include the exact visual text string (e.g. `aria-label="Done: save settings and return to main menu"`) guarantees seamless voice control and screen reader clarity.
 **Action:** Always include the exact visual text label as a prefix in custom `aria-label` attributes on buttons.
+
+## 2025-03-07 - Persistent Live Regions for Conditional UI Announcements
+**Learning:** In React UI components, conditionally rendering live region container elements (such as mounting `<aside aria-live="polite">` only when help instructions are expanded) can cause screen readers (such as VoiceOver or NVDA) to miss status updates because the element was not registered in the accessibility tree prior to the content change. Maintaining a persistent, visually hidden `<p className="sr-only" role="status" aria-live="polite">` element in the DOM structure guarantees that subsequent text state changes are reliably announced to screen reader users.
+**Action:** Maintain persistent `role="status" aria-live="polite"` nodes in the DOM rather than mounting them conditionally alongside triggered content.
