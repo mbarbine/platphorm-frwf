@@ -188,3 +188,7 @@ export const useMultiplayerStore = create<MultiplayerState>((set) => {
     updateRoomSettings(ruleset) { colyseusClient.updateRoomSettings(ruleset); },
   };
 });
+
+if (typeof window !== 'undefined') {
+  (window as unknown as { useMultiplayerStore: typeof useMultiplayerStore }).useMultiplayerStore = useMultiplayerStore;
+}
