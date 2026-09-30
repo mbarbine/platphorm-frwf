@@ -407,6 +407,20 @@ describe('WrestlingRoom Unit Tests', () => {
         },
       });
       expect(p1.send).not.toHaveBeenCalled();
+
+      // Reject commands with mismatched seq and event.sequence
+      handler?.(p1, {
+        seq: 2,
+        event: {
+          action: 'move',
+          phase: 'started',
+          sequence: 5,
+          timestamp: 100,
+          direction: { x: 1, y: 0 },
+          source: 'keyboard',
+        },
+      });
+      expect(p1.send).not.toHaveBeenCalled();
     });
   });
 
