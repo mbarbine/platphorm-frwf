@@ -1,4 +1,4 @@
-import { NETWORK_MOVE_TIMING } from '@frwf/game-protocol';
+import { NETWORK_MOVE_TIMING, QUICK_STRIKE_CHAIN } from '@frwf/game-protocol';
 import type { ActionEvent, AttackPhase, FighterId, FighterState, MatchEndMethod, Ruleset } from '@frwf/game-protocol';
 
 export interface OnlineFighterState {
@@ -187,9 +187,8 @@ export const applyOnlineAction = (match: OnlineMatchState, sessionId: string, ev
   if (event.phase !== 'started') return true;
   if (event.action === 'quickStrike') {
     const inChain = match.elapsed - actor.lastQuickStrikeAt <= .85;
-    const comboMoves = ['jab', 'combo', 'high_punch', 'left_hook', 'right_hook', 'uppercut'] as const;
-    const chainIndex = inChain ? actor.quickChainCount % comboMoves.length : 0;
-    const moveId = z > .65 ? 'headbutt' : z < -.65 ? 'uppercut' : x > .65 ? 'right_hook' : x < -.65 ? 'left_hook' : comboMoves[chainIndex] ?? 'jab';
+    const chainIndex = inChain ? actor.quickChainCount % QUICK_STRIKE_CHAIN.length : 0;
+    const moveId = z > .65 ? 'headbutt' : z < -.65 ? 'uppercut' : x > .65 ? 'right_hook' : x < -.65 ? 'left_hook' : QUICK_STRIKE_CHAIN[chainIndex] ?? 'jab';
     const linked = actor.combatState === 'attacking' && actor.attackPhase === 'recovery';
     if (!beginMove(actor, moveId, linked)) return false;
     actor.lastQuickStrikeAt = match.elapsed;

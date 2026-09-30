@@ -1,4 +1,6 @@
 /** Phase durations used by both online authority and the rendered moves. */
+export const QUICK_STRIKE_CHAIN = ['jab', 'right_hook', 'left_hook', 'uppercut', 'combo', 'high_punch'] as const;
+
 export const NETWORK_MOVE_TIMING = {
   jab: { anticipation: .14, active: .30, recovery: .2 },
   headbutt: { anticipation: .2, active: .36, recovery: .34 },

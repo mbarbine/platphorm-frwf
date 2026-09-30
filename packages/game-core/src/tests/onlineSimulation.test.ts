@@ -57,7 +57,7 @@ describe('online deterministic authority', () => {
     expect(match.fighters.get('p2')?.health).toBe(100);
   });
 
-  it('links a jab, cross, and high punch only after the prior recovery window opens', () => {
+  it('links hooks and an uppercut only after the prior recovery window opens', () => {
     const match = createOnlineMatch([{ sessionId: 'p1', fighterId: 'atlas' }, { sessionId: 'p2', fighterId: 'nova' }]);
     const p1 = match.fighters.get('p1');
     if (!p1) throw new Error('missing player');
@@ -67,11 +67,14 @@ describe('online deterministic authority', () => {
     advance(match, .5);
     expect(p1.attackPhase).toBe('recovery');
     expect(applyOnlineAction(match, 'p1', action('quickStrike', 3), 3)).toBe(true);
-    expect(p1.moveId).toBe('combo');
+    expect(p1.moveId).toBe('right_hook');
     advance(match, .55);
     expect(p1.attackPhase).toBe('recovery');
     expect(applyOnlineAction(match, 'p1', action('quickStrike', 4), 4)).toBe(true);
-    expect(p1.moveId).toBe('high_punch');
+    expect(p1.moveId).toBe('left_hook');
+    advance(match, .55);
+    expect(applyOnlineAction(match, 'p1', action('quickStrike', 5), 5)).toBe(true);
+    expect(p1.moveId).toBe('uppercut');
   });
 
   it('maps directional power inputs to a readable kick, roundhouse, or uppercut', () => {

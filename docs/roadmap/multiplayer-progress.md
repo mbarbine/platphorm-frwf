@@ -28,6 +28,12 @@ Local replay/input tests, build, and lint are required. Actual iPhone playback a
 
 Idle clients send a heartbeat every ten seconds, measure its round trip time, and stop the timer when leaving or replacing a connection. The Worker excludes unused invitations from active-match timeouts. Match creation selects actual connected participants, including seats two and three after the original host leaves. The browser maps its local wrestler by authenticated session identity rather than assuming the host is always seat one.
 
-Regression evidence: nine client tests cover invitations, commands, heartbeat lifetime, connection replacement, and a delayed welcome identity; fourteen Worker integration tests include a match lasting beyond the thirty-second idle deadline with four empty seats and a start after host migration. The browser test now requires explicit host Start and checks movement plus attack acknowledgements from both clients. Browser results must be recorded after execution; these changes do not establish zero latency or six-player live combat.
+Regression evidence: nine client tests cover invitations, commands, heartbeat lifetime, connection replacement, and a delayed welcome identity; fifteen Worker integration tests include a match lasting beyond the thirty-second idle deadline with four empty seats and a start after host migration. The browser test now requires explicit host Start and checks movement plus attack acknowledgements from both clients. The two-browser movement, independent command acknowledgement, contact damage, and forfeit journey passed locally; these changes do not establish zero latency or six-player live combat.
 
 The browser uncovered a handshake race: socket-open completed before Welcome supplied the seat identity, leaving Ready and Start controls hidden. Welcome now publishes identity to the store immediately, independent of connection promise ordering.
+
+## Release gate status
+
+The room integration suite isolates client addresses between test cases so fixture creation does not accidentally consume another test's host-rate budget. A dedicated test verifies the eighth room succeeds and the ninth request returns 429. Every room fixture checks 201 before reading its invitations. All fifteen Worker integration tests passed after this correction.
+
+The full root suite currently has four failing tests: two neutral/directional strike-selection expectations, Nova idle arm vibration, and roundhouse physical contact. Those findings remain release blockers alongside the uncompleted six-player client integration and real-device control/replay validation. No production release is claimed from the narrower browser and Worker passes.

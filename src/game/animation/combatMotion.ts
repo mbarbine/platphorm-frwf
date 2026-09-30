@@ -108,6 +108,8 @@ export function authoredIdlePose(base: Pose, elapsed: number): Pose {
   const phase = (elapsed * .22 % (clip.duration * 2)) / clip.duration;
   const captured = sampleCombatMotion('fighting_idle', (phase <= 1 ? phase : 2 - phase) * clip.duration);
   if (!captured) return base;
+  // Keep the imported idle clip recognizable while limiting wrist/forearm
+  // angular corrections on smaller rigs whose arm inertia differs.
   const result = blend(base, captured, .6 * clamp(elapsed * 2));
   result.leftLeg = base.leftLeg; result.rightLeg = base.rightLeg; result.leftShin = base.leftShin; result.rightShin = base.rightShin;
   result.rootTilt = base.rootTilt; result.rootYaw = base.rootYaw; result.rootRoll = base.rootRoll;

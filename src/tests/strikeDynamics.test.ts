@@ -25,7 +25,7 @@ describe('physical strike drive', () => {
     const kick = strikeDriveProfile(selectDirectionalStrike(neutral, 'heavy'));
 
     expect(punch).toMatchObject({ source: 'rightHand', target: 'chest' });
-    expect(followUp).toMatchObject({ source: 'leftHand', target: 'chest' });
+    expect(followUp).toMatchObject({ source: 'rightHand', target: 'head' });
     expect(kick).toMatchObject({ source: 'rightFoot', target: 'chest' });
   });
 

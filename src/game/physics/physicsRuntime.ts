@@ -2314,8 +2314,9 @@ export class BodyWorksRuntime {
       const authority = .65 + Math.min(1, motorStrengthFor(fighter, motorProfile, segment)) * .35;
       const stepping = fighter.state === 'locomotion' && /Thigh|Shin|Foot/.test(segment);
       const stabilizingFoot = stepping && segment.endsWith('Foot');
-      const gain = stabilizingFoot ? 32 : stepping ? 18 : striking ? 15 : onMat ? 9 : recovering ? 10 : 12;
-      const speed = stabilizingFoot ? 16 : stepping ? 9 : striking ? 9 * authority : onMat ? 3.8 : recovering ? 4 : 5.5;
+      const idleArm = fighter.state === 'idle' && /UpperArm|Forearm|Hand/.test(segment);
+      const gain = stabilizingFoot ? 32 : stepping ? 18 : striking ? 15 : onMat ? 9 : recovering ? 10 : idleArm ? 7.5 : 12;
+      const speed = stabilizingFoot ? 16 : stepping ? 9 : striking ? 9 * authority : onMat ? 3.8 : recovering ? 4 : idleArm ? 3.5 : 5.5;
       // One bounded velocity servo per body. The solver still owns every
       // constraint/contact; no second torque impulse can kick it off target.
       const parent = segment === 'head' || segment === 'leftUpperArm' || segment === 'rightUpperArm' ? rig.bodies.chest

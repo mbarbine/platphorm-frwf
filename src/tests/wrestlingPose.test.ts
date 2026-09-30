@@ -11,6 +11,6 @@ describe('wrestling anatomy and cover evidence', () => {
     for (const wrong of [{ torsoContact: false }, { separation: .7 }, { chestClearance: 1 }, { chestClearance: -.1 }, { shoulderHeight: 1 }, { defenderUpY: .9 }, { defenderFrontY: -.9 }, { attackerUpY: 1 }, { separation: NaN }]) expect(hasPhysicalCover({ ...established, ...wrong })).toBe(false);
   });
   it('keeps the jab, alternating hooks, and rising uppercut readable in the quick chain', () => {
-    expect([0, 1, 2, 3, 4].map(step => selectDirectionalStrike({ x: 0, z: 0 }, 'quick', step))).toEqual(['jab', 'right_hook', 'left_hook', 'uppercut', 'jab']);
+    expect([0, 1, 2, 3, 4, 5].map(step => selectDirectionalStrike({ x: 0, z: 0 }, 'quick', step))).toEqual(['jab', 'right_hook', 'left_hook', 'uppercut', 'combo', 'high_punch']);
   });
 });

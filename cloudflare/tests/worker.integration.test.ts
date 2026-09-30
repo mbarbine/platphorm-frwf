@@ -1,11 +1,15 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { Miniflare, convertV4MiniflareOptions } from 'miniflare';
 import { readFile, readdir } from 'node:fs/promises';
 
 const origin = 'https://frwf.platphormnews.com';
 const testKey = 'local-test-operator-only';
 let worker: Miniflare;
-const post = (path: string, body: unknown, authorized = false) => worker.dispatchFetch(origin + path, { method: 'POST', headers: { Origin: origin, 'Content-Type': 'application/json', ...(authorized ? { Authorization: `Bearer ${testKey}` } : {}) }, body: JSON.stringify(body) });
+let clientNumber = 0;
+let clientAddress = '192.0.2.1';
+// Each test is a distinct client; requests within one test retain its rate bucket.
+beforeEach(() => { clientAddress = `192.0.2.${++clientNumber}`; });
+const post = (path: string, body: unknown, authorized = false) => worker.dispatchFetch(origin + path, { method: 'POST', headers: { Origin: origin, 'CF-Connecting-IP': clientAddress, 'Content-Type': 'application/json', ...(authorized ? { Authorization: `Bearer ${testKey}` } : {}) }, body: JSON.stringify(body) });
 
 beforeAll(async () => {
   worker = new Miniflare(convertV4MiniflareOptions({ modules: true, scriptPath: 'dist/index.js', compatibilityDate: '2026-09-07',
@@ -90,6 +94,7 @@ describe('real Worker / Durable Object / D1 / R2 integration', () => {
 
   it('hosts without a platform key, issues distinct scoped invite links, and rejects foreign origins', async () => {
     const response = await post('/api/rooms', { ruleset: 'standard', fighterId: 'chelsea' }); expect(response.status).toBe(201);
+    expect(response.status, 'Test room creation must succeed before reading its invitations').toBe(201);
     const json = await response.json() as { data: { roomId: string; hostInvite: string; joinInvite: string; guestInvites: string[] } };
     expect(ticketFrom(json.data.hostInvite)).toMatch(/^[a-f0-9]{64}$/); expect(ticketFrom(json.data.joinInvite)).toMatch(/^[a-f0-9]{64}$/);
     expect(json.data.guestInvites).toHaveLength(5);
@@ -102,8 +107,19 @@ describe('real Worker / Durable Object / D1 / R2 integration', () => {
     expect(rejected.status).toBe(401);
   });
 
+  it('rate limits the ninth room hosted by the same client without weakening public hosting protection', async () => {
+    for (let count = 0; count < 8; count += 1) {
+      const created = await post('/api/rooms', { ruleset: 'standard' });
+      expect(created.status).toBe(201);
+    }
+    const rejected = await post('/api/rooms', { ruleset: 'standard' });
+    expect(rejected.status).toBe(429);
+    expect(await rejected.json()).toMatchObject({ ok: false, error: { code: 'room_host_rate_limited' } });
+  });
+
   it('runs a real private match lobby through authoritative movement and sequence acknowledgement', async () => {
     const response = await post('/api/rooms', { ruleset: 'standard' });
+    expect(response.status, 'Test room creation must succeed before reading its invitations').toBe(201);
     const json = await response.json() as { data: { roomId: string; hostInvite: string; joinInvite: string } };
     const firstTicket = ticketFrom(json.data.hostInvite);
     const secondTicket = ticketFrom(json.data.joinInvite);
@@ -179,6 +195,7 @@ describe('real Worker / Durable Object / D1 / R2 integration', () => {
 
   it('hands host authority to the connected challenger when the host leaves', async () => {
     const response = await post('/api/rooms', { fighterId: 'josh' });
+    expect(response.status, 'Test room creation must succeed before reading its invitations').toBe(201);
     const json = await response.json() as { data: { roomId: string; hostInvite: string; joinInvite: string } };
     const host = ticketFrom(json.data.hostInvite); const guest = ticketFrom(json.data.joinInvite);
     if (!host || !guest) throw new Error('Room invitations were not issued');
@@ -195,6 +212,7 @@ describe('real Worker / Durable Object / D1 / R2 integration', () => {
 
   it('starts with the actual connected seats after the original host leaves', async () => {
     const response = await post('/api/rooms', { fighterId: 'atlas' });
+    expect(response.status, 'Test room creation must succeed before reading its invitations').toBe(201);
     const json = await response.json() as { data: { roomId: string; hostInvite: string; guestInvites: string[] } };
     const tickets = [json.data.hostInvite, ...json.data.guestInvites.slice(0, 2)].map(ticketFrom);
     const [firstTicket, secondTicket, thirdTicket] = tickets;
@@ -221,6 +239,7 @@ describe('real Worker / Durable Object / D1 / R2 integration', () => {
 
   it('hands host authority to the challenger after a host settings change', async () => {
     const response = await post('/api/rooms', { ruleset: 'standard' });
+    expect(response.status, 'Test room creation must succeed before reading its invitations').toBe(201);
     const json = await response.json() as { data: { roomId: string; hostInvite: string; joinInvite: string } };
     const host = ticketFrom(json.data.hostInvite); const guest = ticketFrom(json.data.joinInvite);
     if (!host || !guest) throw new Error('Room invitations were not issued');
@@ -238,6 +257,7 @@ describe('real Worker / Durable Object / D1 / R2 integration', () => {
   describe('MatchRoom WebSocket error handling', () => {
     it('closes room WebSocket with code 1008 on invalid JSON message', async () => {
       const response = await post('/api/rooms', { ruleset: 'standard' });
+      expect(response.status, 'Test room creation must succeed before reading its invitations').toBe(201);
       const json = await response.json() as { data: { roomId: string; hostInvite: string; joinInvite: string } };
       const ticket = ticketFrom(json.data.hostInvite);
       if (!ticket) throw new Error('Player WebSocket ticket was not issued');
@@ -256,6 +276,7 @@ describe('real Worker / Durable Object / D1 / R2 integration', () => {
 
     it('closes room WebSocket with code 1009 on oversized message (> 4096 bytes)', async () => {
       const response = await post('/api/rooms', { ruleset: 'standard' });
+      expect(response.status, 'Test room creation must succeed before reading its invitations').toBe(201);
       const json = await response.json() as { data: { roomId: string; hostInvite: string; joinInvite: string } };
       const ticket = ticketFrom(json.data.hostInvite);
       if (!ticket) throw new Error('Player WebSocket ticket was not issued');
@@ -275,6 +296,7 @@ describe('real Worker / Durable Object / D1 / R2 integration', () => {
 
     it('closes room WebSocket with code 1008 when message rate limit is exceeded (> 120 msgs/sec)', async () => {
       const response = await post('/api/rooms', { ruleset: 'standard' });
+      expect(response.status, 'Test room creation must succeed before reading its invitations').toBe(201);
       const json = await response.json() as { data: { roomId: string; hostInvite: string; joinInvite: string } };
       const ticket = ticketFrom(json.data.hostInvite);
       if (!ticket) throw new Error('Player WebSocket ticket was not issued');
@@ -296,6 +318,7 @@ describe('real Worker / Durable Object / D1 / R2 integration', () => {
 
     it('returns error message with code invalid_message when JSON payload fails schema validation', async () => {
       const response = await post('/api/rooms', { ruleset: 'standard' });
+      expect(response.status, 'Test room creation must succeed before reading its invitations').toBe(201);
       const json = await response.json() as { data: { roomId: string; hostInvite: string; joinInvite: string } };
       const ticket = ticketFrom(json.data.hostInvite);
       if (!ticket) throw new Error('Player WebSocket ticket was not issued');

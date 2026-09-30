@@ -743,7 +743,7 @@ it('connects an uppercut through the rising hand and preserves a standing base',
 it.each([
   ['jab', 'quick', { x: 0, z: 0 }],
   ['uppercut', 'quick', { x: 0, z: -1 }],
-  ['high_punch', 'quick', { x: 1, z: 0 }],
+  ['right_hook', 'quick', { x: 1, z: 0 }],
   ['left_hook', 'quick', { x: -1, z: 0 }],
   ['low_kick', 'heavy', { x: 0, z: 1 }],
   ['front_kick', 'heavy', { x: 0, z: 0 }],
