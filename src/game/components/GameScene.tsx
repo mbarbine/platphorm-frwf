@@ -88,10 +88,8 @@ function Simulation({ onPause, onDevice, onFinished, inputEnabled = true, online
     const fixedStep = 1 / 60;
     if (model.networkAuthority) {
       const network = useMultiplayerStore.getState();
-      const p1SessionId = [...network.roles.entries()].find((entry) => entry[1] === 'player1')?.[0];
-      const p2SessionId = [...network.roles.entries()].find((entry) => entry[1] === 'player2')?.[0];
-      const localSessionId = onlineRole === 'player2' ? p2SessionId : p1SessionId;
-      const remoteSessionId = onlineRole === 'player2' ? p1SessionId : p2SessionId;
+      const localSessionId = network.sessionId;
+      const remoteSessionId = [...network.fighters.keys()].find(id => id !== localSessionId && network.connected.get(id));
       const local = localSessionId ? network.fighters.get(localSessionId) : null; const remote = remoteSessionId ? network.fighters.get(remoteSessionId) : null;
       if (network.lastSnapshotSeq > lastNetworkSnapshot.current && local && remote) {
         lastNetworkSnapshot.current = network.lastSnapshotSeq;
@@ -139,6 +137,8 @@ function Simulation({ onPause, onDevice, onFinished, inputEnabled = true, online
       const cinematic = useMatchStore.getState().replayActive || playerInGrapple || model.player.moveId !== null || ['grappling', 'grabbed', 'climbing', 'airborne', 'jumping', 'pinning', 'pinned'].includes(model.player.state);
       inputBasis.current = updateStableBasis(inputBasis.current, candidate, inputHeld, cinematic, fixedStep);
       const stableBasis = inputBasis.current;
+      document.documentElement.dataset.inputForwardX = String(stableBasis.forward.x);
+      document.documentElement.dataset.inputForwardZ = String(stableBasis.forward.z);
       raw.move = transformCameraRelative(raw.move, stableBasis);
       raw.actions = raw.actions?.map((event) => {
         // Locomotion follows the broadcast camera. Attack and grapple choices
@@ -267,7 +267,7 @@ function PlayerControlBeacon() {
     const hasMagnitude = (intent.move.x * intent.move.x + intent.move.z * intent.move.z) > 0.0064; // 0.08 * 0.08 = 0.0064
     const controllable = ['idle', 'locomotion'].includes(model.player.state) && !model.paused && !model.resolved;
     const battleIdentity = model.matchMode === 'battle_royale' && !['defeated', 'victorious'].includes(model.player.state) && !model.resolved;
-    group.visible = battleIdentity || (!model.resolved && !model.paused && model.player.state !== 'defeated');
+    group.visible = !useMatchStore.getState().replayActive && (battleIdentity || (!model.resolved && !model.paused && model.player.state !== 'defeated'));
     if (!group.visible) return;
     group.position.set(model.player.position.x, (!venueFor(model).hasRing || (Math.abs(model.player.position.x) <= 5.82 && Math.abs(model.player.position.z) <= 4.32)) ? 1.88 : .43, model.player.position.z);
     group.rotation.y = Math.atan2(intent.move.x, intent.move.z);
@@ -303,6 +303,7 @@ export function GameScene(props: Props) {
   const networkDiagnostics = useMultiplayerStore.getState();
   const diagnosticSessionId = networkDiagnostics.sessionId;
   const diagnosticServerFighter = diagnosticSessionId ? networkDiagnostics.fighters.get(diagnosticSessionId) : null;
+  const diagnosticTarget = [...networkDiagnostics.fighters.entries()].find(([id]) => id !== diagnosticSessionId && networkDiagnostics.connected.get(id))?.[1];
   const [graphicsLost, setGraphicsLost] = useState(false);
   const contextLost = useCallback(() => {
     setGraphicsLost(true);
@@ -360,6 +361,8 @@ export function GameScene(props: Props) {
         data-network-acked-seq={networkAckedSeq}
         data-network-server-x={diagnosticServerFighter?.posX ?? ''}
         data-network-server-z={diagnosticServerFighter?.posZ ?? ''}
+        data-network-target-x={diagnosticTarget?.posX ?? ''}
+        data-network-target-z={diagnosticTarget?.posZ ?? ''}
       >
         <Canvas
           shadows={quality.shadows ? 'percentage' : false}
@@ -389,7 +392,7 @@ export function GameScene(props: Props) {
             <Fighters detail={fighterDetail} />
             <ReplayDirector />
             <PlayerControlBeacon />
-            <ImpactEffects />
+            <group visible={!replayActive}><ImpactEffects /></group>
             <Simulation {...props} inputEnabled={props.onlineRole !== 'spectator' && !paused && !replayActive && !diagnosticModel.resolved && !['defeated', 'victorious'].includes(diagnosticModel.player.state)} />
           </Physics>
           {lab && labDebug ? <Suspense fallback={null}><BodyWorksDebugOverlay /></Suspense> : null}

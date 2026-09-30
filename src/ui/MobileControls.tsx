@@ -114,7 +114,7 @@ export function MobileControls({ onPause, paused }: MobileControlsProps) {
   if (player.state === 'defeated') return null;
   return <div className={`mobile-controls${paused ? ' mobile-controls--paused' : ''}`} data-testid="mobile-controls">
     <button type="button" className="mobile-pause" aria-label="Pause match" onClick={onPause}>Ⅱ</button>
-    <div ref={pad} className="mobile-stick" role="group" aria-label="Movement joystick" aria-disabled={paused} onPointerDown={startStick} onPointerMove={updateStick} onPointerUp={stopStick} onPointerCancel={stopStick}>
+    <div ref={pad} className="mobile-stick" role="group" aria-label="Movement joystick" aria-disabled={paused} onPointerDown={startStick} onPointerMove={updateStick} onPointerUp={stopStick} onPointerCancel={stopStick} onLostPointerCapture={stopStick}>
       <span>MOVE</span><i style={{ transform: `translate(${stick.x * 34}px, ${stick.z * 34}px)` }} />
     </div>
     <div className="mobile-modifiers">

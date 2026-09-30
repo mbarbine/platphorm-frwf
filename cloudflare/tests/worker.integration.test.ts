@@ -36,10 +36,10 @@ const connectWebSocket = async (roomId: string, ticket: string) => {
   return ws;
 };
 
-const nextSocketMessage = <T>(socket: WebSocket, predicate: (message: Record<string, unknown>) => boolean): Promise<T> =>
+const nextSocketMessage = <T>(socket: WebSocket, predicate: (message: Record<string, unknown>) => boolean, timeoutMs = 5000): Promise<T> =>
   new Promise((resolve, reject) => {
     const seen: string[] = [];
-    const timeout = setTimeout(() => { socket.removeEventListener('message', onMessage); reject(new Error(`Timed out waiting for Durable Object message; received ${seen.join(', ') || 'none'}`)); }, 5000);
+    const timeout = setTimeout(() => { socket.removeEventListener('message', onMessage); reject(new Error(`Timed out waiting for Durable Object message; received ${seen.slice(-20).join(', ') || 'none'}`)); }, timeoutMs);
     const onMessage = (event: MessageEvent) => {
       if (typeof event.data !== 'string') return;
       let value: Record<string, unknown>;
@@ -110,6 +110,9 @@ describe('real Worker / Durable Object / D1 / R2 integration', () => {
     if (!firstTicket || !secondTicket) throw new Error('Both scoped player tickets must be issued');
     const first = await connectWebSocket(json.data.roomId, firstTicket);
     const second = await connectWebSocket(json.data.roomId, secondTicket);
+    const heartbeat = setInterval(() => {
+      for (const socket of [first, second]) socket.send(JSON.stringify({ type: 'ping', clientTimestamp: Date.now(), protocolVersion: '2.0.0' }));
+    }, 5000);
     try {
       const activeFirst = nextSocketMessage<{ phase: string }>(first as unknown as WebSocket, message => message.type === 'roomState' && message.phase === 'active');
       const activeSecond = nextSocketMessage<{ phase: string }>(second as unknown as WebSocket, message => message.type === 'roomState' && message.phase === 'active');
@@ -163,10 +166,16 @@ describe('real Worker / Durable Object / D1 / R2 integration', () => {
       first.send(JSON.stringify({ type: 'command', protocolVersion: '2.0.0', seq: 1, clientTimestamp: 2,
         event: { action: 'move', phase: 'released', sequence: 1, timestamp: 2, direction: { x: 0, y: 0 }, source: 'network' } }));
       expect(await rejectedDuplicate).toMatchObject({ accepted: false, seq: 1 });
+      // Cross the idle/forfeit deadline with four unused reservations. Only actual
+      // combatants count, and their idle heartbeats must keep both seats alive.
+      const afterDeadline = await nextSocketMessage<{ elapsed: number; fighters: unknown[] }>(first as unknown as WebSocket,
+        message => message.type === 'snapshot' && Number(message.elapsed) >= 31, 40_000);
+      expect(afterDeadline.fighters).toHaveLength(2);
     } finally {
+      clearInterval(heartbeat);
       first.close(); second.close();
     }
-  });
+  }, 45_000);
 
   it('hands host authority to the connected challenger when the host leaves', async () => {
     const response = await post('/api/rooms', { fighterId: 'josh' });
@@ -182,6 +191,32 @@ describe('real Worker / Durable Object / D1 / R2 integration', () => {
       const state = await transferred;
       expect(state.hostSessionId).toBe(state.roles.find(entry => entry.role === 'player2')?.sessionId);
     } finally { first.close(); second.close(); }
+  });
+
+  it('starts with the actual connected seats after the original host leaves', async () => {
+    const response = await post('/api/rooms', { fighterId: 'atlas' });
+    const json = await response.json() as { data: { roomId: string; hostInvite: string; guestInvites: string[] } };
+    const tickets = [json.data.hostInvite, ...json.data.guestInvites.slice(0, 2)].map(ticketFrom);
+    const [firstTicket, secondTicket, thirdTicket] = tickets;
+    if (!firstTicket || !secondTicket || !thirdTicket) throw new Error('Three scoped invitations required');
+    const first = await connectWebSocket(json.data.roomId, firstTicket);
+    const second = await connectWebSocket(json.data.roomId, secondTicket);
+    const third = await connectWebSocket(json.data.roomId, thirdTicket);
+    try {
+      const transferred = nextSocketMessage<{ hostSessionId: string; roles: { sessionId: string; role: string }[] }>(second as unknown as WebSocket,
+        message => message.type === 'roomState' && Array.isArray(message.roles)
+          && message.hostSessionId === message.roles.find((entry: { sessionId: string; role: string }) => entry.role === 'player2')?.sessionId);
+      first.send(JSON.stringify({ type: 'leave', protocolVersion: '2.0.0' }));
+      const state = await transferred;
+      const thirdId = state.roles.find(entry => entry.role === 'player3')?.sessionId;
+      const ready = nextSocketMessage<unknown>(second as unknown as WebSocket, message => message.type === 'roomState'
+        && Array.isArray(message.roles) && message.roles.some(entry => entry.role === 'player3' && entry.ready));
+      third.send(JSON.stringify({ type: 'ready', ready: true, protocolVersion: '2.0.0' }));
+      await ready;
+      const snapshot = nextSocketMessage<{ fighters: { sessionId: string }[] }>(second as unknown as WebSocket, message => message.type === 'snapshot');
+      second.send(JSON.stringify({ type: 'startMatch', protocolVersion: '2.0.0' }));
+      expect((await snapshot).fighters.map(fighter => fighter.sessionId)).toEqual([state.hostSessionId, thirdId]);
+    } finally { first.close(); second.close(); third.close(); }
   });
 
   it('hands host authority to the challenger after a host settings change', async () => {

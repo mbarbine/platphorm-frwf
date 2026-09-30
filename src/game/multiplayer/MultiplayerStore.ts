@@ -66,7 +66,8 @@ export interface MultiplayerState {
 export const useMultiplayerStore = create<MultiplayerState>((set) => {
   // Wire up ColyseusClient events to Zustand state
   colyseusClient.setEventHandlers({
-    onStatusChange: (status) => set({ status }),
+    onStatusChange: (status) => set({ status, ...(status === 'connecting' ? { sessionId: null, myRole: null } : {}) }),
+    onWelcome: ({ sessionId, roomId }) => set(state => ({ sessionId, roomId, myRole: (state.roles.get(sessionId) as MultiplayerState['myRole']) ?? null })),
     onStateChange: (state: ClientRoomState) => {
       set((current) => {
         const roomFighters = copyStateMap(state.fighters); const fighters = new Map<string, ClientFighterState>();
@@ -117,6 +118,7 @@ export const useMultiplayerStore = create<MultiplayerState>((set) => {
       const sample = Number.isFinite(ack.clientTimestamp) ? Math.max(0, performance.now() - ack.clientTimestamp) : 0;
       return { lastAckedSeq: ack.seq, lastServerTimestamp: ack.serverTimestamp, rtt: sample ? state.rtt === 0 ? sample : state.rtt * .75 + sample * .25 : state.rtt };
     }),
+    onHeartbeat: (sample) => set(state => ({ rtt: state.rtt === 0 ? sample : state.rtt * .75 + sample * .25 })),
     onImpactEvent: (impact) => set({ lastImpact: impact }),
     onLobbyChat: (event) => set(state => ({ lobbyChat: [...state.lobbyChat, event].slice(-40) })),
     onMatchResult: (matchResult) => set({ matchResult, roomPhase: 'result' }),

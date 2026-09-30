@@ -1,3 +1,4 @@
+import { replayPresentation } from '../physics/replayBuffer';
 import { followCameraFrame } from '../camera/playerCamera';
 import { venueFor } from '../data/venues';
 import { useFrame, useThree } from '@react-three/fiber';
@@ -131,6 +132,28 @@ export function CameraRig() {
     const state = useMatchStore.getState();
     const model = state.model;
     const replayActive = state.replayActive;
+    if (replayActive && replayPresentation.frame) {
+      document.documentElement.dataset.cameraShot = 'replay';
+      const focused = replayPresentation.focusSlots.map(slot => replayPresentation.frame?.fighters[slot]).filter(segments => segments !== undefined);
+      const recorded = (focused.length > 0 ? focused : Object.values(replayPresentation.frame.fighters)).flatMap(segments => segments ? Object.values(segments) : []).filter(pose => pose !== undefined);
+      if (recorded.length > 0) {
+        let minX = Infinity; let maxX = -Infinity; let minY = Infinity; let maxY = -Infinity; let minZ = Infinity; let maxZ = -Infinity;
+        for (const pose of recorded) {
+          minX = Math.min(minX, pose.position.x); maxX = Math.max(maxX, pose.position.x);
+          minY = Math.min(minY, pose.position.y); maxY = Math.max(maxY, pose.position.y);
+          minZ = Math.min(minZ, pose.position.z); maxZ = Math.max(maxZ, pose.position.z);
+        }
+        const perspective = camera as PerspectiveCamera;
+        const center = new Vector3((minX + maxX) / 2, (minY + maxY) / 2, (minZ + maxZ) / 2);
+        const span = Math.max(2.8, Math.hypot(maxX - minX, maxZ - minZ) + 1.5);
+        const distance = Math.max(7, span / (2 * Math.tan(Math.PI * 48 / 360) * Math.min(1, perspective.aspect || 1)));
+        const position = center.clone().add(new Vector3(distance * .7, distance * .45, distance * .7));
+        camera.position.lerp(position, 1 - Math.exp(-Math.min(dt, .1) * 10));
+        lookAtSafe(camera, center);
+        perspective.fov = 48; perspective.updateProjectionMatrix();
+      }
+      return;
+    }
     const activeRuntimeId = model.runtimeId;
 
     // Stable interpolation: clamp frame delta to guard against sudden framerate drops or lag spikes

@@ -123,7 +123,9 @@ export class MatchRoom extends DurableObject<Env> {
   webSocketError(socket: WebSocket) { this.webSocketClose(socket); }
 
   private beginMatch() {
-    const room = this.room; const first = room?.seats[0]; const second = room?.seats[1]; if (!room || !first || !second) return;
+    const room = this.room;
+    const participants = room?.seats.filter(seat => seat.disconnectedAt === null && this.isConnected(seat.id)) ?? [];
+    const first = participants[0]; const second = participants[1]; if (!room || !first || !second) return;
     this.model = createOnlineMatch([{ sessionId: first.id, fighterId: first.fighterId }, { sessionId: second.id, fighterId: second.fighterId }], room.ruleset);
     // Resume sequence across rematches so late packets from a previous round stay invalid.
     for (const seat of room.seats) { const fighter = this.model.fighters.get(seat.id); if (fighter) fighter.lastCommandSeq = seat.lastSeq; seat.rematch = false; }
@@ -166,6 +168,8 @@ export class MatchRoom extends DurableObject<Env> {
     if (!this.room || !this.model || this.room.phase !== 'active') return;
     const now = Date.now(); this.accumulator += Math.min(.1, Math.max(0, (now - this.lastTick) / 1000)); this.lastTick = now;
     for (const seat of this.room.seats) {
+      // Unused invitation reservations are not match participants and cannot forfeit.
+      if (!this.model.fighters.has(seat.id)) continue;
       if (seat.disconnectedAt === null && now - seat.lastSeen > 30000) { seat.disconnectedAt = now; for (const ws of this.ctx.getWebSockets(seat.id)) ws.close(4000, 'Heartbeat timeout'); }
       if (seat.disconnectedAt !== null && now - seat.disconnectedAt > 30000) {
         const winner = this.room.seats.find(player => player.id !== seat.id && player.disconnectedAt === null)?.id ?? '';

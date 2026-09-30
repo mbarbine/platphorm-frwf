@@ -8,6 +8,7 @@ const ticket = 'a'.repeat(64);
 const invite = `${roomId}.${ticket}`;
 
 class FakeWebSocket extends EventTarget {
+  static instances: FakeWebSocket[] = [];
   static OPEN = 1;
   static CLOSING = 2;
   readyState = FakeWebSocket.OPEN;
@@ -15,6 +16,7 @@ class FakeWebSocket extends EventTarget {
   readonly sent: string[] = [];
   constructor(readonly url: string, readonly protocols: string[]) {
     super();
+    FakeWebSocket.instances.push(this);
     queueMicrotask(() => this.dispatchEvent(new Event('open')));
   }
   send(message: string) { this.sent.push(message); }
@@ -22,7 +24,12 @@ class FakeWebSocket extends EventTarget {
   receive(value: unknown) { this.dispatchEvent(new MessageEvent('message', { data: JSON.stringify(value) })); }
 }
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  for (const socket of FakeWebSocket.instances) socket.close();
+  FakeWebSocket.instances = [];
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
 
 describe('Cloudflare room invitations', () => {
   it('parses a room ID and ticket from pasted invite links without using the query string', () => {
@@ -76,6 +83,61 @@ describe('Cloudflare room invitations', () => {
     expect(sent[1]).toMatchObject({ fighterId: 'nova', protocolVersion: PROTOCOL_VERSION });
     expect(sent[2]).toMatchObject({ ready: true, protocolVersion: PROTOCOL_VERSION });
     expect(sent[3]).toMatchObject({ seq: 1, event: { source: 'network', sequence: 1 }, protocolVersion: PROTOCOL_VERSION });
+  });
+
+  it('keeps idle clients alive, measures RTT, and stops heartbeats when leaving', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] });
+    vi.stubGlobal('WebSocket', FakeWebSocket);
+    const onHeartbeat = vi.fn();
+    const client = new ColyseusClient({ serverUrl: 'https://frwf.ja1.io', onHeartbeat });
+    await client.joinByRoomId(invite);
+    const socket = FakeWebSocket.instances.at(-1);
+    if (!socket) throw new Error('Client socket was not created');
+    await vi.advanceTimersByTimeAsync(10_000);
+    const ping = socket.sent.map(value => JSON.parse(value)).find(message => message.type === 'ping');
+    expect(ping).toMatchObject({ type: 'ping', protocolVersion: PROTOCOL_VERSION });
+    expect(Number.isFinite(ping.clientTimestamp)).toBe(true);
+    socket.receive({ type: 'pong', clientTimestamp: performance.now() - 25 });
+    expect(onHeartbeat).toHaveBeenCalledWith(expect.any(Number));
+    expect(onHeartbeat.mock.calls[0]?.[0]).toBeGreaterThanOrEqual(25);
+    await client.leave();
+    const sentAtLeave = socket.sent.length;
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(socket.sent).toHaveLength(sentAtLeave);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('closes the previous room before replacing its connection', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] });
+    vi.stubGlobal('WebSocket', FakeWebSocket);
+    const client = new ColyseusClient({ serverUrl: 'https://frwf.ja1.io' });
+    await client.joinByRoomId(invite);
+    const previous = FakeWebSocket.instances.at(-1);
+    if (!previous) throw new Error('Client socket was not created');
+    await client.joinByRoomId(invite);
+    expect(previous.readyState).toBe(FakeWebSocket.CLOSING);
+    const previousCount = previous.sent.length;
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(previous.sent).toHaveLength(previousCount);
+    expect(FakeWebSocket.instances.at(-1)?.sent.map(value => JSON.parse(value).type)).toEqual(['requestRoomState', 'ping']);
+    expect(vi.getTimerCount()).toBe(1);
+  });
+
+  it('publishes a late welcome identity to the lobby store after socket open', async () => {
+    vi.stubGlobal('WebSocket', FakeWebSocket);
+    const { useMultiplayerStore } = await import('../game/multiplayer/MultiplayerStore');
+    await useMultiplayerStore.getState().joinByRoomId(invite);
+    expect(useMultiplayerStore.getState().sessionId).toBeNull();
+    const socket = FakeWebSocket.instances.at(-1);
+    if (!socket) throw new Error('Client socket was not created');
+    socket.receive({ type: 'welcome', roomId, sessionId: 'seat-two', lastCommandSeq: 0 });
+    socket.receive({ type: 'roomState', phase: 'lobby', hostSessionId: 'seat-one', ruleset: 'standard', chat: [],
+      roles: [{ sessionId: 'seat-one', role: 'player1', connected: true, ready: true }, { sessionId: 'seat-two', role: 'player2', connected: true, ready: false }],
+      fighters: [{ sessionId: 'seat-one', definitionId: 'atlas' }, { sessionId: 'seat-two', definitionId: 'nova' }] });
+    expect(useMultiplayerStore.getState()).toMatchObject({ sessionId: 'seat-two', myRole: 'player2', hostSessionId: 'seat-one' });
+    useMultiplayerStore.getState().setReady(true);
+    expect(JSON.parse(socket.sent.at(-1) ?? '{}')).toMatchObject({ type: 'ready', ready: true });
+    await useMultiplayerStore.getState().disconnect();
   });
 
   it('rejects incomplete join codes', async () => {

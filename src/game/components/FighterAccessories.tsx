@@ -5,6 +5,7 @@ import { useFrame } from '@react-three/fiber';
 import { useEffect, useMemo, useRef } from 'react';
 import { CanvasTexture, SRGBColorSpace } from 'three';
 import type { Group, Vector3, Quaternion } from 'three';
+import type { SegmentTransform } from '../physics/replayBuffer';
 import { bodyWorksRuntime } from '../physics/physicsRuntime';
 import { useMatchStore } from '../state/matchStore';
 import type { BodySegmentId } from '../physics/bodySchema';
@@ -50,16 +51,17 @@ interface AccessoryTransformProps {
   side?: FighterSlot;
   previewPose?: (segment: 'head' | 'pelvis' | 'chest') => { position: Vector3; rotation: Quaternion } | undefined;
   modelScale?: number;
+  recordedPose?: (segment: BodySegmentId) => SegmentTransform | undefined;
 }
 
-function HeadAccessories({ fighterId, side, previewPose, modelScale = 1 }: AccessoryTransformProps) {
+function HeadAccessories({ fighterId, side, previewPose, recordedPose, modelScale = 1 }: AccessoryTransformProps) {
   const head = useRef<Group>(null);
   // OPTIMIZATION: Update head segment transforms directly to avoid per-frame array allocations in useFrame
   useFrame(() => {
     if (!head.current) return;
-    const pose = previewPose ? previewPose('head') : side ? bodyWorksRuntime.segmentSnapshot(side, 'head') : undefined;
+    const pose = recordedPose ? recordedPose('head') : previewPose ? previewPose('head') : side ? bodyWorksRuntime.segmentSnapshot(side, 'head') : undefined;
     if (pose) {
-      head.current.position.copy(pose.position);
+      head.current.position.set(pose.position.x, pose.position.y, pose.position.z);
       head.current.quaternion.set(pose.rotation.x, pose.rotation.y, pose.rotation.z, pose.rotation.w);
     }
     if (fighterId === 'atlas') {
@@ -77,14 +79,14 @@ function HeadAccessories({ fighterId, side, previewPose, modelScale = 1 }: Acces
   );
 }
 
-function ChampionshipBelt({ side, previewPose }: Omit<AccessoryTransformProps, 'fighterId'>) {
+function ChampionshipBelt({ side, previewPose, recordedPose }: Omit<AccessoryTransformProps, 'fighterId'>) {
   const waist = useRef<Group>(null);
   // OPTIMIZATION: Update waist segment transforms directly to avoid per-frame array allocations in useFrame
   useFrame(() => {
     if (!waist.current) return;
-    const pose = previewPose ? previewPose('pelvis') : side ? bodyWorksRuntime.segmentSnapshot(side, 'pelvis') : undefined;
+    const pose = recordedPose ? recordedPose('pelvis') : previewPose ? previewPose('pelvis') : side ? bodyWorksRuntime.segmentSnapshot(side, 'pelvis') : undefined;
     if (pose) {
-      waist.current.position.copy(pose.position);
+      waist.current.position.set(pose.position.x, pose.position.y, pose.position.z);
       waist.current.quaternion.set(pose.rotation.x, pose.rotation.y, pose.rotation.z, pose.rotation.w);
     }
     const model = useMatchStore.getState().model;
@@ -100,12 +102,12 @@ function ChampionshipBelt({ side, previewPose }: Omit<AccessoryTransformProps, '
 }
 
 /** Identity details remain attached to solved anatomy throughout a throw. */
-export function FighterAccessories({ fighterId, side, previewPose, modelScale = 1 }: { modelScale?: number; fighterId: FighterId; side?: FighterSlot; previewPose?: (segment: 'head' | 'pelvis' | 'chest') => { position: Vector3; rotation: Quaternion } | undefined }) {
+export function FighterAccessories({ fighterId, side, previewPose, recordedPose, modelScale = 1 }: AccessoryTransformProps) {
   return (
     <>
-      {side && <RingGear side={side} fighterId={fighterId} />}
-      <HeadAccessories fighterId={fighterId} side={side} previewPose={previewPose} modelScale={modelScale} />
-      {fighterId === 'chad' && <ChampionshipBelt side={side} previewPose={previewPose} />}
+      {side && <RingGear side={side} fighterId={fighterId} recordedPose={recordedPose} />}
+      <HeadAccessories fighterId={fighterId} side={side} previewPose={previewPose} recordedPose={recordedPose} modelScale={modelScale} />
+      {fighterId === 'chad' && <ChampionshipBelt side={side} previewPose={previewPose} recordedPose={recordedPose} />}
     </>
   );
 }
@@ -113,7 +115,7 @@ export function FighterAccessories({ fighterId, side, previewPose, modelScale = 
 const GEAR_SEGMENTS: readonly BodySegmentId[] = ['leftForearm', 'rightForearm', 'leftFoot', 'rightFoot'];
 
 /** Ring equipment follows solved joints, including throughout falls and covers. */
-function RingGear({ side, fighterId }: { side: FighterSlot; fighterId: FighterId }) {
+function RingGear({ side, fighterId, recordedPose }: { side: FighterSlot; fighterId: FighterId; recordedPose?: AccessoryTransformProps['recordedPose'] }) {
   const refs = useRef<Partial<Record<BodySegmentId, Group | null>>>({});
   // OPTIMIZATION: Iterate static GEAR_SEGMENTS over object dictionary to avoid Map iterator allocations in useFrame
   useFrame(() => {
@@ -122,9 +124,9 @@ function RingGear({ side, fighterId }: { side: FighterSlot; fighterId: FighterId
       if (!segment) continue;
       const group = refs.current[segment];
       if (!group) continue;
-      const pose = bodyWorksRuntime.segmentSnapshot(side, segment);
+      const pose = recordedPose ? recordedPose(segment) : bodyWorksRuntime.segmentSnapshot(side, segment);
       if (pose) {
-        group.position.copy(pose.position);
+        group.position.set(pose.position.x, pose.position.y, pose.position.z);
         group.quaternion.set(pose.rotation.x, pose.rotation.y, pose.rotation.z, pose.rotation.w);
       }
     }

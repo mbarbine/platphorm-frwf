@@ -20,10 +20,11 @@ const pauseOnHudAttribute = async (page: Page, attribute: string, pattern: strin
 test('captures the shipping combat presentation at decisive motion beats', async ({ page }, testInfo) => {
   test.setTimeout(300_000);
   await page.setViewportSize({ width: 1600, height: 900 });
+  await page.addInitScript(() => localStorage.setItem("ringfall-settings-v2", JSON.stringify({ automaticReplays: true, reducedMotion: false })));
   await page.goto('/?physicsLab=1');
   await page.getByRole('button', { name: 'ENTER RINGFALL' }).click();
   await page.getByRole('button', { name: 'PLAY', exact: true }).click();
-  await page.getByRole('button', { name: /LOCK IN ATLAS/ }).click();
+  await page.getByRole('button', { name: /Lock in Atlas/i }).click();
   await page.getByRole('button', { name: /^STANDARD/ }).click();
   await page.getByRole('button', { name: 'START MATCH' }).click();
 
@@ -57,7 +58,7 @@ test('captures the shipping combat presentation at decisive motion beats', async
   await page.goto('/?physicsLab=1');
   await page.getByRole('button', { name: 'ENTER RINGFALL' }).click();
   await page.getByRole('button', { name: 'PLAY', exact: true }).click();
-  await page.getByRole('button', { name: /LOCK IN ATLAS/ }).click();
+  await page.getByRole('button', { name: /Lock in Atlas/i }).click();
   await page.getByRole('button', { name: /^STANDARD/ }).click();
   await page.getByRole('button', { name: 'START MATCH' }).click();
   await expect(hud).toHaveAttribute('data-physics-bodies', /^[1-9]\d*$/, { timeout: 30_000 });
@@ -68,12 +69,12 @@ test('captures the shipping combat presentation at decisive motion beats', async
   // The shipping simulation stays at 60 Hz; the instant replay owns the
   // slow-motion presentation after the committed torso landing. Capture the
   // replay instead of stalling the live GPU during a constrained lift.
-  await expect(hud.locator('[data-replay-active="true"]')).toBeAttached({ timeout: 90_000 });
+  await expect(page.locator('.replay-overlay[data-replay-active="true"]')).toBeAttached({ timeout: 90_000 });
   await page.screenshot({ path: testInfo.outputPath('05-slam-sequence.png') });
   await page.waitForTimeout(900);
   await page.screenshot({ path: testInfo.outputPath('06-slam-replay.png') });
 
-  await page.getByRole('button', { name: 'SKIP REPLAY' }).click();
+  await page.getByRole('button', { name: /Skip instant replay/ }).click();
   await pauseOnHudAttribute(page, 'data-opponent-state', '^(downed|recovering)$', 'capturedDeckRecovery');
   await expect.poll(async () => await page.locator('html').getAttribute('data-captured-deck-recovery'), { timeout: 20_000 }).toMatch(/downed|recovering/);
   // The lab panel is diagnostic-only and can cover the downed wrestler. Keep

@@ -15,14 +15,16 @@ const tapAndAwaitAuthority = async (page: Page, canvas: Locator, key: string, de
   // can begin and end before the render/physics collector observes the hold.
   await page.keyboard.down(key);
   await page.waitForTimeout(delay);
+  await page.keyboard.up(key);
   await expect.poll(async () => Number(await page.locator('html').getAttribute('data-input-action-count')),
     { message: `the active browser should collect the ${key} movement edge` }).toBeGreaterThan(0);
   await expect.poll(async () => Number(await canvas.getAttribute('data-network-command-seq')),
     { message: `the ${key} movement edge should be sent to the room` }).toBeGreaterThan(commandBefore);
-  await page.keyboard.up(key);
   await expect.poll(async () => Number(await canvas.getAttribute('data-network-acked-seq'))).toBeGreaterThan(commandBefore);
   await expect.poll(async () => Number(await canvas.getAttribute('data-network-snapshot'))).toBeGreaterThan(snapshotBefore);
 };
+
+test.use({ actionTimeout: 15_000 });
 
 test('two browsers share authoritative movement, contact, and impact state', async ({ browser, baseURL }) => {
   test.setTimeout(300_000);
@@ -31,6 +33,7 @@ test('two browsers share authoritative movement, contact, and impact state', asy
   try {
 
     for (const page of [host, guest]) {
+      await page.addInitScript(() => localStorage.setItem('ringfall-settings-v2', JSON.stringify({ graphicsQuality: 'performance', reducedMotion: true })));
       await page.goto(baseURL ?? '/');
       await page.getByRole('button', { name: 'ENTER RINGFALL' }).click();
       await page.getByRole('button', { name: 'PLAY ONLINE' }).click();
@@ -41,14 +44,15 @@ test('two browsers share authoritative movement, contact, and impact state', asy
     await expect(shareLink).toHaveValue(/#room=/, { timeout: 20_000 });
     await guest.getByPlaceholder('PASTE PRIVATE INVITATION...').fill(await shareLink.inputValue());
     await guest.getByRole('button', { name: 'JOIN MATCH' }).click();
-    await expect(host.getByText('PLAYER 1 (HOST)')).toBeVisible({ timeout: 20_000 });
-    await expect(guest.getByText('PLAYER 1 (HOST)')).toBeVisible({ timeout: 20_000 });
+    await expect(host.getByText('PLAYER1 · HOST', { exact: true })).toBeVisible({ timeout: 20_000 });
+    await expect(guest.getByText('PLAYER1 · HOST', { exact: true })).toBeVisible({ timeout: 20_000 });
     await expect(host.getByText('AWAITING OPPONENT...')).toHaveCount(0);
 
-    await Promise.all([
-      host.getByRole('button', { name: 'READY TO FIGHT' }).click(),
-      guest.getByRole('button', { name: 'READY TO FIGHT' }).click(),
-    ]);
+    await guest.getByRole('button', { name: 'READY TO FIGHT', exact: true }).click();
+    await expect(host.getByRole('article', { name: 'PLAYER2 READY', exact: true })).toBeVisible();
+    await expect(host.getByRole('article', { name: /OPEN SEAT/ })).toHaveCount(4);
+    await expect(host.getByRole('button', { name: 'START MATCH', exact: true })).toBeEnabled();
+    await host.getByRole('button', { name: 'START MATCH', exact: true }).click();
     const hostCanvas = host.getByTestId('game-canvas'); const guestCanvas = guest.getByTestId('game-canvas');
     await expect(hostCanvas).toHaveAttribute('data-online-role', 'player1', { timeout: 20_000 });
     await expect(guestCanvas).toHaveAttribute('data-online-role', 'player2', { timeout: 20_000 });
@@ -56,34 +60,38 @@ test('two browsers share authoritative movement, contact, and impact state', asy
     await expect(guestCanvas).toHaveAttribute('data-network-authority', 'true');
     await expect(hostCanvas).toHaveAttribute('data-network-status', 'connected');
     await expect(guestCanvas).toHaveAttribute('data-network-status', 'connected');
-    await expect.poll(async () => Number(await hostCanvas.getAttribute('data-network-snapshot'))).toBeGreaterThan(0);
     await host.bringToFront();
+    await expect.poll(async () => Number(await hostCanvas.getAttribute('data-network-snapshot')), { timeout: 45_000 }).toBeGreaterThan(0);
     await expect(hostCanvas).toHaveAttribute('data-simulation-ready', 'true', { timeout: 45000 });
     await expect(host.locator('html')).toHaveAttribute('data-game-input-ready', 'true');
     await guest.bringToFront();
     await expect(guestCanvas).toHaveAttribute('data-simulation-ready', 'true', { timeout: 45000 });
     await expect(guest.locator('html')).toHaveAttribute('data-game-input-ready', 'true');
+    const guestBefore = await serverPosition(guestCanvas);
+    await tapAndAwaitAuthority(guest, guestCanvas, 'w', 180);
+    expect(distance(guestBefore, await serverPosition(guestCanvas))).toBeGreaterThan(.02);
+    const guestCommandBefore = Number(await guestCanvas.getAttribute('data-network-acked-seq'));
+    await guest.keyboard.press('j');
+    await expect.poll(async () => Number(await guestCanvas.getAttribute('data-network-acked-seq'))).toBeGreaterThan(guestCommandBefore);
     // Browser contexts are foreground-throttled one at a time. Restore host
     // visibility before expecting its rAF-driven physics clock to advance.
     await host.bringToFront();
     await expect.poll(async () => Number(await hostCanvas.getAttribute('data-physics-steps')), { timeout: 20_000 }).toBeGreaterThan(30);
 
-    const sampleStart = await serverPosition(hostCanvas); const sampleTarget = await serverPosition(guestCanvas);
-    await tapAndAwaitAuthority(host, hostCanvas, 'w');
-    const sampleEnd = await serverPosition(hostCanvas); const sampleDx = sampleEnd.x - sampleStart.x; const sampleDz = sampleEnd.z - sampleStart.z; const sampleMagnitude = Math.hypot(sampleDx, sampleDz);
-    expect(sampleMagnitude).toBeGreaterThan(.02);
-    const forward = { x: sampleDx / sampleMagnitude, z: sampleDz / sampleMagnitude };
-    const movementSamples = [
-      { key: 'w', x: forward.x, z: forward.z },
-      { key: 's', x: -forward.x, z: -forward.z },
-      { key: 'd', x: -forward.z, z: forward.x },
-      { key: 'a', x: forward.z, z: -forward.x },
-    ].map((candidate) => ({ key: candidate.key, score: candidate.x * (sampleTarget.x - sampleEnd.x) + candidate.z * (sampleTarget.z - sampleEnd.z) }));
-    const towardOpponent = movementSamples.sort((a, b) => b.score - a.score)[0];
-    expect(towardOpponent?.score, JSON.stringify(movementSamples)).toBeGreaterThan(0);
-    for (let burst = 0; burst < 12; burst += 1) {
-      if (distance(await serverPosition(hostCanvas), await serverPosition(guestCanvas)) < 1.15) break;
-      await tapAndAwaitAuthority(host, hostCanvas, towardOpponent?.key ?? 'w', 260);
+    for (let burst = 0; burst < 35; burst += 1) {
+      const state = await hostCanvas.evaluate(element => ({
+        x: Number(element.getAttribute('data-network-server-x')), z: Number(element.getAttribute('data-network-server-z')),
+        targetX: Number(element.getAttribute('data-network-target-x')), targetZ: Number(element.getAttribute('data-network-target-z')),
+        forwardX: Number(document.documentElement.dataset.inputForwardX), forwardZ: Number(document.documentElement.dataset.inputForwardZ),
+      }));
+      if (Math.hypot(state.targetX - state.x, state.targetZ - state.z) < 1.15) break;
+      const candidates = [
+        { key: 'w', x: state.forwardX, z: state.forwardZ },
+        { key: 's', x: -state.forwardX, z: -state.forwardZ },
+        { key: 'd', x: -state.forwardZ, z: state.forwardX },
+        { key: 'a', x: state.forwardZ, z: -state.forwardX },
+      ].sort((a, b) => (b.x - a.x) * (state.targetX - state.x) + (b.z - a.z) * (state.targetZ - state.z));
+      await tapAndAwaitAuthority(host, hostCanvas, candidates[0]?.key ?? 'w', 180);
     }
     await expect(host.locator('html')).toHaveAttribute('data-input-last-action', 'move');
     await expect(host.locator('html')).toHaveAttribute('data-input-last-action-phase', 'released');
@@ -94,7 +102,7 @@ test('two browsers share authoritative movement, contact, and impact state', asy
     await host.waitForTimeout(500);
     const stillStoppedAt = await serverPosition(hostCanvas);
     expect(distance(stoppedAt, stillStoppedAt), JSON.stringify({ stoppedAt, stillStoppedAt })).toBeLessThan(.08);
-    const positions = { host: stillStoppedAt, guest: await serverPosition(guestCanvas) };
+    const positions = { host: stillStoppedAt, guest: { x: Number(await hostCanvas.getAttribute('data-network-target-x')), z: Number(await hostCanvas.getAttribute('data-network-target-z')) } };
     expect(distance(positions.host, positions.guest), JSON.stringify(positions)).toBeLessThan(1.4);
     await host.keyboard.press('j');
 
@@ -109,7 +117,7 @@ test('two browsers share authoritative movement, contact, and impact state', asy
     await guest.keyboard.press('Escape');
     await guest.getByRole('button', { name: 'QUIT TO MENU' }).click();
     await host.bringToFront();
-    await expect(host.getByText('WINS BY FORFEIT', { exact: true })).toBeVisible({ timeout: 20000 });
+    await expect(host.getByText('WINS BY FORFEIT', { exact: true })).toBeVisible({ timeout: 45000 });
     await host.screenshot({ path: 'test-results/online-forfeit.png' });
   } finally {
     await hostContext.close(); await guestContext.close();

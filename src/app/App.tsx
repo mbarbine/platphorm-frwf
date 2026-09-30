@@ -125,19 +125,16 @@ export function App() {
   // Synchronize Multiplayer transition to actual active gameplay
   useEffect(() => {
     if (screen === 'multiplayer_lobby' && multiplayerStatus === 'connected' && multiplayerRoomPhase === 'active') {
-      const p1SessionId = [...multiplayerRoles.entries()].find((entry) => entry[1] === 'player1')?.[0];
-      const p2SessionId = [...multiplayerRoles.entries()].find((entry) => entry[1] === 'player2')?.[0];
-      const p1Fighter = p1SessionId ? (multiplayerFightersMap.get(p1SessionId)?.definitionId as FighterId) : 'atlas';
-      const p2Fighter = p2SessionId ? (multiplayerFightersMap.get(p2SessionId)?.definitionId as FighterId) : 'nova';
-      const localFighter = multiplayerMyRole === 'player2' ? p2Fighter : p1Fighter;
-      const remoteFighter = multiplayerMyRole === 'player2' ? p1Fighter : p2Fighter;
-
-      configure(localFighter, remoteFighter, 'standard', 'normal', 0, 0, 'singles');
+      const localFighter = multiplayerSessionId ? multiplayerFightersMap.get(multiplayerSessionId)?.definitionId as FighterId | undefined : undefined;
+      const remoteSessionId = [...multiplayerFightersMap.keys()].find(id => id !== multiplayerSessionId && multiplayerConnectedPlayers.get(id));
+      const remoteFighter = remoteSessionId ? multiplayerFightersMap.get(remoteSessionId)?.definitionId as FighterId | undefined : undefined;
+      if (!localFighter || !remoteFighter) return;
+      configure(localFighter, remoteFighter, multiplayerRuleset, 'normal', 0, 0, 'singles');
       useMatchStore.getState().setNetworkAuthority(true);
       setScreen('match');
       audioEngine.play('bell', settings);
     }
-  }, [screen, multiplayerStatus, multiplayerRoomPhase, multiplayerMyRole, multiplayerRoles, multiplayerFightersMap, configure, settings]);
+  }, [screen, multiplayerStatus, multiplayerRoomPhase, multiplayerSessionId, multiplayerConnectedPlayers, multiplayerRuleset, multiplayerFightersMap, configure, settings]);
 
   const confirm = (next: Screen): void => { audioEngine.play('confirm', settings); setScreen(next); };
   const preloadRuntime = useCallback((): void => {
@@ -435,6 +432,7 @@ export function App() {
                 <span style={{ fontSize: '0.8rem', color: '#888' }}>ROOM ID · SHARE A GUEST SEAT LINK</span>
               <strong data-testid="multiplayer-room-code" style={{ fontSize: '1.8rem', color: '#ff007b', letterSpacing: '4px', fontFamily: 'monospace' }}>{multiplayerRoomId}</strong>
               {multiplayerGuestInvites.length > 0 && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '.4rem', width: 'min(100%, 700px)', marginTop: '.5rem' }}>
+                <input aria-label="First guest invitation" data-testid="multiplayer-join-invite" readOnly value={multiplayerGuestInvites[0] ?? ''} onFocus={event => event.currentTarget.select()} style={{ gridColumn: '1 / -1', minWidth: 0, width: '100%' }} />
                 {multiplayerGuestInvites.map((invite, index) => <button key={invite} className="button button--quiet" aria-label={`Copy player ${index + 2} invitation`} onClick={async () => {
                   try { await navigator.clipboard.writeText(invite); }
                   catch { setMultiplayerError('Clipboard unavailable. Copy the invitation from the address bar after opening it.'); }
@@ -507,7 +505,7 @@ export function App() {
       </div>
     </section>}
     {screen === 'world' && <Suspense fallback={<ArenaLoading />}><WorldScene onEncounter={enterWorldBout} onExit={() => confirm('main')} /></Suspense>}
-    {screen === 'match' && <section className="match-screen"><Suspense fallback={<ArenaLoading />}><GameScene onPause={togglePause} onDevice={setDevice} onFinished={finish} onlineRole={useMatchStore.getState().model.networkAuthority ? multiplayerMyRole : null} /></Suspense>{!toyTest && <><HUD device={device} paused={paused} />{settings.controlDeckMode !== 'hidden' && <Tutorial device={device} />}<MobileControls onPause={togglePause} paused={paused || replayActive} /><SpectatorControls /></>}{physicsLab && <Suspense fallback={null}><PhysicsLab /></Suspense>}{replayActive && <ReplayOverlay />}{paused && matchSettings && <div className="pause-overlay pause-overlay--settings"><Suspense fallback={null}><SettingsPanel onBack={() => setMatchSettings(false)} /></Suspense></div>}{paused && !matchSettings && <div className="pause-overlay"><Logo compact /><span>MATCH PAUSED</span><button className="button button--hero" onClick={togglePause}>RESUME</button><button className="button button--quiet" onClick={() => { setMatchSettings(true); }}>SETTINGS</button><button className="button button--quiet" onClick={() => { useMatchStore.getState().pause(false); useMatchStore.getState().setNetworkAuthority(false); void useMultiplayerStore.getState().disconnect(); setPaused(false); if (worldEncounter) returnToWorld(); else setScreen('main'); }}>{worldEncounter ? 'RETURN TO SHOWGROUND' : 'QUIT TO MENU'}</button></div>}</section>}
+    {screen === 'match' && <section className="match-screen"><Suspense fallback={<ArenaLoading />}><GameScene onPause={togglePause} onDevice={setDevice} onFinished={finish} onlineRole={useMatchStore.getState().model.networkAuthority ? multiplayerMyRole : null} /></Suspense>{!toyTest && !replayActive && <><HUD device={device} paused={paused} />{settings.controlDeckMode !== 'hidden' && <Tutorial device={device} />}<MobileControls onPause={togglePause} paused={paused || replayActive} /><SpectatorControls /></>}{physicsLab && <Suspense fallback={null}><PhysicsLab /></Suspense>}{replayActive && <ReplayOverlay />}{paused && matchSettings && <div className="pause-overlay pause-overlay--settings"><Suspense fallback={null}><SettingsPanel onBack={() => setMatchSettings(false)} /></Suspense></div>}{paused && !matchSettings && <div className="pause-overlay"><Logo compact /><span>MATCH PAUSED</span><button className="button button--hero" onClick={togglePause}>RESUME</button><button className="button button--quiet" onClick={() => { setMatchSettings(true); }}>SETTINGS</button><button className="button button--quiet" onClick={() => { useMatchStore.getState().pause(false); useMatchStore.getState().setNetworkAuthority(false); void useMultiplayerStore.getState().disconnect(); setPaused(false); if (worldEncounter) returnToWorld(); else setScreen('main'); }}>{worldEncounter ? 'RETURN TO SHOWGROUND' : 'QUIT TO MENU'}</button></div>}</section>}
     {screen === 'results' && result && <Results result={result} winnerName={fighterById(useMatchStore.getState().model[result.winner].definitionId).name} onWorld={worldEncounter ? returnToWorld : undefined} onRematch={doRematch} onChange={() => { setWorldEncounter(null); setSelectionTarget('match'); confirm('select'); }} onMenu={() => { setWorldEncounter(null); confirm('main'); }} />}
   </main>;
 }
@@ -524,7 +522,7 @@ export function ReplayOverlay() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  return <div className="replay-overlay">
+  return <div className="replay-overlay" data-replay-active="true">
     <div className="sr-only" role="status" aria-live="polite">Instant replay playing: physical impact review. Press Escape or activate button to skip.</div>
     <span>FRWF INSTANT REPLAY</span>
     <b>PHYSICAL IMPACT REVIEW</b>

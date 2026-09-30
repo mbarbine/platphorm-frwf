@@ -17,12 +17,14 @@ export interface ClientFighterState {
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'reconnecting' | 'error';
 export interface ColyseusClientOptions {
   serverUrl?: string;
+  onWelcome?: (identity: { sessionId: string; roomId: string }) => void;
   onStatusChange?: (status: ConnectionStatus) => void;
   onStateChange?: (state: ClientRoomState) => void;
   onSnapshot?: (snapshot: SnapshotMessage) => void;
   onImpactEvent?: (event: ImpactEventMessage) => void;
   onMatchResult?: (result: MatchResultMessage) => void;
   onCommandAck?: (ack: CommandAckMessage) => void;
+  onHeartbeat?: (roundTripMs: number) => void;
   onRoomState?: (state: RoomStateMessage) => void;
   onLobbyChat?: (event: LobbyChatEventMessage) => void;
   onVersionRejected?: (info: { serverVersion: string }) => void;
@@ -51,17 +53,20 @@ export class ColyseusClient {
   private roomIdValue: string | undefined;
   private sessionIdValue: string | undefined;
   private intentionalLeave = false;
+  private heartbeat: ReturnType<typeof setInterval> | null = null;
   private readonly options: Required<ColyseusClientOptions>;
 
   constructor(options: ColyseusClientOptions = {}) {
     this.options = {
       serverUrl: options.serverUrl ?? gameServerEndpoint ?? '',
+      onWelcome: options.onWelcome ?? (() => undefined),
       onStatusChange: options.onStatusChange ?? (() => undefined),
       onStateChange: options.onStateChange ?? (() => undefined),
       onSnapshot: options.onSnapshot ?? (() => undefined),
       onImpactEvent: options.onImpactEvent ?? (() => undefined),
       onMatchResult: options.onMatchResult ?? (() => undefined),
       onCommandAck: options.onCommandAck ?? (() => undefined),
+      onHeartbeat: options.onHeartbeat ?? (() => undefined),
       onRoomState: options.onRoomState ?? (() => undefined),
       onLobbyChat: options.onLobbyChat ?? (() => undefined),
       onVersionRejected: options.onVersionRejected ?? (() => undefined),
@@ -92,6 +97,7 @@ export class ColyseusClient {
     const invite = parseRoomInvite(inviteOrUrl);
     if (!invite) throw new Error('Enter a complete private room invitation (room ID and seat ticket).');
     if (!this.options.serverUrl) throw new Error('The Cloudflare match service is not configured for this environment.');
+    if (this.socket) await this.leave();
     this.intentionalLeave = false;
     this.roomIdValue = invite.roomId; this.commandSeq = 0;
     this.setStatus('connecting');
@@ -105,15 +111,18 @@ export class ColyseusClient {
       socket.addEventListener('open', () => {
         clearTimeout(timeout);
         if (socket.protocol !== 'frwf-v1') { socket.close(1002, 'Protocol mismatch'); this.setStatus('error'); reject(new Error('Match server protocol mismatch.')); return; }
-        this.setStatus('connected'); resolve();
+        this.setStatus('connected');
+        this.heartbeat = setInterval(() => this.send({ type: 'ping', clientTimestamp: performance.now(), protocolVersion: PROTOCOL_VERSION }), 10000);
+        resolve();
       }, { once: true });
       socket.addEventListener('error', () => {
         clearTimeout(timeout); this.setStatus('error'); reject(new Error('Could not connect to the private match. Check the invitation and try again.'));
       }, { once: true });
-      socket.addEventListener('message', event => this.receive(event.data));
+      socket.addEventListener('message', event => { if (this.socket === socket) this.receive(event.data); });
       socket.addEventListener('close', event => {
         clearTimeout(timeout);
         if (this.socket !== socket) return;
+        this.stopHeartbeat();
         this.socket = null;
         if (this.intentionalLeave || event.code === 1000) this.setStatus('disconnected');
         else this.setStatus('error');
@@ -125,6 +134,7 @@ export class ColyseusClient {
 
   async leave(_consented = true): Promise<void> {
     this.intentionalLeave = true;
+    this.stopHeartbeat();
     const socket = this.socket;
     if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: 'leave', protocolVersion: PROTOCOL_VERSION }));
     this.socket = null;
@@ -159,14 +169,24 @@ export class ColyseusClient {
   private send(message: unknown) {
     if (this.socket?.readyState === WebSocket.OPEN) this.socket.send(JSON.stringify(message));
   }
+  private stopHeartbeat(): void {
+    if (this.heartbeat !== null) clearInterval(this.heartbeat);
+    this.heartbeat = null;
+  }
   private receive(raw: unknown) {
     if (typeof raw !== 'string') return;
     let message: Record<string, unknown>;
     try { message = JSON.parse(raw) as Record<string, unknown>; } catch { return; }
     switch (message.type) {
+      case 'pong':
+        if (typeof message.clientTimestamp === 'number' && Number.isFinite(message.clientTimestamp)) {
+          this.options.onHeartbeat(Math.max(0, performance.now() - message.clientTimestamp));
+        }
+        break;
       case 'welcome':
         if (typeof message.sessionId === 'string') this.sessionIdValue = message.sessionId;
         if (typeof message.lastCommandSeq === 'number') this.commandSeq = message.lastCommandSeq;
+        if (this.sessionIdValue && this.roomIdValue) this.options.onWelcome({ sessionId: this.sessionIdValue, roomId: this.roomIdValue });
         break;
       case 'roomState': {
         const state = message as unknown as RoomStateMessage;

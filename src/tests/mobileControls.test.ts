@@ -288,3 +288,16 @@ describe('mobile move labels follow real Arcade execution', () => {
     expect(screen.getByRole('button', { name: /^Quick strike:/i }).getAttribute('data-move-label')).toBe('RELEASE THROW');
   });
 });
+
+
+describe('touch input interruption', () => {
+  afterEach(() => { cleanup(); mobileInput.reset(); });
+  it('clears movement, holds, and queued strikes when controls unmount for replay', () => {
+    useMatchStore.getState().configure('atlas', 'nova', 'standard', 'normal', 0, 0, 'singles');
+    const view = render(React.createElement(MobileControls, { onPause: () => {}, paused: false }));
+    mobileInput.setMove({ x: 1, z: 0 }); mobileInput.setRun(true); mobileInput.setBlock(true); mobileInput.queue('quickStrike');
+    view.unmount();
+    const input = mobileInput.read();
+    expect(input.move).toEqual({ x: 0, z: 0 }); expect(input.run).toBe(false); expect(input.block).toBe(false); expect(input.actions).toEqual([]);
+  });
+});

@@ -2,10 +2,11 @@ import { expect, test } from '@playwright/test';
 
 test('a body slam visibly lifts, lands torso-first, and settles without a broken body tree', async ({ page }) => {
   test.setTimeout(300_000);
+  await page.addInitScript(() => localStorage.setItem("ringfall-settings-v2", JSON.stringify({ automaticReplays: true, reducedMotion: false })));
   await page.goto('/?physicsLab=1');
   await page.getByRole('button', { name: 'ENTER RINGFALL' }).click();
   await page.getByRole('button', { name: 'PLAY', exact: true }).click();
-  await page.getByRole('button', { name: /LOCK IN ATLAS/ }).click();
+  await page.getByRole('button', { name: /Lock in Atlas/i }).click();
   await page.getByRole('button', { name: /^STANDARD/ }).click();
   await page.getByRole('button', { name: 'START MATCH' }).click();
 
@@ -14,12 +15,12 @@ test('a body slam visibly lifts, lands torso-first, and settles without a broken
   const restingPelvisY = Number(await hud.getAttribute('data-opponent-pelvis-y'));
   await page.evaluate(() => {
     const sample = (): void => {
+      if (document.querySelector('.replay-overlay[data-replay-active="true"]')) document.documentElement.dataset.sawSlamReplay = 'true';
       const liveHud = document.querySelector('.hud'); if (!liveHud) return;
       const pelvisY = Number(liveHud.getAttribute('data-opponent-pelvis-y'));
       const peak = Number(document.documentElement.dataset.slamPeakPelvisY ?? 0);
       if (Number.isFinite(pelvisY) && pelvisY > peak) document.documentElement.dataset.slamPeakPelvisY = pelvisY.toFixed(3);
       if (liveHud.getAttribute('data-grapple-phase') === 'lift') document.documentElement.dataset.sawSlamLift = 'true';
-      if (liveHud.querySelector('[data-replay-active="true"]')) document.documentElement.dataset.sawSlamReplay = 'true';
       const readout = liveHud.querySelector('[data-testid="impact-readout"]');
       if (readout?.getAttribute('data-impact-owner') === 'player' && readout.getAttribute('data-impact-kind') === 'grapple') document.documentElement.dataset.sawSlamHitReadout = 'true';
       const contact = liveHud.querySelector('[data-physics-last-contact]')?.getAttribute('data-physics-last-contact');
