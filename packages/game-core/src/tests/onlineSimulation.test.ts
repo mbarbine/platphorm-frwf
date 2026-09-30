@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ActionEvent, GameAction } from '@frwf/game-protocol';
-import { applyOnlineAction, createOnlineMatch, stepOnlineMatch } from '../onlineSimulation.js';
+import { applyOnlineAction, createOnlineMatch, eliminateOnlineFighter, stepOnlineMatch } from '../onlineSimulation.js';
 
 const action = (name: GameAction, sequence: number, direction = { x: 0, y: 0 }, phase: ActionEvent['phase'] = 'started'): ActionEvent => ({
   action: name, phase, sequence, timestamp: sequence * 16, direction, source: 'network',
@@ -113,5 +113,86 @@ describe('online deterministic authority', () => {
     const impacts = advance(match, 1.2);
     expect(impacts.some((impact) => impact.moveId === 'slam')).toBe(true);
     expect(p2.health).toBeLessThan(90); expect(p2.combatState).toMatch(/downed|idle/);
+  });
+});
+
+
+describe('six-wrestler authoritative bouts', () => {
+  const players = Array.from({ length: 6 }, (_, index) => ({ sessionId: `seat${index + 1}`, fighterId: 'atlas' as const }));
+
+  it('spawns six distinct bodies facing toward the ring center', () => {
+    const match = createOnlineMatch(players);
+    expect(match.fighters.size).toBe(6);
+    const actors = [...match.fighters.values()];
+    for (const actor of actors) {
+      expect(Math.sin(actor.facing) * actor.posX + Math.cos(actor.facing) * actor.posZ).toBeLessThan(-2);
+      for (const other of actors) if (other !== actor) expect(Math.hypot(actor.posX - other.posX, actor.posZ - other.posZ)).toBeGreaterThan(2);
+    }
+  });
+
+  it('accepts the same sequence independently from every human seat', () => {
+    const match = createOnlineMatch(players);
+    const initial = [...match.fighters.values()].map(actor => actor.posZ);
+    for (const player of players) expect(applyOnlineAction(match, player.sessionId, action('move', 1, { x: 0, y: 1 }), 1)).toBe(true);
+    advance(match, .1);
+    [...match.fighters.values()].forEach((actor, index) => {
+      expect(actor.posZ).toBeGreaterThan(initial[index] ?? Infinity);
+      expect(actor.lastCommandSeq).toBe(1);
+      expect(applyOnlineAction(match, actor.sessionId, action('move', 1), 1)).toBe(false);
+    });
+  });
+
+  it('separates every pair when six bodies collide at the same point', () => {
+    const match = createOnlineMatch(players);
+    for (const actor of match.fighters.values()) { actor.posX = 0; actor.posZ = 0; }
+    advance(match, 1);
+    const actors = [...match.fighters.values()];
+    for (const actor of actors) for (const other of actors) if (other !== actor) {
+      expect(Math.hypot(actor.posX - other.posX, actor.posZ - other.posZ)).toBeGreaterThan(.61);
+    }
+  });
+
+  it('continues after an elimination, rejects eliminated input, and crowns the last survivor', () => {
+    const match = createOnlineMatch(players);
+    eliminateOnlineFighter(match, 'seat1');
+    expect(match.resolved).toBe(false);
+    expect(applyOnlineAction(match, 'seat1', action('move', 1), 1)).toBe(false);
+    advance(match, 2);
+    expect(match.fighters.get('seat1')?.combatState).toBe('defeated');
+    for (let seat = 2; seat <= 5; seat += 1) eliminateOnlineFighter(match, `seat${seat}`);
+    expect(match.resolved).toBe(true);
+    expect(match.winnerSessionId).toBe('seat6');
+    expect(match.fighters.get('seat6')?.combatState).toBe('victorious');
+  });
+
+  it('hits the nearby wrestler rather than the first other seat in the roster', () => {
+    const match = createOnlineMatch(players);
+    const actor = match.fighters.get('seat1'); const target = match.fighters.get('seat6');
+    if (!actor || !target) throw new Error('missing fighters');
+    actor.posX = 0; actor.posZ = 0; actor.facing = Math.PI / 2;
+    target.posX = 1.1; target.posZ = 0;
+    expect(applyOnlineAction(match, 'seat1', action('quickStrike', 1), 1)).toBe(true);
+    const impacts = advance(match, .6);
+    expect(impacts.some(impact => impact.targetSessionId === 'seat6')).toBe(true);
+    expect(target.health).toBeLessThan(100);
+    expect(match.fighters.get('seat2')?.health).toBe(100);
+  });
+
+  it('keeps a committed punch facing fixed when another wrestler crosses behind', () => {
+    const match = createOnlineMatch(players);
+    const actor = match.fighters.get('seat1'); const target = match.fighters.get('seat6');
+    if (!actor || !target) throw new Error('missing fighters');
+    actor.posX = 0; actor.posZ = 0; actor.facing = Math.PI / 2;
+    target.posX = -.8; target.posZ = 0;
+    applyOnlineAction(match, 'seat1', action('quickStrike', 1), 1);
+    advance(match, .3);
+    expect(actor.facing).toBe(Math.PI / 2);
+    expect(target.health).toBe(100);
+  });
+
+  it('rejects unsupported sizes and duplicate identities rather than overwriting players', () => {
+    expect(() => createOnlineMatch(players.slice(0, 1))).toThrow();
+    expect(() => createOnlineMatch([...players, { sessionId: 'seat7', fighterId: 'atlas' }])).toThrow();
+    expect(() => createOnlineMatch([{ sessionId: 'same', fighterId: 'atlas' }, { sessionId: 'same', fighterId: 'nova' }])).toThrow();
   });
 });

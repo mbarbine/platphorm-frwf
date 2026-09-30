@@ -102,16 +102,25 @@ const fighter = (sessionId: string, fighterId: FighterId, x: number, facing: num
 });
 
 export const createOnlineMatch = (
-  players: readonly [{ sessionId: string; fighterId: FighterId }, { sessionId: string; fighterId: FighterId }],
+  players: readonly { sessionId: string; fighterId: FighterId }[],
   ruleset: Ruleset = 'standard',
-): OnlineMatchState => ({
-  elapsed: 0, hype: 8, announcement: 'ROUND ONE — FIGHT!', announcementTimer: 2.2,
-  ruleset, resolved: false, winnerSessionId: '', winMethod: '', impactSequence: 0,
-  fighters: new Map([
-    [players[0].sessionId, fighter(players[0].sessionId, players[0].fighterId, -2.3, Math.PI / 2)],
-    [players[1].sessionId, fighter(players[1].sessionId, players[1].fighterId, 2.3, -Math.PI / 2)],
-  ]),
-});
+): OnlineMatchState => {
+  if (players.length < 2 || players.length > 6 || new Set(players.map(player => player.sessionId)).size !== players.length) {
+    throw new Error('Online matches require two to six distinct player sessions');
+  }
+  return {
+    elapsed: 0, hype: 8, announcement: 'ROUND ONE — FIGHT!', announcementTimer: 2.2,
+    ruleset, resolved: false, winnerSessionId: '', winMethod: '', impactSequence: 0,
+    fighters: new Map(players.map((player, index) => {
+      const angle = -Math.PI / 2 + index * Math.PI * 2 / players.length;
+      const x = Math.sin(angle) * 2.3;
+      const z = players.length === 2 ? 0 : Math.cos(angle) * 2.3;
+      const actor = fighter(player.sessionId, player.fighterId, x, Math.atan2(-x, -z));
+      actor.posZ = z;
+      return [player.sessionId, actor];
+    })),
+  };
+};
 
 const clamp = (value: number, minimum: number, maximum: number): number => Math.max(minimum, Math.min(maximum, value));
 // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt. Math.hypot scales inputs dynamically to avoid overflow/underflow,
@@ -123,11 +132,13 @@ const approach = (current: number, target: number, maximumDelta: number): number
   current < target ? Math.min(current + maximumDelta, target) : Math.max(current - maximumDelta, target);
 
 const separateFighters = (match: OnlineMatchState, minimumDistance = .62): void => {
-  const [first, second] = match.fighters.values();
-  if (!first || !second || first.grappleTarget === second.sessionId || second.grappleTarget === first.sessionId) return;
+  const actors = [...match.fighters.values()].filter(actor => actor.combatState !== 'defeated');
+  for (let i = 0; i < actors.length; i += 1) for (let j = i + 1; j < actors.length; j += 1) {
+  const first = actors[i]; const second = actors[j];
+  if (!first || !second || first.grappleTarget === second.sessionId || second.grappleTarget === first.sessionId) continue;
   const dx = second.posX - first.posX; const dz = second.posZ - first.posZ;
   const distanceSquared = dx * dx + dz * dz;
-  if (distanceSquared >= minimumDistance * minimumDistance) return;
+  if (distanceSquared >= minimumDistance * minimumDistance) continue;
   const distance = Math.sqrt(distanceSquared);
   const nx = distance > .001 ? dx / distance : 1;
   const nz = distance > .001 ? dz / distance : 0;
@@ -143,6 +154,7 @@ const separateFighters = (match: OnlineMatchState, minimumDistance = .62): void 
     second.velocityX -= nx * closingSpeed * .5;
     second.velocityZ -= nz * closingSpeed * .5;
   }
+  }
 };
 
 const beginMove = (actor: OnlineFighterState, moveId: keyof typeof MOVES, linkRecovery = false): boolean => {
@@ -157,7 +169,7 @@ const beginMove = (actor: OnlineFighterState, moveId: keyof typeof MOVES, linkRe
 
 export const applyOnlineAction = (match: OnlineMatchState, sessionId: string, event: ActionEvent, sequence: number): boolean => {
   const actor = match.fighters.get(sessionId);
-  if (!actor || match.resolved || sequence <= actor.lastCommandSeq || !Number.isFinite(sequence)) return false;
+  if (!actor || ['defeated', 'victorious', 'grabbed'].includes(actor.combatState) || match.resolved || sequence <= actor.lastCommandSeq || !Number.isFinite(sequence)) return false;
   actor.lastCommandSeq = sequence;
   const x = clamp(Number.isFinite(event.direction.x) ? event.direction.x : 0, -1, 1);
   const z = clamp(Number.isFinite(event.direction.y) ? event.direction.y : 0, -1, 1);
@@ -214,8 +226,38 @@ const segmentCircleHit = (
 };
 
 const otherFighter = (match: OnlineMatchState, sourceId: string): OnlineFighterState | null => {
-  for (const candidate of match.fighters.values()) if (candidate.sessionId !== sourceId) return candidate;
-  return null;
+  const source = match.fighters.get(sourceId);
+  if (!source) return null;
+  let nearest: OnlineFighterState | null = null;
+  let nearestDistance = Infinity;
+  for (const candidate of match.fighters.values()) {
+    if (candidate.sessionId === sourceId || candidate.health <= 0 || ['defeated', 'victorious'].includes(candidate.combatState)) continue;
+    const distance = (candidate.posX - source.posX) ** 2 + (candidate.posZ - source.posZ) ** 2;
+    if (distance < nearestDistance) { nearest = candidate; nearestDistance = distance; }
+  }
+  return nearest;
+};
+
+/** Elimination ends a multi-wrestler bout only when one survivor remains. */
+export const eliminateOnlineFighter = (match: OnlineMatchState, sessionId: string): void => {
+  const actor = match.fighters.get(sessionId);
+  if (!actor || match.resolved) return;
+  for (const candidate of match.fighters.values()) {
+    if (candidate.grappleTarget === sessionId) {
+      candidate.grappleTarget = null; candidate.moveId = ''; candidate.attackPhase = null;
+      if (candidate.health > 0) candidate.combatState = 'idle';
+    }
+  }
+  actor.health = 0; actor.combatState = 'defeated'; actor.grappleTarget = null;
+  actor.moveId = ''; actor.attackPhase = null; actor.moveX = 0; actor.moveZ = 0;
+  actor.velocityX = 0; actor.velocityZ = 0;
+  const survivors = [...match.fighters.values()].filter(candidate => candidate.health > 0 && candidate.combatState !== 'defeated');
+  const winner = survivors[0];
+  if (survivors.length === 1 && winner) {
+    winner.combatState = 'victorious'; match.resolved = true;
+    match.winnerSessionId = winner.sessionId; match.winMethod = 'KNOCKOUT';
+    match.announcement = 'LAST WRESTLER STANDING!'; match.announcementTimer = 4;
+  }
 };
 
 const resolveActiveContact = (match: OnlineMatchState, actor: OnlineFighterState, move: OnlineMove, previousProgress: number, progress: number): OnlineImpact | null => {
@@ -233,6 +275,7 @@ const resolveActiveContact = (match: OnlineMatchState, actor: OnlineFighterState
   if (!hit) return null;
   actor.hitTargets.add(token);
   if (move.id === 'grapple_miss') {
+    if (target.grappleTarget || target.combatState === 'downed') return null;
     actor.grappleTarget = target.sessionId; target.grappleTarget = actor.sessionId;
     actor.combatState = 'grappling'; target.combatState = 'grabbed';
     match.announcement = 'COLLAR-AND-ELBOW CONTACT!'; match.announcementTimer = .8;
@@ -254,10 +297,7 @@ const resolveActiveContact = (match: OnlineMatchState, actor: OnlineFighterState
     kind: move.kind, intensity: guarded ? .4 : clamp(move.damage / 12, .55, 2.2), posX: target.posX, posZ: target.posZ,
     moveId: move.id, region: move.region,
   };
-  if (target.health <= 0) {
-    target.combatState = 'defeated'; actor.combatState = 'victorious'; match.resolved = true;
-    match.winnerSessionId = actor.sessionId; match.winMethod = 'KNOCKOUT'; match.announcement = 'KNOCKOUT!'; match.announcementTimer = 4;
-  }
+  if (target.health <= 0) eliminateOnlineFighter(match, target.sessionId);
   return impact;
 };
 
@@ -267,6 +307,8 @@ export const stepOnlineMatch = (match: OnlineMatchState, dt: number): readonly O
   match.announcementTimer = Math.max(0, match.announcementTimer - step); if (match.announcementTimer === 0) match.announcement = '';
   const impacts: OnlineImpact[] = [];
   for (const actor of match.fighters.values()) {
+    if (match.resolved) break;
+    if (actor.combatState === 'defeated' || actor.combatState === 'victorious') continue;
     actor.stamina = clamp(actor.stamina + step * 4.2, 0, 100);
     if (match.elapsed > actor.movementLeaseUntil) { actor.moveX = 0; actor.moveZ = 0; actor.running = false; }
     if (actor.downTimer > 0) {
@@ -275,7 +317,7 @@ export const stepOnlineMatch = (match: OnlineMatchState, dt: number): readonly O
       actor.velocityX = 0; actor.velocityZ = 0; continue;
     }
     const target = otherFighter(match, actor.sessionId);
-    if (target) {
+    if (target && !actor.moveId && !actor.grappleTarget) {
       // OPTIMIZATION: Use squared distance check to avoid Math.sqrt during target proximity evaluation on a hot execution path.
       const dx = target.posX - actor.posX;
       const dz = target.posZ - actor.posZ;
@@ -309,7 +351,7 @@ export const stepOnlineMatch = (match: OnlineMatchState, dt: number): readonly O
     }
     if (actor.attackPhase === 'recovery' && actor.phaseElapsed >= phaseDuration(move, 'recovery')) {
       actor.moveId = ''; actor.attackPhase = null; actor.phaseElapsed = 0;
-      if (actor.combatState !== 'victorious' && actor.combatState !== 'defeated') actor.combatState = actor.grappleTarget ? 'grappling' : actor.guarding ? 'blocking' : 'idle';
+      if (!match.resolved && actor.health > 0) actor.combatState = actor.grappleTarget ? 'grappling' : actor.guarding ? 'blocking' : 'idle';
     }
   }
   separateFighters(match);
