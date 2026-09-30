@@ -1,9 +1,9 @@
 import { describe, expect, it, afterEach, vi } from 'vitest';
 import React from 'react';
 import { render, screen, cleanup, fireEvent, act } from '@testing-library/react';
-import { CopySeatButton } from '../app/App';
+import { CopyInviteButton } from '../app/App';
 
-describe('CopySeatButton Accessibility & Micro-UX', () => {
+describe('CopyInviteButton Accessibility & Micro-UX', () => {
   afterEach(() => {
     cleanup();
     vi.useRealTimers();
@@ -19,11 +19,11 @@ describe('CopySeatButton Accessibility & Micro-UX', () => {
     });
 
     const onError = vi.fn();
-    render(React.createElement(CopySeatButton, { invite: 'https://frwf.ja1.io/#room=123.abc', index: 0, onError }));
+    render(React.createElement(CopyInviteButton, { invite: 'https://frwf.ja1.io/#room=123.abc', onError }));
 
-    const button = screen.getByRole('button', { name: /^COPY SEAT 2 LINK/i });
+    const button = screen.getByRole('button', { name: 'Copy guest invitation link' });
     expect(button).toBeTruthy();
-    expect(button.textContent).toBe('COPY SEAT 2 LINK');
+    expect(button.textContent).toBe('COPY INVITE LINK');
 
     const liveRegion = screen.getByRole('status');
     expect(liveRegion).toBeTruthy();
@@ -35,11 +35,11 @@ describe('CopySeatButton Accessibility & Micro-UX', () => {
     });
 
     expect(writeTextMock).toHaveBeenCalledWith('https://frwf.ja1.io/#room=123.abc');
-    expect(button.textContent).toBe('SEAT 2 LINK COPIED!');
-    expect(liveRegion.textContent).toBe('Copied seat 2 invitation link to clipboard.');
+    expect(button.textContent).toBe('INVITE LINK COPIED!');
+    expect(liveRegion.textContent).toBe('Copied guest invitation link to clipboard.');
 
     // Verify Label in Name (WCAG 2.5.3): aria-label starts with exact visible text string
-    const updatedButton = screen.getByRole('button', { name: /^SEAT 2 LINK COPIED!/i });
+    const updatedButton = screen.getByRole('button', { name: 'Invite link copied to clipboard' });
     expect(updatedButton).toBeTruthy();
 
     // Fast forward 2 seconds: self-reverts to initial state
@@ -47,7 +47,7 @@ describe('CopySeatButton Accessibility & Micro-UX', () => {
       vi.advanceTimersByTime(2000);
     });
 
-    expect(button.textContent).toBe('COPY SEAT 2 LINK');
+    expect(button.textContent).toBe('COPY INVITE LINK');
     expect(liveRegion.textContent).toBe('');
   });
 
@@ -60,15 +60,15 @@ describe('CopySeatButton Accessibility & Micro-UX', () => {
     });
 
     const onError = vi.fn();
-    render(React.createElement(CopySeatButton, { invite: 'https://frwf.ja1.io/#room=123.abc', index: 1, onError }));
+    render(React.createElement(CopyInviteButton, { invite: 'https://frwf.ja1.io/#room=123.abc', onError }));
 
-    const button = screen.getByRole('button', { name: /^COPY SEAT 3 LINK/i });
+    const button = screen.getByRole('button', { name: 'Copy guest invitation link' });
 
     await act(async () => {
       fireEvent.click(button);
     });
 
     expect(onError).toHaveBeenCalledWith('Clipboard unavailable. Copy the invitation from the address bar after opening it.');
-    expect(button.textContent).toBe('COPY SEAT 3 LINK');
+    expect(button.textContent).toBe('COPY INVITE LINK');
   });
 });
