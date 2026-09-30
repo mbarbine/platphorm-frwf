@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { fighterById } from '../game/data/fighters';
 import { activeFighterSlots, advanceMatch, createMatch, cyclePlayerTarget, resolveMatch } from '../game/systems/combat';
 import { FIGHTER_SLOTS } from '../game/types/game';
 import { liveSpectatorTargets, resolvedSpectatorTarget, useSpectatorStore } from '../game/state/spectatorStore';
@@ -56,6 +57,10 @@ describe('battle royale rules', () => {
     expect(model.resolved).toBe(true);
     expect(model.result?.winner).toBe('rival3');
     expect(model.rival3.state).toBe('victorious');
+    expect(model.player.state).toBe('defeated');
+    expect(model.announcement).toContain('LAST WRESTLER STANDING');
+    expect(model.announcement).toContain(fighterById(model.rival3.definitionId).name.toUpperCase());
+    expect(model.announcementTimer).toBeGreaterThanOrEqual(4.8);
   });
 
   it('cycles spectator targets only through wrestlers still fighting', () => {

@@ -1032,3 +1032,29 @@ it('lets a top-rope aerial follow a ballistic arc instead of grounded support mo
     expect(runtime.metrics.emergencyResetCount).toBe(0);
   } finally { runtime.reset(); world.free(); }
 });
+
+it('keeps Battle Royale finish poses physically driven after combat resolves', () => {
+  const { world, runtime, model, rig } = makeHarness();
+  try {
+    model.matchMode = 'battle_royale';
+    model.resolved = true;
+    model.player.state = 'victorious';
+    model.player.stateElapsed = 0;
+    model.opponent.state = 'defeated';
+    model.opponent.stateElapsed = 0;
+
+    const armBefore = rig.bodies.leftUpperArm.rotation();
+    for (let frame = 0; frame < 36; frame++) {
+      runtime.beforeFixedStep(STEP, model, world);
+      world.step();
+    }
+
+    expect(model.player.stateElapsed).toBeCloseTo(36 * STEP);
+    expect(model.player.state).toBe('victorious');
+    expect(model.opponent.state).toBe('defeated');
+    expect(runtime.metrics.fixedSteps).toBe(36);
+    const armAfter = rig.bodies.leftUpperArm.rotation();
+    const armAlignment = Math.abs(armBefore.x * armAfter.x + armBefore.y * armAfter.y + armBefore.z * armAfter.z + armBefore.w * armAfter.w);
+    expect(armAlignment).toBeLessThan(.999);
+  } finally { runtime.reset(); world.free(); }
+});

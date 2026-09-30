@@ -14,6 +14,7 @@ describe('broadcast announcement hierarchy', () => {
   it('reserves the largest presentation for counts and conclusions', () => {
     expect(announcementTier('TWO')).toBe('main-event');
     expect(announcementTier('KNOCKOUT!')).toBe('main-event');
+    expect(announcementTier('NOVA FANG WINS — LAST WRESTLER STANDING!')).toBe('main-event');
   });
 
   it('treats roster signatures as main events without hard-coding names', () => {

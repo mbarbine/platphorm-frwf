@@ -20,6 +20,7 @@ import { getPairedPose, getStrikePose } from '../animation/choreography';
 import { applyBodyLanguage } from '../animation/bodyLanguage';
 import { POSES } from '../animation/poses';
 import type { Pose } from '../animation/poses';
+import { finishCelebrationPose } from '../animation/finishMotion';
 import { RECOVERY_DURATION, recoveryPose } from '../animation/recoveryMotion';
 import { gaitCycle, gaitRunBlend } from '../animation/gaitCycle';
 import { proceduralLocomotionSource } from '../animation/locomotion';
@@ -791,7 +792,22 @@ export class BodyWorksRuntime {
       }
       this.metrics.invalidRegisteredBodyCount = invalidRegisteredBodies;
     }
-    if (model.paused || model.resolved) { this.stepStartedAt = -1; return; }
+    if (model.paused) { this.stepStartedAt = -1; return; }
+    // Combat input and AI stop at the decision, but keep the physical finish
+    // alive: otherwise both articulated rigs freeze on the exact impact frame.
+    if (model.resolved) {
+      for (const [key, rig] of this.rigs) {
+        const fighter = model[key];
+        if (fighter.state !== 'victorious' && fighter.state !== 'defeated') continue;
+        fighter.stateElapsed += dt;
+        const motorProfile = selectMotorProfile(fighter);
+        this.configureRotationalAuthority(rig, fighter, motorProfile);
+        const pose = fighter.state === 'victorious' ? finishCelebrationPose(fighter.stateElapsed) : POSES.downed;
+        this.applyPoseDrive(rig, fighter, motorProfile, pose);
+      }
+      this.metrics.fixedSteps += 1;
+      return;
+    }
     this.pendingStrikeCasts.clear();
     if (model.networkAuthority) this.applyNetworkCorrections();
     this.syncMotionTasks(dt, model);
@@ -3050,7 +3066,7 @@ const targetPoseFor = (fighter: FighterRuntime, locomotionSource: LocomotionPose
   if (fighter.state === 'downed') return recoveryPose(fighter.recoveryOrientation, 'downed', fighter.stateElapsed);
   if (fighter.state === 'defeated') return POSES.downed;
   if (fighter.state === 'recovering') return recoveryPose(fighter.recoveryOrientation, 'recovering', fighter.stateElapsed);
-  if (fighter.state === 'victorious') return POSES.victory;
+  if (fighter.state === 'victorious') return finishCelebrationPose(fighter.stateElapsed);
   if (fighter.state === 'pinning') return POSES.pin;
   if (fighter.state === 'pinned') return fighter.pinEscape > 52 ? POSES.kickout : POSES.downed;
   if (fighter.state === 'locomotion') return applyBodyLanguage(locomotionPoseFor(fighter, locomotionSource), fighter);

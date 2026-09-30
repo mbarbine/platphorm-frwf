@@ -215,6 +215,38 @@ export function CameraRig() {
       return;
     }
 
+    // The standard Battle Royale frame is intentionally wide. Once one
+    // wrestler remains, hold the champion and final eliminated opponent in a
+    // tighter decision shot so the physical celebration reads clearly.
+    if (model.matchMode === 'battle_royale' && model.resolved && model.result) {
+      const winner = model[model.result.winner];
+      const finalElimination = model.eliminations[model.eliminations.length - 1];
+      const loser = finalElimination ? model[finalElimination.fighter] : null;
+      const winnerX = safeNumber(winner.position.x, 0);
+      const winnerZ = safeNumber(winner.position.z, 0);
+      const loserX = safeNumber(loser?.position.x, winnerX);
+      const loserZ = safeNumber(loser?.position.z, winnerZ);
+      const centerX = (winnerX + loserX) * .5;
+      const centerZ = (winnerZ + loserZ) * .5;
+      const dx = camera.position.x - smoothedTarget.x;
+      const dz = camera.position.z - smoothedTarget.z;
+      const length = Math.sqrt(dx * dx + dz * dz) || 1;
+      const distance = 8.4;
+      desiredTarget.set(centerX, 1.8, centerZ);
+      desired.set(centerX + dx / length * distance, 6.1, centerZ + dz / length * distance);
+      const response = 1 - Math.exp(-Math.min(clampedDt, .1) * 5.5);
+      camera.position.lerp(desired, response);
+      smoothedTarget.lerp(desiredTarget, 1 - Math.exp(-Math.min(clampedDt, .1) * 7));
+      lookAtSafe(camera as PerspectiveCamera, smoothedTarget);
+      const perspective = camera as PerspectiveCamera;
+      const finishFov = reduced ? 48 : 44;
+      perspective.fov += (finishFov - perspective.fov) * response;
+      perspective.updateProjectionMatrix();
+      document.documentElement.dataset.cameraShot = 'battle-royale-finish';
+      document.documentElement.dataset.cameraFov = perspective.fov.toFixed(2);
+      return;
+    }
+
     if (spectating) {
       const spectator = useSpectatorStore.getState();
       const targetSlot = resolvedSpectatorTarget(model, spectator.target);
