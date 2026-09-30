@@ -52,7 +52,10 @@ export function InstallGame() {
   };
 
   const steps = installationSteps();
+  const helpAnnouncement = showHelp ? `Installation instructions expanded: ${steps.title}. ${steps.instructions}` : '';
+
   return <div className="install-game">
+    <p className="sr-only" role="status" aria-live="polite">{notice || helpAnnouncement}</p>
     <button
       className="button button--quiet install-game__button"
       type="button"
@@ -62,11 +65,11 @@ export function InstallGame() {
     >
       {promptEvent ? 'INSTALL RINGFALL' : 'INSTALL / ADD TO HOME SCREEN'}
     </button>
-    {showHelp && <aside className="install-game__help" aria-live="polite">
+    {showHelp && <aside className="install-game__help">
       <strong>{steps.title}</strong>
       <p>{steps.instructions}</p>
       <small>Install requires a secure HTTPS page. Offline play is limited to game resources your browser cached during an earlier online visit; multiplayer always needs an internet connection.</small>
     </aside>}
-    {notice && <p className="install-game__notice" role="status">{notice}</p>}
+    {notice && <p className="install-game__notice">{notice}</p>}
   </div>;
 }
