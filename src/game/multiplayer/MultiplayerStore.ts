@@ -21,7 +21,6 @@ export interface MultiplayerState {
   roomId: string | null;
   sessionId: string | null;
   joinInvite: string | null;
-  guestInvites: string[];
   hostSessionId: string | null;
   myRole: 'player1' | 'player2' | 'player3' | 'player4' | 'player5' | 'player6' | 'spectator' | null;
 
@@ -129,7 +128,6 @@ export const useMultiplayerStore = create<MultiplayerState>((set) => {
     roomId: null,
     sessionId: null,
     joinInvite: null,
-    guestInvites: [],
     hostSessionId: null,
     myRole: null,
     roomPhase: 'lobby',
@@ -157,13 +155,13 @@ export const useMultiplayerStore = create<MultiplayerState>((set) => {
 
     async disconnect() {
       await colyseusClient.leave();
-      set({ roomId: null, sessionId: null, joinInvite: null, guestInvites: [], hostSessionId: null, myRole: null, status: 'disconnected', fighters: new Map(), roles: new Map(), connected: new Map(), readyPlayers: new Map(), lobbyChat: [], roomPhase: 'lobby', lastCommandSeq: 0, lastAckedSeq: 0, lastSnapshotSeq: 0, serverElapsed: 0, serverHype: 0, serverAnnouncement: null, lastImpact: null, matchResult: null });
+      set({ roomId: null, sessionId: null, joinInvite: null, hostSessionId: null, myRole: null, status: 'disconnected', fighters: new Map(), roles: new Map(), connected: new Map(), readyPlayers: new Map(), lobbyChat: [], roomPhase: 'lobby', lastCommandSeq: 0, lastAckedSeq: 0, lastSnapshotSeq: 0, serverElapsed: 0, serverHype: 0, serverAnnouncement: null, lastImpact: null, matchResult: null });
     },
 
     async createPrivateRoom(options = {}) {
       const created = await colyseusClient.createPrivateRoom(options);
       const sessionId = colyseusClient.sessionId ?? null;
-      set((state) => ({ roomId: created.roomId, joinInvite: created.joinInvite, guestInvites: created.guestInvites, sessionId, myRole: sessionId ? state.roles.get(sessionId) as MultiplayerState['myRole'] ?? null : null }));
+      set((state) => ({ roomId: created.roomId, joinInvite: created.joinInvite, sessionId, myRole: sessionId ? state.roles.get(sessionId) as MultiplayerState['myRole'] ?? null : null }));
       return created.roomId;
     },
 

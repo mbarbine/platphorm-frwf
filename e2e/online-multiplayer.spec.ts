@@ -42,6 +42,8 @@ test('two browsers share authoritative movement, contact, and impact state', asy
     await host.getByRole('button', { name: 'HOST A MATCH' }).click();
     const shareLink = host.getByTestId('multiplayer-join-invite');
     await expect(shareLink).toHaveValue(/#room=/, { timeout: 20_000 });
+    await expect(host.getByRole('button', { name: 'Copy guest invitation link' })).toHaveCount(1);
+    await expect(host.getByRole('button', { name: /Copy player .* invitation/ })).toHaveCount(0);
     await guest.getByPlaceholder('PASTE PRIVATE INVITATION...').fill(await shareLink.inputValue());
     await guest.getByRole('button', { name: 'JOIN MATCH' }).click();
     await expect(host.getByText('PLAYER1 · HOST', { exact: true })).toBeVisible({ timeout: 20_000 });

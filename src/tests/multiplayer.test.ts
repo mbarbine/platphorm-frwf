@@ -123,6 +123,25 @@ describe('Cloudflare room invitations', () => {
     expect(vi.getTimerCount()).toBe(1);
   });
 
+  it('keeps the shared invite reusable while privately resuming this browser into its assigned seat', async () => {
+    vi.stubGlobal('WebSocket', FakeWebSocket);
+    const client = new ColyseusClient({ serverUrl: 'https://frwf.ja1.io' });
+    await client.joinByRoomId(invite);
+    const first = FakeWebSocket.instances.at(-1);
+    if (!first) throw new Error('Client socket was not created');
+    const resumeTicket = 'c'.repeat(64);
+    first.receive({ type: 'welcome', roomId, sessionId: 'guest-seat', lastCommandSeq: 0, resumeTicket });
+    expect(sessionStorage.getItem(`frwf-room-resume:${roomId}`)).toBe(resumeTicket);
+    await client.leave(false);
+    expect(sessionStorage.getItem(`frwf-room-resume:${roomId}`)).toBe(resumeTicket);
+
+    const resumed = new ColyseusClient({ serverUrl: 'https://frwf.ja1.io' });
+    await resumed.joinByRoomId(invite);
+    expect(FakeWebSocket.instances.at(-1)?.protocols).toEqual(['frwf-v1', resumeTicket]);
+    await resumed.leave();
+    expect(sessionStorage.getItem(`frwf-room-resume:${roomId}`)).toBeNull();
+  });
+
   it('publishes a late welcome identity to the lobby store after socket open', async () => {
     vi.stubGlobal('WebSocket', FakeWebSocket);
     const { useMultiplayerStore } = await import('../game/multiplayer/MultiplayerStore');
@@ -149,12 +168,12 @@ describe('Cloudflare room invitations', () => {
     vi.stubGlobal('WebSocket', FakeWebSocket);
     const joinInvite = `https://frwf.ja1.io/#room=${roomId}.${'b'.repeat(64)}`;
     const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => Response.json({ ok: true, data: {
-      roomId, hostInvite: `https://frwf.ja1.io/#room=${invite}`, joinInvite, guestInvites: [joinInvite],
+      roomId, hostInvite: `https://frwf.ja1.io/#room=${invite}`, joinInvite,
     } }, { status: 201 }));
     vi.stubGlobal('fetch', fetchMock);
     const client = new ColyseusClient({ serverUrl: 'https://frwf.ja1.io' });
     const result = await client.createPrivateRoom({ fighterId: 'chelsea' });
-    expect(result).toEqual({ roomId, joinInvite, guestInvites: [joinInvite] });
+    expect(result).toEqual({ roomId, joinInvite });
     expect(fetchMock).toHaveBeenCalledWith(new URL('https://frwf.ja1.io/api/rooms'), expect.objectContaining({ method: 'POST', headers: { 'Content-Type': 'application/json' } }));
     const socket = (client as unknown as { socket: FakeWebSocket }).socket;
     expect(socket.protocols).toEqual(['frwf-v1', ticket]);

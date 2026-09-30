@@ -102,7 +102,7 @@ export function App() {
   const multiplayerFightersMap = useMultiplayerStore((state) => state.fighters);
   const multiplayerReadyPlayers = useMultiplayerStore((state) => state.readyPlayers);
   const multiplayerConnectedPlayers = useMultiplayerStore((state) => state.connected);
-  const multiplayerGuestInvites = useMultiplayerStore((state) => state.guestInvites);
+  const multiplayerJoinInvite = useMultiplayerStore((state) => state.joinInvite);
   const multiplayerChat = useMultiplayerStore((state) => state.lobbyChat);
   const [lobbyChatText, setLobbyChatText] = useState('');
 
@@ -341,7 +341,7 @@ export function App() {
       <div className="section-heading"><span>CONNECT WITH RIVALS</span><h2>ONLINE MULTIPLAYER</h2></div>
 
       {multiplayerStatus === 'disconnected' && <div className="multiplayer-lobby__setup" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', width: '100%', maxWidth: '640px', margin: '0 auto' }}>
-        <p style={{ textAlign: 'center', margin: 0, color: '#aaa' }}>Host a private lobby for free, then share a guest seat link. No account or platform key needed.</p>
+        <p style={{ textAlign: 'center', margin: 0, color: '#aaa' }}>Host a private lobby for free, then share one invite link with your players. No account or platform key needed.</p>
 
         <div className="versus" style={{ padding: '1rem', background: 'rgba(0,0,0,0.5)', borderRadius: '8px' }}>
           <div>
@@ -410,7 +410,7 @@ export function App() {
 
       {multiplayerStatus === 'error' && <div className="multiplayer-lobby__error" style={{ textAlign: 'center', padding: '3rem' }}>
         <h3 style={{ color: '#ff3b30' }}>CONNECTION ERROR</h3>
-        <p>{gameServerEndpoint ? 'The invitation could not be used. Check that it includes a valid room ID and private seat ticket.' : 'The Cloudflare match service is not configured for this environment.'}</p>
+        <p>{gameServerEndpoint ? 'The invitation could not be used. Check that it includes a valid room ID and private invite ticket, and that the lobby still has an open seat.' : 'The Cloudflare match service is not configured for this environment.'}</p>
         <button className="button" style={{ marginTop: '1.5rem' }} onClick={() => useMultiplayerStore.getState().disconnect()}>RETRY</button>
       </div>}
 
@@ -429,11 +429,20 @@ export function App() {
               <small aria-label="Network round trip time">NETWORK RTT · {multiplayerRtt > 0 ? `${Math.round(multiplayerRtt)} ms` : 'MEASURING'}</small>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem' }}>
-                <span style={{ fontSize: '0.8rem', color: '#888' }}>ROOM ID · SHARE A GUEST SEAT LINK</span>
+                <span style={{ fontSize: '0.8rem', color: '#888' }}>ROOM ID · ONE LINK FOR ALL GUESTS</span>
               <strong data-testid="multiplayer-room-code" style={{ fontSize: '1.8rem', color: '#ff007b', letterSpacing: '4px', fontFamily: 'monospace' }}>{multiplayerRoomId}</strong>
+<<<<<<< HEAD
               {multiplayerGuestInvites.length > 0 && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '.4rem', width: 'min(100%, 700px)', marginTop: '.5rem' }}>
                 <input aria-label="First guest invitation" data-testid="multiplayer-join-invite" readOnly value={multiplayerGuestInvites[0] ?? ''} onFocus={event => event.currentTarget.select()} style={{ gridColumn: '1 / -1', minWidth: 0, width: '100%' }} />
                 {multiplayerGuestInvites.map((invite, index) => <CopySeatButton key={invite} invite={invite} index={index} onError={setMultiplayerError} />)}
+=======
+              {multiplayerJoinInvite && <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: '.4rem', width: 'min(100%, 700px)', marginTop: '.5rem' }}>
+                <input aria-label="Guest invitation link" data-testid="multiplayer-join-invite" readOnly value={multiplayerJoinInvite} onFocus={event => event.currentTarget.select()} style={{ minWidth: 0, width: '100%' }} />
+                <button className="button button--quiet" aria-label="Copy guest invitation link" onClick={async () => {
+                  try { await navigator.clipboard.writeText(multiplayerJoinInvite); }
+                  catch { setMultiplayerError('Clipboard unavailable. Copy the invitation from the address bar after opening it.'); }
+                }}>COPY INVITE LINK</button>
+>>>>>>> 58a4d2c (update)
               </div>}
             </div>
           </div>

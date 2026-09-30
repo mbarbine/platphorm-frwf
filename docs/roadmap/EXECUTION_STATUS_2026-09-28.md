@@ -43,7 +43,7 @@ The browser multiplayer run confirms that a key press reaches the game input col
 
 ## Multiplayer and combat follow-up (source changes, not deployed)
 
-The current working tree now removes the platform-key requirement from browser room hosting. The Worker requires the configured same-origin header, applies a per-address rate limit keyed by a SHA-256 digest, and returns separate host/challenger invitation links containing one-seat tickets in fragments. Explicit leave and lobby ruleset changes hand host authority to the connected player; the room closes if no takeover is available. The 30 Hz server tick does not guarantee zero latency.
+The current room flow removes the platform-key requirement from browser hosting. The Worker requires the configured same-origin header, applies a per-address rate limit keyed by a SHA-256 digest, and returns one host link plus one reusable guest link. Guest joins are assigned open seats and receive per-connection private reconnect credentials; a full lobby rejects further joins. Explicit leave and lobby ruleset changes hand host authority to the connected player; the room closes if no takeover is available. The 30 Hz server tick does not guarantee zero latency. Active combat is still limited to two wrestlers.
 
 The online browser test now follows the player's host-and-share flow without injecting an operator key. New jab/right-hook/left-hook/uppercut choices have authored strike poses and per-move physics/audio mapping in local combat; the online simulator also sequences them. Synthetic impact breath cues are used instead of recorded performer voice. Focused game and Worker tests passed during this follow-up; deployment, remote matchmaking quality and a two-browser run against the local Worker are still pending.
 

@@ -9,6 +9,7 @@ type PlayerRole = 'player1' | 'player2' | 'player3' | 'player4' | 'player5' | 'p
 interface Seat { id: string; role: PlayerRole; tokenHash: string; fighterId: FighterId; ready: boolean; rematch: boolean; disconnectedAt: number | null; lastSeen: number; lastSeq: number }
 interface SavedRoom {
   id: string; createdAt: number; expiresAt: number; ruleset: 'standard' | 'chaos'; seats: Seat[];
+  guestInviteHash?: string;
   hostSessionId: string | null;
   phase: 'lobby' | 'active' | 'result' | 'closed'; round: number; snapshotSeq: number;
   model: string | null; result: MatchResultMessage | null; persisted: boolean; completedAt: string | null;
@@ -37,12 +38,13 @@ export class MatchRoom extends DurableObject<Env> {
   async initialize(id: string, ruleset: 'standard' | 'chaos', hostFighterId: FighterId = 'atlas') {
     if (this.room) throw new Error('Room already exists');
     const roles: PlayerRole[] = ['player1', 'player2', 'player3', 'player4', 'player5', 'player6'];
-    const tokens = roles.map(() => crypto.randomUUID().replaceAll('-', '') + crypto.randomUUID().replaceAll('-', ''));
+    const hostTicket = crypto.randomUUID().replaceAll('-', '') + crypto.randomUUID().replaceAll('-', '');
+    const joinTicket = crypto.randomUUID().replaceAll('-', '') + crypto.randomUUID().replaceAll('-', '');
     const now = Date.now();
-    const seats: Seat[] = await Promise.all(tokens.map(async (token, index) => ({ id: crypto.randomUUID(), role: roles[index] ?? 'player6', tokenHash: await digest(token), fighterId: index === 0 ? hostFighterId : 'nova' as const, ready: index === 0, rematch: false, disconnectedAt: now, lastSeen: now, lastSeq: 0 })));
-    this.room = { id, createdAt: now, expiresAt: now + 3600000, ruleset, seats, hostSessionId: seats[0]?.id ?? null, phase: 'lobby', round: 0, snapshotSeq: 0, model: null, result: null, persisted: true, completedAt: null, chat: [] };
+    const seats: Seat[] = await Promise.all(roles.map(async (role, index) => ({ id: crypto.randomUUID(), role, tokenHash: index === 0 ? await digest(hostTicket) : '', fighterId: index === 0 ? hostFighterId : 'nova' as const, ready: index === 0, rematch: false, disconnectedAt: now, lastSeen: now, lastSeq: 0 })));
+    this.room = { id, createdAt: now, expiresAt: now + 3600000, ruleset, seats, guestInviteHash: await digest(joinTicket), hostSessionId: seats[0]?.id ?? null, phase: 'lobby', round: 0, snapshotSeq: 0, model: null, result: null, persisted: true, completedAt: null, chat: [] };
     this.save(); await this.ctx.storage.setAlarm(now + 60000);
-    return { roomId: id, expiresAt: this.room.expiresAt, tickets: tokens.map((ticket, index) => ({ role: seats[index]?.role, ticket })) };
+    return { roomId: id, expiresAt: this.room.expiresAt, hostTicket, joinTicket };
   }
 
   async fetch(request: Request): Promise<Response> {
@@ -52,14 +54,25 @@ export class MatchRoom extends DurableObject<Env> {
     const protocols = request.headers.get('Sec-WebSocket-Protocol')?.split(',').map(value => value.trim()) ?? [];
     const ticket = protocols.find(value => /^[a-f0-9]{64}$/.test(value));
     if (!ticket || !protocols.includes('frwf-v1')) return new Response(null, { status: 401 });
-    const hash = await digest(ticket); const seat = room.seats.find(candidate => candidate.tokenHash === hash);
+    const hash = await digest(ticket);
+    let seat = room.seats.find(candidate => candidate.tokenHash === hash);
+    let resumeTicket = ticket;
+    if (!seat && room.phase === 'lobby' && room.guestInviteHash === hash) {
+      seat = room.seats.find(candidate => candidate.role !== 'player1' && !candidate.tokenHash && candidate.disconnectedAt !== null);
+      if (!seat) return Response.json({ ok: false, error: { code: 'room_full' } }, { status: 409 });
+      // Reserve before hashing so simultaneous joins cannot claim the same open seat.
+      seat.tokenHash = `pending:${crypto.randomUUID()}`;
+      resumeTicket = crypto.randomUUID().replaceAll('-', '') + crypto.randomUUID().replaceAll('-', '');
+      this.save();
+      seat.tokenHash = await digest(resumeTicket);
+    }
     if (!seat) return new Response(null, { status: 401 });
     if (seat.disconnectedAt !== null && room.phase === 'active' && Date.now() - seat.disconnectedAt > 30000) return new Response(null, { status: 410 });
     for (const socket of this.ctx.getWebSockets(seat.id)) socket.close(4001, 'Session resumed elsewhere');
     seat.disconnectedAt = null; seat.lastSeen = Date.now(); this.save();
     const pair = new WebSocketPair(); this.ctx.acceptWebSocket(pair[1], [seat.id]);
     pair[1].serializeAttachment({ seatId: seat.id });
-    this.send(pair[1], { type: 'welcome', roomId: room.id, sessionId: seat.id, lastCommandSeq: seat.lastSeq });
+    this.send(pair[1], { type: 'welcome', roomId: room.id, sessionId: seat.id, lastCommandSeq: seat.lastSeq, resumeTicket });
     this.broadcastState(); if (this.model) this.broadcastSnapshot();
     if (room.result) this.send(pair[1], room.result);
     return new Response(null, { status: 101, webSocket: pair[0], headers: { 'Sec-WebSocket-Protocol': 'frwf-v1' } });

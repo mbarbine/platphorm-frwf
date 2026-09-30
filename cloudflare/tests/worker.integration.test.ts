@@ -92,13 +92,12 @@ describe('real Worker / Durable Object / D1 / R2 integration', () => {
     const trust = await worker.dispatchFetch(origin + '/.well-known/trust.json'); expect(await trust.text()).not.toContain(testKey);
   });
 
-  it('hosts without a platform key, issues distinct scoped invite links, and rejects foreign origins', async () => {
+  it('hosts without a platform key, issues one reusable guest link, and rejects foreign origins', async () => {
     const response = await post('/api/rooms', { ruleset: 'standard', fighterId: 'chelsea' }); expect(response.status).toBe(201);
     expect(response.status, 'Test room creation must succeed before reading its invitations').toBe(201);
-    const json = await response.json() as { data: { roomId: string; hostInvite: string; joinInvite: string; guestInvites: string[] } };
+    const json = await response.json() as { data: { roomId: string; hostInvite: string; joinInvite: string; guestInvites?: string[] } };
     expect(ticketFrom(json.data.hostInvite)).toMatch(/^[a-f0-9]{64}$/); expect(ticketFrom(json.data.joinInvite)).toMatch(/^[a-f0-9]{64}$/);
-    expect(json.data.guestInvites).toHaveLength(5);
-    expect(new Set(json.data.guestInvites.map(ticketFrom)).size).toBe(5);
+    expect(json.data.guestInvites).toBeUndefined();
     expect(json.data.hostInvite).not.toBe(json.data.joinInvite);
     expect(json.data.hostInvite).toContain('#room='); expect(JSON.stringify(json)).not.toContain(testKey);
     const foreign = await worker.dispatchFetch(`${origin}/api/rooms`, { method: 'POST', headers: { Origin: 'https://attacker.invalid', 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
@@ -106,6 +105,28 @@ describe('real Worker / Durable Object / D1 / R2 integration', () => {
     const rejected = await worker.dispatchFetch(`${origin}/api/rooms/${json.data.roomId}/socket`, { headers: { Origin: origin, Upgrade: 'websocket', 'Sec-WebSocket-Protocol': 'frwf-v1,invalid' } });
     expect(rejected.status).toBe(401);
   });
+
+  it('assigns five distinct guest seats from the same invite and rejects a seventh player', async () => {
+    const response = await post('/api/rooms', { ruleset: 'standard' });
+    expect(response.status).toBe(201);
+    const json = await response.json() as { data: { roomId: string; hostInvite: string; joinInvite: string } };
+    const hostTicket = ticketFrom(json.data.hostInvite); const guestTicket = ticketFrom(json.data.joinInvite);
+    if (!hostTicket || !guestTicket) throw new Error('Host and reusable guest invitations were not issued');
+    const host = await connectWebSocket(json.data.roomId, hostTicket);
+    const guests = await Promise.all(Array.from({ length: 5 }, () => connectWebSocket(json.data.roomId, guestTicket)));
+    try {
+      const stateWait = nextSocketMessage<{ roles: { sessionId: string; role: string; connected: boolean }[] }>(host as unknown as WebSocket,
+        message => message.type === 'roomState' && Array.isArray(message.roles) && message.roles.filter(role => role.connected).length === 6);
+      host.send(JSON.stringify({ type: 'requestRoomState', protocolVersion: '2.0.0' }));
+      const state = await stateWait;
+      expect(state.roles.filter(role => role.connected).map(role => role.role).sort()).toEqual(['player1', 'player2', 'player3', 'player4', 'player5', 'player6']);
+      const full = await worker.dispatchFetch(`${origin}/api/rooms/${json.data.roomId}/socket`, {
+        headers: { Origin: origin, Upgrade: 'websocket', 'Sec-WebSocket-Protocol': `frwf-v1, ${guestTicket}` },
+      });
+      expect(full.status).toBe(409);
+      expect(await full.json()).toMatchObject({ ok: false, error: { code: 'room_full' } });
+    } finally { host.close(); guests.forEach(socket => socket.close()); }
+  }, 20_000);
 
   it('rate limits the ninth room hosted by the same client without weakening public hosting protection', async () => {
     for (let count = 0; count < 8; count += 1) {
@@ -213,8 +234,8 @@ describe('real Worker / Durable Object / D1 / R2 integration', () => {
   it('starts with the actual connected seats after the original host leaves', async () => {
     const response = await post('/api/rooms', { fighterId: 'atlas' });
     expect(response.status, 'Test room creation must succeed before reading its invitations').toBe(201);
-    const json = await response.json() as { data: { roomId: string; hostInvite: string; guestInvites: string[] } };
-    const tickets = [json.data.hostInvite, ...json.data.guestInvites.slice(0, 2)].map(ticketFrom);
+    const json = await response.json() as { data: { roomId: string; hostInvite: string; joinInvite: string } };
+    const tickets = [json.data.hostInvite, json.data.joinInvite, json.data.joinInvite].map(ticketFrom);
     const [firstTicket, secondTicket, thirdTicket] = tickets;
     if (!firstTicket || !secondTicket || !thirdTicket) throw new Error('Three scoped invitations required');
     const first = await connectWebSocket(json.data.roomId, firstTicket);
