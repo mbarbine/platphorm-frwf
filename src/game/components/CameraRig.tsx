@@ -5,7 +5,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { useMemo, useRef } from 'react';
 import { Vector3 } from 'three';
 import type { PerspectiveCamera } from 'three';
-import { BATTLE_ROYALE_CAMERA_FRAME, cameraShotIsUrgent, selectCameraShot } from '../camera/cameraDirector';
+import { BATTLE_ROYALE_CAMERA_FRAME, cameraShotIsUrgent, selectCameraShot, usesResolvedWinnerShot } from '../camera/cameraDirector';
 import type { CameraShot, CameraDirectorContext } from '../camera/cameraDirector';
 import { getMove } from '../data/moves';
 import { useMatchStore } from '../state/matchStore';
@@ -215,13 +215,14 @@ export function CameraRig() {
       return;
     }
 
-    // The standard Battle Royale frame is intentionally wide. Once one
-    // wrestler remains, hold the champion and final eliminated opponent in a
-    // tighter decision shot so the physical celebration reads clearly.
-    if (model.matchMode === 'battle_royale' && model.resolved && model.result) {
+    // Keep the broad frame during the free-for-all, then tighten around the
+    // winner and loser for its finish. Online Last Man Standing uses the same
+    // clear winner/loser shot even though its local presentation model is
+    // configured as singles.
+    if (usesResolvedWinnerShot(model.matchMode, model.networkAuthority, model.resolved) && model.result) {
       const winner = model[model.result.winner];
       const finalElimination = model.eliminations[model.eliminations.length - 1];
-      const loser = finalElimination ? model[finalElimination.fighter] : null;
+      const loser = finalElimination ? model[finalElimination.fighter] : model[model.result.winner === 'player' ? 'opponent' : 'player'];
       const winnerX = safeNumber(winner.position.x, 0);
       const winnerZ = safeNumber(winner.position.z, 0);
       const loserX = safeNumber(loser?.position.x, winnerX);
@@ -242,7 +243,7 @@ export function CameraRig() {
       const finishFov = reduced ? 48 : 44;
       perspective.fov += (finishFov - perspective.fov) * response;
       perspective.updateProjectionMatrix();
-      document.documentElement.dataset.cameraShot = 'battle-royale-finish';
+      document.documentElement.dataset.cameraShot = model.networkAuthority ? 'online-last-standing-finish' : 'battle-royale-finish';
       document.documentElement.dataset.cameraFov = perspective.fov.toFixed(2);
       return;
     }

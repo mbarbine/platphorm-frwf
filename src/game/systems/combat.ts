@@ -770,10 +770,12 @@ export const resolveMatch = (model: MatchModel, winner: FighterSlot, method: Mat
   model.resolved = true;
   model[winner].state = 'victorious';
   model.result = { winner, method, duration: model.elapsed, hype: model.hype, grade: scoreGrade(model.hype), playerStats: { ...model.playerStats }, highlights: summarizeHighlights(model.highlights) };
-  model.announcement = model.matchMode === 'battle_royale'
-    ? `${fighterById(model[winner].definitionId).name.toUpperCase()} WINS — LAST WRESTLER STANDING!`
+  model.announcement = model.matchMode === 'battle_royale' || model.networkAuthority
+    ? method === 'FORFEIT'
+      ? `${fighterById(model[winner].definitionId).name.toUpperCase()} WINS BY FORFEIT!`
+      : `${fighterById(model[winner].definitionId).name.toUpperCase()} WINS — LAST WRESTLER STANDING!`
     : method === 'FORFEIT' ? 'MATCH ENDS BY FORFEIT' : method === 'KNOCKOUT' ? 'KNOCKOUT!' : 'THREE!';
-  model.announcementTimer = model.matchMode === 'battle_royale' ? 4.8 : 4;
+  model.announcementTimer = model.matchMode === 'battle_royale' || model.networkAuthority ? 4.8 : 4;
   if (method !== 'FORFEIT') addImpact(model, model[winner].position, method === 'KNOCKOUT' ? 'ko' : 'finisher', 2.4);
 };
 

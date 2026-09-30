@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { finishCelebrationPose } from '../game/animation/finishMotion';
 
-describe('battle royale finish celebration', () => {
+describe('resolved match finish celebration', () => {
   it('uses a changing, alternating fist-pump pose instead of a frozen victory stance', () => {
     const firstBeat = finishCelebrationPose(.3);
     const secondBeat = finishCelebrationPose(1.8);

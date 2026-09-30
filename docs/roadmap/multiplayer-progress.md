@@ -34,6 +34,10 @@ The browser uncovered a handshake race: socket-open completed before Welcome sup
 
 ## Release gate status
 
+### September 30 update
+
+The September 28 full-suite failure count below is historical and has been superseded: `pnpm verify` passed on September 30 with 99 root test files / 916 tests, 22 game-core tests and 15 Worker integration tests. Online Last Man Standing now gets a named winner callout and a close two-wrestler result camera; physical finish-pose integration is tested using the same resolved online singles model used by multiplayer clients. A real two-browser finish and mobile/desktop visual review remain unverified. See [the September 30 execution status](EXECUTION_STATUS_2026-09-30.md).
+
 The room integration suite isolates client addresses between test cases so fixture creation does not accidentally consume another test's host-rate budget. A dedicated test verifies the eighth room succeeds and the ninth request returns 429. Every room fixture checks 201 before reading its invitations. All fifteen Worker integration tests passed after this correction.
 
-The full root suite currently has four failing tests: two neutral/directional strike-selection expectations, Nova idle arm vibration, and roundhouse physical contact. Those findings remain release blockers alongside the uncompleted six-player client integration and real-device control/replay validation. No production release is claimed from the narrower browser and Worker passes.
+At the September 28 checkpoint, the full root suite had four failing tests: two neutral/directional strike-selection expectations, Nova idle arm vibration, and roundhouse physical contact. The September 30 full verification supersedes that test result. The remaining release blockers are uncompleted multi-seat client integration and real-device control/replay/finish visual validation. No production release is claimed from the narrower browser and Worker passes.

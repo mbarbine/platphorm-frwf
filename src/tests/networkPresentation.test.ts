@@ -23,4 +23,28 @@ describe('online presentation ownership', () => {
     expect(model.grapple).toBeNull();
     expect(model.player.phaseElapsed).toBeCloseTo(.24 + 1 / 60);
   });
+
+  it('visibly declares the network Last Man Standing winner', () => {
+    const store = useMatchStore.getState();
+    store.configure('atlas', 'nova', 'standard', 'normal', 0, 0, 'singles');
+    store.setNetworkAuthority(true);
+    store.resolveNetworkMatch('opponent', 'KNOCKOUT');
+
+    const model = useMatchStore.getState().model;
+    expect(model.resolved).toBe(true);
+    expect(model.result?.winner).toBe('opponent');
+    expect(model.player.state).toBe('defeated');
+    expect(model.opponent.state).toBe('victorious');
+    expect(model.announcement).toBe('NOVA FANG WINS — LAST WRESTLER STANDING!');
+    expect(model.announcementTimer).toBe(4.8);
+  });
+
+  it('names the winner when an online opponent forfeits', () => {
+    const store = useMatchStore.getState();
+    store.configure('atlas', 'nova', 'standard', 'normal', 0, 0, 'singles');
+    store.setNetworkAuthority(true);
+    store.resolveNetworkMatch('player', 'FORFEIT');
+
+    expect(useMatchStore.getState().model.announcement).toBe('ATLAS REX WINS BY FORFEIT!');
+  });
 });

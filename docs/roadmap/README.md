@@ -19,7 +19,7 @@ This is the canonical forward plan. Earlier release notes remain historical evid
 
 [Underground, originals and baseline increment](UNDERGROUND_UPGRADE_REPORT.md) records the subsequent content additions, interaction repairs and still-failing visual acceptance.
 
-[Execution status and evidence](EXECUTION_STATUS_2026-09-28.md) records the current gates, recent gameplay findings, multiplayer test coverage, and open parity work. Treat it as a dated checkpoint; it does not declare this roadmap complete.
+[Execution status and evidence](EXECUTION_STATUS_2026-09-28.md) records the September 28 gates and multiplayer parity work. The [September 30 gameplay update](EXECUTION_STATUS_2026-09-30.md) supersedes its test totals and records the online Last Man Standing finish fix. Both are dated checkpoints, not declarations that this roadmap is complete.
 
 ## How to use this plan
 

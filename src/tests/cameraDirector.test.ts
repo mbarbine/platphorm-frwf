@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BATTLE_ROYALE_CAMERA_FRAME, selectCameraShot, usesSteadyBattleRoyaleCamera } from '../game/camera/cameraDirector';
+import { BATTLE_ROYALE_CAMERA_FRAME, selectCameraShot, usesResolvedWinnerShot, usesSteadyBattleRoyaleCamera } from '../game/camera/cameraDirector';
 
 const base = {
   replayActive: false, middleX: 0, middleZ: 0, separation: 2,
@@ -20,6 +20,13 @@ describe('camera director', () => {
   it('keeps Singles on the directed camera path', () => {
     expect(usesSteadyBattleRoyaleCamera('battle_royale')).toBe(true);
     expect(usesSteadyBattleRoyaleCamera('singles')).toBe(false);
+  });
+
+  it('uses a finish winner shot for resolved online singles and Battle Royale only', () => {
+    expect(usesResolvedWinnerShot('singles', true, true)).toBe(true);
+    expect(usesResolvedWinnerShot('battle_royale', false, true)).toBe(true);
+    expect(usesResolvedWinnerShot('singles', false, true)).toBe(false);
+    expect(usesResolvedWinnerShot('singles', true, false)).toBe(false);
   });
 
   it('prioritizes match storytelling shots without losing broad spatial coverage', () => {

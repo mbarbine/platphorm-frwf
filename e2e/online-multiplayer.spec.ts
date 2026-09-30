@@ -117,6 +117,12 @@ test('two browsers share authoritative movement, contact, and impact state', asy
     await guest.keyboard.press('Escape');
     await guest.getByRole('button', { name: 'QUIT TO MENU' }).click();
     await host.bringToFront();
+    await expect(host.locator('html')).toHaveAttribute('data-camera-shot', 'online-last-standing-finish', { timeout: 10_000 });
+    const finishHud = host.locator('.hud');
+    await expect(finishHud).toHaveAttribute('data-player-state', 'victorious');
+    await expect(finishHud).toHaveAttribute('data-opponent-state', 'defeated');
+    await expect(host.locator('.announcement')).toContainText('WINS BY FORFEIT');
+    await host.screenshot({ path: 'test-results/online-last-standing-finish.png' });
     await expect(host.getByText('WINS BY FORFEIT', { exact: true })).toBeVisible({ timeout: 45000 });
     await host.screenshot({ path: 'test-results/online-forfeit.png' });
   } finally {

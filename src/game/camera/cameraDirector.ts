@@ -11,6 +11,9 @@ export const BATTLE_ROYALE_CAMERA_FRAME = Object.freeze({
 
 export const usesSteadyBattleRoyaleCamera = (matchMode: MatchMode): boolean => matchMode === 'battle_royale';
 
+export const usesResolvedWinnerShot = (matchMode: MatchMode, networkAuthority: boolean, resolved: boolean): boolean =>
+  resolved && (matchMode === 'battle_royale' || networkAuthority);
+
 export interface CameraDirectorContext {
   replayActive: boolean;
   middleX: number;

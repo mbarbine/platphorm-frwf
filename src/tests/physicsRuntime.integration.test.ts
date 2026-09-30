@@ -1033,10 +1033,13 @@ it('lets a top-rope aerial follow a ballistic arc instead of grounded support mo
   } finally { runtime.reset(); world.free(); }
 });
 
-it('keeps Battle Royale finish poses physically driven after combat resolves', () => {
+it('keeps online Last Man Standing finish poses physically driven after combat resolves', () => {
   const { world, runtime, model, rig } = makeHarness();
+  const loserRig = createHeadlessRig(world, 'nova', 'opponent', 1.6);
   try {
-    model.matchMode = 'battle_royale';
+    runtime.registerFighter('opponent', loserRig.bodies, loserRig.joints);
+    model.matchMode = 'singles';
+    model.networkAuthority = true;
     model.resolved = true;
     model.player.state = 'victorious';
     model.player.stateElapsed = 0;
@@ -1044,6 +1047,7 @@ it('keeps Battle Royale finish poses physically driven after combat resolves', (
     model.opponent.stateElapsed = 0;
 
     const armBefore = rig.bodies.leftUpperArm.rotation();
+    const loserChestBefore = loserRig.bodies.chest.rotation();
     for (let frame = 0; frame < 36; frame++) {
       runtime.beforeFixedStep(STEP, model, world);
       world.step();
@@ -1056,5 +1060,8 @@ it('keeps Battle Royale finish poses physically driven after combat resolves', (
     const armAfter = rig.bodies.leftUpperArm.rotation();
     const armAlignment = Math.abs(armBefore.x * armAfter.x + armBefore.y * armAfter.y + armBefore.z * armAfter.z + armBefore.w * armAfter.w);
     expect(armAlignment).toBeLessThan(.999);
+    const loserChestAfter = loserRig.bodies.chest.rotation();
+    const loserChestAlignment = Math.abs(loserChestBefore.x * loserChestAfter.x + loserChestBefore.y * loserChestAfter.y + loserChestBefore.z * loserChestAfter.z + loserChestBefore.w * loserChestAfter.w);
+    expect(loserChestAlignment).toBeLessThan(.98);
   } finally { runtime.reset(); world.free(); }
 });
