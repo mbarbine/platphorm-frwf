@@ -50,15 +50,18 @@ const Meter = ({ label, value, kind, max = 100 }: { label: string; value: number
   return <div className={`meter meter--${kind}`} role="progressbar" aria-label={label} aria-valuenow={roundedVal} aria-valuemin={0} aria-valuemax={roundedMax}><div className="meter__label"><span>{label}</span><b>{roundedVal}{max !== 100 ? ` / ${roundedMax}` : ''}</b></div><div className="meter__track"><b className="meter__ghost" style={{ width: `${ghostPct}%` }} /><i style={{ width: `${pct}%` }} /></div></div>;
 };
 
-const ImpactReadout = ({ impact }: { impact: ImpactEvent | null }) => {
+const ImpactReadout = ({ impact, playerDefeated = false }: { impact: ImpactEvent | null; playerDefeated?: boolean }) => {
   const [visible, setVisible] = useState<ImpactEvent | null>(null);
   useEffect(() => {
-    if (!impact || impact.sourceFighter !== 'player' && impact.targetFighter !== 'player') return;
+    if (playerDefeated || !impact || (impact.sourceFighter !== 'player' && impact.targetFighter !== 'player')) {
+      setVisible(null);
+      return;
+    }
     setVisible(impact);
     const timer = window.setTimeout(() => setVisible((current) => current?.id === impact.id ? null : current), impact.kind === 'grapple' || impact.kind === 'finisher' ? 1250 : 760);
     return () => window.clearTimeout(timer);
-  }, [impact]);
-  if (!visible) return null;
+  }, [impact, playerDefeated]);
+  if (!visible || playerDefeated) return null;
   const landed = visible.sourceFighter === 'player'; const blocked = visible.kind === 'blocked';
   const label = landed ? blocked ? 'ATTACK BLOCKED' : 'HIT LANDED' : blocked ? 'GUARD CONTACT' : 'YOU GOT HIT';
   const move = visible.moveId ? getMove(visible.moveId).displayName : visible.kind.toUpperCase();
@@ -138,7 +141,7 @@ export function HUD({ device, paused }: { device: ControlDevice; paused: boolean
       </div>
       <div className="fighter-hud fighter-hud--right"><div className="fighter-hud__name"><span>{model.matchMode === 'battle_royale' ? 'CURRENT TARGET' : `${model.difficulty.toUpperCase()} AI`}</span><b>{opponent.name}</b></div><Meter label="HEALTH" value={target.health} kind="health" /><Meter label="STAMINA" value={target.stamina} max={target.staminaCap} kind="stamina" /><Meter label="BALANCE" value={target.body.balance} kind="balance" /><Meter label="MOMENTUM" value={target.momentum} kind="momentum" /></div>
     </div>
-    <ImpactReadout impact={model.lastImpact} />
+    <ImpactReadout impact={model.lastImpact} playerDefeated={model.player.state === 'defeated'} />
     {!model.networkAuthority && <ComboReadout actor={model.player} punch={controlPrompt(activeDevice, 'quick')} kick={controlPrompt(activeDevice, 'heavy')} />}
     {model.announcement && announcementClass !== 'routine' && <div className={`announcement announcement--${announcementClass}`} key={model.announcement}>{model.announcement}</div>}
     {model.chaosEvent && <div className="event-banner"><span>LIVE CIRCUIT EVENT</span><b>{model.chaosEvent.type}</b><small>{Math.ceil(model.chaosEvent.remaining)}s</small></div>}
@@ -150,7 +153,7 @@ export function HUD({ device, paused }: { device: ControlDevice; paused: boolean
       })}</div>)}
     </div>}
     {model.matchMode === 'battle_royale' && <div className="battle-royale-roster" data-testid="battle-royale-roster" data-remaining={FIGHTER_SLOTS.filter((slot) => model[slot].state !== 'defeated').length}>{FIGHTER_SLOTS.map((slot) => { const runtime = model[slot]; const definition = fighterById(runtime.definitionId); const physical = rosterPhysics[slot]; return <div key={slot} className={`${slot === 'player' ? 'is-player' : ''}${slot === targetSlot ? ' is-target' : ''}${runtime.state === 'defeated' ? ' is-eliminated' : ''}`} data-fighter-slot={slot} data-fighter-state={runtime.state} data-fighter-state-seconds={runtime.stateElapsed.toFixed(2)} data-fighter-pelvis-y={physical.pelvisY.toFixed(3)} data-fighter-support-feet={physical.supportFeet}><span style={{ background: definition.palette.primary }} /><b>{definition.name}</b><i style={{ width: `${runtime.health}%` }} /><small>{runtime.state === 'defeated' ? 'OUT' : `${Math.ceil(runtime.health)} HP`}</small></div>; })}</div>}
-    <button type="button" className="player-camera-switch" aria-label={`Change playing camera, currently ${PLAYER_CAMERA_MODES.find(mode => mode.id === cameraMode)?.label ?? 'BROADCAST'}`} onClick={() => { const settings = useSettings.getState(); const index = PLAYER_CAMERA_MODES.findIndex(mode => mode.id === settings.playerCamera); const nextMode = PLAYER_CAMERA_MODES[(index + 1) % PLAYER_CAMERA_MODES.length]; if (nextMode) settings.update({ playerCamera: nextMode.id }); }}>CAMERA · {PLAYER_CAMERA_MODES.find(mode => mode.id === cameraMode)?.label}</button>
+    {model.player.state !== 'defeated' && <button type="button" className="player-camera-switch" aria-label={`Change playing camera, currently ${PLAYER_CAMERA_MODES.find(mode => mode.id === cameraMode)?.label ?? 'BROADCAST'}`} onClick={() => { const settings = useSettings.getState(); const index = PLAYER_CAMERA_MODES.findIndex(mode => mode.id === settings.playerCamera); const nextMode = PLAYER_CAMERA_MODES[(index + 1) % PLAYER_CAMERA_MODES.length]; if (nextMode) settings.update({ playerCamera: nextMode.id }); }}>CAMERA · {PLAYER_CAMERA_MODES.find(mode => mode.id === cameraMode)?.label}</button>}
     {model.matchMode === 'battle_royale' && <button type="button" className="target-switch" data-testid="target-switch" aria-label={`Switch target wrestler, currently targeting ${opponent.name}`} disabled={model.player.state === 'defeated' || model.resolved} onClick={() => useMatchStore.getState().cyclePlayerTarget()}><span className="target-switch__label--desktop">SWITCH TARGET</span><span className="target-switch__label--mobile" aria-hidden="true">TARGET ›</span><kbd>TAB</kbd><small>GAMEPAD VIEW</small></button>}
     {showPrompts && recentActionFeedback && <div className={`action-strip action-strip--${recentActionFeedback.status}`} data-testid="action-strip" role="status" aria-live="polite" aria-atomic="true" data-action={recentActionFeedback.event.action} data-action-label={actionConfirmation} data-status={recentActionFeedback.status}><span>{recentActionFeedback.status === 'interrupted' ? 'MOVE STOPPED' : 'INPUT'}</span><b>{actionConfirmation}</b><small>{recentActionFeedback.reason?.toUpperCase() ?? recentActionFeedback.status.toUpperCase()}</small></div>}
     {showDeck && <ControlDeck grapplePhase={model.grapple?.attacker === 'player' ? model.grapple.phase : null} hasRing={venueFor(model).hasRing} mode={controlDeckMode} device={device} player={model.player} opponent={target} speed={playerPhysics.speed} distance={distance} paused={paused} direction={combatDirectionInput} controlStyle={controlStyle} runHeld={playerIntent.run} contextPreview={contextPreview.displayName} propPreview={propPreview.displayName} />}

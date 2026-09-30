@@ -12,7 +12,7 @@ describe('HUD and Results Accessibility', () => {
     cleanup();
   });
 
-  it('renders playing camera switch button with descriptive ARIA label containing current camera mode', () => {
+  it('renders playing camera switch button with descriptive ARIA label containing current camera mode when not defeated', () => {
     useSettings.setState({ playerCamera: 'broadcast' });
     useMatchStore.getState().configure('atlas', 'nova', 'standard', 'normal', 0, 0, 'singles');
 
@@ -20,6 +20,38 @@ describe('HUD and Results Accessibility', () => {
 
     const cameraBtn = screen.getByRole('button', { name: /Change playing camera, currently BROADCAST/i });
     expect(cameraBtn).toBeTruthy();
+  });
+
+  it('omits playing camera switch button and impact readout when local player is in defeated state', () => {
+    useSettings.setState({ playerCamera: 'broadcast' });
+    useMatchStore.getState().configure('atlas', 'nova', 'standard', 'normal', 0, 0, 'battle_royale');
+    useMatchStore.setState((state) => ({
+      model: {
+        ...state.model,
+        player: {
+          ...state.model.player,
+          state: 'defeated',
+        },
+        lastImpact: {
+          id: 101,
+          sourceFighter: 'opponent',
+          targetFighter: 'player',
+          kind: 'heavy',
+          intensity: 1.2,
+          moveId: 'roundhouse',
+          region: 'head',
+          position: { x: 0, y: 1, z: 0 },
+        },
+      },
+    }));
+
+    render(React.createElement(HUD, { device: 'keyboard', paused: false }));
+
+    const cameraBtn = screen.queryByRole('button', { name: /Change playing camera/i });
+    expect(cameraBtn).toBeNull();
+
+    const impactReadout = screen.queryByTestId('impact-readout');
+    expect(impactReadout).toBeNull();
   });
 
   it('renders target switch button with descriptive ARIA label containing current target wrestler name in battle royale', () => {
