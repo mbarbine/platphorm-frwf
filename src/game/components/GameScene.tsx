@@ -51,6 +51,12 @@ const BodyWorksDebugOverlay = lazy(async () => ({ default: (await import('./Body
 
 bodyWorksRuntime.setJointData(JointData);
 
+// OPTIMIZATION: Module-scoped static Sets eliminate dynamic array allocations in 60Hz physics steps and R3F render loops
+const CINEMATIC_PLAYER_STATES = new Set(['grappling', 'grabbed', 'climbing', 'airborne', 'jumping', 'pinning', 'pinned']);
+const CAMERA_RELATIVE_ACTIONS = new Set(['move', 'run', 'guard']);
+const CONTROLLABLE_BEACON_STATES = new Set(['idle', 'locomotion']);
+const INACTIVE_BEACON_STATES = new Set(['defeated', 'victorious']);
+
 function Simulation({ onPause, onDevice, onFinished, inputEnabled = true, onlineRole = null }: Props) {
   const controller = useRef(new PlayerController());
   const pause = useCallback(onPause, [onPause]);
@@ -127,14 +133,26 @@ function Simulation({ onPause, onDevice, onFinished, inputEnabled = true, online
         document.documentElement.dataset.storeLastAction = raw.actions[raw.actions.length - 1]?.action ?? '';
       }
       if (raw.targetCycle) useMatchStore.getState().cyclePlayerTarget(raw.targetCycle);
-      const middleX = activeSlots.reduce((sum, slot) => sum + model[slot].position.x, 0) / Math.max(1, activeSlots.length);
-      const middleZ = activeSlots.reduce((sum, slot) => sum + model[slot].position.z, 0) / Math.max(1, activeSlots.length);
+      // OPTIMIZATION: Zero-allocation indexed for loop avoids closure function allocations on every 60Hz physics step
+      let sumX = 0;
+      let sumZ = 0;
+      for (let i = 0; i < activeSlots.length; i++) {
+        const slot = activeSlots[i];
+        if (slot) {
+          sumX += model[slot].position.x;
+          sumZ += model[slot].position.z;
+        }
+      }
+      const activeCount = Math.max(1, activeSlots.length);
+      const middleX = sumX / activeCount;
+      const middleZ = sumZ / activeCount;
       const candidate = viewInputBasis(useSettings.getState().playerCamera, model.player.facing, cameraInputBasis({ x: camera.position.x, z: camera.position.z }, { x: middleX, z: middleZ }));
       if (!inputBasis.current) inputBasis.current = candidate;
       // OPTIMIZATION: Replacing Math.hypot with a zero-allocation squared magnitude check to avoid slow square root extraction on a hot path.
       const inputHeld = (raw.move.x * raw.move.x + raw.move.z * raw.move.z) > 0.0064; // 0.08 * 0.08 = 0.0064
       const playerInGrapple = Boolean(model.grapple && (model.grapple.attacker === 'player' || model.grapple.defender === 'player'));
-      const cinematic = useMatchStore.getState().replayActive || playerInGrapple || model.player.moveId !== null || ['grappling', 'grabbed', 'climbing', 'airborne', 'jumping', 'pinning', 'pinned'].includes(model.player.state);
+      // OPTIMIZATION: Static Set.has() check avoids per-step array allocation in Simulation
+      const cinematic = useMatchStore.getState().replayActive || playerInGrapple || model.player.moveId !== null || CINEMATIC_PLAYER_STATES.has(model.player.state);
       inputBasis.current = updateStableBasis(inputBasis.current, candidate, inputHeld, cinematic, fixedStep);
       const stableBasis = inputBasis.current;
       document.documentElement.dataset.inputForwardX = String(stableBasis.forward.x);
@@ -145,7 +163,8 @@ function Simulation({ onPause, onDevice, onFinished, inputEnabled = true, online
         // stay controller-relative so "down + strike" always means the same
         // move even after a camera cut or when players occupy opposite sides.
         const sourceDirection = { x: event.direction.x, z: event.direction.y };
-        const direction = ['move', 'run', 'guard'].includes(event.action) ? transformCameraRelative(sourceDirection, stableBasis) : sourceDirection;
+        // OPTIMIZATION: Static Set.has() check avoids per-action array allocation in Simulation
+        const direction = CAMERA_RELATIVE_ACTIONS.has(event.action) ? transformCameraRelative(sourceDirection, stableBasis) : sourceDirection;
         // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt for rendering and input calculations.
         const magnitude = Math.max(1, Math.sqrt(direction.x * direction.x + direction.z * direction.z));
         return { ...event, direction: { x: direction.x / magnitude, y: direction.z / magnitude } };
@@ -265,8 +284,9 @@ function PlayerControlBeacon() {
     const intent = bodyWorksRuntime.intentSnapshot('player'); const model = useMatchStore.getState().model;
     // OPTIMIZATION: Replacing Math.hypot with a zero-allocation squared magnitude comparison to avoid slow square root extraction entirely.
     const hasMagnitude = (intent.move.x * intent.move.x + intent.move.z * intent.move.z) > 0.0064; // 0.08 * 0.08 = 0.0064
-    const controllable = ['idle', 'locomotion'].includes(model.player.state) && !model.paused && !model.resolved;
-    const battleIdentity = model.matchMode === 'battle_royale' && !['defeated', 'victorious'].includes(model.player.state) && !model.resolved;
+    // OPTIMIZATION: Static Set.has() checks avoid per-frame array allocations in useFrame
+    const controllable = CONTROLLABLE_BEACON_STATES.has(model.player.state) && !model.paused && !model.resolved;
+    const battleIdentity = model.matchMode === 'battle_royale' && !INACTIVE_BEACON_STATES.has(model.player.state) && !model.resolved;
     group.visible = !useMatchStore.getState().replayActive && (battleIdentity || (!model.resolved && !model.paused && model.player.state !== 'defeated'));
     if (!group.visible) return;
     group.position.set(model.player.position.x, (!venueFor(model).hasRing || (Math.abs(model.player.position.x) <= 5.82 && Math.abs(model.player.position.z) <= 4.32)) ? 1.88 : .43, model.player.position.z);

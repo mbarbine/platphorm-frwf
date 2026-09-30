@@ -15,6 +15,10 @@ export interface CombatOrientation {
 }
 
 /** Keeps travel, pelvis/chest combat orientation, and head tracking independent. */
+// OPTIMIZATION: Static Sets eliminate dynamic array allocations inside 60Hz combat orientation calculations
+const INACTIVE_TARGET_STATES = new Set(['defeated', 'victorious']);
+const TRACKING_FIGHTER_STATES = new Set(['idle', 'locomotion', 'blocking']);
+
 export const resolveCombatOrientation = (fighter: FighterRuntime, opponent?: FighterRuntime): CombatOrientation => {
   // OPTIMIZATION: Replacing Math.hypot with standard Math.sqrt for ~8x speedup in 2D vector calculations on hot render frame path
   const vx = fighter.velocity.x;
@@ -25,8 +29,8 @@ export const resolveCombatOrientation = (fighter: FighterRuntime, opponent?: Fig
   const dz = (opponent?.position.z ?? fighter.position.z) - fighter.position.z;
   const distance = Math.sqrt(dx * dx + dz * dz);
   const targetHeading = opponent && distance > .001 ? Math.atan2(dx, dz) : fighter.facing;
-  const targetActive = Boolean(opponent && !['defeated', 'victorious'].includes(opponent.state));
-  const tracking = targetActive && distance <= 7 && ['idle', 'locomotion', 'blocking'].includes(fighter.state) && !fighter.moveId;
+  const targetActive = Boolean(opponent && !INACTIVE_TARGET_STATES.has(opponent.state));
+  const tracking = targetActive && distance <= 7 && TRACKING_FIGHTER_STATES.has(fighter.state) && !fighter.moveId;
   const pelvisTargetError = tracking ? wrapAngle(targetHeading - fighter.facing) : 0;
   const torsoYaw = tracking ? clamp(pelvisTargetError, -.52, .52) : 0;
   const headYaw = tracking ? clamp(pelvisTargetError - torsoYaw, -.72, .72) : 0;
