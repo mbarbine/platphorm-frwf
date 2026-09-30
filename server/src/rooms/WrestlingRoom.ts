@@ -35,11 +35,12 @@ interface VersionMsg { clientVersion: string }
 const actionEventSchema = z.object({
   action: z.enum(['move', 'run', 'quickStrike', 'heavyStrike', 'grapple', 'guard', 'dodgeCounter', 'jump', 'propAction', 'contextAction', 'taunt', 'pause']),
   phase: z.enum(['started', 'held', 'released']),
-  sequence: z.number().int().nonnegative(), timestamp: z.number().finite(),
+  sequence: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+  timestamp: z.number().finite().nonnegative(),
   direction: z.object({ x: z.number().finite().min(-1).max(1), y: z.number().finite().min(-1).max(1) }),
   source: z.enum(['keyboard', 'gamepad', 'touch', 'xr', 'ai', 'replay', 'network']),
 });
-const commandSchema = z.object({ event: actionEventSchema, seq: z.number().int().positive() });
+const commandSchema = z.object({ event: actionEventSchema, seq: z.number().int().positive().max(Number.MAX_SAFE_INTEGER) });
 
 // ──────────────────────────────────────────────────────────────────────────────
 // WrestlingRoom

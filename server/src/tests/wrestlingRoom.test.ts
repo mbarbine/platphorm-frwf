@@ -355,6 +355,59 @@ describe('WrestlingRoom Unit Tests', () => {
 
       expect(p1.send).not.toHaveBeenCalled();
     });
+
+    it('rejects command payloads exceeding Number.MAX_SAFE_INTEGER or negative timestamp', async () => {
+      const p1: MockClient = { sessionId: 'p1', send: vi.fn(), leave: vi.fn() };
+      const p2: MockClient = { sessionId: 'p2', send: vi.fn(), leave: vi.fn() };
+      await room.onJoin(p1 as never, {});
+      await room.onJoin(p2 as never, {});
+      room.handlers.get('ready')?.(p1);
+      room.handlers.get('ready')?.(p2);
+
+      const handler = room.handlers.get('command');
+
+      // Reject seq > Number.MAX_SAFE_INTEGER
+      handler?.(p1, {
+        seq: Number.MAX_SAFE_INTEGER + 1,
+        event: {
+          action: 'move',
+          phase: 'started',
+          sequence: 1,
+          timestamp: 100,
+          direction: { x: 1, y: 0 },
+          source: 'keyboard',
+        },
+      });
+      expect(p1.send).not.toHaveBeenCalled();
+
+      // Reject event.sequence > Number.MAX_SAFE_INTEGER
+      handler?.(p1, {
+        seq: 1,
+        event: {
+          action: 'move',
+          phase: 'started',
+          sequence: Number.MAX_SAFE_INTEGER + 1,
+          timestamp: 100,
+          direction: { x: 1, y: 0 },
+          source: 'keyboard',
+        },
+      });
+      expect(p1.send).not.toHaveBeenCalled();
+
+      // Reject negative event.timestamp
+      handler?.(p1, {
+        seq: 1,
+        event: {
+          action: 'move',
+          phase: 'started',
+          sequence: 1,
+          timestamp: -1,
+          direction: { x: 1, y: 0 },
+          source: 'keyboard',
+        },
+      });
+      expect(p1.send).not.toHaveBeenCalled();
+    });
   });
 
   describe('Single Player Practice Pause Handler', () => {
