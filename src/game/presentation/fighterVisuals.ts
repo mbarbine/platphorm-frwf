@@ -64,14 +64,14 @@ export const FIGHTER_VISUALS: Readonly<Record<FighterId, FighterVisualProfile>> 
   josh: { ...ORIGINAL_VISUALS.brick, hairColor: '#786044', browColor: '#786044', waistScale: .98, motionTempo: 1 },
   chelsea: {
     ...ORIGINAL_VISUALS.vex, attire: 'brawler', hair: 'longFlow',
-    chestScale: .92, waistScale: .79, shoulderScale: .9, armScale: .88, thighScale: .97, calfScale: .93, bootScale: .92,
+    chestScale: .96, waistScale: .78, shoulderScale: .87, armScale: .94, thighScale: 1.08, calfScale: .98, bootScale: .95,
     headScale: [.98, 1.05, .95], stanceWidth: .92, motionTempo: .94, stepWeight: .78, guardHeight: 1.06,
     hairColor: '#bd8050', browColor: '#765039', eyeColor: '#758567', soleColor: '#b7a7a0',
   },
   britt: {
     ...ORIGINAL_VISUALS.nova, attire: 'technician', hair: 'twinBraid',
-    chestScale: 1.04, waistScale: .94, shoulderScale: 1.02, armScale: .98, thighScale: 1.06, calfScale: 1.02, bootScale: .98,
-    headScale: [1.04, .99, 1.01], stanceWidth: 1.08, motionTempo: .89, stepWeight: .94, guardHeight: 1.12,
+    chestScale: 1.2, waistScale: 1.02, shoulderScale: 1.14, armScale: 1.12, thighScale: 1.18, calfScale: 1.1, bootScale: 1.06,
+    headScale: [1.01, 1.02, 1], stanceWidth: 1.14, motionTempo: .93, stepWeight: 1.08, guardHeight: 1.04,
     hairColor: '#542a27', browColor: '#482621', eyeColor: '#718078', soleColor: '#e14798',
   },
   beer_bandit_bill: { ...ORIGINAL_VISUALS.brick, hairColor: '#433329', motionTempo: 0.93 },
@@ -81,7 +81,13 @@ export const FIGHTER_VISUALS: Readonly<Record<FighterId, FighterVisualProfile>> 
   wrecking_ball: { ...ORIGINAL_VISUALS.brick, waistScale: 1.5, chestScale: 1.3, stepWeight: 1.5 },
   steve: { ...ORIGINAL_VISUALS.nova, hairColor: '#262320' },
   john: { ...ORIGINAL_VISUALS.chad, hairColor: '#181713', guardHeight: .87, stepWeight: 1.12 }, justin: { ...ORIGINAL_VISUALS.nova, hairColor: '#634b31', chestScale: 1.04, guardHeight: 1.02 },
-  mondo: { ...ORIGINAL_VISUALS.brick, waistScale: 1.24, hairColor: '#574028', motionTempo: .91 }, gil: { ...ORIGINAL_VISUALS.vex, hairColor: '#593f2e' },
+  mondo: { ...ORIGINAL_VISUALS.brick, waistScale: 1.24, hairColor: '#574028', motionTempo: .91 },
+  gil: {
+    ...ORIGINAL_VISUALS.vex, attire: 'roughneck', hair: 'longFlow', chestScale: .94, waistScale: .91,
+    shoulderScale: .92, armScale: .94, thighScale: 1.02, calfScale: .98, headScale: [.98, 1.02, .97],
+    stanceWidth: .95, motionTempo: 1.12, stepWeight: .74, guardHeight: 1.16,
+    hairColor: '#593f2e', browColor: '#463326', eyeColor: '#6e795d', soleColor: '#898659',
+  },
 };
 
 export const fighterVisual = (id: FighterId): FighterVisualProfile => FIGHTER_VISUALS[id];

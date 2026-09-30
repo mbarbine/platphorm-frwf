@@ -32,6 +32,7 @@ export function useHumanoidAsset(fighterId: FighterId) {
       if (node instanceof SkinnedMesh) {
         if (node.material instanceof MeshStandardMaterial) {
           node.material = node.material.clone(); node.material.map = node.material.name === 'hair' ? hair : skin;
+          if (node.material.name === 'hair') node.material.color.set(fighterVisual(fighterId).hairColor);
           node.material.roughness = node.material.name === 'hair' ? .92 : fighterVisual(fighterId).skinRoughness;
           if (node.material.name !== 'hair') skinMaterials.push(node.material);
         }
