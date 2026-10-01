@@ -652,14 +652,14 @@ export function CameraRig() {
     if (impact && impact.id !== impactId.current) {
       impactId.current = impact.id;
       const hierarchy = impact.kind === 'finisher' || impact.kind === 'ko'
-        ? 1.5
+        ? 1.85
         : impact.kind === 'grapple' || impact.kind === 'table'
-          ? 1.22
+          ? 1.45
           : impact.kind === 'heavy' || impact.kind === 'weapon'
-            ? 1.02
+            ? 1.25
             : impact.kind === 'light' || impact.kind === 'blocked'
-              ? 0.5
-              : 0.85;
+              ? 0.6
+              : 1.0;
       const playerPositionX = safeNumber(model.player?.position?.x, player.x);
       const playerPositionZ = safeNumber(model.player?.position?.z, player.z);
       const impactPositionX = safeNumber(impact.position?.x, playerPositionX);

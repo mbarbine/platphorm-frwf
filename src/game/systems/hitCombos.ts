@@ -13,6 +13,10 @@ export const HIT_COMBOS = [
   { inputs: 'PKPK', name: 'CIRCUIT BREAKER', finish: 'roundhouse' },
   { inputs: 'KPPK', name: 'LOW TO HIGH', finish: 'high_kick' },
   { inputs: 'PPPPK', name: 'FIVE STAR', finish: 'roundhouse' },
+  { inputs: 'PPPK', name: 'FLASH SUPERKICK', finish: 'superkick' },
+  { inputs: 'KPK', name: 'CYCLONE COMBO', finish: 'spinning_heel_kick' },
+  { inputs: 'PKK', name: 'AXE DROP', finish: 'axe_kick' },
+  { inputs: 'KKP', name: 'ENZUIGIRI RUSH', finish: 'enzuigiri' },
 ] as const;
 
 export function comboCode(inputs: readonly StrikeInput[]): string {

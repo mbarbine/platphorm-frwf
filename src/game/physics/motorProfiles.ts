@@ -84,7 +84,7 @@ const SEGMENT_CHAIN_MAP: Readonly<Record<BodySegmentId, MotorChain>> = {
 export const motorChainForSegment = (segment: BodySegmentId): MotorChain => SEGMENT_CHAIN_MAP[segment];
 
 const REACH_MOVES = new Set(['grapple_miss', 'prop_pickup', 'prop_drop']);
-const THROW_MOVES = new Set(['slam', 'suplex', 'powerbomb', 'spinebuster', 'mountain_drop', 'skyhook', 'finisher', 'piledriver']);
+const THROW_MOVES = new Set(['slam', 'suplex', 'powerbomb', 'spinebuster', 'mountain_drop', 'skyhook', 'finisher', 'piledriver', 'chokeslam', 'brainbuster', 'gutwrench', 'german_suplex', 'running_powerslam']);
 const CLINCH_MOVES = new Set(['whip', 'arm_drag', 'takedown', 'clutch', 'side_toss', 'corner_smash']);
 const HEAVY_STRIKE_MOVES = new Set(['heavy', 'uppercut', 'stiff_arm', 'rebound']);
 
