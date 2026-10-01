@@ -484,7 +484,7 @@ describe('authoritative server contract', () => {
     expect(JSON.stringify(jsonCallArgs)).not.toContain('stack');
   });
 
-  it('vercel.json header configuration contains valid JSON and no duplicate header keys', async () => {
+  it('vercel.json header configuration contains valid JSON, no duplicate keys, and enforces HSTS', async () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
     const vercelJsonPath = path.resolve(import.meta.dirname, '../../../vercel.json');
@@ -492,6 +492,8 @@ describe('authoritative server contract', () => {
     const parsed = JSON.parse(rawContent);
 
     expect(Array.isArray(parsed.headers)).toBe(true);
+    let foundCatchAllHsts = false;
+
     for (const routeHeader of parsed.headers) {
       expect(Array.isArray(routeHeader.headers)).toBe(true);
       const keysSeen = new Set<string>();
@@ -500,8 +502,15 @@ describe('authoritative server contract', () => {
         const keyLower = headerObj.key.toLowerCase();
         expect(keysSeen.has(keyLower)).toBe(false);
         keysSeen.add(keyLower);
+
+        if (routeHeader.source === '/(.*)' && keyLower === 'strict-transport-security') {
+          expect(headerObj.value).toBe('max-age=31536000; includeSubDomains');
+          foundCatchAllHsts = true;
+        }
       }
     }
+
+    expect(foundCatchAllHsts).toBe(true);
   });
 
   it('exports MAX_REQUESTS rate limit constant and enforces exact request threshold', async () => {
