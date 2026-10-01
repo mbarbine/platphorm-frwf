@@ -91,6 +91,16 @@ const MOVES: Readonly<Record<string, OnlineMove>> = {
   side_toss: { id: 'side_toss', anticipation: .86, active: .19, recovery: .58, stamina: 16, damage: 14, momentum: 16, startReach: .2, endReach: .62, colliderRadius: .28, targetRadius: .36, region: 'chest', kind: 'grapple' },
   grapple_miss: { id: 'grapple_miss', ...NETWORK_MOVE_TIMING.grapple_miss, stamina: 6, damage: 0, momentum: 0, startReach: .3, endReach: .82, colliderRadius: .18, targetRadius: .36, region: 'chest', kind: 'grapple' },
   slam: { id: 'slam', ...NETWORK_MOVE_TIMING.slam, stamina: 15, damage: 18, momentum: 20, startReach: .2, endReach: .52, colliderRadius: .32, targetRadius: .36, region: 'chest', kind: 'grapple' },
+  chokeslam: { id: 'chokeslam', anticipation: 1.28, active: .24, recovery: .82, stamina: 26, damage: 25, momentum: 25, startReach: .2, endReach: .54, colliderRadius: .32, targetRadius: .36, region: 'chest', kind: 'grapple' },
+  brainbuster: { id: 'brainbuster', anticipation: 1.42, active: .26, recovery: .86, stamina: 27, damage: 27, momentum: 26, startReach: .2, endReach: .52, colliderRadius: .32, targetRadius: .36, region: 'chest', kind: 'grapple' },
+  gutwrench: { id: 'gutwrench', anticipation: 1.18, active: .22, recovery: .76, stamina: 23, damage: 22, momentum: 22, startReach: .2, endReach: .56, colliderRadius: .3, targetRadius: .36, region: 'chest', kind: 'grapple' },
+  german_suplex: { id: 'german_suplex', anticipation: 1.22, active: .24, recovery: .80, stamina: 24, damage: 24, momentum: 23, startReach: .22, endReach: .58, colliderRadius: .3, targetRadius: .36, region: 'chest', kind: 'grapple' },
+  running_powerslam: { id: 'running_powerslam', anticipation: 1.32, active: .25, recovery: .84, stamina: 25, damage: 26, momentum: 25, startReach: .22, endReach: .55, colliderRadius: .32, targetRadius: .36, region: 'chest', kind: 'grapple' },
+  superkick: { id: 'superkick', anticipation: .24, active: .22, recovery: .44, stamina: 18, damage: 18, momentum: 19, startReach: .35, endReach: 1.65, colliderRadius: .18, targetRadius: .32, region: 'head', kind: 'heavy' },
+  dropkick: { id: 'dropkick', anticipation: .26, active: .28, recovery: .46, stamina: 17, damage: 17, momentum: 18, startReach: .38, endReach: 1.7, colliderRadius: .2, targetRadius: .34, region: 'chest', kind: 'heavy' },
+  spinning_heel_kick: { id: 'spinning_heel_kick', anticipation: .28, active: .24, recovery: .48, stamina: 19, damage: 19, momentum: 20, startReach: .4, endReach: 1.75, colliderRadius: .2, targetRadius: .32, region: 'head', kind: 'heavy' },
+  axe_kick: { id: 'axe_kick', anticipation: .22, active: .26, recovery: .40, stamina: 16, damage: 16, momentum: 17, startReach: .3, endReach: 1.55, colliderRadius: .18, targetRadius: .3, region: 'head', kind: 'heavy' },
+  enzuigiri: { id: 'enzuigiri', anticipation: .22, active: .22, recovery: .42, stamina: 20, damage: 20, momentum: 21, startReach: .35, endReach: 1.65, colliderRadius: .18, targetRadius: .32, region: 'head', kind: 'heavy' },
 };
 
 const fighter = (sessionId: string, fighterId: FighterId, x: number, facing: number): OnlineFighterState => ({

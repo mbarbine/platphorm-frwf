@@ -70,9 +70,9 @@ export const selectDirectionalStrike = (direction: Vec2, button: StrikeButton, c
     if (directionId === 'neutral') {
       return 'front_kick';
     }
-    // ensure heavy button only maps to leg kicks or stiff-arms (front_kick, low_kick, high_kick, roundhouse)
+    // ensure heavy button only maps to leg kicks or stiff-arms (front_kick, low_kick, high_kick, roundhouse, superkick, dropkick, spinning_heel_kick, axe_kick, enzuigiri)
     const raw = STRIKE_GRID[directionId].heavy;
-    if (raw === 'front_kick' || raw === 'low_kick' || raw === 'high_kick' || raw === 'roundhouse') {
+    if (raw === 'front_kick' || raw === 'low_kick' || raw === 'high_kick' || raw === 'roundhouse' || raw === 'superkick' || raw === 'dropkick' || raw === 'spinning_heel_kick' || raw === 'axe_kick' || raw === 'enzuigiri') {
       return raw;
     }
     return 'front_kick';

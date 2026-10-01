@@ -66,14 +66,14 @@ describe('online deterministic authority', () => {
     expect(applyOnlineAction(match, 'p1', action('quickStrike', 2), 2)).toBe(false);
     advance(match, .5);
     expect(p1.attackPhase).toBe('recovery');
-    expect(applyOnlineAction(match, 'p1', action('quickStrike', 3), 3)).toBe(true);
+    expect(applyOnlineAction(match, 'p1', action('quickStrike', 3, { x: 1, y: 0 }), 3)).toBe(true);
     expect(p1.moveId).toBe('right_hook');
     advance(match, .55);
     expect(p1.attackPhase).toBe('recovery');
-    expect(applyOnlineAction(match, 'p1', action('quickStrike', 4), 4)).toBe(true);
+    expect(applyOnlineAction(match, 'p1', action('quickStrike', 4, { x: -1, y: 0 }), 4)).toBe(true);
     expect(p1.moveId).toBe('left_hook');
     advance(match, .55);
-    expect(applyOnlineAction(match, 'p1', action('quickStrike', 5), 5)).toBe(true);
+    expect(applyOnlineAction(match, 'p1', action('quickStrike', 5, { x: 0, y: -1 }), 5)).toBe(true);
     expect(p1.moveId).toBe('uppercut');
   });
 

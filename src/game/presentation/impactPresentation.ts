@@ -11,12 +11,18 @@ export function impactPresentation(impact: ImpactEvent, floorY: number, reducedM
   const point = impact.contactPoint;
   const exact = point?.every(Number.isFinite) ? point : null;
   const fallbackHeight = ground ? .05 : impact.region === 'head' ? 1.85 : impact.region?.includes('Leg') ? .55 : 1.2;
+  const isHeavyHit = impact.kind === 'heavy' || impact.kind === 'finisher' || impact.kind === 'ko';
   return {
     position: exact ? [exact[0], exact[1], exact[2]] : [impact.position.x, floorY + fallbackHeight, impact.position.z],
     ground,
-    color: impact.kind === 'blocked' || impact.kind === 'counter' ? '#77dce5' : impact.kind === 'table' ? '#bd976d' : ground ? '#c6c0ad' : '#f4dbb3',
-    particles: reducedMotion ? 0 : lowFlash ? 4 : ground ? 16 : 7,
-    radius: ground ? .38 : .15,
-    duration: ground ? .65 : impact.kind === 'light' ? .17 : .24,
+    color: impact.kind === 'blocked' || impact.kind === 'counter' ? '#77dce5'
+      : impact.kind === 'table' ? '#bd976d'
+      : impact.kind === 'finisher' || impact.kind === 'ko' ? '#ffcc33'
+      : impact.kind === 'heavy' ? '#ff6633'
+      : ground ? '#c6c0ad'
+      : '#f4dbb3',
+    particles: reducedMotion ? 0 : lowFlash ? 4 : impact.kind === 'finisher' || impact.kind === 'ko' ? 28 : ground ? 20 : isHeavyHit ? 16 : 9,
+    radius: ground ? .45 : isHeavyHit ? .28 : .18,
+    duration: ground ? .75 : impact.kind === 'light' ? .20 : .32,
   };
 }

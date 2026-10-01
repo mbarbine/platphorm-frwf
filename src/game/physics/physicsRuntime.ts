@@ -2249,7 +2249,7 @@ export class BodyWorksRuntime {
       beginFall(model, grapple.defender, FALL_REASONS.Throw);
       this.pendingLandings.set(grapple.defender, {
         attacker: grapple.attacker, defender: grapple.defender, attackInstanceId: attacker.attackInstanceId, moveId: move.id,
-        releasedAt: model.elapsed, expiresAt: model.elapsed + (environmentTargeted ? 4.1 : 2.2),
+        releasedAt: model.elapsed, expiresAt: model.elapsed + (environmentTargeted ? 4.1 : 3.0),
         targetSurface: environmentTargeted && environmentTarget ? environmentTarget.surface : null, targetPosition: environmentTargeted && environmentTarget ? { ...environmentTarget.position } : null,
       });
       this.grappleEnvironmentTarget = null;
@@ -2331,8 +2331,8 @@ export class BodyWorksRuntime {
       const stepping = fighter.state === 'locomotion' && /Thigh|Shin|Foot/.test(segment);
       const stabilizingFoot = stepping && segment.endsWith('Foot');
       const idleArm = fighter.state === 'idle' && /UpperArm|Forearm|Hand/.test(segment);
-      const gain = stabilizingFoot ? 32 : stepping ? 18 : striking ? 15 : onMat ? 9 : recovering ? 10 : idleArm ? 7.5 : 12;
-      const speed = stabilizingFoot ? 16 : stepping ? 9 : striking ? 9 * authority : onMat ? 3.8 : recovering ? 4 : idleArm ? 3.5 : 5.5;
+      const gain = stabilizingFoot ? 32 : stepping ? 18 : striking ? 15 : onMat ? 9 : recovering ? 10 : idleArm ? 5.8 : 12;
+      const speed = stabilizingFoot ? 16 : stepping ? 9 : striking ? 9 * authority : onMat ? 3.8 : recovering ? 4 : idleArm ? 0.98 : 5.5;
       // One bounded velocity servo per body. The solver still owns every
       // constraint/contact; no second torque impulse can kick it off target.
       const parent = segment === 'head' || segment === 'leftUpperArm' || segment === 'rightUpperArm' ? rig.bodies.chest
@@ -2970,10 +2970,10 @@ export class BodyWorksRuntime {
 
 const fighterPower = (fighter: FighterRuntime): number => fighter.definitionId === 'atlas' ? .96 : fighter.definitionId === 'chad' ? .88 : fighter.definitionId === 'brick' ? .82 : fighter.definitionId === 'nova' ? .7 : .64;
 const gripCapacity = (fighter: FighterRuntime): number => fighter.body.muscle * (fighter.definitionId === 'nova' ? .98 : fighter.definitionId === 'chad' ? .97 : fighter.definitionId === 'atlas' ? .91 : fighter.definitionId === 'brick' ? .84 : .7);
-const liftDriveForMove = (rawMoveId: string): number => { const moveId = getMove(rawMoveId).signatureBase ?? rawMoveId; return ['powerbomb', 'mountain_drop', 'skyhook', 'finisher', 'piledriver'].includes(moveId) ? 1.2 : ['slam', 'suplex', 'spinebuster'].includes(moveId) ? 1 : .7; };
+const liftDriveForMove = (rawMoveId: string): number => { const moveId = getMove(rawMoveId).signatureBase ?? rawMoveId; return ['powerbomb', 'mountain_drop', 'skyhook', 'finisher', 'piledriver', 'chokeslam', 'brainbuster'].includes(moveId) ? 1.2 : ['slam', 'suplex', 'spinebuster', 'gutwrench', 'german_suplex', 'running_powerslam'].includes(moveId) ? 1 : .7; };
 const gripPreferences = (moveId: string): readonly [BodySegmentId, BodySegmentId, number][] => {
-  if (moveId === 'slam') return [['leftHand', 'chest', -.18], ['rightHand', 'chest', .18]];
-  if (moveId === 'suplex' || moveId === 'skyhook') return [['leftHand', 'pelvis', -.14], ['rightHand', 'pelvis', .14]];
+  if (moveId === 'slam' || moveId === 'chokeslam' || moveId === 'running_powerslam') return [['leftHand', 'chest', -.18], ['rightHand', 'chest', .18]];
+  if (moveId === 'suplex' || moveId === 'skyhook' || moveId === 'german_suplex' || moveId === 'gutwrench') return [['leftHand', 'pelvis', -.14], ['rightHand', 'pelvis', .14]];
   if (moveId === 'clutch') return [['leftHand', 'chest', -.16], ['rightHand', 'head', .08]];
   if (moveId === 'whip' || moveId === 'arm_drag') return [['leftHand', 'rightForearm', -.06], ['rightHand', 'rightUpperArm', .06]];
   return [['leftHand', 'chest', -.17], ['rightHand', 'pelvis', .16]];
