@@ -17,6 +17,10 @@ const MOVE_POSITIONS: Readonly<Record<string, GrapplePosition>> = {
   side_toss: "overhook",
   mountain_drop: "waistLock",
   corner_smash: "armControl",
+  brainbuster: "frontFacelock",
+  chokeslam: "collarTie",
+  gutwrench_suplex: "waistLock",
+  powerdrive: "underhook",
   finisher: "collarTie",
 };
 
@@ -40,6 +44,10 @@ const LIFT_HEIGHTS: Readonly<Record<string, number>> = {
   arm_drag: .25,
   skyhook: 1.42,
   powerbomb: 1.7,
+  brainbuster: 1.9,
+  chokeslam: 1.75,
+  gutwrench_suplex: 1.15,
+  powerdrive: 1.35,
   clutch: .18,
   spinebuster: .74,
   side_toss: .62,
@@ -130,15 +138,15 @@ export const stepGrappleDynamics = (model: MatchModel, dt: number, playerIntent:
   grapple.struggle = clamp(grapple.struggle + (defenderInput - attackerInput * .45) * dt - dt * .12, 0, 1);
 
   // Intense two-body stiffness with dynamic struggle strain vibration during heavy lifts
-  const struggleStrain = grapple.struggle > 0.2 ? Math.sin(grapple.age * 38) * grapple.struggle * 1.8 : 0;
-  const stiffness = (26 + technique * 12) * clamp(grapple.leverage, .65, 1.45);
-  const damping = 4.8 + technique * 2.2;
+  const struggleStrain = grapple.struggle > 0.15 ? Math.sin(grapple.age * 42) * grapple.struggle * 2.2 : 0;
+  const stiffness = (30 + technique * 14) * clamp(grapple.leverage, .70, 1.62);
+  const damping = 5.4 + technique * 2.6;
   const force = {
-    x: clamp((error.x + right.x * struggleStrain * .015) * stiffness - relativeVelocity.x * damping, -36, 36),
-    z: clamp((error.z + right.z * struggleStrain * .015) * stiffness - relativeVelocity.z * damping, -36, 36),
+    x: clamp((error.x + right.x * struggleStrain * .022) * stiffness - relativeVelocity.x * damping, -44, 44),
+    z: clamp((error.z + right.z * struggleStrain * .022) * stiffness - relativeVelocity.z * damping, -44, 44),
   };
   // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt. Since inputs are simple coordinates, Math.sqrt is completely safe and ~8x faster.
-  grapple.tension = clamp(Math.sqrt(force.x * force.x + force.z * force.z) / 18, 0, 1);
+  grapple.tension = clamp(Math.sqrt(force.x * force.x + force.z * force.z) / 16, 0, 1);
   grapple.rotation = wrapAngle(Math.atan2(toDefender.x, toDefender.z) - attacker.facing);
   addConstraintVelocity(defender, force, dt, 1);
   addConstraintVelocity(attacker, force, dt, -.62);

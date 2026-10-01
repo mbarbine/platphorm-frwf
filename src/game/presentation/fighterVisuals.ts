@@ -83,7 +83,7 @@ export const FIGHTER_VISUALS: Readonly<Record<FighterId, FighterVisualProfile>> 
   john: { ...ORIGINAL_VISUALS.chad, hairColor: '#181713', guardHeight: .87, stepWeight: 1.12 }, justin: { ...ORIGINAL_VISUALS.nova, hairColor: '#634b31', chestScale: 1.04, guardHeight: 1.02 },
   mondo: { ...ORIGINAL_VISUALS.brick, waistScale: 1.24, hairColor: '#574028', motionTempo: .91 },
   gil: {
-    ...ORIGINAL_VISUALS.vex, attire: 'roughneck', hair: 'longFlow', chestScale: .94, waistScale: .91,
+    ...ORIGINAL_VISUALS.vex, attire: 'roughneck', hair: 'bandana', chestScale: .94, waistScale: .91,
     shoulderScale: .92, armScale: .94, thighScale: 1.02, calfScale: .98, headScale: [.98, 1.02, .97],
     stanceWidth: .95, motionTempo: 1.12, stepWeight: .74, guardHeight: 1.16,
     hairColor: '#593f2e', browColor: '#463326', eyeColor: '#6e795d', soleColor: '#898659',

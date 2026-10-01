@@ -2249,7 +2249,7 @@ export class BodyWorksRuntime {
       beginFall(model, grapple.defender, FALL_REASONS.Throw);
       this.pendingLandings.set(grapple.defender, {
         attacker: grapple.attacker, defender: grapple.defender, attackInstanceId: attacker.attackInstanceId, moveId: move.id,
-        releasedAt: model.elapsed, expiresAt: model.elapsed + (environmentTargeted ? 4.1 : 2.2),
+        releasedAt: model.elapsed, expiresAt: model.elapsed + (environmentTargeted ? 4.1 : 3.0),
         targetSurface: environmentTargeted && environmentTarget ? environmentTarget.surface : null, targetPosition: environmentTargeted && environmentTarget ? { ...environmentTarget.position } : null,
       });
       this.grappleEnvironmentTarget = null;
@@ -2330,9 +2330,10 @@ export class BodyWorksRuntime {
       const authority = .65 + Math.min(1, motorStrengthFor(fighter, motorProfile, segment)) * .35;
       const stepping = fighter.state === 'locomotion' && /Thigh|Shin|Foot/.test(segment);
       const stabilizingFoot = stepping && segment.endsWith('Foot');
-      const idleArm = fighter.state === 'idle' && /UpperArm|Forearm|Hand/.test(segment);
-      const gain = stabilizingFoot ? 32 : stepping ? 18 : striking ? 15 : onMat ? 9 : recovering ? 10 : idleArm ? 7.5 : 12;
-      const speed = stabilizingFoot ? 16 : stepping ? 9 : striking ? 9 * authority : onMat ? 3.8 : recovering ? 4 : idleArm ? 3.5 : 5.5;
+      const idleHand = fighter.state === 'idle' && segment.endsWith('Hand');
+      const idleArm = fighter.state === 'idle' && /UpperArm|Forearm/.test(segment);
+      const gain = stabilizingFoot ? 32 : stepping ? 18 : striking ? 15 : onMat ? 9 : recovering ? 10 : idleHand ? 12 : idleArm ? 5.5 : 12;
+      const speed = stabilizingFoot ? 16 : stepping ? 9 : striking ? 9 * authority : onMat ? 3.8 : recovering ? 4 : idleHand ? 0.45 : idleArm ? 0.38 : 5.5;
       // One bounded velocity servo per body. The solver still owns every
       // constraint/contact; no second torque impulse can kick it off target.
       const parent = segment === 'head' || segment === 'leftUpperArm' || segment === 'rightUpperArm' ? rig.bodies.chest

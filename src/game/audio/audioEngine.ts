@@ -115,9 +115,12 @@ class AudioEngine {
     const moveImpact: SoundName | null = event.moveId === 'jab' ? 'jab' : event.moveId === 'combo' || event.moveId === 'high_punch' ? 'cross'
       : event.moveId === 'right_hook' || event.moveId === 'left_hook' ? 'hook'
       : event.moveId === 'heavy' ? 'hook' : event.moveId === 'uppercut' ? 'uppercut' : event.moveId === 'headbutt' ? 'heavy'
-        : event.moveId === 'low_kick' ? 'lowKick' : ['front_kick', 'high_kick', 'roundhouse'].includes(event.moveId ?? '') ? 'highKick'
-          : event.moveId === 'suplex' || event.moveId === 'skyhook' ? 'suplex' : event.moveId === 'piledriver' ? 'powerbomb' : event.moveId === 'powerbomb' ? 'powerbomb'
-            : event.moveId === 'spinebuster' ? 'spinebuster' : event.moveId === 'stiff_arm' || event.moveId === 'rebound' ? 'clothesline'
+        : event.moveId === 'low_kick' || event.moveId === 'axe_kick' ? 'lowKick'
+        : ['front_kick', 'high_kick', 'roundhouse', 'superkick', 'dropkick', 'spinning_back_kick'].includes(event.moveId ?? '') ? 'highKick'
+          : event.moveId === 'suplex' || event.moveId === 'skyhook' || event.moveId === 'gutwrench_suplex' ? 'suplex'
+          : event.moveId === 'piledriver' || event.moveId === 'powerbomb' || event.moveId === 'brainbuster' || event.moveId === 'chokeslam' ? 'powerbomb'
+            : event.moveId === 'spinebuster' || event.moveId === 'powerdrive' ? 'spinebuster'
+            : event.moveId === 'stiff_arm' || event.moveId === 'rebound' ? 'clothesline'
               : event.moveId === 'spear' ? 'spear' : event.moveId?.startsWith('aerial') || event.moveId === 'aerial' ? 'aerial'
                 : event.moveId === 'slam' || event.moveId === 'mountain_drop' ? 'slam' : null;
     const crowdEvent = ['finisher', 'table', 'nearfall', 'ko'].includes(event.kind);
@@ -181,14 +184,14 @@ class AudioEngine {
     const punch = ['jab', 'combo', 'high_punch', 'right_hook', 'left_hook', 'heavy', 'uppercut'].includes(event.moveId ?? '');
     const kick = ['low_kick', 'front_kick', 'high_kick', 'roundhouse'].includes(event.moveId ?? '');
     const blocked = event.kind === 'blocked';
-    const weight = Math.max(.65, Math.min(1.5, event.intensity));
-    const duration = punch ? .14 : kick ? .21 : .32;
+    const weight = Math.max(.7, Math.min(1.7, event.intensity));
+    const duration = punch ? .16 : kick ? .24 : .38;
     const bus = this.context.createGain();
     const release = this.connectSpatial(bus, this.effects, event.position);
     const layers: AudioNode[] = [];
     for (const [frequency, peak, decay] of [
-      [blocked ? 850 : punch ? 1850 : kick ? 1100 : 650, blocked ? .32 : .65, punch ? .055 : .085],
-      [punch ? 280 : kick ? 180 : 110, .52, duration],
+      [blocked ? 850 : punch ? 1850 : kick ? 1100 : 650, blocked ? .35 : .72, punch ? .06 : .095],
+      [punch ? 280 : kick ? 180 : 110, .62, duration],
     ] as const) {
       const noise = this.context.createBufferSource(); const filter = this.context.createBiquadFilter(); const gain = this.context.createGain();
       noise.buffer = this.noiseBuffer; filter.type = 'bandpass'; filter.frequency.value = frequency; filter.Q.value = .65;
@@ -199,9 +202,9 @@ class AudioEngine {
       layers.push(noise, filter, gain);
     }
     const body = this.context.createOscillator(); const gain = this.context.createGain();
-    body.type = 'sine'; body.frequency.setValueAtTime(punch ? 115 : kick ? 88 : 66, now);
-    body.frequency.exponentialRampToValueAtTime(punch ? 58 : 35, now + duration);
-    gain.gain.setValueAtTime(.0001, now); gain.gain.exponentialRampToValueAtTime((blocked ? .1 : .24) * weight, now + .003);
+    body.type = 'sine'; body.frequency.setValueAtTime(punch ? 120 : kick ? 95 : 62, now);
+    body.frequency.exponentialRampToValueAtTime(punch ? 52 : 32, now + duration);
+    gain.gain.setValueAtTime(.0001, now); gain.gain.exponentialRampToValueAtTime((blocked ? .12 : .30) * weight, now + .003);
     gain.gain.exponentialRampToValueAtTime(.0001, now + duration);
     body.connect(gain); gain.connect(bus);
     body.addEventListener('ended', () => { for (const node of layers) node.disconnect(); body.disconnect(); gain.disconnect(); release(); }, { once: true });

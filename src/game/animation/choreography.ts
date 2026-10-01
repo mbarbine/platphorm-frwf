@@ -229,10 +229,10 @@ const PILEDRIVER_VICTIM: readonly PoseKeyframe[] = [
 
 const GRAPPLE_STYLES: Readonly<Record<string, readonly [readonly PoseKeyframe[], readonly PoseKeyframe[]]>> = {
   piledriver: [PILEDRIVER_ACTOR, PILEDRIVER_VICTIM],
-  slam: [SLAM_ACTOR, SLAM_VICTIM], mountain_drop: [SLAM_ACTOR, SLAM_VICTIM],
-  suplex: [SUPLEX_ACTOR, SUPLEX_VICTIM], skyhook: [SUPLEX_ACTOR, SUPLEX_VICTIM],
-  powerbomb: [POWERBOMB_ACTOR, POWERBOMB_VICTIM],
-  clutch: [CHOKE_ACTOR, CHOKE_VICTIM],
+  slam: [SLAM_ACTOR, SLAM_VICTIM], mountain_drop: [SLAM_ACTOR, SLAM_VICTIM], powerdrive: [SLAM_ACTOR, SLAM_VICTIM],
+  suplex: [SUPLEX_ACTOR, SUPLEX_VICTIM], skyhook: [SUPLEX_ACTOR, SUPLEX_VICTIM], gutwrench_suplex: [SUPLEX_ACTOR, SUPLEX_VICTIM],
+  powerbomb: [POWERBOMB_ACTOR, POWERBOMB_VICTIM], brainbuster: [POWERBOMB_ACTOR, POWERBOMB_VICTIM],
+  clutch: [CHOKE_ACTOR, CHOKE_VICTIM], chokeslam: [CHOKE_ACTOR, CHOKE_VICTIM],
   takedown: [TOSS_ACTOR, TOSS_VICTIM], arm_drag: [TOSS_ACTOR, TOSS_VICTIM], side_toss: [TOSS_ACTOR, TOSS_VICTIM], whip: [WHIP_ACTOR, WHIP_VICTIM],
   spinebuster: [SPINE_ACTOR, SPINE_VICTIM],
   corner_smash: [WHIP_ACTOR, WHIP_VICTIM],
@@ -417,13 +417,13 @@ const strikeFrames = (moveId: string): readonly PoseKeyframe[] => {
     { at: .7, pose: pose({ torso: [.2, -.34, .08], rightLeg: [-.86, 0, -.36], rightShin: [.08, 0, 0], leftLeg: [.22, 0, .1], leftShin: [-.36, 0, 0], leftArm: [-.92, 0, -.62], rightArm: [-.76, 0, .48], rootY: -.08, rootZ: .16, rootYaw: -.48, rootRoll: .14 }) },
     { at: 1, pose: POSES.combatIdle },
   ];
-  if (moveId === 'high_kick') return [
+  if (moveId === 'high_kick' || moveId === 'superkick' || moveId === 'axe_kick') return [
     { at: 0, pose: POSES.combatIdle },
     { at: .48, pose: pose({ torso: [.28, .36, -.12], rightLeg: [-1.24, 0, -.16], rightShin: [-1.58, 0, 0], leftLeg: [-.28, 0, .12], leftShin: [-.55, 0, 0], leftArm: [-.55, 0, -.72], rightArm: [-.48, 0, .7], rootYaw: .38, rootTilt: .22 }) },
     { at: .73, pose: pose({ torso: [-.22, -.4, .18], rightLeg: [-2.35, 0, -.16], rightShin: [.06, 0, 0], leftLeg: [.3, 0, .08], leftShin: [-.42, 0, 0], leftArm: [-1.02, 0, -.7], rightArm: [-.84, 0, .58], rootY: .12, rootZ: .2, rootYaw: -.48, rootRoll: .2, rootTilt: -.16 }) },
     { at: 1, pose: POSES.combatIdle },
   ];
-  if (moveId === 'roundhouse') return [
+  if (moveId === 'roundhouse' || moveId === 'spinning_back_kick' || moveId === 'dropkick') return [
     { at: 0, pose: POSES.combatIdle },
     { at: .46, pose: pose({ torso: [.22, .74, -.18], rightLeg: [.94, 0, -.5], rightShin: [-1.42, 0, 0], leftLeg: [-.3, 0, .22], leftShin: [-.58, 0, 0], leftArm: [-.42, 0, -.82], rightArm: [-.3, 0, .88], rootYaw: .82, rootTilt: .18, rootRoll: -.18 }) },
     { at: .7, pose: pose({ torso: [-.18, -1.05, .22], rightLeg: [-1.58, 0, -.75], rightShin: [-.05, 0, 0], leftLeg: [.4, 0, .18], leftShin: [-.48, 0, 0], leftArm: [-1.1, 0, -.68], rightArm: [-.95, 0, .75], rootY: .16, rootZ: .24, rootYaw: -1.08, rootRoll: .26, rootTilt: -.12 }) },

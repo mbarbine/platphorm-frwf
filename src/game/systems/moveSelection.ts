@@ -23,8 +23,8 @@ export const combatDirection = (direction: Vec2): CombatDirection => {
 const GRAPPLE_GRID: Readonly<Record<CombatDirection, Readonly<Record<GrappleButton, string>>>> = {
   neutral: { quick: 'takedown', heavy: 'slam', grapple: 'piledriver' },
   up: { quick: 'arm_drag', heavy: 'skyhook', grapple: 'powerbomb' },
-  down: { quick: 'takedown', heavy: 'spinebuster', grapple: 'mountain_drop' },
-  left: { quick: 'clutch', heavy: 'spinebuster', grapple: 'whip' },
+  down: { quick: 'gutwrench_suplex', heavy: 'spinebuster', grapple: 'chokeslam' },
+  left: { quick: 'clutch', heavy: 'powerdrive', grapple: 'brainbuster' },
   right: { quick: 'side_toss', heavy: 'slam', grapple: 'suplex' },
 };
 
@@ -68,11 +68,12 @@ export const selectDirectionalStrike = (direction: Vec2, button: StrikeButton, c
   } else {
     // K / heavy is strictly leg kicks or stiff-arms.
     if (directionId === 'neutral') {
-      return 'front_kick';
+      const heavyKicks = ['front_kick', 'superkick', 'axe_kick', 'dropkick', 'spinning_back_kick'];
+      return heavyKicks[comboStep % heavyKicks.length] ?? 'front_kick';
     }
     // ensure heavy button only maps to leg kicks or stiff-arms (front_kick, low_kick, high_kick, roundhouse)
     const raw = STRIKE_GRID[directionId].heavy;
-    if (raw === 'front_kick' || raw === 'low_kick' || raw === 'high_kick' || raw === 'roundhouse') {
+    if (raw === 'front_kick' || raw === 'low_kick' || raw === 'high_kick' || raw === 'roundhouse' || raw === 'superkick' || raw === 'dropkick' || raw === 'axe_kick' || raw === 'spinning_back_kick') {
       return raw;
     }
     return 'front_kick';

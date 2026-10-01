@@ -19,9 +19,9 @@ const chain = (stiffness: number, damping: number, maximumTorque: number, streng
 const profile = (id: MotorProfileId, rootMode: MotorProfile['rootMode'], multiplier: number, overrides: Partial<Record<MotorChain, Partial<MotorChainTuning>>> = {}): MotorProfile => {
   const base: Record<MotorChain, MotorChainTuning> = {
     core: chain(255, 44, 275), head: chain(120, 20, 88),
-    leftArm: chain(132, 32, 285), rightArm: chain(132, 32, 285),
+    leftArm: chain(132, 42, 285), rightArm: chain(132, 42, 285),
     leftLeg: chain(170, 31, 168), rightLeg: chain(170, 31, 168),
-    hands: chain(68, 16, 96), feet: chain(92, 18, 74),
+    hands: chain(68, 22, 96), feet: chain(92, 18, 74),
   };
   for (const name in base) {
     const chainName = name as MotorChain;
@@ -84,9 +84,9 @@ const SEGMENT_CHAIN_MAP: Readonly<Record<BodySegmentId, MotorChain>> = {
 export const motorChainForSegment = (segment: BodySegmentId): MotorChain => SEGMENT_CHAIN_MAP[segment];
 
 const REACH_MOVES = new Set(['grapple_miss', 'prop_pickup', 'prop_drop']);
-const THROW_MOVES = new Set(['slam', 'suplex', 'powerbomb', 'spinebuster', 'mountain_drop', 'skyhook', 'finisher', 'piledriver']);
+const THROW_MOVES = new Set(['slam', 'suplex', 'powerbomb', 'spinebuster', 'mountain_drop', 'skyhook', 'brainbuster', 'chokeslam', 'gutwrench_suplex', 'powerdrive', 'finisher', 'piledriver']);
 const CLINCH_MOVES = new Set(['whip', 'arm_drag', 'takedown', 'clutch', 'side_toss', 'corner_smash']);
-const HEAVY_STRIKE_MOVES = new Set(['heavy', 'uppercut', 'stiff_arm', 'rebound']);
+const HEAVY_STRIKE_MOVES = new Set(['heavy', 'uppercut', 'stiff_arm', 'rebound', 'superkick', 'dropkick', 'axe_kick', 'spinning_back_kick']);
 
 export const selectMotorProfile = (fighter: FighterRuntime): MotorProfile => {
   if (fighter.state === 'pinning' || fighter.state === 'pinned') return MOTOR_PROFILES.getUp;

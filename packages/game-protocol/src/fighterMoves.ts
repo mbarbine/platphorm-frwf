@@ -2,7 +2,7 @@ import type { FighterId } from './types.js';
 
 /** Deterministic, character-specific neutral strike strings shared by local and online combat. */
 export const FIGHTER_STRIKE_CHAINS: Readonly<Record<FighterId, readonly string[]>> = {
-  atlas: ['jab', 'high_punch', 'uppercut'], vex: ['jab', 'combo', 'high_punch'], nova: ['jab', 'uppercut', 'combo'],
+  atlas: ['jab', 'right_hook', 'left_hook', 'uppercut'], vex: ['jab', 'combo', 'high_punch'], nova: ['jab', 'uppercut', 'combo'],
   brick: ['jab', 'headbutt', 'high_punch'], chad: ['jab', 'high_punch', 'headbutt'], dale: ['jab', 'uppercut', 'headbutt'],
   thomas: ['jab', 'high_punch', 'uppercut'], sonny: ['jab', 'combo', 'uppercut'], wrecking_ball: ['jab', 'headbutt', 'uppercut'],
   steve: ['jab', 'combo', 'uppercut'], john: ['jab', 'high_punch', 'headbutt'], justin: ['jab', 'uppercut', 'high_punch'],

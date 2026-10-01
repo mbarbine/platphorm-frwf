@@ -13,8 +13,16 @@ const SLAM: ThrowMotion = { liftHeight: .64, turn: 0, speed: .72, riseSpeed: 1.8
 const SUPLEX: ThrowMotion = { liftHeight: 1.08, turn: Math.PI, speed: 1.65, riseSpeed: 2.4, clearanceTime: .14, rotationSpeed: 5.2 };
 const TOSS: ThrowMotion = { liftHeight: .7, turn: Math.PI / 2, speed: 1.8, riseSpeed: 1.5, clearanceTime: .1, rotationSpeed: 4.4 };
 const POWER: ThrowMotion = { liftHeight: 1.18, turn: 0, speed: .45, riseSpeed: 1.4, clearanceTime: .09, rotationSpeed: 5.9 };
+const BRAINBUSTER: ThrowMotion = { liftHeight: 1.25, turn: Math.PI * .82, speed: .55, riseSpeed: 2.1, clearanceTime: .15, rotationSpeed: 5.8 };
+const CHOKESLAM: ThrowMotion = { liftHeight: 1.15, turn: 0, speed: .82, riseSpeed: 2.2, clearanceTime: .12, rotationSpeed: 6.2 };
+const GUTWRENCH: ThrowMotion = { liftHeight: .98, turn: Math.PI, speed: 1.5, riseSpeed: 2.0, clearanceTime: .12, rotationSpeed: 5.4 };
+const POWERDRIVE: ThrowMotion = { liftHeight: .85, turn: 0, speed: 1.2, riseSpeed: 1.9, clearanceTime: .10, rotationSpeed: 5.5 };
 
 export function throwMotionFor(move: string): Readonly<ThrowMotion> {
+  if (['brainbuster'].includes(move)) return BRAINBUSTER;
+  if (['chokeslam'].includes(move)) return CHOKESLAM;
+  if (['gutwrench_suplex'].includes(move)) return GUTWRENCH;
+  if (['powerdrive'].includes(move)) return POWERDRIVE;
   if (['suplex', 'skyhook'].includes(move)) return SUPLEX;
   if (['arm_drag', 'side_toss', 'takedown'].includes(move)) return TOSS;
   if (['powerbomb', 'piledriver', 'mountain_drop'].includes(move)) return POWER;
