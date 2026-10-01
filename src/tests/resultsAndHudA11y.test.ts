@@ -18,8 +18,9 @@ describe('HUD and Results Accessibility', () => {
 
     render(React.createElement(HUD, { device: 'keyboard', paused: false }));
 
-    const cameraBtn = screen.getByRole('button', { name: /Change playing camera, currently BROADCAST/i });
+    const cameraBtn = screen.getByRole('button', { name: /CAMERA · BROADCAST: change playing camera/i });
     expect(cameraBtn).toBeTruthy();
+    expect(cameraBtn.getAttribute('title')).toBe('Switch playing camera view');
   });
 
   it('omits playing camera switch button and impact readout when local player is in defeated state', () => {
@@ -47,7 +48,7 @@ describe('HUD and Results Accessibility', () => {
 
     render(React.createElement(HUD, { device: 'keyboard', paused: false }));
 
-    const cameraBtn = screen.queryByRole('button', { name: /Change playing camera/i });
+    const cameraBtn = screen.queryByRole('button', { name: /change playing camera/i });
     expect(cameraBtn).toBeNull();
 
     const impactReadout = screen.queryByTestId('impact-readout');
@@ -59,8 +60,9 @@ describe('HUD and Results Accessibility', () => {
 
     render(React.createElement(HUD, { device: 'keyboard', paused: false }));
 
-    const targetBtn = screen.getByRole('button', { name: /Switch target wrestler, currently targeting/i });
+    const targetBtn = screen.getByRole('button', { name: /SWITCH TARGET: currently targeting/i });
     expect(targetBtn).toBeTruthy();
+    expect(targetBtn.getAttribute('title')).toBe('Cycle target wrestler (Tab key)');
     expect(targetBtn.querySelector('.target-switch__label--desktop')?.textContent).toBe('SWITCH TARGET');
     expect(targetBtn.querySelector('.target-switch__label--mobile')?.textContent).toBe('TARGET ›');
   });
