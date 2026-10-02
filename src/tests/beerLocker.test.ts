@@ -21,4 +21,26 @@ describe('BeerLocker Accessibility', () => {
     expect(putBackBtn.getAttribute('aria-label')).toBe('Put one beer back (currently 2 of 5 drunk)');
     expect(drinkBtn.getAttribute('aria-label')).toBe('Drink a beer (currently 2 of 5 drunk)');
   });
+
+  it('renders explanatory title tooltips on disabled buttons when allotment bounds are reached', () => {
+    const { rerender } = render(React.createElement(BeerLocker, {
+      fighterId: 'atlas',
+      beers: 0,
+      onChange: () => {},
+    }));
+
+    const putBackBtn0 = screen.getByRole('button', { name: /put one beer back/i });
+    expect(putBackBtn0.hasAttribute('disabled')).toBe(true);
+    expect(putBackBtn0.getAttribute('title')).toBe('No beers consumed yet');
+
+    rerender(React.createElement(BeerLocker, {
+      fighterId: 'atlas',
+      beers: 5,
+      onChange: () => {},
+    }));
+
+    const drinkBtn5 = screen.getByRole('button', { name: /drink a beer/i });
+    expect(drinkBtn5.hasAttribute('disabled')).toBe(true);
+    expect(drinkBtn5.getAttribute('title')).toBe('Maximum five-beer allotment reached');
+  });
 });
