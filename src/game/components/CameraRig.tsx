@@ -1,4 +1,6 @@
 import { replayPresentation } from '../physics/replayBuffer';
+import type { SegmentTransform } from '../physics/replayBuffer';
+import type { BodySegmentId } from '../physics/bodySchema';
 import { followCameraFrame } from '../camera/playerCamera';
 import { venueFor } from '../data/venues';
 import { useFrame, useThree } from '@react-three/fiber';
@@ -134,15 +136,40 @@ export function CameraRig() {
     const replayActive = state.replayActive;
     if (replayActive && replayPresentation.frame) {
       document.documentElement.dataset.cameraShot = 'replay';
-      const focused = replayPresentation.focusSlots.map(slot => replayPresentation.frame?.fighters[slot]).filter(segments => segments !== undefined);
-      const recorded = (focused.length > 0 ? focused : Object.values(replayPresentation.frame.fighters)).flatMap(segments => segments ? Object.values(segments) : []).filter(pose => pose !== undefined);
-      if (recorded.length > 0) {
-        let minX = Infinity; let maxX = -Infinity; let minY = Infinity; let maxY = -Infinity; let minZ = Infinity; let maxZ = -Infinity;
-        for (const pose of recorded) {
-          minX = Math.min(minX, pose.position.x); maxX = Math.max(maxX, pose.position.x);
-          minY = Math.min(minY, pose.position.y); maxY = Math.max(maxY, pose.position.y);
-          minZ = Math.min(minZ, pose.position.z); maxZ = Math.max(maxZ, pose.position.z);
+      let minX = Infinity; let maxX = -Infinity; let minY = Infinity; let maxY = -Infinity; let minZ = Infinity; let maxZ = -Infinity;
+      let hasRecorded = false;
+
+      const frameFighters = replayPresentation.frame.fighters;
+      const focusSlots = replayPresentation.focusSlots;
+
+      // OPTIMIZATION: Single-pass bounds calculation avoids per-frame array allocations (.map, .filter, Object.values, .flatMap) inside 60Hz useFrame loop
+      const processSegments = (segments: Partial<Record<BodySegmentId, SegmentTransform>> | undefined) => {
+        if (!segments) return;
+        for (const segmentId in segments) {
+          const pose = segments[segmentId as BodySegmentId];
+          if (pose) {
+            minX = Math.min(minX, pose.position.x); maxX = Math.max(maxX, pose.position.x);
+            minY = Math.min(minY, pose.position.y); maxY = Math.max(maxY, pose.position.y);
+            minZ = Math.min(minZ, pose.position.z); maxZ = Math.max(maxZ, pose.position.z);
+            hasRecorded = true;
+          }
         }
+      };
+
+      if (focusSlots.length > 0) {
+        for (let i = 0; i < focusSlots.length; i++) {
+          const slot = focusSlots[i];
+          if (slot) processSegments(frameFighters[slot]);
+        }
+      }
+
+      if (!hasRecorded) {
+        for (const slot in frameFighters) {
+          processSegments(frameFighters[slot as FighterSlot]);
+        }
+      }
+
+      if (hasRecorded) {
         const perspective = camera as PerspectiveCamera;
         const center = new Vector3((minX + maxX) / 2, (minY + maxY) / 2, (minZ + maxZ) / 2);
         // OPTIMIZATION: Standard Math.sqrt replaces slow Math.hypot for ~8x speedup on 60Hz replay camera framing

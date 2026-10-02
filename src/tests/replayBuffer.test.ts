@@ -33,4 +33,33 @@ describe('recorded pose playback', () => {
     expect(sampleReplayFrame(frames, 10)).toBe(frames[1]);
     expect(sampleReplayFrame([], 2)).toBeNull();
   });
+
+  it('samples replay frames efficiently over many iterations', () => {
+    const a = { position: { x: 0, y: 2, z: 0 }, rotation: { x: 0.1, y: 0.2, z: 0.3, w: 0.9 } };
+    const b = { position: { x: 4, y: 4, z: 2 }, rotation: { x: 0.2, y: 0.3, z: 0.4, w: 0.8 } };
+    const segments = {
+      pelvis: a, abdomen: a, chest: a, head: a,
+      leftUpperArm: a, rightUpperArm: a, leftForearm: a, rightForearm: a,
+      leftHand: a, rightHand: a, leftThigh: a, rightThigh: a,
+      leftShin: a, rightShin: a, leftFoot: a, rightFoot: a,
+    };
+    const segmentsB = {
+      pelvis: b, abdomen: b, chest: b, head: b,
+      leftUpperArm: b, rightUpperArm: b, leftForearm: b, rightForearm: b,
+      leftHand: b, rightHand: b, leftThigh: b, rightThigh: b,
+      leftShin: b, rightShin: b, leftFoot: b, rightFoot: b,
+    };
+    const frames = [
+      { time: 1, fighters: { player: segments, opponent: segments }, props: { chair: a, table: a } },
+      { time: 3, fighters: { player: segmentsB, opponent: segmentsB }, props: { chair: b, table: b } },
+    ];
+
+    const iterations = 50_000;
+    const startTime = performance.now();
+    for (let i = 0; i < iterations; i++) {
+      sampleReplayFrame(frames, 1 + (i % 200) / 100);
+    }
+    const elapsed = performance.now() - startTime;
+    expect(elapsed).toBeLessThan(1_000); // Should run 50,000 samples well under 1 second
+  });
 });
