@@ -36,9 +36,10 @@ export function SettingsPanel({ onBack }: { onBack: () => void }) {
     step = 0.05
   ) => {
     const id = `setting-range-${key}`;
+    const percentText = `${Math.round(value * 100)}%`;
     return (
       <label className="setting-row" htmlFor={id}>
-        <span>{label}<b>{Math.round(value * 100)}%</b></span>
+        <span>{label}<b>{percentText}</b></span>
         <input
           id={id}
           type="range"
@@ -46,6 +47,7 @@ export function SettingsPanel({ onBack }: { onBack: () => void }) {
           max={max}
           step={step}
           value={value}
+          aria-valuetext={percentText}
           onChange={(event) => settings.update({ [key]: Number(event.target.value) })}
         />
       </label>
