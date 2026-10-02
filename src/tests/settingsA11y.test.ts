@@ -21,6 +21,21 @@ describe('SettingsPanel Accessibility', () => {
     expect(screen.getByRole('button', { name: 'Done: save settings and return to main menu' })).toBeTruthy();
   });
 
+  it('renders aria-valuetext attributes formatted as percentages on range slider controls', () => {
+    const onBack = vi.fn();
+    render(React.createElement(SettingsPanel, { onBack }));
+
+    const masterVolume = screen.getByLabelText(/Master volume/i) as HTMLInputElement;
+    expect(masterVolume).toBeTruthy();
+    expect(masterVolume.type).toBe('range');
+    expect(masterVolume.getAttribute('aria-valuetext')).toBe('72%');
+
+    const uiScale = screen.getByLabelText(/UI scale/i) as HTMLInputElement;
+    expect(uiScale).toBeTruthy();
+    expect(uiScale.type).toBe('range');
+    expect(uiScale.getAttribute('aria-valuetext')).toBe('100%');
+  });
+
   it('announces double-confirmation prompt and reset completion to screen readers via aria-live', () => {
     const onBack = vi.fn();
     render(React.createElement(SettingsPanel, { onBack }));

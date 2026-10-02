@@ -1,3 +1,7 @@
+## 2025-05-20 - Range Slider Percentage Formatting with aria-valuetext
+**Learning:** HTML `<input type="range">` elements with decimal `min`/`max` values (e.g. `0` to `1`) report unformatted numeric values (`0.72`) to screen readers by default; adding `aria-valuetext` formatted as a percentage (`72%`) ensures screen readers announce formatted values matching the visual UI readout.
+**Action:** When creating range inputs with custom visual units (like percentages), include `aria-valuetext` matching the visual readout string.
+
 ## 2025-05-19 - WCAG 2.5.3 Label in Name for HUD Buttons
 **Learning:** In-game HUD buttons with visible text (e.g., "CAMERA · BROADCAST", "SWITCH TARGET") must begin their `aria-label` with the exact visible label text to comply with WCAG 2.5.3 (Label in Name), enabling speech control software (Voice Control / Dragon) to match spoken voice commands to interactive controls.
 **Action:** When adding or updating `aria-label` attributes on visible text buttons, ensure the accessible name starts with the visible text (e.g. `aria-label="CAMERA · BROADCAST: change playing camera"`).
