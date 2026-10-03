@@ -1,5 +1,9 @@
 # Bolt's Journal - Critical Learnings Only
 
+## 2026-09-23 - [Pre-allocated Locomotion Pose Ref in FighterModel Render Loop]
+**Learning:** In 60Hz React Three Fiber character animation loops (`FighterModel.tsx`), building locomotion pose objects (`{ ...POSES.combatIdle, torso: [...], leftArm: [...], ... }`) allocated 1 pose object + 5 array tuples per frame per wrestler. Pre-allocating a single `locomotionPose` `useRef` object and mutating its numeric properties in-place inside `useFrame`, alongside hoisting `applyRotation` and `safeNumber` outside the render loop, eliminated over 840 dynamic object, array, and closure allocations per second during gameplay locomotion.
+**Action:** In high-frequency R3F animation components, pre-allocate mutable pose ref structures and update numeric fields in-place inside `useFrame` instead of creating new objects/arrays with spread operators.
+
 ## 2026-09-22 - [Static Sets and Zero-Allocation Loops in CameraRig useFrame Loop]
 **Learning:** In React Three Fiber camera framing loops (`CameraRig.tsx`), evaluating dynamic array literals (`['reach', 'acquire', 'failed']`, `['grappling', ...]`, `['slam', ...]`) and calling array methods (`.includes()`, `.find()`, `.some()`) allocated temporary arrays and closure functions on every single render frame (60Hz+). Extracting module-level static `Set` constants (`UNSECURED_GRAPPLE_PHASES`, `ENGAGED_PLAYER_STATES`, `NON_STRIKE_SHOTS`, `SINGLES_ZOOM_SHOTS`) and replacing array iterator callbacks with direct indexed `for` loops eliminated thousands of per-minute heap allocations and closure creations in the camera render loop.
 **Action:** Extract inline array check lists into module-level static `Set` constants and replace callback-based array methods (`.find()`, `.some()`) with indexed `for` loops inside high-frequency `useFrame` callbacks.
