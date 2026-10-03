@@ -95,7 +95,8 @@ function RopeSide({ axis, side, color, emissive }: { axis: 'x' | 'z'; side: -1 |
         // OPTIMIZATION: Reuse computed segment length for scaling and normalization to avoid duplicate Math.sqrt in direction.normalize()
         const dist = Math.sqrt(direction.x * direction.x + direction.y * direction.y + direction.z * direction.z);
         if (dist > 0) direction.divideScalar(dist); else direction.set(0, 1, 0);
-        dummy.position.copy(start).add(end).multiplyScalar(.5);
+        // OPTIMIZATION: Compute midpoint directly with float arithmetic to avoid multi-step Vector3 mutation calls.
+        dummy.position.set((start.x + end.x) * .5, (start.y + end.y) * .5, (start.z + end.z) * .5);
         dummy.quaternion.setFromUnitVectors(cylinderAxis, direction);
         dummy.scale.set(1, dist + .012, 1);
         dummy.updateMatrix(); rope.current.setMatrixAt(ropeIndex * segmentCount + index, dummy.matrix);
