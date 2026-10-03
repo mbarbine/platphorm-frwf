@@ -13,6 +13,7 @@ export default function handler(request, response) {
       response.setHeader("X-Frame-Options", "DENY")
       response.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
       response.setHeader("Cache-Control", "no-store, max-age=0")
+      response.setHeader("X-Permitted-Cross-Domain-Policies", "none")
     }
 
     // Defensive method validation to prevent unexpected side effects on non-safe methods (CWE-650)
