@@ -388,7 +388,7 @@ export function GameScene(props: Props) {
           shadows={quality.shadows ? 'percentage' : false}
           dpr={quality.dpr}
           gl={{ antialias: quality.antialias, alpha: false, powerPreference: 'high-performance' }}
-          camera={{ position: [8, 7, 11], fov: 48, near: .1, far: 72 }}
+          camera={{ position: [8, 7, 11], fov: 48, near: .1, far: 250 }}
           onCreated={({ gl }) => {
             renderer.current = gl;
             gl.xr.enabled = true;
