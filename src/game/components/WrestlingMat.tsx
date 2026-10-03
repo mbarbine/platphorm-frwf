@@ -54,13 +54,19 @@ export function WrestlingMat() {
     }
     if (age.current > 1.5) return;
     age.current += Math.min(dt, .05);
-    const positions = geometry.getAttribute('position'); const decay = Math.exp(-age.current * 6);
-    for (let i = 0; i < positions.count; i++) {
-      const x = positions.getX(i); const z = -positions.getY(i);
-      // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt in hot frame vertex deformation loop (~1000 vertices per frame).
-      const dx = x - center.current.x; const dz = z - center.current.z;
+    const positions = geometry.getAttribute('position');
+    const posArray = positions.array as Float32Array;
+    const count = positions.count;
+    const decay = Math.exp(-age.current * 6);
+    const cx = center.current.x; const cz = center.current.z;
+    const str = strength.current; const currentAge = age.current;
+    // OPTIMIZATION: Directly index Float32Array buffer and hoist property accesses to bypass BufferAttribute getter/setter overhead across 1,036 vertices per frame.
+    for (let i = 0; i < count; i++) {
+      const idx = i * 3;
+      const x = posArray[idx] ?? 0; const z = -(posArray[idx + 1] ?? 0);
+      const dx = x - cx; const dz = z - cz;
       const distance = Math.sqrt(dx * dx + dz * dz);
-      positions.setZ(i, -strength.current * Math.cos(distance * 4 - age.current * 22) * Math.exp(-distance * 1.2) * decay * (edgeFactors[i] ?? 0));
+      posArray[idx + 2] = -str * Math.cos(distance * 4 - currentAge * 22) * Math.exp(-distance * 1.2) * decay * (edgeFactors[i] ?? 0);
     }
     positions.needsUpdate = true;
   });
