@@ -39,7 +39,7 @@ describe('SpectatorControls component', () => {
     const freeBtn = screen.getByRole('button', { name: /FREESTYLE CAMERA mode \(Key 3\)/i });
     expect(freeBtn).toBeTruthy();
 
-    const nextBtn = screen.getByRole('button', { name: /Spectate next wrestler \(Tab key\)/i });
+    const nextBtn = screen.getByRole('button', { name: /Next wrestler: spectate next active wrestler \(Tab key\)/i });
     expect(nextBtn).toBeTruthy();
 
     // Verify aria-live region content prefix
