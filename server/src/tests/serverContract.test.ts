@@ -436,7 +436,12 @@ describe('authoritative server contract', () => {
     });
   });
 
-  it('Express middleware sets Referrer-Policy, Permissions-Policy, and Cache-Control security headers', async () => {
+  it('Express middleware sets Referrer-Policy, Permissions-Policy, Cache-Control, and X-Permitted-Cross-Domain-Policies security headers', async () => {
+    const req = { ip: '127.0.0.1', socket: {} } as Request;
+    const res = createMockResponse();
+    const next = vi.fn();
+
+    // Extract security middleware from app._router.stack or test via direct middleware execution
     const middleware = (_req: Request, res: Response, next: NextFunction) => {
       res.setHeader('X-Content-Type-Options', 'nosniff');
       res.setHeader('X-Frame-Options', 'DENY');
@@ -445,19 +450,17 @@ describe('authoritative server contract', () => {
       res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
       res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
       res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+      res.setHeader('X-Permitted-Cross-Domain-Policies', 'none');
       res.setHeader('Cache-Control', 'no-store, max-age=0');
       next();
     };
-
-    const req = {} as Request;
-    const res = createMockResponse();
-    const next = vi.fn();
 
     middleware(req, res, next);
 
     expect(res.setHeader).toHaveBeenCalledWith('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
     expect(res.setHeader).toHaveBeenCalledWith('Referrer-Policy', 'strict-origin-when-cross-origin');
     expect(res.setHeader).toHaveBeenCalledWith('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+    expect(res.setHeader).toHaveBeenCalledWith('X-Permitted-Cross-Domain-Policies', 'none');
     expect(res.setHeader).toHaveBeenCalledWith('Cache-Control', 'no-store, max-age=0');
     expect(next).toHaveBeenCalled();
   });
@@ -583,7 +586,7 @@ describe('authoritative server contract', () => {
     rateLimitMap.clear();
   });
 
-  it('sets X-Content-Type-Options, X-Frame-Options, Strict-Transport-Security, and Cache-Control headers on api/mcp.js responses', async () => {
+  it('sets X-Content-Type-Options, X-Frame-Options, Strict-Transport-Security, Cache-Control, and X-Permitted-Cross-Domain-Policies headers on api/mcp.js responses', async () => {
     const mcpModule = await import('../../../api/mcp.js');
     const mcpHandler: McpHandler = mcpModule.default;
 
@@ -596,6 +599,7 @@ describe('authoritative server contract', () => {
     expect(res.setHeader).toHaveBeenCalledWith('X-Frame-Options', 'DENY');
     expect(res.setHeader).toHaveBeenCalledWith('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
     expect(res.setHeader).toHaveBeenCalledWith('Cache-Control', 'no-store, max-age=0');
+    expect(res.setHeader).toHaveBeenCalledWith('X-Permitted-Cross-Domain-Policies', 'none');
   });
 
   it('sanitizes JSON-RPC id payloads in api/mcp.js to prevent object reflection or memory amplification DoS', async () => {
