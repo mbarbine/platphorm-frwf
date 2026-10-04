@@ -412,17 +412,18 @@ export const applyMoveHit = (model: MatchModel, actorKey: FighterSlot, targetKey
     model.hitStop = Math.max(model.hitStop, .15);
   }
   if (move.category === 'grapple') {
-    if (move.id === 'piledriver') {
-      model.slowMotion = Math.max(model.slowMotion, .85); // BLOCKBUSTER: enhanced piledriver slowdown
-      model.announcement = 'VOLTAGE PILEDRIVER!'; model.announcementTimer = 2.1;
+    if (move.id === 'piledriver' || move.id === 'tiger_driver' || move.id === 'death_valley_driver') {
+      model.slowMotion = Math.max(model.slowMotion, .85);
+      model.announcement = `${move.displayName.toUpperCase()}!`; model.announcementTimer = 2.1;
       model.hitStop = Math.max(model.hitStop, .18);
-    } else if (move.id === 'slam') {
+    } else if (move.id === 'slam' || move.id === 'powerbomb' || move.id === 'falcon_arrow' || move.id === 'exploder_suplex' || move.id === 'cutter' || move.id === 'olympic_slam') {
       model.slowMotion = Math.max(model.slowMotion, 1.05);
-      model.announcement = 'VOLTAGE SLAM!'; model.announcementTimer = 1.6;
-      model.hitStop = Math.max(model.hitStop, .14);
+      model.announcement = `${move.displayName.toUpperCase()}!`; model.announcementTimer = 1.6;
+      model.hitStop = Math.max(model.hitStop, .16);
     } else if (move.damage >= 18) {
-      model.slowMotion = Math.max(model.slowMotion, .48); // BLOCKBUSTER: enhanced slam slowdown
+      model.slowMotion = Math.max(model.slowMotion, .48);
       model.announcement = move.displayName.toUpperCase(); model.announcementTimer = 1.2;
+      model.hitStop = Math.max(model.hitStop, .12);
     }
   }
   // Combo streak announcement

@@ -15,9 +15,9 @@ const TOSS: ThrowMotion = { liftHeight: .7, turn: Math.PI / 2, speed: 1.8, riseS
 const POWER: ThrowMotion = { liftHeight: 1.18, turn: 0, speed: .45, riseSpeed: 1.4, clearanceTime: .09, rotationSpeed: 5.9 };
 
 export function throwMotionFor(move: string): Readonly<ThrowMotion> {
-  if (['suplex', 'skyhook'].includes(move)) return SUPLEX;
-  if (['arm_drag', 'side_toss', 'takedown'].includes(move)) return TOSS;
-  if (['powerbomb', 'piledriver', 'mountain_drop'].includes(move)) return POWER;
+  if (['suplex', 'skyhook', 'falcon_arrow', 'exploder_suplex', 'cutter'].includes(move)) return SUPLEX;
+  if (['arm_drag', 'side_toss', 'takedown', 'olympic_slam'].includes(move)) return TOSS;
+  if (['powerbomb', 'piledriver', 'mountain_drop', 'death_valley_driver', 'tiger_driver'].includes(move)) return POWER;
   return SLAM;
 }
 
