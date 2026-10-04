@@ -43,4 +43,20 @@ describe('user-supplied combat motion', () => {
     expect(a.rightLeg).toEqual(POSES.combatIdle.rightLeg);
     expect(sampleCombatMotion('unknown', 0)).toBeNull();
   });
+  it('keeps idle elbow changes small across a full breathing cycle', () => {
+    let previous = authoredIdlePose(POSES.combatIdle, 2);
+    let changed = false;
+    for (let frame = 1; frame <= 900; frame++) {
+      const current = authoredIdlePose(POSES.combatIdle, 2 + frame / 60);
+      for (const joint of ['leftForearm', 'rightForearm'] as const) {
+        const delta = Math.abs(current[joint][0] - previous[joint][0]);
+        expect(delta).toBeLessThan(.02);
+        changed ||= delta > .00001;
+        expect(current[joint].slice(1)).toEqual([0, 0]);
+      }
+      previous = current;
+    }
+    expect(changed).toBe(true);
+  });
+
 });

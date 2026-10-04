@@ -105,7 +105,7 @@ export function authoredStrikePose(base: Pose, move: MoveDefinition, phase: Atta
 
 export function authoredIdlePose(base: Pose, elapsed: number): Pose {
   const clip = clips.fighting_idle; if (!clip) return base;
-  const phase = (elapsed * .22 % (clip.duration * 2)) / clip.duration;
+  const phase = (elapsed * .14 % (clip.duration * 2)) / clip.duration;
   const captured = sampleCombatMotion('fighting_idle', (phase <= 1 ? phase : 2 - phase) * clip.duration);
   if (!captured) return base;
   // Keep the imported idle clip recognizable while limiting wrist/forearm
@@ -115,11 +115,12 @@ export function authoredIdlePose(base: Pose, elapsed: number): Pose {
   const blendIn = .6 * clamp(elapsed * 2);
   const armSettle = clamp((elapsed - .7) / .7);
   const armBlend = blendIn * (1 - .58 * armSettle);
+  const elbowBlend = armBlend * .65;
   const result = blend(base, captured, blendIn);
   result.leftArm = slerpJoint(base.leftArm, captured.leftArm, armBlend);
   result.rightArm = slerpJoint(base.rightArm, captured.rightArm, armBlend);
-  result.leftForearm = [base.leftForearm[0] + (captured.leftForearm[0] - base.leftForearm[0]) * armBlend, 0, 0];
-  result.rightForearm = [base.rightForearm[0] + (captured.rightForearm[0] - base.rightForearm[0]) * armBlend, 0, 0];
+  result.leftForearm = [base.leftForearm[0] + (captured.leftForearm[0] - base.leftForearm[0]) * elbowBlend, 0, 0];
+  result.rightForearm = [base.rightForearm[0] + (captured.rightForearm[0] - base.rightForearm[0]) * elbowBlend, 0, 0];
   result.leftLeg = base.leftLeg; result.rightLeg = base.rightLeg; result.leftShin = base.leftShin; result.rightShin = base.rightShin;
   result.rootTilt = base.rootTilt; result.rootYaw = base.rootYaw; result.rootRoll = base.rootRoll;
   return result;

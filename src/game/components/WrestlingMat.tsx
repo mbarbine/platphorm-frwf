@@ -37,7 +37,9 @@ export function WrestlingMat() {
     const edges = new Float32Array(count);
     for (let i = 0; i < count; i++) {
       const idx = i * 3;
-      const x = posArray[idx]; const z = -posArray[idx + 1];
+      const x = posArray[idx]; const y = posArray[idx + 1];
+      if (x === undefined || y === undefined) continue;
+      const z = -y;
       edges[i] = Math.max(0, Math.min(1, (5.65 - Math.abs(x)) * 3, (4.15 - Math.abs(z)) * 3));
     }
     return edges;
@@ -65,7 +67,9 @@ export function WrestlingMat() {
     const str = strength.current; const currentAge = age.current;
     for (let i = 0; i < count; i++) {
       const idx = i * 3;
-      const x = posArray[idx]; const z = -posArray[idx + 1];
+      const x = posArray[idx]; const y = posArray[idx + 1];
+      if (x === undefined || y === undefined) continue;
+      const z = -y;
       // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt in hot frame vertex deformation loop (~1000 vertices per frame).
       const dx = x - centerX; const dz = z - centerZ;
       const distance = Math.sqrt(dx * dx + dz * dz);

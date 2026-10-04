@@ -1,0 +1,138 @@
+{
+  "scope": "GLB structure only; not visual acceptance or runtime certification",
+  "fighters": [
+    {
+      "id": "atlas",
+      "asset": "/characters/atlas.56e0739befc1.glb",
+      "hairMeshPresent": false,
+      "eyeBones": [],
+      "facialMorphTargets": []
+    },
+    {
+      "id": "vex",
+      "asset": "/characters/vex.97608cdb2dc9.glb",
+      "hairMeshPresent": false,
+      "eyeBones": [],
+      "facialMorphTargets": []
+    },
+    {
+      "id": "nova",
+      "asset": "/characters/nova.3ed47d7114d2.glb",
+      "hairMeshPresent": true,
+      "eyeBones": [],
+      "facialMorphTargets": []
+    },
+    {
+      "id": "brick",
+      "asset": "/characters/brick.3d2b6be024f6.glb",
+      "hairMeshPresent": true,
+      "eyeBones": [],
+      "facialMorphTargets": []
+    },
+    {
+      "id": "chad",
+      "asset": "/characters/chad.24389d09e8b4.glb",
+      "hairMeshPresent": true,
+      "eyeBones": [],
+      "facialMorphTargets": []
+    },
+    {
+      "id": "dale",
+      "asset": "/characters/dale.8a86f24c3578.glb",
+      "hairMeshPresent": true,
+      "eyeBones": [],
+      "facialMorphTargets": []
+    },
+    {
+      "id": "thomas",
+      "asset": "/characters/thomas.eee03b22d898.glb",
+      "hairMeshPresent": true,
+      "eyeBones": [],
+      "facialMorphTargets": []
+    },
+    {
+      "id": "sonny",
+      "asset": "/characters/sonny.c63ba5f0ba29.glb",
+      "hairMeshPresent": true,
+      "eyeBones": [],
+      "facialMorphTargets": []
+    },
+    {
+      "id": "wrecking_ball",
+      "asset": "/characters/wrecking_ball.800d27e74e61.glb",
+      "hairMeshPresent": true,
+      "eyeBones": [],
+      "facialMorphTargets": []
+    },
+    {
+      "id": "steve",
+      "asset": "/characters/steve.2af682a19648.glb",
+      "hairMeshPresent": true,
+      "eyeBones": [],
+      "facialMorphTargets": []
+    },
+    {
+      "id": "john",
+      "asset": "/characters/john.63cdeed30a6a.glb",
+      "hairMeshPresent": true,
+      "eyeBones": [],
+      "facialMorphTargets": []
+    },
+    {
+      "id": "justin",
+      "asset": "/characters/justin.65cfc37c9ed0.glb",
+      "hairMeshPresent": true,
+      "eyeBones": [],
+      "facialMorphTargets": []
+    },
+    {
+      "id": "mondo",
+      "asset": "/characters/mondo.e7be14e5d21e.glb",
+      "hairMeshPresent": true,
+      "eyeBones": [],
+      "facialMorphTargets": []
+    },
+    {
+      "id": "gil",
+      "asset": "/characters/gil.9bf62ea9dce9.glb",
+      "hairMeshPresent": true,
+      "eyeBones": [],
+      "facialMorphTargets": []
+    },
+    {
+      "id": "josh",
+      "asset": "/characters/sonny.c63ba5f0ba29.glb",
+      "hairMeshPresent": true,
+      "eyeBones": [],
+      "facialMorphTargets": []
+    },
+    {
+      "id": "chelsea",
+      "asset": "/characters/gil.9bf62ea9dce9.glb",
+      "hairMeshPresent": true,
+      "eyeBones": [],
+      "facialMorphTargets": []
+    },
+    {
+      "id": "britt",
+      "asset": "/characters/gil.9bf62ea9dce9.glb",
+      "hairMeshPresent": true,
+      "eyeBones": [],
+      "facialMorphTargets": []
+    },
+    {
+      "id": "beer_bandit_bill",
+      "asset": "/characters/sonny.c63ba5f0ba29.glb",
+      "hairMeshPresent": true,
+      "eyeBones": [],
+      "facialMorphTargets": []
+    },
+    {
+      "id": "beer_bandit_ted",
+      "asset": "/characters/sonny.c63ba5f0ba29.glb",
+      "hairMeshPresent": true,
+      "eyeBones": [],
+      "facialMorphTargets": []
+    }
+  ]
+}

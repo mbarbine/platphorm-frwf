@@ -66,7 +66,9 @@ describe('body-aware broadcast framing', () => {
     oldCamera.updateMatrixWorld();
 
     // Outer stadium boundary at (-100, 0, -100) was clipped with 72m far plane
-    const oldFarWallProjected = farVenuePointsInFront[3].project(oldCamera);
+    const farWall = farVenuePointsInFront[3];
+    if (!farWall) throw new Error('Missing far-wall framing fixture');
+    const oldFarWallProjected = farWall.clone().project(oldCamera);
     expect(oldFarWallProjected.z).toBeGreaterThan(1); // Clipped!
 
     // With new 250m far plane:
