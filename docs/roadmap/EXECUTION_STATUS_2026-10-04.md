@@ -15,7 +15,7 @@ RINGFALL remains a wrestling game. The acceptance target is readable, responsive
 - Focused combat-motion and framing run: 22 tests passed, including the new continuity test.
 - `pnpm build`: passed after repairing strict indexed reads.
 - `pnpm lint` and `pnpm typecheck`: passed.
-- Browser idle stability: the first run failed in selection before entering a match because its case-sensitive accessible-name selector was stale. Selector repaired; rerun pending. No visual acceptance claim.
+- Browser idle stability: the first run failed in selection before entering a match because its case-sensitive accessible-name selector was stale. Selector repaired; rerun entered the match and passed pose-range and zero-reset assertions, then failed because the browser logged `Failed to load resource: net::ERR_FAILED`. Trace identifies `/audio/hollow-point-ritual.ccd7b9b89eee.mp3` as the failed request; the file exists in both public and dist. Playback/browser transport still requires diagnosis. No full browser acceptance claim.
 - No deployment in this pass; production remains separately unverified.
 
 ## Required remaining work
