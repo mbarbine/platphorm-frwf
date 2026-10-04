@@ -753,7 +753,7 @@ export function CameraRig() {
       const perspective = camera as PerspectiveCamera;
       if (!Number.isFinite(perspective.fov) || perspective.fov <= 0) perspective.fov = 48;
       if (!Number.isFinite(perspective.near) || perspective.near <= 0) perspective.near = 0.1;
-      if (!Number.isFinite(perspective.far) || perspective.far <= perspective.near) perspective.far = 72;
+      if (!Number.isFinite(perspective.far) || perspective.far < 250) perspective.far = 250;
       sanitizeVector(camera.position, 0, 5, 12);
       sanitizeVector(smoothedTarget, 0, 2.2, 0);
 

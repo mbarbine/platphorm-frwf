@@ -43,4 +43,41 @@ describe('body-aware broadcast framing', () => {
     expect(distance).toBeGreaterThanOrEqual(4.5);
     expect(distance).toBeLessThanOrEqual(68.0);
   });
+
+  it('ensures far-side venue geometry remains inside far plane (250m) at max framing distance whereas 72m far plane clipped it', () => {
+    const extremeBounds = { min: { x: -100, y: 0, z: -100 }, max: { x: 100, y: 10, z: 100 } };
+    const target = new Vector3(0, 2.2, 0);
+    const distance = bodyFramingDistance(extremeBounds, target, 48, 16 / 9, Math.PI / 4);
+    expect(distance).toBeLessThanOrEqual(68.0);
+
+    // Far-side venue points in front of the broadcast camera (camera at +X, +Z looking toward -X, -Z)
+    const farVenuePointsInFront = [
+      new Vector3(0, 0, 0),          // Ring center
+      new Vector3(-30, 0, -30),      // Far arena floor
+      new Vector3(-50, 0, -50),      // Far crowd seating
+      new Vector3(-100, 0, -100),    // Outer stadium / sky dome boundary
+      new Vector3(-50, 20, -50),     // Far stadium roof / canopy
+    ];
+
+    // With legacy 72m far plane:
+    const oldCamera = new PerspectiveCamera(48, 16 / 9, 0.1, 72);
+    placeBroadcastCamera(oldCamera.position, target, distance, Math.PI / 4);
+    oldCamera.lookAt(target);
+    oldCamera.updateMatrixWorld();
+
+    // Outer stadium boundary at (-100, 0, -100) was clipped with 72m far plane
+    const oldFarWallProjected = farVenuePointsInFront[3].project(oldCamera);
+    expect(oldFarWallProjected.z).toBeGreaterThan(1); // Clipped!
+
+    // With new 250m far plane:
+    const newCamera = new PerspectiveCamera(48, 16 / 9, 0.1, 250);
+    placeBroadcastCamera(newCamera.position, target, distance, Math.PI / 4);
+    newCamera.lookAt(target);
+    newCamera.updateMatrixWorld();
+
+    for (const point of farVenuePointsInFront) {
+      const projected = point.project(newCamera);
+      expect(projected.z).toBeLessThan(1); // Not clipped!
+    }
+  });
 });
