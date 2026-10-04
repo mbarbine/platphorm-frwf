@@ -41,7 +41,7 @@ export const POSES: Readonly<Record<AnimationKey, Pose>> = {
   throw: { ...base, torso: [.3, .5, 0], leftArm: [-.65, -.55, -.6], rightArm: [-.65, -.55, .6], leftForearm: [-.7, 0, 0], rightForearm: [-.7, 0, 0], rootTilt: .22, rootRoll: -.18 },
   stagger: { ...base, torso: [-.16, 0, -.05], leftArm: [-.42, 0, -.32], rightArm: [-.28, 0, .35], leftForearm: [-.8, 0, 0], rightForearm: [-.9, 0, 0], leftLeg: [-.08, 0, 0], rightLeg: [.12, 0, 0], rootTilt: -.04 },
   knockdown: { ...base, torso: [-.7, 0, 0], leftArm: [.8, 0, -.3], rightArm: [.8, 0, .3], rootY: -.6, rootTilt: -1 },
-  downed: { ...base, rootY: -.64, rootTilt: -1.5, leftArm: [.7, 0, -.45], rightArm: [-.25, 0, .45] },
+  downed: { ...base, rootY: -.64, rootTilt: -1.5, leftArm: [.35, 0, -.38], rightArm: [-.18, 0, .32], leftForearm: [-.32, 0, 0], rightForearm: [-.58, 0, 0], leftLeg: [-.12, 0, -.12], rightLeg: [-.2, 0, .1], leftShin: [-.28, 0, 0], rightShin: [-.42, 0, 0] },
   recovery: { ...base, rootY: -.55, rootTilt: -.7, leftArm: [-.9, 0, -.35], leftForearm: [-.8, 0, 0], leftLeg: [-.5, 0, 0], rightShin: [-.8, 0, 0] },
   dodge: { ...base, torso: [.35, 0, .35], leftArm: [-.3, 0, -.5], rightArm: [-.3, 0, .5], rootTilt: .25 },
   counter: { ...base, torso: [0, .2, 0], leftArm: [-.75, 0, -.6], rightArm: [-1.15, .2, .25], rightLeg: [-.55, 0, 0] },

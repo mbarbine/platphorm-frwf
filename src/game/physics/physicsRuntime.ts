@@ -21,7 +21,7 @@ import { applyBodyLanguage } from '../animation/bodyLanguage';
 import { POSES } from '../animation/poses';
 import type { Pose } from '../animation/poses';
 import { finishCelebrationPose } from '../animation/finishMotion';
-import { RECOVERY_DURATION, recoveryPose } from '../animation/recoveryMotion';
+import { RECOVERY_DURATION, recoveryPose, recoveryRise } from '../animation/recoveryMotion';
 import { gaitCycle, gaitRunBlend } from '../animation/gaitCycle';
 import { proceduralLocomotionSource } from '../animation/locomotion';
 import type { LocomotionPoseSource } from '../animation/locomotion';
@@ -1112,7 +1112,7 @@ export class BodyWorksRuntime {
     const groundedControl = !aerialFlight && (standingClinch || controlledJumpLanding || GROUNDED_CONTROL_STATES.has(fighter.state));
     if (groundedControl) {
       const recoveryBlend = fighter.state === 'recovering' ? clamp(fighter.stateElapsed / RECOVERY_DURATION, 0, 1) : 1;
-      const recoveryTargetY = targetPelvisY - (1 - recoveryBlend) * .62;
+      const recoveryTargetY = targetPelvisY - (1 - recoveryRise(recoveryBlend)) * .62;
       // A get-up cannot generate vertical support before a foot reaches the
       // mat. The generic spawn bootstrap is useful for already-authored
       // standing rigs, but applying it to a folded recovery pose levitates the
@@ -1487,7 +1487,7 @@ export class BodyWorksRuntime {
     const pelvis = rig.bodies.pelvis; if (!pelvis || progress <= .12) return;
     const pelvisPosition = pelvis.translation(); const pelvisVelocity = pelvis.linvel();
     const externalSupport = this.hasExternalSupport(rig);
-    const activation = clamp((progress - .12) / .46, 0, 1);
+    const activation = recoveryRise(progress);
     const cosine = Math.cos(fighter.facing); const sine = Math.sin(fighter.facing);
     // The legs build the stance; the regular angular motors articulate the
     // torso and arms. Driving every segment toward a standing position made
@@ -3084,7 +3084,7 @@ const targetPoseFor = (fighter: FighterRuntime, locomotionSource: LocomotionPose
   if (fighter.state === 'jumping' || fighter.state === 'airborne') return POSES.aerial;
   if (fighter.state === 'staggered') return POSES.stagger;
   if (fighter.state === 'downed') return recoveryPose(fighter.recoveryOrientation, 'downed', fighter.stateElapsed);
-  if (fighter.state === 'defeated') return POSES.downed;
+  if (fighter.state === 'defeated') return recoveryPose(fighter.recoveryOrientation, 'downed', fighter.stateElapsed);
   if (fighter.state === 'recovering') return recoveryPose(fighter.recoveryOrientation, 'recovering', fighter.stateElapsed);
   if (fighter.state === 'victorious') return finishCelebrationPose(fighter.stateElapsed);
   if (fighter.state === 'pinning') return POSES.pin;

@@ -133,10 +133,10 @@ function RingGear({ side, fighterId, recordedPose }: { side: FighterSlot; fighte
   });
   const definition = fighterById(fighterId);
   return <>{(['leftForearm', 'rightForearm'] as const).map(segment => {
-    const radius = segmentSchema(definition, segment).radius + .004;
+    const radius = segmentSchema(definition, segment).radius * .78 + .003;
     return <group key={segment} ref={group => { refs.current[segment] = group; }}>
-      <mesh position={[0, -.12, 0]}><cylinderGeometry args={[radius, radius * .93, .105, 12]} /><meshStandardMaterial color="#e4ddc9" roughness={.94} /></mesh>
-      {[-.15, -.095].map(y => <mesh key={y} position={[0, y, 0]}><cylinderGeometry args={[radius + .001, radius + .001, .012, 12]} /><meshStandardMaterial color={definition.palette.primary} roughness={.78} /></mesh>)}
+      <mesh position={[0, -.12, 0]}><cylinderGeometry args={[radius, radius * .93, .065, 24]} /><meshStandardMaterial color="#e4ddc9" roughness={.94} /></mesh>
+      {[-.14, -.10].map(y => <mesh key={y} position={[0, y, 0]}><cylinderGeometry args={[radius + .001, radius + .001, .006, 24]} /><meshStandardMaterial color={definition.palette.primary} roughness={.78} /></mesh>)}
     </group>;
   })}{(['leftFoot', 'rightFoot'] as const).map(segment => <group key={segment} ref={group => { refs.current[segment] = group; }}>
     {<group position={[0, .048, .1]}>{[-.035, 0, .035].map(z => <mesh key={z} position={[0, 0, z]} rotation={[Math.PI / 2, 0, Math.PI / 2]}><cylinderGeometry args={[.005, .005, .11, 5]} /><meshStandardMaterial color="#b3aa97" roughness={1} /></mesh>)}</group>}

@@ -129,5 +129,20 @@ if [[ -z "$health_json" ]]; then echo 'Production health endpoint did not become
 
 page_html="$(curl "${curl_domain[@]}" "$public_origin/")"
 asset_path="$(node --input-type=module -e 'let s="";for await(const c of process.stdin)s+=c;const p=s.match(/src="([^\"]+\.js)"/)?.[1];if(!p)process.exit(1);process.stdout.write(p)' <<<"$page_html")"
-content_type="$(curl "${curl_domain[@]}" -o /dev/null -w '%{content_type}' "$public_origin$asset_path")"
+# Verify the actual entry bundle against the frozen release, allowing edge propagation.
+content_type=''
+asset_verified=false
+for attempt in {1..12}; do
+  if content_type="$(curl "${curl_domain[@]}" -o "$artifact_dir/live-entry.js" -w '%{content_type}' "$public_origin$asset_path")"; then
+    if [[ "$content_type" == *javascript* ]] && cmp -s "$artifact_dir/live-entry.js" "$artifact_dir/assets$asset_path"; then
+      asset_verified=true
+      break
+    fi
+  fi
+  sleep 2
+done
+if ! "$asset_verified"; then
+  echo "Entry bundle verification failed: $asset_path (Content-Type: ${content_type:-missing}); response does not match the frozen release." >&2
+  exit 1
+fi
 EXPECTED_SOURCE_SHA="$source_sha" EXPECTED_RELEASE="$release_version" EXPECTED_CONTENT_TYPE="$content_type" node --input-type=module -e 'let s="";for await(const c of process.stdin)s+=c;const body=JSON.parse(s);const contentType=process.env.EXPECTED_CONTENT_TYPE??"";if(!body?.ok||body.data.environment!=="production"||body.data.gitSha!==process.env.EXPECTED_SOURCE_SHA||body.data.version!==process.env.EXPECTED_RELEASE)throw new Error("Production deployment identity does not match the application release");if(body.data.databaseStatus!=="operational"||body.data.assetStatus!=="operational")throw new Error("Production D1 or R2 probe is unhealthy");if(body.data.status!=="operational")throw new Error(`Production backend is degraded (auth: ${body.data.authStatus}); configure the Worker secret PLATPHORM_API_KEY before enabling room creation.`);if(!contentType.includes("javascript"))throw new Error("Game JavaScript asset is unavailable");console.log(JSON.stringify({origin:"https://frwf.ja1.io",release:body.data.version,status:body.data.status,databaseStatus:body.data.databaseStatus,assetStatus:body.data.assetStatus,authStatus:body.data.authStatus,gitSha:body.data.gitSha,multiplayerRuntime:"MatchRoom Durable Object deployed"},null,2));' <<<"$health_json"

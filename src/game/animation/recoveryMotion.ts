@@ -5,6 +5,12 @@ import type { Pose } from "./poses";
 
 export const RECOVERY_DURATION = 1.2;
 
+/** Keep the pelvis low through the hand post; rise only after gathering knees. */
+export function recoveryRise(progress: number): number {
+  const t = Math.max(0, Math.min(1, (progress - .32) / .68));
+  return t * t * (3 - 2 * t);
+}
+
 const DOWNED: Readonly<Record<RecoveryOrientation, Pose>> = {
   back: { ...POSES.downed },
   front: { ...POSES.downed, rootTilt: 1.5, rootYaw: Math.PI, leftArm: [-.35, 0, -.62], rightArm: [-.35, 0, .62], leftForearm: [-1.15, 0, 0], rightForearm: [-1.15, 0, 0] },

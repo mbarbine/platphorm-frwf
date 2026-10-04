@@ -12,7 +12,7 @@ describe('exertion-scaled fighter skin finish', () => {
     const exhausted = skinRoughnessForEffort(.58, 0, 100, false);
     expect(active).toBeLessThan(rested);
     expect(exhausted).toBeLessThan(active);
-    expect(exhausted).toBeGreaterThanOrEqual(.34);
+    expect(exhausted).toBeGreaterThanOrEqual(.48);
   });
 
   it('clamps malformed stamina and keeps a finite finish for characters without a stamina cap', () => {
