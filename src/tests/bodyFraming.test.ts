@@ -42,6 +42,12 @@ describe('body-aware broadcast framing', () => {
     expect(Number.isFinite(distance)).toBe(true);
     expect(distance).toBeGreaterThanOrEqual(4.5);
     expect(distance).toBeLessThanOrEqual(68.0);
+
+    const pos = new Vector3();
+    placeBroadcastCamera(pos, target, distance, NaN);
+    expect(Number.isFinite(pos.x)).toBe(true);
+    expect(Number.isFinite(pos.y)).toBe(true);
+    expect(Number.isFinite(pos.z)).toBe(true);
   });
 
   it('ensures far-side venue geometry remains inside far plane (250m) at max framing distance whereas 72m far plane clipped it', () => {

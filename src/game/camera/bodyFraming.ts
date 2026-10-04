@@ -37,7 +37,13 @@ export function bodyFramingDistance(bounds: FramingBounds, target: FramingPoint,
 }
 
 export function placeBroadcastCamera(position: FramingPoint, target: FramingPoint, distance: number, yaw = 0): void {
-  position.x = target.x + Math.sin(yaw) * Math.cos(Math.PI / 8) * distance;
-  position.y = target.y + Math.sin(Math.PI / 8) * distance;
-  position.z = target.z + Math.cos(yaw) * Math.cos(Math.PI / 8) * distance;
+  const safeTargetX = Number.isFinite(target.x) ? target.x : 0;
+  const safeTargetY = Number.isFinite(target.y) ? target.y : 2.2;
+  const safeTargetZ = Number.isFinite(target.z) ? target.z : 0;
+  const safeDistance = Number.isFinite(distance) ? Math.max(4.5, Math.min(68.0, distance)) : 6.8;
+  const safeYaw = Number.isFinite(yaw) ? yaw : 0;
+
+  position.x = safeTargetX + Math.sin(safeYaw) * Math.cos(Math.PI / 8) * safeDistance;
+  position.y = safeTargetY + Math.sin(Math.PI / 8) * safeDistance;
+  position.z = safeTargetZ + Math.cos(safeYaw) * Math.cos(Math.PI / 8) * safeDistance;
 }

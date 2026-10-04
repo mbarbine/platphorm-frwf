@@ -800,7 +800,9 @@ export function CameraRig() {
         // Fit after target smoothing: a rapidly lifted body must remain visible
         // even while the camera catches up. Pull back immediately, ease in slowly.
         const required = bodyFramingDistance(bounds, smoothedTarget, perspective.fov, perspective.aspect, BROADCAST_YAW);
-        framingDistance.current = Math.max(required, framingDistance.current + (required - framingDistance.current) * (1 - Math.exp(-clampedDt * 2.4)));
+        const currentDist = Number.isFinite(framingDistance.current) ? framingDistance.current : 7.8;
+        framingDistance.current = Math.max(required, currentDist + (required - currentDist) * (1 - Math.exp(-clampedDt * 2.4)));
+        if (!Number.isFinite(framingDistance.current)) framingDistance.current = 7.8;
         placeBroadcastCamera(camera.position, smoothedTarget, framingDistance.current, BROADCAST_YAW);
         lookAtSafe(perspective, smoothedTarget);
       }
