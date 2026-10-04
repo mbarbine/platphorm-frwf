@@ -6,8 +6,8 @@ const enterLabMatch = async (page: Page): Promise<void> => {
   await page.goto('/?physicsLab=1');
   await page.getByRole('button', { name: 'ENTER RINGFALL' }).click();
   await page.getByRole('button', { name: 'PLAY', exact: true }).click();
-  await page.getByRole('button', { name: /LOCK IN ATLAS/ }).click();
-  await page.getByRole('button', { name: /^STANDARD/ }).click();
+  await page.getByRole('button', { name: /Lock in Atlas Rex:/i }).click();
+  await page.getByRole('button', { name: /^STANDARD/i }).click();
   await page.getByRole('button', { name: 'START MATCH' }).click();
   await expect(page.locator('.hud')).toHaveAttribute('data-physics-bodies', /^[1-9]\d*$/, { timeout: 30_000 });
 };

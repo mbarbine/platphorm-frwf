@@ -14,7 +14,8 @@ RINGFALL remains a wrestling game. The acceptance target is readable, responsive
 - `pnpm test`: 931 app tests and 22 game-core tests passed before adding the new continuity test.
 - Focused combat-motion and framing run: 22 tests passed, including the new continuity test.
 - `pnpm build`: passed after repairing strict indexed reads.
-- Browser idle stability: running against the rebuilt bundle; no acceptance claim yet.
+- `pnpm lint` and `pnpm typecheck`: passed.
+- Browser idle stability: the first run failed in selection before entering a match because its case-sensitive accessible-name selector was stale. Selector repaired; rerun pending. No visual acceptance claim.
 - No deployment in this pass; production remains separately unverified.
 
 ## Required remaining work
