@@ -393,7 +393,7 @@ const strikeFrames = (moveId: string): readonly PoseKeyframe[] => {
     { at: .79, pose: pose({ torso: [.4, 0, .04], leftArm: [-1.2, 0, -.34], rightArm: [-1.2, 0, .34], leftForearm: [-.86, 0, 0], rightForearm: [-.86, 0, 0], rootZ: .26, rootTilt: .42 }) },
     { at: 1, pose: POSES.combatIdle },
   ];
-  if (moveId === 'stiff_arm' || moveId === 'rebound') return [
+  if (moveId === 'stiff_arm') return [
     { at: 0, pose: POSES.run },
     { at: .5, pose: pose({ ...POSES.run, rightArm: [-.72, 0, .45], rightForearm: [-1.25, 0, 0], leftArm: [.45, 0, -.35], rootTilt: .22 }) },
     { at: .76, pose: pose({ ...POSES.run, rightArm: [-1.48, 0, .08], rightForearm: [-.04, 0, 0], leftArm: [-.42, 0, -.45], rootZ: .28, rootTilt: .3 }) },

@@ -1588,6 +1588,10 @@ export class BodyWorksRuntime {
     const baseProfile = strikeDriveProfile(fighter.moveId); if (!baseProfile) return;
     if ((fighter.moveId === 'aerial' || fighter.moveId === 'aerial_kick' || fighter.moveId === 'aerial_elbow') && fighter.attackPhase !== 'active') return;
     const targetKey = model.targets[key]; const targetRig = this.rigs.get(targetKey);
+    const move = getMove(fighter.moveId);
+    // Once contact has scored, follow through with the joint motors rather
+    // than pulling the limb and pelvis after a recoiling or falling opponent.
+    if (!move.multiHit && (fighter.hitTargets.includes(`${targetKey}:${fighter.attackInstanceId}`) || fighter.hitTargets.includes(targetKey))) return;
     const authoredTarget = targetRig?.bodies[baseProfile.target];
     const directionalForearm = (fighter.moveId === 'stiff_arm' || fighter.moveId === 'rebound') && authoredTarget
       ? (['leftForearm', 'rightForearm'] as const).filter((segment) => rig.bodies[segment]?.isValid()).reduce<BodySegmentId>((nearest, segment) => {
@@ -1649,7 +1653,7 @@ export class BodyWorksRuntime {
     const sepDz = targetPosition.z - pelvis.translation().z;
     // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt for ~8x speedups.
     const separation = Math.sqrt(sepDx * sepDx + sepDz * sepDz);
-    const move = getMove(fighter.moveId); if (separation > move.maximumRange + .65) return;
+    if (separation > move.maximumRange + .65) return;
     if (fighter.attackPhase === 'anticipation' && guardCandidates.length === 0 && separation < move.maximumRange + .25) {
       const optimum = profile.source.includes('Hand') ? 1.02 : profile.source.includes('Foot') ? 1.3 : .78;
       const p = pelvis.translation(); const velocity = pelvis.linvel();

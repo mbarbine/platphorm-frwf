@@ -137,6 +137,51 @@ describe('MobileControls component', () => {
       expect(mobileInput.read().move).toEqual({ x: 0, z: 0 });
     });
 
+    it('releases an upward stick outside the pad without letting another finger release it', () => {
+      useMatchStore.getState().configure('atlas', 'nova', 'standard', 'normal', 0, 0, 'singles');
+      render(React.createElement(MobileControls, { onPause: () => {}, paused: false }));
+      const pad = screen.getByRole('group', { name: 'Movement joystick' });
+      pad.setPointerCapture = vi.fn();
+      vi.spyOn(pad, 'getBoundingClientRect').mockReturnValue({ left: 0, top: 0, width: 100, height: 100, right: 100, bottom: 100, x: 0, y: 0, toJSON: () => ({}) });
+      fireEvent.pointerDown(pad, { pointerId: 41, clientX: 50, clientY: 0 });
+      expect(mobileInput.read().move.z).toBe(-1);
+      fireEvent.pointerUp(window, { pointerId: 42 });
+      expect(mobileInput.read().move.z).toBe(-1);
+      fireEvent.pointerUp(window, { pointerId: 41 });
+      expect(mobileInput.read().move).toEqual({ x: 0, z: 0 });
+      expect(pad.querySelector('i')?.style.transform).toBe('translate(0px, 0px)');
+    });
+
+    it('clears an upward stick when the app becomes hidden', () => {
+      useMatchStore.getState().configure('atlas', 'nova', 'standard', 'normal', 0, 0, 'singles');
+      render(React.createElement(MobileControls, { onPause: () => {}, paused: false }));
+      const pad = screen.getByRole('group', { name: 'Movement joystick' });
+      pad.setPointerCapture = vi.fn();
+      vi.spyOn(pad, 'getBoundingClientRect').mockReturnValue({ left: 0, top: 0, width: 100, height: 100, right: 100, bottom: 100, x: 0, y: 0, toJSON: () => ({}) });
+      fireEvent.pointerDown(pad, { pointerId: 41, clientX: 50, clientY: 0 });
+      vi.spyOn(document, 'hidden', 'get').mockReturnValue(true);
+      fireEvent(document, new Event('visibilitychange'));
+      expect(mobileInput.read().move).toEqual({ x: 0, z: 0 });
+      expect(pad.querySelector('i')?.style.transform).toBe('translate(0px, 0px)');
+    });
+
+    it('clears stick and held buttons on focus loss and accepts a fresh touch afterward', () => {
+      useMatchStore.getState().configure('atlas', 'nova', 'standard', 'normal', 0, 0, 'singles');
+      render(React.createElement(MobileControls, { onPause: () => {}, paused: false }));
+      const pad = screen.getByRole('group', { name: 'Movement joystick' });
+      const run = screen.getByRole('button', { name: 'Hold RUN' });
+      pad.setPointerCapture = vi.fn(); run.setPointerCapture = vi.fn();
+      vi.spyOn(pad, 'getBoundingClientRect').mockReturnValue({ left: 0, top: 0, width: 100, height: 100, right: 100, bottom: 100, x: 0, y: 0, toJSON: () => ({}) });
+      fireEvent.pointerDown(pad, { pointerId: 41, clientX: 50, clientY: 0 });
+      fireEvent.pointerDown(run, { pointerId: 42 });
+      fireEvent.blur(window);
+      const released = mobileInput.read();
+      expect(released.move).toEqual({ x: 0, z: 0 }); expect(released.run).toBe(false);
+      expect(run.getAttribute('aria-pressed')).toBe('false');
+      fireEvent.pointerDown(pad, { pointerId: 43, clientX: 100, clientY: 50 });
+      expect(mobileInput.read().move.x).toBe(1);
+    });
+
     it('ignores pointer moves from non-captured pointer IDs', () => {
       useMatchStore.getState().configure('atlas', 'nova', 'standard', 'normal', 0, 0, 'singles');
       render(React.createElement(MobileControls, { onPause: () => {}, paused: false }));

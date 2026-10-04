@@ -21,6 +21,7 @@ interface HoldButtonProps {
 
 function HoldButton({ activeLabel, className, disabled = false, onChange }: HoldButtonProps) {
   const [pressed, setPressed] = useState(false);
+  const owner = useRef<number | null>(null);
   const onChangeRef = useRef(onChange); onChangeRef.current = onChange;
   const change = (next: boolean): void => {
     if (disabled && next) return;
@@ -28,15 +29,35 @@ function HoldButton({ activeLabel, className, disabled = false, onChange }: Hold
   };
   const press = (event: ReactPointerEvent<HTMLButtonElement>): void => {
     event.preventDefault();
+    if (disabled || owner.current !== null) return;
+    owner.current = event.pointerId;
     event.currentTarget.setPointerCapture(event.pointerId);
     change(true);
   };
   const release = (event: ReactPointerEvent<HTMLButtonElement>): void => {
+    if (owner.current !== event.pointerId) return;
     event.preventDefault();
+    owner.current = null;
     change(false);
   };
-  useEffect(() => { if (disabled) { setPressed(false); onChangeRef.current(false); } }, [disabled]);
-  return <button type="button" disabled={disabled} className={`${className}${pressed ? ' is-pressed' : ''}`} aria-label={`Hold ${activeLabel}`} aria-pressed={pressed} onPointerDown={press} onPointerUp={release} onPointerCancel={release} onLostPointerCapture={() => change(false)}>{activeLabel}</button>;
+  useEffect(() => {
+    const reset = () => { owner.current = null; setPressed(false); onChangeRef.current(false); };
+    const releaseOutside = (event: PointerEvent) => { if (event.pointerId === owner.current) reset(); };
+    const visibility = () => { if (document.hidden) reset(); };
+    window.addEventListener('pointerup', releaseOutside);
+    window.addEventListener('pointercancel', releaseOutside);
+    window.addEventListener('blur', reset);
+    document.addEventListener('visibilitychange', visibility);
+    return () => {
+      window.removeEventListener('pointerup', releaseOutside);
+      window.removeEventListener('pointercancel', releaseOutside);
+      window.removeEventListener('blur', reset);
+      document.removeEventListener('visibilitychange', visibility);
+      onChangeRef.current(false);
+    };
+  }, []);
+  useEffect(() => { if (disabled) { owner.current = null; setPressed(false); onChangeRef.current(false); } }, [disabled]);
+  return <button type="button" disabled={disabled} className={`${className}${pressed ? ' is-pressed' : ''}`} aria-label={`Hold ${activeLabel}`} aria-pressed={pressed} onPointerDown={press} onPointerUp={release} onPointerCancel={release} onLostPointerCapture={() => { owner.current = null; change(false); }}>{activeLabel}</button>;
 }
 
 export function MobileControls({ onPause, paused }: MobileControlsProps) {
@@ -74,7 +95,23 @@ export function MobileControls({ onPause, paused }: MobileControlsProps) {
   useEffect(() => {
     if (paused) { pointer.current = null; setStick({ x: 0, z: 0 }); mobileInput.reset(); }
   }, [paused]);
-  useEffect(() => () => mobileInput.reset(), []);
+  useEffect(() => {
+    const resetStick = () => { pointer.current = null; setStick({ x: 0, z: 0 }); mobileInput.setMove({ x: 0, z: 0 }); };
+    const releaseOutside = (event: PointerEvent) => { if (event.pointerId === pointer.current) resetStick(); };
+    const resetAll = () => { resetStick(); mobileInput.reset(); };
+    const visibility = () => { if (document.hidden) resetAll(); };
+    window.addEventListener('pointerup', releaseOutside);
+    window.addEventListener('pointercancel', releaseOutside);
+    window.addEventListener('blur', resetAll);
+    document.addEventListener('visibilitychange', visibility);
+    return () => {
+      window.removeEventListener('pointerup', releaseOutside);
+      window.removeEventListener('pointercancel', releaseOutside);
+      window.removeEventListener('blur', resetAll);
+      document.removeEventListener('visibilitychange', visibility);
+      mobileInput.reset();
+    };
+  }, []);
 
   const moveStick = (clientX: number, clientY: number): void => {
     const rect = pad.current?.getBoundingClientRect();
@@ -114,7 +151,7 @@ export function MobileControls({ onPause, paused }: MobileControlsProps) {
   if (player.state === 'defeated') return null;
   return <div className={`mobile-controls${paused ? ' mobile-controls--paused' : ''}`} data-testid="mobile-controls">
     <button type="button" className="mobile-pause" aria-label="Pause match" onClick={onPause}>Ⅱ</button>
-    <div ref={pad} className="mobile-stick" role="group" aria-label="Movement joystick" aria-disabled={paused} onPointerDown={startStick} onPointerMove={updateStick} onPointerUp={stopStick} onPointerCancel={stopStick} onLostPointerCapture={stopStick}>
+    <div ref={pad} className="mobile-stick" role="group" aria-label="Movement joystick" aria-disabled={paused} onPointerDown={startStick} onPointerMove={updateStick} onPointerUp={stopStick} onPointerCancel={stopStick} onLostPointerCapture={() => { pointer.current = null; setStick({ x: 0, z: 0 }); mobileInput.setMove({ x: 0, z: 0 }); }}>
       <span>MOVE</span><i style={{ transform: `translate(${stick.x * 34}px, ${stick.z * 34}px)` }} />
     </div>
     <div className="mobile-modifiers">

@@ -59,4 +59,16 @@ describe('user-supplied combat motion', () => {
     expect(changed).toBe(true);
   });
 
+  it('drives the selected arm for each rope clothesline instead of reusing the right-arm pose', () => {
+    const right = getMove('stiff_arm'); const left = getMove('rebound');
+    const rightPose = getStrikePose(right, 'active', right.anticipationDuration + right.activeDuration * .6);
+    const leftPose = getStrikePose(left, 'active', left.anticipationDuration + left.activeDuration * .6);
+    if (!rightPose || !leftPose) throw new Error('Missing rope strike choreography');
+    expect(rightPose.rightForearm[0]).toBeGreaterThan(-.3);
+    expect(leftPose.leftForearm[0]).toBeGreaterThan(-.3);
+    expect(leftPose.leftArm[0]).toBeCloseTo(rightPose.rightArm[0], 6);
+    expect(leftPose.rightArm[0]).toBeCloseTo(rightPose.leftArm[0], 6);
+    expect(leftPose.rootRoll).toBeLessThan(0);
+  });
+
 });

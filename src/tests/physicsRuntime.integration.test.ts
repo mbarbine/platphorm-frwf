@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { loadContactSkin, visibleSurfaceGap } from './helpers/skinnedContact';
+import { getMove } from '../game/data/moves';
 import { strikeDriveProfile } from '../game/physics/strikeDynamics';
 import { locomotionProfile } from '../game/physics/bodyDynamics';
 import { locomotionPose } from '../game/animation/locomotion';
@@ -739,6 +740,25 @@ it('connects an uppercut through the rising hand and preserves a standing base',
   } finally {runtime.reset();world.free();}
 });
 
+
+it('releases target-chasing muscle force after a scored punch while retaining the articulated follow-through', () => {
+  const { world, runtime, model, player } = makeGrappleHarness();
+  try {
+    for (let frame = 0; frame < 90; frame++) stepGrappleHarness(world, runtime, model);
+    expect(requestCommand(model, 'player', 'quick')).toBe(true);
+    model.player.attackPhase = 'active';
+    model.player.phaseElapsed = getMove('jab').anticipationDuration + .03;
+    runtime.beforeFixedStep(STEP, model, world);
+    const pursuing = player.bodies.rightHand.userForce();
+    model.player.hitTargets.push(`opponent:${model.player.attackInstanceId}`);
+    runtime.beforeFixedStep(STEP, model, world);
+    const released = player.bodies.rightHand.userForce();
+    expect(Math.hypot(pursuing.x - released.x, pursuing.y - released.y, pursuing.z - released.z)).toBeGreaterThan(1);
+    expect(model.player.moveId).toBe('jab');
+    expect(model.player.attackPhase).toBe('active');
+    expect(runtime.metrics.emergencyResetCount).toBe(0);
+  } finally { runtime.reset(); world.free(); }
+});
 
 it.each([
   ['jab', 'quick', { x: 0, z: 0 }],
