@@ -30,16 +30,16 @@ describe('SpectatorControls component', () => {
 
     render(React.createElement(SpectatorControls));
 
-    const fpBtn = screen.getByRole('button', { name: /FIRST PERSON mode \(Key 1\)/i });
+    const fpBtn = screen.getByRole('button', { name: /First person mode \(Key 1\)/i });
     expect(fpBtn).toBeTruthy();
 
-    const tpBtn = screen.getByRole('button', { name: /3RD PERSON mode \(Key 2\)/i });
+    const tpBtn = screen.getByRole('button', { name: /3rd person mode \(Key 2\)/i });
     expect(tpBtn).toBeTruthy();
 
-    const freeBtn = screen.getByRole('button', { name: /FREESTYLE CAMERA mode \(Key 3\)/i });
+    const freeBtn = screen.getByRole('button', { name: /Freestyle camera mode \(Key 3\)/i });
     expect(freeBtn).toBeTruthy();
 
-    const nextBtn = screen.getByRole('button', { name: /Spectate next wrestler \(Tab key\)/i });
+    const nextBtn = screen.getByRole('button', { name: /Next wrestler: spectate next active wrestler \(Tab key\)/i });
     expect(nextBtn).toBeTruthy();
 
     // Verify aria-live region content prefix
@@ -62,7 +62,7 @@ describe('SpectatorControls component', () => {
 
     render(React.createElement(SpectatorControls));
 
-    const fpBtn = screen.getByRole('button', { name: /FIRST PERSON mode \(Key 1\)/i });
+    const fpBtn = screen.getByRole('button', { name: /First person mode \(Key 1\)/i });
     fireEvent.click(fpBtn);
 
     expect(useSpectatorStore.getState().cameraMode).toBe('first_person');
