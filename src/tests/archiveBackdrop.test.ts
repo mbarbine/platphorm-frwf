@@ -43,23 +43,23 @@ describe('ArchiveBackdrop & ArenaLoading components', () => {
 
     expect(screen.getByText('FRWF ORIGINALS · REAL RINGSIDE FOOTAGE')).toBeTruthy();
 
-    const toggleBtn = screen.getByRole('button', { name: 'Pause background footage' });
+    const toggleBtn = screen.getByRole('button', { name: /^PAUSE FOOTAGE/i });
     expect(toggleBtn.textContent).toBe('PAUSE FOOTAGE');
   });
 
   it('toggles pause and play states when button is clicked', () => {
     render(React.createElement(ArchiveBackdrop));
 
-    const toggleBtn = screen.getByRole('button', { name: 'Pause background footage' });
+    const toggleBtn = screen.getByRole('button', { name: /^PAUSE FOOTAGE/i });
     expect(toggleBtn.textContent).toBe('PAUSE FOOTAGE');
 
     fireEvent.click(toggleBtn);
 
-    const playBtn = screen.getByRole('button', { name: 'Play background footage' });
+    const playBtn = screen.getByRole('button', { name: /^PLAY FOOTAGE/i });
     expect(playBtn.textContent).toBe('PLAY FOOTAGE');
 
     fireEvent.click(playBtn);
-    expect(screen.getByRole('button', { name: 'Pause background footage' }).textContent).toBe('PAUSE FOOTAGE');
+    expect(screen.getByRole('button', { name: /^PAUSE FOOTAGE/i }).textContent).toBe('PAUSE FOOTAGE');
   });
 
   it('suppresses video src and toggle button when active is false', () => {
@@ -106,7 +106,7 @@ describe('ArchiveBackdrop & ArenaLoading components', () => {
     expect(video).toBeTruthy();
     if (!video) return;
 
-    expect(screen.getByRole('button', { name: 'Pause background footage' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /^PAUSE FOOTAGE/i })).toBeTruthy();
 
     fireEvent.error(video);
 

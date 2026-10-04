@@ -25,7 +25,7 @@ export function ArchiveBackdrop({ active = true }: { active?: boolean }) {
   return <div className="archive-backdrop" data-testid="archive-backdrop">
     <video ref={video} muted playsInline preload="none" poster={archive.poster} src={active && !reducedMotion && !connection?.saveData ? clip?.src : undefined} aria-hidden="true" onError={() => setFailed(true)} onEnded={() => setIndex((current) => (current + 1) % archive.clips.length)} />
     <div className="archive-backdrop__shade" />
-    <div className="archive-backdrop__caption"><span>FRWF ORIGINALS · REAL RINGSIDE FOOTAGE</span>{active && !reducedMotion && !failed && <button type="button" onClick={() => setPaused((value) => !value)} aria-label={paused ? 'Play background footage' : 'Pause background footage'}>{paused ? 'PLAY FOOTAGE' : 'PAUSE FOOTAGE'}</button>}</div>
+    <div className="archive-backdrop__caption"><span>FRWF ORIGINALS · REAL RINGSIDE FOOTAGE</span>{active && !reducedMotion && !failed && <button type="button" onClick={() => setPaused((value) => !value)} aria-label={paused ? 'PLAY FOOTAGE: play background ringside video' : 'PAUSE FOOTAGE: pause background ringside video'}>{paused ? 'PLAY FOOTAGE' : 'PAUSE FOOTAGE'}</button>}</div>
   </div>;
 }
 
