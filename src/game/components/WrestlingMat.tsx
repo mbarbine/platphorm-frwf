@@ -32,9 +32,12 @@ export function WrestlingMat() {
   // OPTIMIZATION: Precompute static mat edge dampening factors to eliminate ~2,100 redundant Math.abs/Math.min/Math.max calls per frame inside hot vertex deformation loop.
   const edgeFactors = useMemo(() => {
     const positions = geometry.getAttribute('position');
-    const edges = new Float32Array(positions.count);
-    for (let i = 0; i < positions.count; i++) {
-      const x = positions.getX(i); const z = -positions.getY(i);
+    const posArray = positions.array as Float32Array;
+    const count = positions.count;
+    const edges = new Float32Array(count);
+    for (let i = 0; i < count; i++) {
+      const idx = i * 3;
+      const x = posArray[idx]; const z = -posArray[idx + 1];
       edges[i] = Math.max(0, Math.min(1, (5.65 - Math.abs(x)) * 3, (4.15 - Math.abs(z)) * 3));
     }
     return edges;
@@ -55,12 +58,18 @@ export function WrestlingMat() {
     if (age.current > 1.5) return;
     age.current += Math.min(dt, .05);
     const positions = geometry.getAttribute('position'); const decay = Math.exp(-age.current * 6);
-    for (let i = 0; i < positions.count; i++) {
-      const x = positions.getX(i); const z = -positions.getY(i);
+    // OPTIMIZATION: Access Float32Array directly to eliminate ~3,200 BufferAttribute getter/setter method calls per frame across ~1,073 vertices.
+    const posArray = positions.array as Float32Array;
+    const count = positions.count;
+    const centerX = center.current.x; const centerZ = center.current.z;
+    const str = strength.current; const currentAge = age.current;
+    for (let i = 0; i < count; i++) {
+      const idx = i * 3;
+      const x = posArray[idx]; const z = -posArray[idx + 1];
       // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt in hot frame vertex deformation loop (~1000 vertices per frame).
-      const dx = x - center.current.x; const dz = z - center.current.z;
+      const dx = x - centerX; const dz = z - centerZ;
       const distance = Math.sqrt(dx * dx + dz * dz);
-      positions.setZ(i, -strength.current * Math.cos(distance * 4 - age.current * 22) * Math.exp(-distance * 1.2) * decay * (edgeFactors[i] ?? 0));
+      posArray[idx + 2] = -str * Math.cos(distance * 4 - currentAge * 22) * Math.exp(-distance * 1.2) * decay * (edgeFactors[i] ?? 0);
     }
     positions.needsUpdate = true;
   });
