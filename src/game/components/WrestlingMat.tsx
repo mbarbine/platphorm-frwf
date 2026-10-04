@@ -33,8 +33,10 @@ export function WrestlingMat() {
   const edgeFactors = useMemo(() => {
     const positions = geometry.getAttribute('position');
     const edges = new Float32Array(positions.count);
+    const array = positions.array as Float32Array;
     for (let i = 0; i < positions.count; i++) {
-      const x = positions.getX(i); const z = -positions.getY(i);
+      const idx = i * 3;
+      const x = array[idx]; const z = -array[idx + 1];
       edges[i] = Math.max(0, Math.min(1, (5.65 - Math.abs(x)) * 3, (4.15 - Math.abs(z)) * 3));
     }
     return edges;
@@ -54,13 +56,18 @@ export function WrestlingMat() {
     }
     if (age.current > 1.5) return;
     age.current += Math.min(dt, .05);
+    // OPTIMIZATION: Accessing positions.array Float32Array directly eliminates ~3,200 BufferAttribute getter/setter method calls per frame during 60Hz vertex deformation.
     const positions = geometry.getAttribute('position'); const decay = Math.exp(-age.current * 6);
+    const array = positions.array as Float32Array;
+    const cx = center.current.x; const cz = center.current.z;
+    const str = strength.current;
+    const ageVal = age.current;
     for (let i = 0; i < positions.count; i++) {
-      const x = positions.getX(i); const z = -positions.getY(i);
-      // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt in hot frame vertex deformation loop (~1000 vertices per frame).
-      const dx = x - center.current.x; const dz = z - center.current.z;
+      const idx = i * 3;
+      const x = array[idx]; const z = -array[idx + 1];
+      const dx = x - cx; const dz = z - cz;
       const distance = Math.sqrt(dx * dx + dz * dz);
-      positions.setZ(i, -strength.current * Math.cos(distance * 4 - age.current * 22) * Math.exp(-distance * 1.2) * decay * (edgeFactors[i] ?? 0));
+      array[idx + 2] = -str * Math.cos(distance * 4 - ageVal * 22) * Math.exp(-distance * 1.2) * decay * edgeFactors[i];
     }
     positions.needsUpdate = true;
   });
