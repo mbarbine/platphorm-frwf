@@ -37,8 +37,9 @@ function CrowdPopulation({ count }: { count: number }) {
   const propDummy = useMemo(() => new Object3D(), []);
   const age = useRef(0); const sinceUpdate = useRef(1);
   const textures = useMemo(() => CROWD_SIGNS.map(signTexture), []);
-  // OPTIMIZATION: Pre-allocated Int32Array avoids allocating Array(9) on every crowd update tick in useFrame
+  // OPTIMIZATION: Pre-allocated Int32Array and shared arms ref avoid dynamic heap allocations on every crowd update tick in useFrame
   const cursors = useMemo(() => new Int32Array(9), []);
+  const sharedArms = useRef({ left: 0, right: 0 }).current;
   const groups = useMemo(() => {
     const meshes: Mesh[] = [];
     gltf.scene.traverse(node => { if (node instanceof Mesh) meshes.push(node); });
@@ -94,7 +95,7 @@ function CrowdPopulation({ count }: { count: number }) {
       for (let index = 0; index < fans.length; index++) {
         const fan = fans[index];
         if (!fan) continue;
-        const arms = fanArmAngles(age.current, fan.phase, fan.activity, fan.prop, hypeRatio, reducedMotion);
+        const arms = fanArmAngles(age.current, fan.phase, fan.activity, fan.prop, hypeRatio, reducedMotion, sharedArms);
         angles.setXY(index, arms.left, arms.right);
         dummy.position.set(fan.x, fan.floor, fan.z);
         dummy.rotation.set(0, fan.yaw, reducedMotion ? 0 : Math.sin(age.current * .7 + fan.phase) * .012);
