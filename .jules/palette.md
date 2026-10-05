@@ -1,3 +1,7 @@
+## 2025-05-22 - WCAG 2.5.3 Contiguous Label Matching for Mobile Controls
+**Learning:** Touch UI action and hold buttons with uppercase labels (e.g. `STRIKE`, `POWER`, `GRAPPLE`, `ACTION`, `RUN`, `GUARD`) require `aria-label` values that start with the exact visible text string (e.g., `aria-label="STRIKE: ${quickLabel}"`, `aria-label="RUN: hold to sprint"`) to satisfy WCAG 2.5.3 (Label in Name) for Voice Control while avoiding role redundancies (e.g., omitting "button" from aria-label text).
+**Action:** Always prefix `aria-label` strings on touch controls with the exact visible text followed by a colon and brief contextual detail, without including role words like "button".
+
 ## 2025-05-21 - WCAG 2.5.3 Contiguous Label Matching for Media Toggle Controls
 **Learning:** Adding descriptive words inside an `aria-label` phrase between words of a visible button label (e.g., `Pause background footage` when the visual button text is `PAUSE FOOTAGE`) breaks WCAG 2.5.3 (Label in Name) because speech recognition engines expect the visual text sequence to appear contiguously; placing the visual label text string first (e.g., `aria-label="PAUSE FOOTAGE: pause background ringside video"`) ensures Voice Control matches spoken activation commands.
 **Action:** When adding descriptive `aria-label` values to action or toggle buttons, prefix the `aria-label` with the exact visual label text before appending additional contextual details.
