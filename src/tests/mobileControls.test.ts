@@ -20,25 +20,25 @@ describe('MobileControls component', () => {
 
     render(React.createElement(MobileControls, { onPause: () => {}, paused: false }));
 
-    const quickBtn = screen.getByRole('button', { name: /^Quick strike:/i });
+    const quickBtn = screen.getByRole('button', { name: /^STRIKE:/i });
     expect(quickBtn).toBeTruthy();
-    expect(quickBtn.getAttribute('aria-label')).toContain('Quick strike:');
+    expect(quickBtn.getAttribute('aria-label')).toContain('STRIKE:');
 
-    const powerBtn = screen.getByRole('button', { name: /^Power strike:/i });
+    const powerBtn = screen.getByRole('button', { name: /^POWER:/i });
     expect(powerBtn).toBeTruthy();
-    expect(powerBtn.getAttribute('aria-label')).toContain('Power strike:');
+    expect(powerBtn.getAttribute('aria-label')).toContain('POWER:');
 
-    const grappleBtn = screen.getByRole('button', { name: /^Grapple:/i });
+    const grappleBtn = screen.getByRole('button', { name: /^GRAPPLE:/i });
     expect(grappleBtn).toBeTruthy();
-    expect(grappleBtn.getAttribute('aria-label')).toContain('Grapple:');
+    expect(grappleBtn.getAttribute('aria-label')).toContain('GRAPPLE:');
 
-    const propBtn = screen.getByRole('button', { name: /^Prop action:/i });
+    const propBtn = screen.getByRole('button', { name: /^PROP:/i });
     expect(propBtn).toBeTruthy();
-    expect(propBtn.getAttribute('aria-label')).toContain('Prop action:');
+    expect(propBtn.getAttribute('aria-label')).toContain('PROP:');
 
-    const actionBtn = screen.getByRole('button', { name: /^Action:/i });
+    const actionBtn = screen.getByRole('button', { name: /^ACTION:/i });
     expect(actionBtn).toBeTruthy();
-    expect(actionBtn.getAttribute('aria-label')).toContain('Action:');
+    expect(actionBtn.getAttribute('aria-label')).toContain('ACTION:');
   });
 
   describe('HoldButton behavior (RUN and GUARD)', () => {
@@ -46,7 +46,7 @@ describe('MobileControls component', () => {
       useMatchStore.getState().configure('atlas', 'nova', 'standard', 'normal', 0, 0, 'singles');
       render(React.createElement(MobileControls, { onPause: () => {}, paused: false }));
 
-      const runBtn = screen.getByRole('button', { name: 'Hold RUN' });
+      const runBtn = screen.getByRole('button', { name: 'RUN: hold to sprint' });
       expect(runBtn.classList.contains('is-pressed')).toBe(false);
       expect(runBtn.getAttribute('aria-pressed')).toBe('false');
 
@@ -69,7 +69,7 @@ describe('MobileControls component', () => {
       useMatchStore.getState().configure('atlas', 'nova', 'standard', 'normal', 0, 0, 'singles');
       render(React.createElement(MobileControls, { onPause: () => {}, paused: false }));
 
-      const guardBtn = screen.getByRole('button', { name: 'Hold GUARD' });
+      const guardBtn = screen.getByRole('button', { name: 'GUARD: hold to guard' });
       (guardBtn as unknown as { setPointerCapture: (id: number) => void }).setPointerCapture = vi.fn();
 
       fireEvent.pointerDown(guardBtn, { pointerId: 2 });
@@ -89,7 +89,7 @@ describe('MobileControls component', () => {
       useMatchStore.getState().configure('atlas', 'nova', 'standard', 'normal', 0, 0, 'singles');
       const { rerender } = render(React.createElement(MobileControls, { onPause: () => {}, paused: false }));
 
-      const runBtn = screen.getByRole('button', { name: 'Hold RUN' });
+      const runBtn = screen.getByRole('button', { name: 'RUN: hold to sprint' });
       (runBtn as unknown as { setPointerCapture: (id: number) => void }).setPointerCapture = vi.fn();
 
       fireEvent.pointerDown(runBtn, { pointerId: 1 });
@@ -169,7 +169,7 @@ describe('MobileControls component', () => {
       useMatchStore.getState().configure('atlas', 'nova', 'standard', 'normal', 0, 0, 'singles');
       render(React.createElement(MobileControls, { onPause: () => {}, paused: false }));
       const pad = screen.getByRole('group', { name: 'Movement joystick' });
-      const run = screen.getByRole('button', { name: 'Hold RUN' });
+      const run = screen.getByRole('button', { name: 'RUN: hold to sprint' });
       pad.setPointerCapture = vi.fn(); run.setPointerCapture = vi.fn();
       vi.spyOn(pad, 'getBoundingClientRect').mockReturnValue({ left: 0, top: 0, width: 100, height: 100, right: 100, bottom: 100, x: 0, y: 0, toJSON: () => ({}) });
       fireEvent.pointerDown(pad, { pointerId: 41, clientX: 50, clientY: 0 });
@@ -204,14 +204,14 @@ describe('MobileControls component', () => {
       useMatchStore.getState().configure('atlas', 'nova', 'standard', 'normal', 0, 0, 'singles');
       render(React.createElement(MobileControls, { onPause: () => {}, paused: false }));
 
-      const quickBtn = screen.getByRole('button', { name: /^Quick strike:/i });
+      const quickBtn = screen.getByRole('button', { name: /^STRIKE:/i });
       fireEvent.pointerDown(quickBtn);
 
       let frameInput = mobileInput.read();
       expect(frameInput.actions).toHaveLength(1);
       expect(frameInput.actions?.[0]?.action).toBe('quickStrike');
 
-      const powerBtn = screen.getByRole('button', { name: /^Power strike:/i });
+      const powerBtn = screen.getByRole('button', { name: /^POWER:/i });
       // Keyboard click passes detail === 0
       fireEvent.click(powerBtn, { detail: 0 });
 
@@ -224,7 +224,7 @@ describe('MobileControls component', () => {
       useMatchStore.getState().configure('atlas', 'nova', 'standard', 'normal', 0, 0, 'singles');
       render(React.createElement(MobileControls, { onPause: () => {}, paused: false }));
 
-      const quickBtn = screen.getByRole('button', { name: /^Quick strike:/i });
+      const quickBtn = screen.getByRole('button', { name: /^STRIKE:/i });
       fireEvent.click(quickBtn, { detail: 1 });
 
       const frameInput = mobileInput.read();
@@ -235,7 +235,7 @@ describe('MobileControls component', () => {
       useMatchStore.getState().configure('atlas', 'nova', 'standard', 'normal', 0, 0, 'singles');
       render(React.createElement(MobileControls, { onPause: () => {}, paused: true }));
 
-      const quickBtn = screen.getByRole('button', { name: /^Quick strike:/i });
+      const quickBtn = screen.getByRole('button', { name: /^STRIKE:/i });
       fireEvent.pointerDown(quickBtn);
       fireEvent.click(quickBtn, { detail: 0 });
 
@@ -284,9 +284,9 @@ describe('MobileControls component', () => {
 
       render(React.createElement(MobileControls, { onPause: () => {}, paused: false }));
 
-      const quickBtn = screen.getByRole('button', { name: /^Quick strike:/i });
-      const powerBtn = screen.getByRole('button', { name: /^Power strike:/i });
-      const grappleBtn = screen.getByRole('button', { name: /^Grapple:/i });
+      const quickBtn = screen.getByRole('button', { name: /^STRIKE:/i });
+      const powerBtn = screen.getByRole('button', { name: /^POWER:/i });
+      const grappleBtn = screen.getByRole('button', { name: /^GRAPPLE:/i });
 
       expect(quickBtn.hasAttribute('disabled')).toBe(true);
       expect(powerBtn.hasAttribute('disabled')).toBe(true);
@@ -301,8 +301,8 @@ describe('MobileControls component', () => {
 
       render(React.createElement(MobileControls, { onPause: () => {}, paused: false }));
 
-      const quickBtn = screen.getByRole('button', { name: /^Quick strike:/i });
-      const powerBtn = screen.getByRole('button', { name: /^Power strike:/i });
+      const quickBtn = screen.getByRole('button', { name: /^STRIKE:/i });
+      const powerBtn = screen.getByRole('button', { name: /^POWER:/i });
 
       expect(quickBtn.getAttribute('data-move-label')).toBe(getMove('aerial_elbow').displayName.toUpperCase());
       expect(powerBtn.getAttribute('data-move-label')).toBe(getMove('aerial_kick').displayName.toUpperCase());
@@ -321,7 +321,7 @@ describe('mobile move labels follow real Arcade execution', () => {
     model.player.state = 'grappling'; model.player.moveId = 'slam'; model.player.attackPhase = 'anticipation';
     useSettings.setState({ controlStyle: 'arcade' }); useMatchStore.setState({ model });
     render(React.createElement(MobileControls, { onPause: () => {}, paused: false }));
-    expect(screen.getByRole('button', { name: /^Grapple:/i }).getAttribute('data-move-label')).toBe(getMove('suplex').displayName.toUpperCase());
+    expect(screen.getByRole('button', { name: /^GRAPPLE:/i }).getAttribute('data-move-label')).toBe(getMove('suplex').displayName.toUpperCase());
   });
 
   it('only advertises release when a physical lift is actually established', () => {
@@ -330,7 +330,7 @@ describe('mobile move labels follow real Arcade execution', () => {
     model.grapple = { attacker: 'player', defender: 'opponent', position: 'collarTie', leverage: 1, tension: 0, rotation: 0, lift: 1, struggle: 0, age: .5, gripCount: 2, phase: 'lift' };
     useMatchStore.setState({ model });
     render(React.createElement(MobileControls, { onPause: () => {}, paused: false }));
-    expect(screen.getByRole('button', { name: /^Quick strike:/i }).getAttribute('data-move-label')).toBe('RELEASE THROW');
+    expect(screen.getByRole('button', { name: /^STRIKE:/i }).getAttribute('data-move-label')).toBe('RELEASE THROW');
   });
 });
 
