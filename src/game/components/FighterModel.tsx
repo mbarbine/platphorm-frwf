@@ -1,6 +1,8 @@
 import { useFrame } from '@react-three/fiber';
 import { useRef } from 'react';
 import type { MutableRefObject } from 'react';
+import { useRosterPresentation } from '../presentation/rosterReadiness';
+import { useMatchStore } from '../state/matchStore';
 import { AdditiveBlending, Vector3 } from 'three';
 import type { Group, Mesh, MeshBasicMaterial } from 'three';
 import { getPairedPose, getStrikePose, getStrikeReactionPose, getTauntPose } from '../animation/choreography';
@@ -897,6 +899,10 @@ export function FighterModel({ runtime, counterpart, fighterId, preview = false,
       const material = flash.current.material as MeshBasicMaterial;
       material.opacity = Math.max(0, material.opacity - clampedDelta * 5.8);
       if (material.opacity <= .01) flash.current.visible = false;
+    }
+
+    if (side) {
+      useRosterPresentation.getState().mark(useMatchStore.getState().model.runtimeId, side);
     }
   });
 
