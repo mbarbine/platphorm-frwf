@@ -21,8 +21,8 @@ export function impactPresentation(impact: ImpactEvent, floorY: number, reducedM
       : impact.kind === 'heavy' || impact.kind === 'weapon' ? '#ff5522'
       : ground ? '#d8d2be'
       : '#f4dbb3',
-    particles: reducedMotion ? 0 : lowFlash ? 6 : impact.kind === 'finisher' || impact.kind === 'ko' ? 36 : ground ? 26 : isHeavyHit ? 22 : 12,
-    radius: ground ? .55 : isHeavyHit ? .36 : .22,
-    duration: ground ? .85 : impact.kind === 'light' ? .24 : .40,
+    particles: reducedMotion ? 0 : lowFlash ? 6 : impact.kind === 'finisher' || impact.kind === 'ko' ? 48 : ground ? 32 : isHeavyHit ? 28 : 16,
+    radius: ground ? .68 : isHeavyHit ? .48 : .28,
+    duration: ground ? .95 : impact.kind === 'light' ? .28 : .48,
   };
 }

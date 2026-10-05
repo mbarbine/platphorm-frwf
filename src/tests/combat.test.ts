@@ -831,4 +831,42 @@ describe('deterministic combat rules', () => {
     startMove(model.player, model.opponent, getMove('heavy')); model.player.attackPhase = 'active'; applyMoveHit(model, 'player', 'opponent', getMove('heavy'));
     expect(model.result).toMatchObject({ winner: 'player', method: 'KNOCKOUT' });
   });
+
+  it('correctly executes new power moves (jackhammer, tombstone, full_nelson_slam, michi_driver)', () => {
+    const powerMoves = ['jackhammer', 'tombstone', 'full_nelson_slam', 'michi_driver'] as const;
+    for (const moveId of powerMoves) {
+      const model = createMatch('atlas', 'vex', 'standard', 'normal');
+      model.player.position = { x: 0, z: 0 }; model.opponent.position = { x: 1, z: 0 };
+      const move = getMove(moveId);
+      expect(move.category).toBe('grapple');
+      expect(move.damage).toBeGreaterThanOrEqual(24);
+      expect(startMove(model.player, model.opponent, move)).toBe(true);
+      expect(model.player.state).toBe('grappling');
+      expect(model.player.moveId).toBe(moveId);
+      model.player.attackPhase = 'active';
+      const initialHealth = model.opponent.health;
+      expect(applyMoveHit(model, 'player', 'opponent', move)).toBe(true);
+      expect(model.opponent.health).toBeLessThan(initialHealth);
+      expect(model.player.momentum).toBeGreaterThan(0);
+    }
+  });
+
+  it('correctly executes new heavy kicks (spin_side_kick, question_mark_kick, hook_kick, sweep_kick, jumping_knee)', () => {
+    const kickMoves = ['spin_side_kick', 'question_mark_kick', 'hook_kick', 'sweep_kick', 'jumping_knee'] as const;
+    for (const moveId of kickMoves) {
+      const model = createMatch('vex', 'atlas', 'standard', 'normal');
+      model.player.position = { x: 0, z: 0 }; model.opponent.position = { x: 1.2, z: 0 };
+      const move = getMove(moveId);
+      expect(move.category).toBe('heavy');
+      expect(move.damage).toBeGreaterThanOrEqual(14);
+      expect(startMove(model.player, model.opponent, move)).toBe(true);
+      expect(model.player.state).toBe('attacking');
+      expect(model.player.moveId).toBe(moveId);
+      model.player.attackPhase = 'active';
+      const initialHealth = model.opponent.health;
+      expect(applyMoveHit(model, 'player', 'opponent', move)).toBe(true);
+      expect(model.opponent.health).toBeLessThan(initialHealth);
+      expect(model.player.momentum).toBeGreaterThan(0);
+    }
+  });
 });

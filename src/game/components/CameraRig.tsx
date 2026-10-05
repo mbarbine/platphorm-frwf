@@ -711,9 +711,9 @@ export function CameraRig() {
     }
 
     impactImpulse.current = Math.max(0, impactImpulse.current - dt * 4.8);
-    // BLOCKBUSTER: Enhanced screen shake multiplier from 0.042 to 0.084 for a heavier feel on impact
+    // BLOCKBUSTER: Enhanced screen shake multiplier from 0.084 to 0.112 for a heavier feel on impact
     const shakeMult = model.matchMode === 'singles' ? 1.5 : 1.0;
-    const shakeAmount = !reduced ? shake * impactImpulse.current * 0.084 * shakeMult : 0;
+    const shakeAmount = !reduced ? shake * impactImpulse.current * 0.112 * shakeMult : 0;
     desired.x += Math.sin(elapsed.current * 53) * shakeAmount;
     desired.y += Math.cos(elapsed.current * 41) * shakeAmount * 0.7;
     desired.z += Math.sin(elapsed.current * 47) * shakeAmount * 0.45;
