@@ -1,5 +1,9 @@
 # Bolt's Journal - Critical Learnings Only
 
+## 2026-09-24 - [Zero-Allocation Crowd Arm Angle Evaluations in Spectator Render Loop]
+**Learning:** In 20Hz crowd spectator animation updates (`Spectators.tsx`), calling `fanArmAngles` allocated a new `{ left, right }` object per spectator on every tick, resulting in 3,120 dynamic object allocations per second for a 156-spectator crowd. Adding an optional pre-allocated `out` target object parameter to `fanArmAngles` and passing a `sharedArms` ref in `CrowdPopulation` eliminated dynamic object allocations in hot crowd animation loops. Additionally, precomputing `armWave` outside the 4-limb loop per fan in `RingsideFans` (`FightVenue.tsx`) eliminated 84 redundant `Math.sin` calculations per frame.
+**Action:** When helper functions return object records inside high-frequency 3D/R3F render loops, accept an optional `out` target object parameter to mutate in-place and pass pre-allocated component refs to achieve zero-allocation loops.
+
 ## 2026-09-23 - [Pre-allocated Locomotion Pose Ref in FighterModel Render Loop]
 **Learning:** In 60Hz React Three Fiber character animation loops (`FighterModel.tsx`), building locomotion pose objects (`{ ...POSES.combatIdle, torso: [...], leftArm: [...], ... }`) allocated 1 pose object + 5 array tuples per frame per wrestler. Pre-allocating a single `locomotionPose` `useRef` object and mutating its numeric properties in-place inside `useFrame`, alongside hoisting `applyRotation` and `safeNumber` outside the render loop, eliminated over 840 dynamic object, array, and closure allocations per second during gameplay locomotion.
 **Action:** In high-frequency R3F animation components, pre-allocate mutable pose ref structures and update numeric fields in-place inside `useFrame` instead of creating new objects/arrays with spread operators.

@@ -64,10 +64,12 @@ function RingsideFans({ width, depth, floor }: { width: number; depth: number; f
       const y = floor + Math.max(0, Math.sin(time * 3.5 + i)) * hype * .0015;
       dummy.rotation.set(0, fan.yaw, 0); dummy.position.set(fan.x, y + 1.1, fan.z); dummy.scale.set(.48, .58, .28); dummy.updateMatrix(); torsos.current?.setMatrixAt(i, dummy.matrix);
       dummy.position.y = y + 1.58; dummy.scale.set(.19, .21, .19); dummy.updateMatrix(); heads.current?.setMatrixAt(i, dummy.matrix);
+      // OPTIMIZATION: Pre-calculate armWave outside loop to avoid redundant Math.sin calls across limb instances
+      const armWave = Math.sin(time * 2 + i) * .12;
       for (let j = 0; j < 4; j++) {
         const arm = j >= 2; const side = j % 2 ? 1 : -1; const offset = side * (arm ? .39 : .13);
         dummy.position.set(fan.x + fan.cosYaw * offset, y + (arm ? 1.45 : .43), fan.z - fan.sinYaw * offset);
-        dummy.rotation.set(0, fan.yaw, arm ? side * (.6 + Math.sin(time * 2 + i) * .12) : 0); dummy.scale.set(arm ? .13 : .17, arm ? .47 : .85, arm ? .14 : .22); dummy.updateMatrix(); limbs.current?.setMatrixAt(i * 4 + j, dummy.matrix);
+        dummy.rotation.set(0, fan.yaw, arm ? side * (.6 + armWave) : 0); dummy.scale.set(arm ? .13 : .17, arm ? .47 : .85, arm ? .14 : .22); dummy.updateMatrix(); limbs.current?.setMatrixAt(i * 4 + j, dummy.matrix);
       }
     }
     torsos.current.instanceMatrix.needsUpdate = true; heads.current.instanceMatrix.needsUpdate = true; limbs.current.instanceMatrix.needsUpdate = true;
