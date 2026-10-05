@@ -9,16 +9,16 @@ export const COMBO_RECOVERY_SECONDS = .075;
 export const HIT_COMBOS = [
   { inputs: 'PPPPPP', name: 'SIX PACK', finish: 'uppercut' },
   { inputs: 'PPK', name: 'ONE-TWO BOOT', finish: 'front_kick' },
-  { inputs: 'PKPP', name: 'RIB RATTLE', finish: 'heavy' },
+  { inputs: 'PKPP', name: 'RIB RATTLE', finish: 'side_kick' },
   { inputs: 'PKPK', name: 'CIRCUIT BREAKER', finish: 'roundhouse' },
   { inputs: 'KPPK', name: 'LOW TO HIGH', finish: 'high_kick' },
-  { inputs: 'PPPPK', name: 'FIVE STAR', finish: 'roundhouse' },
+  { inputs: 'PPPPK', name: 'FIVE STAR', finish: 'spin_side_kick' },
   { inputs: 'PPPK', name: 'FLASH SUPERKICK', finish: 'superkick' },
-  { inputs: 'KPK', name: 'CYCLONE COMBO', finish: 'spinning_heel_kick' },
+  { inputs: 'KPK', name: 'CYCLONE COMBO', finish: 'question_mark_kick' },
   { inputs: 'PKK', name: 'AXE DROP', finish: 'axe_kick' },
-  { inputs: 'KKP', name: 'ENZUIGIRI RUSH', finish: 'enzuigiri' },
-  { inputs: 'KKKK', name: 'BICYCLE SPLIT', finish: 'bicycle_kick' },
-  { inputs: 'KPPP', name: 'PRISM DRIVE', finish: 'side_kick' },
+  { inputs: 'KKP', name: 'ENZUIGIRI RUSH', finish: 'hook_kick' },
+  { inputs: 'KKKK', name: 'BICYCLE SPLIT', finish: 'jumping_knee' },
+  { inputs: 'KPPP', name: 'PRISM DRIVE', finish: 'sweep_kick' },
   { inputs: 'KKKP', name: 'HALO OVERHEAD', finish: 'overhead_kick' },
 ] as const;
 

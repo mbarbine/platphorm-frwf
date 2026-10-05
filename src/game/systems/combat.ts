@@ -412,11 +412,11 @@ export const applyMoveHit = (model: MatchModel, actorKey: FighterSlot, targetKey
     model.hitStop = Math.max(model.hitStop, .15);
   }
   if (move.category === 'grapple') {
-    if (move.id === 'piledriver' || move.id === 'tiger_driver' || move.id === 'death_valley_driver') {
+    if (move.id === 'piledriver' || move.id === 'tiger_driver' || move.id === 'death_valley_driver' || move.id === 'jackhammer' || move.id === 'tombstone') {
       model.slowMotion = Math.max(model.slowMotion, .85);
       model.announcement = `${move.displayName.toUpperCase()}!`; model.announcementTimer = 2.1;
       model.hitStop = Math.max(model.hitStop, .18);
-    } else if (move.id === 'slam' || move.id === 'powerbomb' || move.id === 'falcon_arrow' || move.id === 'exploder_suplex' || move.id === 'cutter' || move.id === 'olympic_slam') {
+    } else if (move.id === 'slam' || move.id === 'powerbomb' || move.id === 'falcon_arrow' || move.id === 'exploder_suplex' || move.id === 'cutter' || move.id === 'olympic_slam' || move.id === 'full_nelson_slam' || move.id === 'michi_driver') {
       model.slowMotion = Math.max(model.slowMotion, 1.05);
       model.announcement = `${move.displayName.toUpperCase()}!`; model.announcementTimer = 1.6;
       model.hitStop = Math.max(model.hitStop, .16);
@@ -1212,10 +1212,10 @@ export const advanceMatch = (model: MatchModel, dt: number, playerInput: FrameIn
 const expectedContactSegment = (move: MoveDefinition, segment: string): boolean => {
   if (move.id === 'headbutt') return segment === 'head';
   if (move.id === 'aerial_elbow') return segment.includes('Forearm') || segment.includes('UpperArm') || segment === 'chest';
-  if (move.category === 'aerial' || move.id === 'ground' || move.id === 'front_kick' || move.id === 'low_kick' || move.id === 'high_kick' || move.id === 'roundhouse') return segment.includes('Foot') || segment.includes('Shin') || segment.includes('chest') || move.id === 'aerial' && (segment === 'abdomen' || segment === 'pelvis' || segment.includes('UpperArm') || segment.includes('Forearm') || segment.includes('Hand') || segment.includes('Thigh'));
+  if (move.category === 'aerial' || move.id === 'ground' || move.animationKey === 'kick' || move.id === 'front_kick' || move.id === 'low_kick' || move.id === 'high_kick' || move.id === 'roundhouse') return segment.includes('Foot') || segment.includes('Shin') || segment.includes('Thigh') || segment.includes('chest') || (move.id === 'aerial' && (segment === 'abdomen' || segment === 'pelvis' || segment.includes('UpperArm') || segment.includes('Forearm') || segment.includes('Hand')));
   if (move.id === 'rebound' || move.id === 'stiff_arm') return segment.includes('Hand') || segment.includes('Forearm') || segment.includes('UpperArm') || segment === 'chest';
   if (move.id === 'spear') return segment === 'chest' || segment.includes('UpperArm');
-  if (move.category === 'quick' || move.category === 'heavy' || move.category === 'prop' || move.id === 'counter') return segment.includes('Hand');
+  if (move.category === 'quick' || move.category === 'heavy' || move.category === 'prop' || move.id === 'counter') return segment.includes('Hand') || segment.includes('Forearm') || segment.includes('Foot') || segment.includes('Shin');
   return move.category === 'grapple' || move.category === 'finisher';
 };
 

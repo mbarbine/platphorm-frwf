@@ -27,6 +27,10 @@ const MOVE_POSITIONS: Readonly<Record<string, GrapplePosition>> = {
   tiger_driver: "underhook",
   exploder_suplex: "collarTie",
   olympic_slam: "underhook",
+  jackhammer: "underhook",
+  tombstone: "frontFacelock",
+  full_nelson_slam: "rearWaistLock",
+  michi_driver: "frontFacelock",
   corner_smash: "armControl",
   finisher: "collarTie",
 };
@@ -66,6 +70,10 @@ const LIFT_HEIGHTS: Readonly<Record<string, number>> = {
   tiger_driver: 1.80,
   exploder_suplex: 1.55,
   olympic_slam: 1.48,
+  jackhammer: 1.88,
+  tombstone: 1.95,
+  full_nelson_slam: 1.50,
+  michi_driver: 1.70,
   corner_smash: .3,
   finisher: 1.3,
 };
