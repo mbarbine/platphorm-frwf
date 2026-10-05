@@ -5,6 +5,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import React from 'react';
 import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
 import { GameScene } from '../game/components/GameScene';
+import { rosterIsPresented, useRosterPresentation } from '../game/presentation/rosterReadiness';
 
 // Silence console.error from error boundary
 vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -196,5 +197,22 @@ describe('GameScene XR', () => {
       const errorMsg = screen.getByText(/^XR UNAVAILABLE/);
       expect(errorMsg.textContent).toContain('Device not connected');
     });
+  });
+});
+
+describe('Roster Presentation Readiness', () => {
+  beforeEach(() => {
+    useRosterPresentation.setState({ runtimeId: -1, slots: new Set() });
+  });
+
+  it('marks slots ready upon presentation and validates roster readiness', () => {
+    const runtimeId = 100;
+    expect(rosterIsPresented(runtimeId, ['player', 'opponent'])).toBe(false);
+
+    useRosterPresentation.getState().mark(runtimeId, 'player');
+    expect(rosterIsPresented(runtimeId, ['player', 'opponent'])).toBe(false);
+
+    useRosterPresentation.getState().mark(runtimeId, 'opponent');
+    expect(rosterIsPresented(runtimeId, ['player', 'opponent'])).toBe(true);
   });
 });
