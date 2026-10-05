@@ -199,6 +199,10 @@ describe('WrestlingRoom Unit Tests', () => {
       p1.leave.mockClear();
       handler?.(p1, { clientVersion: 123 });
       expect(p1.leave).toHaveBeenCalledWith(4001);
+
+      p1.leave.mockClear();
+      handler?.(p1, { clientVersion: 'a'.repeat(65) });
+      expect(p1.leave).toHaveBeenCalledWith(4001);
     });
   });
 

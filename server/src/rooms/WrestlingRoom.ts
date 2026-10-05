@@ -96,8 +96,8 @@ export class WrestlingRoom extends Room<MatchRoomStateSchema> {
     this.registerHandlers();
 
     this.onMessage('version', (client, msg: VersionMsg) => {
-      // Defensively check that payload is a valid object
-      if (!msg || typeof msg !== 'object' || typeof msg.clientVersion !== 'string') {
+      // Defensively check that payload is a valid object and string length is bounded (CWE-400)
+      if (!msg || typeof msg !== 'object' || typeof msg.clientVersion !== 'string' || msg.clientVersion.length > 64) {
         client.leave(4001); // Invalid message payload
         return;
       }
