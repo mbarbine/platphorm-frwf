@@ -1,3 +1,7 @@
+## 2025-05-22 - WCAG 2.5.3 Contiguous Visual Label Matching for Match Controls
+**Learning:** Inserting contextual words inside an `aria-label` string between words of a visible button label (e.g., `Put one beer back` when the visible text is `PUT ONE BACK`, or `Skip instant replay` when visible text is `SKIP REPLAY`) breaks WCAG 2.5.3 (Label in Name) because Voice Control engines require the visual string sequence to be contiguous; prefixing `aria-label` with the exact visible text string (e.g., `aria-label="PUT ONE BACK: put one beer back..."`) ensures speech recognition matches spoken commands.
+**Action:** Always prefix `aria-label` attributes on visible text buttons with the exact contiguous visual label text before appending descriptive context.
+
 ## 2025-05-21 - WCAG 2.5.3 Contiguous Label Matching for Media Toggle Controls
 **Learning:** Adding descriptive words inside an `aria-label` phrase between words of a visible button label (e.g., `Pause background footage` when the visual button text is `PAUSE FOOTAGE`) breaks WCAG 2.5.3 (Label in Name) because speech recognition engines expect the visual text sequence to appear contiguously; placing the visual label text string first (e.g., `aria-label="PAUSE FOOTAGE: pause background ringside video"`) ensures Voice Control matches spoken activation commands.
 **Action:** When adding descriptive `aria-label` values to action or toggle buttons, prefix the `aria-label` with the exact visual label text before appending additional contextual details.

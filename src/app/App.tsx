@@ -517,7 +517,7 @@ export function CopyInviteButton({ invite, onError }: { invite: string; onError:
   }, [copied]);
 
   const visualText = copied ? 'INVITE LINK COPIED!' : 'COPY INVITE LINK';
-  const ariaLabel = copied ? 'Invite link copied to clipboard' : 'Copy guest invitation link';
+  const ariaLabel = copied ? 'INVITE LINK COPIED: invitation link copied to clipboard' : 'COPY INVITE LINK: copy guest invitation link';
 
   const handleCopy = async () => {
     try {
@@ -561,7 +561,7 @@ export function ReplayOverlay() {
     <div className="sr-only" role="status" aria-live="polite">Instant replay playing: physical impact review. Press Escape or activate button to skip.</div>
     <span>FRWF INSTANT REPLAY</span>
     <b>PHYSICAL IMPACT REVIEW</b>
-    <button type="button" aria-label="Skip instant replay (Escape key)" onClick={() => useMatchStore.getState().stopReplay()}>SKIP REPLAY</button>
+    <button type="button" aria-label="SKIP REPLAY: skip instant replay (Escape key)" onClick={() => useMatchStore.getState().stopReplay()}>SKIP REPLAY</button>
   </div>;
 }
 
@@ -569,7 +569,7 @@ export function BeerLocker({ fighterId, beers, onChange }: { fighterId: FighterI
   return <div className="locker-room">
     <div><span>LOCKER ROOM · FIVE-BEER ALLOTMENT</span><b aria-live="polite">{beers} / {BALANCE.stamina.beersPerFighter} DRUNK</b><small>Each beer adds {BALANCE.stamina.beerCapBoost} stamina for this match. {fighterId === 'chad' ? 'The Claw starts with the lowest gas tank—beer brings the brawl back.' : 'Unopened cans stay on the bench.'}</small></div>
     <div className="beer-cans" aria-label={`${beers} of five beers consumed`}>{Array.from({ length: BALANCE.stamina.beersPerFighter }, (_, index) => <i key={index} aria-hidden="true" className={index < beers ? 'beer beer--drunk' : 'beer'}>RF</i>)}</div>
-    <div><button className="button button--quiet" disabled={beers === 0} title={beers === 0 ? 'No beers consumed yet' : undefined} aria-label={`Put one beer back (currently ${beers} of ${BALANCE.stamina.beersPerFighter} drunk)`} onClick={() => onChange(Math.max(0, beers - 1))}>PUT ONE BACK</button><button className="button" disabled={beers >= BALANCE.stamina.beersPerFighter} title={beers >= BALANCE.stamina.beersPerFighter ? 'Maximum five-beer allotment reached' : undefined} aria-label={`Drink a beer (currently ${beers} of ${BALANCE.stamina.beersPerFighter} drunk)`} onClick={() => onChange(Math.min(BALANCE.stamina.beersPerFighter, beers + 1))}>DRINK A BEER</button></div>
+    <div><button className="button button--quiet" disabled={beers === 0} title={beers === 0 ? 'No beers consumed yet' : undefined} aria-label={`PUT ONE BACK: put one beer back (currently ${beers} of ${BALANCE.stamina.beersPerFighter} drunk)`} onClick={() => onChange(Math.max(0, beers - 1))}>PUT ONE BACK</button><button className="button" disabled={beers >= BALANCE.stamina.beersPerFighter} title={beers >= BALANCE.stamina.beersPerFighter ? 'Maximum five-beer allotment reached' : undefined} aria-label={`DRINK A BEER: drink a beer (currently ${beers} of ${BALANCE.stamina.beersPerFighter} drunk)`} onClick={() => onChange(Math.min(BALANCE.stamina.beersPerFighter, beers + 1))}>DRINK A BEER</button></div>
   </div>;
 }
 

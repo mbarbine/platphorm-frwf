@@ -21,7 +21,7 @@ describe('CopyInviteButton Accessibility & Micro-UX', () => {
     const onError = vi.fn();
     render(React.createElement(CopyInviteButton, { invite: 'https://frwf.ja1.io/#room=123.abc', onError }));
 
-    const button = screen.getByRole('button', { name: 'Copy guest invitation link' });
+    const button = screen.getByRole('button', { name: /^COPY INVITE LINK:/i });
     expect(button).toBeTruthy();
     expect(button.textContent).toBe('COPY INVITE LINK');
 
@@ -39,7 +39,7 @@ describe('CopyInviteButton Accessibility & Micro-UX', () => {
     expect(liveRegion.textContent).toBe('Copied guest invitation link to clipboard.');
 
     // Verify Label in Name (WCAG 2.5.3): aria-label starts with exact visible text string
-    const updatedButton = screen.getByRole('button', { name: 'Invite link copied to clipboard' });
+    const updatedButton = screen.getByRole('button', { name: /^INVITE LINK COPIED:/i });
     expect(updatedButton).toBeTruthy();
 
     // Fast forward 2 seconds: self-reverts to initial state
@@ -62,7 +62,7 @@ describe('CopyInviteButton Accessibility & Micro-UX', () => {
     const onError = vi.fn();
     render(React.createElement(CopyInviteButton, { invite: 'https://frwf.ja1.io/#room=123.abc', onError }));
 
-    const button = screen.getByRole('button', { name: 'Copy guest invitation link' });
+    const button = screen.getByRole('button', { name: /^COPY INVITE LINK:/i });
 
     await act(async () => {
       fireEvent.click(button);

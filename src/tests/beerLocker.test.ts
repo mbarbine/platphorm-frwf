@@ -15,11 +15,11 @@ describe('BeerLocker Accessibility', () => {
       onChange: () => {},
     }));
 
-    const putBackBtn = screen.getByRole('button', { name: /put one beer back/i });
-    const drinkBtn = screen.getByRole('button', { name: /drink a beer/i });
+    const putBackBtn = screen.getByRole('button', { name: /^PUT ONE BACK:/i });
+    const drinkBtn = screen.getByRole('button', { name: /^DRINK A BEER:/i });
 
-    expect(putBackBtn.getAttribute('aria-label')).toBe('Put one beer back (currently 2 of 5 drunk)');
-    expect(drinkBtn.getAttribute('aria-label')).toBe('Drink a beer (currently 2 of 5 drunk)');
+    expect(putBackBtn.getAttribute('aria-label')).toBe('PUT ONE BACK: put one beer back (currently 2 of 5 drunk)');
+    expect(drinkBtn.getAttribute('aria-label')).toBe('DRINK A BEER: drink a beer (currently 2 of 5 drunk)');
   });
 
   it('renders explanatory title tooltips on disabled buttons when allotment bounds are reached', () => {
@@ -29,7 +29,7 @@ describe('BeerLocker Accessibility', () => {
       onChange: () => {},
     }));
 
-    const putBackBtn0 = screen.getByRole('button', { name: /put one beer back/i });
+    const putBackBtn0 = screen.getByRole('button', { name: /^PUT ONE BACK:/i });
     expect(putBackBtn0.hasAttribute('disabled')).toBe(true);
     expect(putBackBtn0.getAttribute('title')).toBe('No beers consumed yet');
 
@@ -39,7 +39,7 @@ describe('BeerLocker Accessibility', () => {
       onChange: () => {},
     }));
 
-    const drinkBtn5 = screen.getByRole('button', { name: /drink a beer/i });
+    const drinkBtn5 = screen.getByRole('button', { name: /^DRINK A BEER:/i });
     expect(drinkBtn5.hasAttribute('disabled')).toBe(true);
     expect(drinkBtn5.getAttribute('title')).toBe('Maximum five-beer allotment reached');
   });
