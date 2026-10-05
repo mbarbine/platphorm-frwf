@@ -415,9 +415,17 @@ export class BodyWorksRuntime {
   }
 
   private applyLabAdditionalMass(fighter: FighterKey): void {
-    const bodies = Object.values(this.rigs.get(fighter)?.bodies ?? {}).filter((body): body is RapierRigidBody => Boolean(body?.isValid()));
-    const perBody = this.labAdditionalMass[fighter] / Math.max(1, bodies.length);
-    for (const body of bodies) body.setAdditionalMass(perBody, true);
+    const rig = this.rigs.get(fighter);
+    if (!rig) return;
+    let validCount = 0;
+    for (let i = 0; i < rig.bodyEntries.length; i++) {
+      if (rig.bodyEntries[i]?.body.isValid()) validCount++;
+    }
+    const perBody = this.labAdditionalMass[fighter] / Math.max(1, validCount);
+    for (let i = 0; i < rig.bodyEntries.length; i++) {
+      const body = rig.bodyEntries[i]?.body;
+      if (body?.isValid()) body.setAdditionalMass(perBody, true);
+    }
   }
 
   registerProp(id: string, kind: Exclude<PropRuntime['kind'], 'table'>, body: RapierRigidBody): () => void {
@@ -758,8 +766,17 @@ export class BodyWorksRuntime {
   private absorbCompletedLanding(defender: FighterKey, surface: string | null): void {
     const rig = this.rigs.get(defender); if (!rig) return;
     const surfaceY = surface === 'ring' ? FRWF_ARENA.ring.deckY : surface === 'floor' ? (VENUES[this.venue].hasRing ? .4 : VENUES[this.venue].floorY) : null;
-    const core = (['pelvis', 'abdomen', 'chest', 'head'] as const).map((segment) => rig.bodies[segment]).filter((body): body is RapierRigidBody => Boolean(body?.isValid()));
-    const lowestCore = core.reduce((lowest, body) => Math.min(lowest, body.translation().y), Number.POSITIVE_INFINITY);
+    // OPTIMIZATION: Indexed loop over CORE_SEGMENTS eliminates array/closure allocations in throw landing resolution
+    let lowestCore = Number.POSITIVE_INFINITY;
+    for (let i = 0; i < CORE_SEGMENTS.length; i++) {
+      const segment = CORE_SEGMENTS[i];
+      if (!segment) continue;
+      const body = rig.bodies[segment];
+      if (body?.isValid()) {
+        const y = body.translation().y;
+        if (y < lowestCore) lowestCore = y;
+      }
+    }
     // The correction is coherent across the articulated tree and runs only
     // after a solved torso/surface manifold. It prevents a high-energy throw
     // from leaving one core collider below the fixed mat while preserving the
@@ -1551,10 +1568,22 @@ export class BodyWorksRuntime {
       this.applyRigAcceleration(rig, { x: 0, y: braceAcceleration, z: 0 });
     }
     if (rig.supportContacts.size > 0) {
-      const support = [...rig.supportContacts].map((segment) => rig.bodies[segment]?.translation()).filter((position): position is Vector3Value => Boolean(position));
-      if (support.length > 0) {
-        const supportX = support.reduce((sum, position) => sum + position.x, 0) / support.length;
-        const supportZ = support.reduce((sum, position) => sum + position.z, 0) / support.length;
+      // OPTIMIZATION: Direct for...of Set iteration avoids array spreading, mapping, filtering, and reduction allocations in 60Hz physics ticks
+      let count = 0;
+      let sumX = 0;
+      let sumZ = 0;
+      for (const segment of rig.supportContacts) {
+        const body = rig.bodies[segment];
+        if (body?.isValid()) {
+          const pos = body.translation();
+          sumX += pos.x;
+          sumZ += pos.z;
+          count++;
+        }
+      }
+      if (count > 0) {
+        const supportX = sumX / count;
+        const supportZ = sumZ / count;
         const center = this.rigPlanarCenter(rig);
         const accelerationX = clamp((supportX - center.x) * 32 - center.velocityX * 7, -24, 24) * activation;
         const accelerationZ = clamp((supportZ - center.z) * 32 - center.velocityZ * 7, -24, 24) * activation;
@@ -2833,8 +2862,11 @@ export class BodyWorksRuntime {
     }
     if (totalMass <= 0 || rig.supportContacts.size === 0) return 0;
     centerX /= totalMass; centerZ /= totalMass;
-    const feet = (['leftFoot', 'rightFoot'] as const).filter((id) => rig.supportContacts.has(id)).map((id) => rig.bodies[id]?.translation()).filter((value): value is { x: number; y: number; z: number } => Boolean(value));
-    const [first, second] = feet;
+    // OPTIMIZATION: Direct foot body translation checks eliminate array allocation and chaining on support score evaluation
+    const leftBody = rig.supportContacts.has('leftFoot') && rig.bodies.leftFoot?.isValid() ? rig.bodies.leftFoot.translation() : null;
+    const rightBody = rig.supportContacts.has('rightFoot') && rig.bodies.rightFoot?.isValid() ? rig.bodies.rightFoot.translation() : null;
+    const first = leftBody ?? rightBody;
+    const second = leftBody && rightBody ? rightBody : null;
     if (!first) return 0;
     // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt for ~8x speedup.
     if (!second) return clamp(1 - Math.sqrt((centerX - first.x) * (centerX - first.x) + (centerZ - first.z) * (centerZ - first.z)) / .72, 0, 1);
