@@ -260,6 +260,16 @@ export class MatchRoom extends DurableObject<Env> {
   private recordFailedHandshake(ip: string, now: number) {
     const data = this.failedHandshakes.get(ip);
     if (!data || now > data.resetTime) {
+      if (!data && this.failedHandshakes.size >= 1000) {
+        // Purge expired entries or evict oldest entry to prevent memory exhaustion DoS (CWE-400)
+        for (const [key, value] of this.failedHandshakes.entries()) {
+          if (now > value.resetTime) this.failedHandshakes.delete(key);
+        }
+        if (this.failedHandshakes.size >= 1000) {
+          const oldestKey = this.failedHandshakes.keys().next().value;
+          if (oldestKey) this.failedHandshakes.delete(oldestKey);
+        }
+      }
       this.failedHandshakes.set(ip, { count: 1, resetTime: now + 60000 });
     } else {
       data.count++;

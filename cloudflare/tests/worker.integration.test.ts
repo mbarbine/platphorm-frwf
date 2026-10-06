@@ -299,6 +299,20 @@ describe('real Worker / Durable Object / D1 / R2 integration', () => {
       expect(body).toMatchObject({ ok: false, error: { code: 'too_many_failed_attempts' } });
     });
 
+    it('handles failed handshake tracking across multiple unique IP addresses safely without memory leak or error', async () => {
+      const response = await post('/api/rooms', { ruleset: 'standard' });
+      expect(response.status).toBe(201);
+      const json = await response.json() as { data: { roomId: string } };
+
+      // Attempt failed handshakes from multiple distinct IP addresses
+      for (let i = 1; i <= 5; i++) {
+        const res = await worker.dispatchFetch(`${origin}/api/rooms/${json.data.roomId}/socket`, {
+          headers: { Origin: origin, Upgrade: 'websocket', 'Sec-WebSocket-Protocol': 'frwf-v1, invalidticket', 'CF-Connecting-IP': `198.51.100.${i}` },
+        });
+        expect(res.status).toBe(401);
+      }
+    });
+
     it('closes room WebSocket with code 1008 on invalid JSON message', async () => {
       const response = await post('/api/rooms', { ruleset: 'standard' });
       expect(response.status, 'Test room creation must succeed before reading its invitations').toBe(201);
