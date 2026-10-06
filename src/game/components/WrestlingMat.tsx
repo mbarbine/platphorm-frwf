@@ -29,20 +29,24 @@ export function WrestlingMat() {
     const map = new CanvasTexture(canvas); map.colorSpace = SRGBColorSpace; map.anisotropy = 4; return map;
   }, [turkeyBarn]);
   useEffect(() => () => { geometry.dispose(); texture.dispose(); }, [geometry, texture]);
-  // OPTIMIZATION: Precompute static mat edge dampening factors to eliminate ~2,100 redundant Math.abs/Math.min/Math.max calls per frame inside hot vertex deformation loop.
-  const edgeFactors = useMemo(() => {
+  // OPTIMIZATION: Precompute static mat grid vertex coordinates (xCoords, zCoords) and edge dampening factors (edges) to eliminate array lookups, z = -y coordinate conversion, and ~2,100 redundant Math.abs/Math.min/Math.max calls per frame in hot vertex deformation loop.
+  const matGrid = useMemo(() => {
     const positions = geometry.getAttribute('position');
     const posArray = positions.array as Float32Array;
     const count = positions.count;
+    const xCoords = new Float32Array(count);
+    const zCoords = new Float32Array(count);
     const edges = new Float32Array(count);
     for (let i = 0; i < count; i++) {
       const idx = i * 3;
-      const x = posArray[idx]; const y = posArray[idx + 1];
-      if (x === undefined || y === undefined) continue;
+      const x = posArray[idx] ?? 0;
+      const y = posArray[idx + 1] ?? 0;
       const z = -y;
+      xCoords[i] = x;
+      zCoords[i] = z;
       edges[i] = Math.max(0, Math.min(1, (5.65 - Math.abs(x)) * 3, (4.15 - Math.abs(z)) * 3));
     }
-    return edges;
+    return { xCoords, zCoords, edges };
   }, [geometry]);
   const last = useRef(0); const age = useRef(10); const center = useRef({ x: 0, z: 0 }); const strength = useRef(0);
   useFrame((_, dt) => {
@@ -59,21 +63,26 @@ export function WrestlingMat() {
     }
     if (age.current > 1.5) return;
     age.current += Math.min(dt, .05);
-    const positions = geometry.getAttribute('position'); const decay = Math.exp(-age.current * 6);
-    // OPTIMIZATION: Access Float32Array directly to eliminate ~3,200 BufferAttribute getter/setter method calls per frame across ~1,073 vertices.
+    const positions = geometry.getAttribute('position');
+    // OPTIMIZATION: Pre-calculate loop-invariant amplitude decay and agePhase once per frame, skip math for edge vertices (factor === 0), and access precomputed x/z coordinates directly.
     const posArray = positions.array as Float32Array;
     const count = positions.count;
     const centerX = center.current.x; const centerZ = center.current.z;
-    const str = strength.current; const currentAge = age.current;
+    const currentAge = age.current;
+    const amplitude = -strength.current * Math.exp(-currentAge * 6);
+    const agePhase = currentAge * 22;
+    const { xCoords, zCoords, edges } = matGrid;
+
     for (let i = 0; i < count; i++) {
-      const idx = i * 3;
-      const x = posArray[idx]; const y = posArray[idx + 1];
-      if (x === undefined || y === undefined) continue;
-      const z = -y;
-      // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt in hot frame vertex deformation loop (~1000 vertices per frame).
-      const dx = x - centerX; const dz = z - centerZ;
+      const factor = edges[i] ?? 0;
+      if (factor === 0) {
+        posArray[i * 3 + 2] = 0;
+        continue;
+      }
+      const dx = (xCoords[i] ?? 0) - centerX;
+      const dz = (zCoords[i] ?? 0) - centerZ;
       const distance = Math.sqrt(dx * dx + dz * dz);
-      posArray[idx + 2] = -str * Math.cos(distance * 4 - currentAge * 22) * Math.exp(-distance * 1.2) * decay * (edgeFactors[i] ?? 0);
+      posArray[i * 3 + 2] = amplitude * Math.cos(distance * 4 - agePhase) * Math.exp(-distance * 1.2) * factor;
     }
     positions.needsUpdate = true;
   });
