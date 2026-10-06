@@ -71,7 +71,7 @@ describe('HUD and Results Accessibility', () => {
     useMatchStore.setState({ replayActive: true });
     render(React.createElement(ReplayOverlay));
 
-    const skipBtn = screen.getByRole('button', { name: 'Skip instant replay (Escape key)' });
+    const skipBtn = screen.getByRole('button', { name: 'SKIP REPLAY: skip physical impact review (Escape or Space key)' });
     expect(skipBtn).toBeTruthy();
 
     const statusEl = screen.getByRole('status');
