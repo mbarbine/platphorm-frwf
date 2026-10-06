@@ -10,7 +10,7 @@ export function followCameraFrame(position: { x: number; y: number; z: number },
   const forward = { x: Math.sin(facing), z: Math.cos(facing) };
   const right = { x: forward.z, z: -forward.x };
   const eye = mode === 'first_person';
-  const distance = eye ? -.28 : 4.4 * Math.max(1, .85 / Math.max(.4, aspect));
+  const distance = eye ? -.38 : 4.4 * Math.max(1, .85 / Math.max(.4, aspect));
   const shoulder = eye ? 0 : .65;
   return {
     position: { x: position.x - forward.x * distance + right.x * shoulder, y: position.y + (eye ? .02 : 1.45), z: position.z - forward.z * distance + right.z * shoulder },
