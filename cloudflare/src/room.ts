@@ -26,6 +26,7 @@ export class MatchRoom extends DurableObject<Env> {
   private lastTick = 0;
   private accumulator = 0;
   private rates = new Map<string, { second: number; count: number }>();
+  private failedHandshakes = new Map<string, { count: number; resetTime: number }>();
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -51,9 +52,18 @@ export class MatchRoom extends DurableObject<Env> {
     const room = this.room;
     if (!room || Date.now() > room.expiresAt) return Response.json({ ok: false, error: { code: 'room_expired' } }, { status: 404 });
     if (request.headers.get('Upgrade') !== 'websocket') return new Response(null, { status: 426 });
+    const ip = request.headers.get('CF-Connecting-IP') ?? 'unknown';
+    const now = Date.now();
+    const failedData = this.failedHandshakes.get(ip);
+    if (failedData && now <= failedData.resetTime && failedData.count >= 10) {
+      return Response.json({ ok: false, error: { code: 'too_many_failed_attempts' } }, { status: 429, headers: { 'Retry-After': '60' } });
+    }
     const protocols = request.headers.get('Sec-WebSocket-Protocol')?.split(',').map(value => value.trim()) ?? [];
     const ticket = protocols.find(value => /^[a-f0-9]{64}$/.test(value));
-    if (!ticket || !protocols.includes('frwf-v1')) return new Response(null, { status: 401 });
+    if (!ticket || !protocols.includes('frwf-v1')) {
+      this.recordFailedHandshake(ip, now);
+      return new Response(null, { status: 401 });
+    }
     const hash = await digest(ticket);
     let seat = room.seats.find(candidate => candidate.tokenHash === hash);
     let resumeTicket = ticket;
@@ -66,7 +76,10 @@ export class MatchRoom extends DurableObject<Env> {
       this.save();
       seat.tokenHash = await digest(resumeTicket);
     }
-    if (!seat) return new Response(null, { status: 401 });
+    if (!seat) {
+      this.recordFailedHandshake(ip, now);
+      return new Response(null, { status: 401 });
+    }
     if (seat.disconnectedAt !== null && room.phase === 'active' && Date.now() - seat.disconnectedAt > 30000) return new Response(null, { status: 410 });
     for (const socket of this.ctx.getWebSockets(seat.id)) socket.close(4001, 'Session resumed elsewhere');
     seat.disconnectedAt = null; seat.lastSeen = Date.now(); this.save();
@@ -244,6 +257,15 @@ export class MatchRoom extends DurableObject<Env> {
     this.broadcastRoomState();
   }
   private sendRoomState(socket: WebSocket) { this.broadcastRoomState(socket); }
+  private recordFailedHandshake(ip: string, now: number) {
+    const data = this.failedHandshakes.get(ip);
+    if (!data || now > data.resetTime) {
+      this.failedHandshakes.set(ip, { count: 1, resetTime: now + 60000 });
+    } else {
+      data.count++;
+    }
+  }
+
   private broadcastRoomState(socket?: WebSocket) {
     if (!this.room) return;
     const state = { type: 'roomState', phase: this.room.phase, ruleset: this.room.ruleset, hostSessionId: this.room.hostSessionId,
