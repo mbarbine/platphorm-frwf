@@ -276,6 +276,29 @@ describe('real Worker / Durable Object / D1 / R2 integration', () => {
   });
 
   describe('MatchRoom WebSocket error handling', () => {
+    it('rate limits failed WebSocket ticket handshake attempts after 10 invalid tries', async () => {
+      const response = await post('/api/rooms', { ruleset: 'standard' });
+      expect(response.status).toBe(201);
+      const json = await response.json() as { data: { roomId: string } };
+
+      // Perform 10 failed handshake attempts using invalid tickets from clientAddress
+      for (let i = 0; i < 10; i++) {
+        const res = await worker.dispatchFetch(`${origin}/api/rooms/${json.data.roomId}/socket`, {
+          headers: { Origin: origin, Upgrade: 'websocket', 'Sec-WebSocket-Protocol': 'frwf-v1, invalidticket' },
+        });
+        expect(res.status).toBe(401);
+      }
+
+      // The 11th attempt should return 429 Too Many Requests
+      const blockedRes = await worker.dispatchFetch(`${origin}/api/rooms/${json.data.roomId}/socket`, {
+        headers: { Origin: origin, Upgrade: 'websocket', 'Sec-WebSocket-Protocol': 'frwf-v1, invalidticket' },
+      });
+      expect(blockedRes.status).toBe(429);
+      expect(blockedRes.headers.get('Retry-After')).toBe('60');
+      const body = await blockedRes.json() as { ok: boolean; error: { code: string } };
+      expect(body).toMatchObject({ ok: false, error: { code: 'too_many_failed_attempts' } });
+    });
+
     it('closes room WebSocket with code 1008 on invalid JSON message', async () => {
       const response = await post('/api/rooms', { ruleset: 'standard' });
       expect(response.status, 'Test room creation must succeed before reading its invitations').toBe(201);
