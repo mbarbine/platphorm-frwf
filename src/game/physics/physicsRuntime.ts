@@ -246,7 +246,9 @@ const PHYSICAL_REACH_MOVES = new Set<string>(['grapple_miss', 'prop_pickup', 'pr
 const GROUNDED_POSE_STATES = new Set<string>(['idle', 'locomotion', 'blocking']);
 const GROUNDED_CONTROL_STATES = new Set<string>(['idle', 'locomotion', 'blocking', 'attacking', 'grappling', 'recovering', 'staggered', 'victorious']);
 
-// OPTIMIZATION: Module-level static Sets eliminate dynamic array allocations and linear searches in 60Hz physics runtime loops
+// OPTIMIZATION: Module-level static Sets and arrays eliminate dynamic array allocations and linear searches in 60Hz physics runtime loops
+const FOREARM_SEGMENTS: readonly BodySegmentId[] = ['leftForearm', 'rightForearm'];
+const GUARD_TARGET_SEGMENTS: readonly BodySegmentId[] = ['leftHand', 'rightHand', 'leftForearm', 'rightForearm'];
 const STANDING_CLINCH_PHASES = new Set<string>(['reach', 'acquire', 'clinch', 'load']);
 const ARCHING_THROW_MOVES = new Set<string>(['suplex', 'skyhook']);
 const ACTIVE_RECOVERY_PHASES = new Set<string>(['active', 'recovery']);
@@ -1622,41 +1624,54 @@ export class BodyWorksRuntime {
     // than pulling the limb and pelvis after a recoiling or falling opponent.
     if (!move.multiHit && (fighter.hitTargets.includes(`${targetKey}:${fighter.attackInstanceId}`) || fighter.hitTargets.includes(targetKey))) return;
     const authoredTarget = targetRig?.bodies[baseProfile.target];
-    const directionalForearm = (fighter.moveId === 'stiff_arm' || fighter.moveId === 'rebound') && authoredTarget
-      ? (['leftForearm', 'rightForearm'] as const).filter((segment) => rig.bodies[segment]?.isValid()).reduce<BodySegmentId>((nearest, segment) => {
-          const nearestPosition = rig.bodies[nearest]?.translation(); const candidatePosition = rig.bodies[segment]?.translation(); const targetPosition = authoredTarget.translation();
-          if (!nearestPosition) return segment; if (!candidatePosition) return nearest;
-          const candDx = candidatePosition.x - targetPosition.x;
-          const candDy = candidatePosition.y - targetPosition.y;
-          const candDz = candidatePosition.z - targetPosition.z;
-          const nearDx = nearestPosition.x - targetPosition.x;
-          const nearDy = nearestPosition.y - targetPosition.y;
-          const nearDz = nearestPosition.z - targetPosition.z;
-          // OPTIMIZATION: Replacing slow Math.hypot with a zero-allocation squared-magnitude comparison to avoid square root computations entirely.
-          return (candDx * candDx + candDy * candDy + candDz * candDz) < (nearDx * nearDx + nearDy * nearDy + nearDz * nearDz) ? segment : nearest;
-        }, baseProfile.source)
-      : baseProfile.source;
+    // OPTIMIZATION: Single-pass zero-allocation loop replaces dynamic array literal, .filter(), and .reduce() calls on 60Hz strike ticks
+    let directionalForearm = baseProfile.source;
+    if ((fighter.moveId === 'stiff_arm' || fighter.moveId === 'rebound') && authoredTarget) {
+      const targetPos = authoredTarget.translation();
+      let minDistanceSq = Number.POSITIVE_INFINITY;
+      for (let i = 0; i < FOREARM_SEGMENTS.length; i++) {
+        const seg = FOREARM_SEGMENTS[i];
+        if (!seg) continue;
+        const body = rig.bodies[seg];
+        if (body?.isValid()) {
+          const pos = body.translation();
+          const dx = pos.x - targetPos.x;
+          const dy = pos.y - targetPos.y;
+          const dz = pos.z - targetPos.z;
+          const distSq = dx * dx + dy * dy + dz * dz;
+          if (distSq < minDistanceSq) {
+            minDistanceSq = distSq;
+            directionalForearm = seg;
+          }
+        }
+      }
+    }
     const profile = directionalForearm === baseProfile.source ? baseProfile : { ...baseProfile, source: directionalForearm };
     const source = rig.bodies[profile.source]; const pelvis = rig.bodies.pelvis;
-    const guardCandidates = model[targetKey].state === 'blocking' && BODYWORKS_FLAGS.physicalBlock
-      // A valid block must physically meet a glove or raised forearm. Upper
-      // arms are deliberately excluded because combat scoring treats those as
-      // ordinary body damage, not a magically guarded torso hit.
-      ? [targetRig?.bodies.leftHand, targetRig?.bodies.rightHand, targetRig?.bodies.leftForearm, targetRig?.bodies.rightForearm].filter((candidate): candidate is RapierRigidBody => Boolean(candidate?.isValid()))
-      : [];
-    const target = source && guardCandidates.length > 0
-      ? guardCandidates.reduce((nearest, candidate) => {
-          const sourcePosition = source.translation(); const nearestPosition = nearest.translation(); const candidatePosition = candidate.translation();
-          const candDx = candidatePosition.x - sourcePosition.x;
-          const candDy = candidatePosition.y - sourcePosition.y;
-          const candDz = candidatePosition.z - sourcePosition.z;
-          const nearDx = nearestPosition.x - sourcePosition.x;
-          const nearDy = nearestPosition.y - sourcePosition.y;
-          const nearDz = nearestPosition.z - sourcePosition.z;
-          // OPTIMIZATION: Replacing slow Math.hypot with a zero-allocation squared-magnitude comparison to avoid square root computations entirely.
-          return (candDx * candDx + candDy * candDy + candDz * candDz) < (nearDx * nearDx + nearDy * nearDy + nearDz * nearDz) ? candidate : nearest;
-        })
-      : authoredTarget;
+    // OPTIMIZATION: Single-pass zero-allocation loop over static GUARD_TARGET_SEGMENTS replaces candidate array allocations, .filter(), and .reduce()
+    let target = authoredTarget;
+    let guardIntercept = false;
+    if (source && targetRig && model[targetKey].state === 'blocking' && BODYWORKS_FLAGS.physicalBlock) {
+      const sourcePos = source.translation();
+      let minDistanceSq = Number.POSITIVE_INFINITY;
+      for (let i = 0; i < GUARD_TARGET_SEGMENTS.length; i++) {
+        const seg = GUARD_TARGET_SEGMENTS[i];
+        if (!seg) continue;
+        const candidate = targetRig.bodies[seg];
+        if (candidate?.isValid()) {
+          const pos = candidate.translation();
+          const dx = pos.x - sourcePos.x;
+          const dy = pos.y - sourcePos.y;
+          const dz = pos.z - sourcePos.z;
+          const distSq = dx * dx + dy * dy + dz * dz;
+          if (distSq < minDistanceSq) {
+            minDistanceSq = distSq;
+            target = candidate;
+            guardIntercept = true;
+          }
+        }
+      }
+    }
     if (!source || !target || !pelvis) return;
     const sourcePosition = source.translation(); const targetPosition = target.translation();
     const spDx = targetPosition.x - sourcePosition.x;
@@ -1683,7 +1698,7 @@ export class BodyWorksRuntime {
     // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt for ~8x speedups.
     const separation = Math.sqrt(sepDx * sepDx + sepDz * sepDz);
     if (separation > move.maximumRange + .65) return;
-    if (fighter.attackPhase === 'anticipation' && guardCandidates.length === 0 && separation < move.maximumRange + .25) {
+    if (fighter.attackPhase === 'anticipation' && !guardIntercept && separation < move.maximumRange + .25) {
       const optimum = profile.source.includes('Hand') ? 1.02 : profile.source.includes('Foot') ? 1.3 : .78;
       const p = pelvis.translation(); const velocity = pelvis.linvel();
       const nx = (targetPosition.x - p.x) / Math.max(.001, separation); const nz = (targetPosition.z - p.z) / Math.max(.001, separation);
@@ -1698,7 +1713,6 @@ export class BodyWorksRuntime {
     // commit the contact drive; a light setup force keeps the physical chain
     // aligned without landing the glove before the authored strike window.
     const phaseScale = fighter.attackPhase === 'active' ? 1 : 0;
-    const guardIntercept = guardCandidates.length > 0;
     const driveProfile = guardIntercept ? guardInterceptDriveProfile(profile, strikeDistance) : profile;
     const forceTarget = guardIntercept ? guardInterceptSurfaceTarget(sourcePosition, targetPosition) : targetPosition;
     const force = computeStrikeForce(sourcePosition, forceTarget, source.linvel(), target.linvel(), source.mass(), driveProfile);
@@ -1712,8 +1726,8 @@ export class BodyWorksRuntime {
       y: 0,
       z: (targetPosition.z - sourcePosition.z) / planarDistance * pelvisAcceleration * phaseScale,
     });
-    const continuousTargets: readonly BodySegmentId[] | undefined = guardCandidates.length > 0
-      ? ['leftHand', 'rightHand', 'leftForearm', 'rightForearm']
+    const continuousTargets: readonly BodySegmentId[] | undefined = guardIntercept
+      ? GUARD_TARGET_SEGMENTS
       : undefined;
     if (fighter.attackPhase === 'active' && targetRig) this.captureContinuousStrikeContact(key, targetKey, profile.source, source, targetRig, fighter, continuousTargets);
     if (fighter.moveId === 'aerial') {
