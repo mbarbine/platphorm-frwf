@@ -387,7 +387,7 @@ export function App() {
               }}
               style={{ padding: '0.75rem', background: 'rgba(0,0,0,0.8)', color: '#fff', border: '2px solid #7000ff', borderRadius: '4px', fontFamily: 'monospace', fontSize: '1.1rem', textAlign: 'center' }}
             />
-            <button className="button" style={{ width: '100%' }} disabled={!joinRoomId} onClick={async () => {
+            <button className="button" style={{ width: '100%' }} disabled={!joinRoomId} title={!joinRoomId ? 'Paste a private invitation or room code to join' : undefined} aria-label="JOIN MATCH: join private room with invite code" onClick={async () => {
               audioEngine.play('confirm', settings);
               try {
                 await useMultiplayerStore.getState().joinByRoomId(joinRoomId, { fighterId: selected });
@@ -476,7 +476,7 @@ export function App() {
             {multiplayerSessionId === multiplayerHostSessionId && <div style={{ display: 'grid', justifyItems: 'center', gap: '.5rem' }}>
               <strong style={{ color: canStart ? '#caff49' : '#ffbe40' }}>READY · {readyCount}/{connectedCount} CONNECTED PLAYERS</strong>
               {connectedCount > 2 && <span role="status">The current live match engine is singles only; this room cannot start with more than two connected wrestlers yet.</span>}
-              <button className="button button--hero" disabled={!canStart} onClick={() => useMultiplayerStore.getState().startMatch()}>START MATCH</button>
+              <button className="button button--hero" disabled={!canStart} title={!canStart ? (connectedCount < 2 ? 'Waiting for second player to join' : readyCount < connectedCount ? 'Waiting for all players to mark ready' : 'Singles match mode supports up to 2 players') : undefined} aria-label="START MATCH: launch online match" onClick={() => useMultiplayerStore.getState().startMatch()}>START MATCH</button>
             </div>}
             {multiplayerMyRole === 'spectator' && <p style={{ color: '#aaa', fontStyle: 'italic' }}>You are spectating this room lobby.</p>}
           </div>
@@ -488,7 +488,7 @@ export function App() {
             </div>
             <form style={{ display: 'flex', gap: '.5rem' }} onSubmit={event => { event.preventDefault(); const text = lobbyChatText.trim(); if (text) { useMultiplayerStore.getState().sendLobbyChat(text); setLobbyChatText(''); } }}>
               <input aria-label="Lobby chat message" maxLength={240} value={lobbyChatText} onChange={event => setLobbyChatText(event.target.value)} placeholder="Message the room" style={{ flex: 1, minWidth: 0, padding: '.7rem', color: '#fff', background: '#111018', border: '1px solid #55446d', borderRadius: 4 }} />
-              <button className="button" disabled={!lobbyChatText.trim()} title={!lobbyChatText.trim() ? 'Type a message before sending' : undefined}>SEND</button>
+              <button className="button" disabled={!lobbyChatText.trim()} title={!lobbyChatText.trim() ? 'Type a message before sending' : undefined} aria-label="SEND: send message to locker room chat">SEND</button>
             </form>
           </section>
         </div>;
@@ -561,7 +561,7 @@ export function ReplayOverlay() {
     <div className="sr-only" role="status" aria-live="polite">Instant replay playing: physical impact review. Press Escape or activate button to skip.</div>
     <span>FRWF INSTANT REPLAY</span>
     <b>PHYSICAL IMPACT REVIEW</b>
-    <button type="button" aria-label="Skip instant replay (Escape key)" onClick={() => useMatchStore.getState().stopReplay()}>SKIP REPLAY</button>
+    <button type="button" aria-label="SKIP REPLAY: skip physical impact review (Escape or Space key)" onClick={() => useMatchStore.getState().stopReplay()}>SKIP REPLAY</button>
   </div>;
 }
 
