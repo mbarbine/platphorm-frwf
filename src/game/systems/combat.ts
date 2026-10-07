@@ -1221,7 +1221,7 @@ const expectedContactSegment = (move: MoveDefinition, segment: string): boolean 
 
 const applyPhysicalTableStress = (model: MatchModel, contact: BodyWorksContact, move: MoveDefinition): void => {
   if (!contact.isLanding || contact.targetSurface !== 'table') return;
-  const table = model.props.find((prop) => prop.kind === 'table' && !prop.broken); if (!table) return;
+  const table = model.propsById['table-1']; if (!table || table.broken) return;
   // A committed human landing is the table-collapse trigger. The physical
   // force still grades lighter bumps, while a completed slam/finisher supplies
   // the structural impulse needed to break a wrestling table. Lightweight
