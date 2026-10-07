@@ -179,4 +179,19 @@ describe('Cloudflare room invitations', () => {
     expect(socket.protocols).toEqual(['frwf-v1', ticket]);
     expect(JSON.parse(fetchMock.mock.calls[0]?.[1]?.body as string)).toEqual({ fighterId: 'chelsea', ruleset: 'standard' });
   });
+
+  it('safely ignores invalid JSON payloads and non-string messages', async () => {
+    vi.stubGlobal('WebSocket', FakeWebSocket);
+    const client = new ColyseusClient({ serverUrl: 'https://frwf.ja1.io' });
+    await client.joinByRoomId(invite);
+    const socket = (client as unknown as { socket: FakeWebSocket }).socket;
+
+    expect(() => {
+      socket.dispatchEvent(new MessageEvent('message', { data: '{ invalid JSON }' }));
+    }).not.toThrow();
+
+    expect(() => {
+      socket.dispatchEvent(new MessageEvent('message', { data: new ArrayBuffer(8) }));
+    }).not.toThrow();
+  });
 });
