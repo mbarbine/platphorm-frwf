@@ -76,8 +76,8 @@ export function buildControlLabels({ player, opponent, speed, distance, directio
   const effectiveDirection = controlStyle === 'arcade' ? { x: 0, z: 0 } : direction.x * direction.x + direction.z * direction.z > 0.0064
     ? direction
     : speed > .08 ? player.velocity : direction;
-  labels.quick = moveLabel(situationalStrike(player, opponent, 'quick', effectiveDirection, running));
-  labels.heavy = moveLabel(situationalStrike(player, opponent, 'heavy', effectiveDirection, running));
+  labels.quick = moveLabel(situationalStrike({ actor: player, target: opponent, button: 'quick', direction: effectiveDirection, running }));
+  labels.heavy = moveLabel(situationalStrike({ actor: player, target: opponent, button: 'heavy', direction: effectiveDirection, running }));
 
   if (player.state === 'grappling') {
     labels.quick = moveLabel(selectDirectionalGrapple(effectiveDirection, 'quick'));

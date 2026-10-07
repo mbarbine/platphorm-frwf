@@ -71,9 +71,9 @@ export const isActionLegal = (model: MatchModel, command: GameCommand, actorKey:
   if (command === 'grapple' && model.grapple) return false;
   let selectedMove;
   if (command === 'quick') {
-    selectedMove = getMove(situationalStrike(actor, target, 'quick', direction ?? delta, running));
+    selectedMove = getMove(situationalStrike({ actor, target, button: 'quick', direction: direction ?? delta, running }));
   } else if (command === 'heavy') {
-    selectedMove = getMove(situationalStrike(actor, target, 'heavy', direction ?? delta, running));
+    selectedMove = getMove(situationalStrike({ actor, target, button: 'heavy', direction: direction ?? delta, running }));
   } else {
     selectedMove = MOVES.slam;
   }

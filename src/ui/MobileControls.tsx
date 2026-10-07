@@ -80,10 +80,10 @@ export function MobileControls({ onPause, paused }: MobileControlsProps) {
   const contextLabel = contextResolution.displayName;
   const quickMove = player.state === 'grappling' ? selectDirectionalGrapple(direction, 'quick')
     : player.state === 'climbing' && player.climbStage === 3 ? 'aerial_elbow'
-      : situationalStrike(player, opponent, 'quick', direction);
+      : situationalStrike({ actor: player, target: opponent, button: 'quick', direction });
   const heavyMove = player.state === 'grappling' ? selectDirectionalGrapple(direction, 'heavy')
     : player.state === 'climbing' && player.climbStage === 3 ? 'aerial_kick'
-      : situationalStrike(player, opponent, 'heavy', direction);
+      : situationalStrike({ actor: player, target: opponent, button: 'heavy', direction });
   const grappleMove = player.state === 'grappling' ? selectDirectionalGrapple(style === 'arcade' ? { x: 1, z: 0 } : direction, 'grapple') : null;
   const quickLabel = model.grapple?.attacker === 'player' && model.grapple.phase === 'lift' ? 'RELEASE THROW' : player.state === 'downed' ? 'GET UP' : reversalAvailable(player, opponent, true) ? 'REVERSE CHARGE' : quickPickup(model, 'player') ?? getMove(quickMove).displayName.toUpperCase();
   const powerLabel = player.state === 'downed' ? 'GET UP' : getMove(heavyMove).displayName.toUpperCase();
