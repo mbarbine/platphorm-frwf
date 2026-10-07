@@ -573,7 +573,16 @@ export function BeerLocker({ fighterId, beers, onChange }: { fighterId: FighterI
   </div>;
 }
 
-function Results({ result, winnerName, onRematch, onChange, onMenu, onWorld }: { result: NonNullable<ReturnType<typeof useMatchStore.getState>['model']['result']>; winnerName: string; onRematch: () => void; onChange: () => void; onMenu: () => void; onWorld?: () => void }) {
+interface ResultsProps {
+  result: NonNullable<ReturnType<typeof useMatchStore.getState>['model']['result']>;
+  winnerName: string;
+  onRematch: () => void;
+  onChange: () => void;
+  onMenu: () => void;
+  onWorld?: () => void;
+}
+
+function Results({ result, winnerName, onRematch, onChange, onMenu, onWorld }: ResultsProps) {
   const duration = `${Math.floor(result.duration / 60)}:${String(Math.floor(result.duration % 60)).padStart(2, '0')}`;
   const rows = useMemo(() => [['MATCH TIME', duration], ['DAMAGE DEALT', result.playerStats.damageDealt.toFixed(1)], ['COUNTERS', result.playerStats.counters], ['GRAPPLES', result.playerStats.grapples], ['FINISHERS', result.playerStats.finishers], ['NEAR FALLS', result.playerStats.nearFalls], ['PROP IMPACTS', result.playerStats.propImpacts]] as const, [duration, result]);
   const save = useWorldSession(s => s.save);
