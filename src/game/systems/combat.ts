@@ -670,13 +670,13 @@ export const requestCommand = (model: MatchModel, actorKey: FighterSlot, command
   if (command === 'quick') {
     if (reversalAvailable(actor, target, true)) return performCounter(model, actorKey, targetKey);
     if (quickPickup(model, actorKey)) return useProp(model, actorKey, direction);
-    const moveId = situationalStrike(actor, target, 'quick', direction, running);
+    const moveId = situationalStrike({ actor, target, button: 'quick', direction, running });
     const started = startMove(actor, target, getMove(moveId));
     if (started) actor.strikeInput = 'quick';
     return started;
   }
   if (command === 'heavy') {
-    const moveId = situationalStrike(actor, target, 'heavy', direction, running);
+    const moveId = situationalStrike({ actor, target, button: 'heavy', direction, running });
     const started = startMove(actor, target, getMove(moveId));
     if (started) actor.strikeInput = 'heavy';
     return started;

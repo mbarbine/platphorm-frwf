@@ -18,7 +18,7 @@ describe('situational attack families', () => {
   });
   it('K stomps a nearby grounded opponent with the boot; J uses a hammerfist', () => {
     const model = bout(); model.opponent.state = 'downed';
-    expect(situationalStrike(model.player, model.opponent, 'heavy')).toBe('ground');
+    expect(situationalStrike({ actor: model.player, target: model.opponent, button: 'heavy' })).toBe('ground');
     expect(requestCommand(model, 'player', 'heavy')).toBe(true);
     expect(model.player.moveId).toBe('ground');
     expect(strikeDriveProfile('ground')?.source).toBe('rightFoot');
@@ -29,13 +29,13 @@ describe('situational attack families', () => {
   });
   it('does not stomp from across the ring and selects low, mid and vulnerable high kicks', () => {
     const model = bout(); model.opponent.position.z = 4; model.opponent.state = 'downed';
-    expect(situationalStrike(model.player, model.opponent, 'heavy')).toBe('front_kick');
+    expect(situationalStrike({ actor: model.player, target: model.opponent, button: 'heavy' })).toBe('front_kick');
     model.opponent.state = 'idle'; model.opponent.position.z = .9;
-    expect(situationalStrike(model.player, model.opponent, 'heavy')).toBe('low_kick');
+    expect(situationalStrike({ actor: model.player, target: model.opponent, button: 'heavy' })).toBe('low_kick');
     model.opponent.position.z = 1.6;
-    expect(situationalStrike(model.player, model.opponent, 'heavy')).toBe('front_kick');
+    expect(situationalStrike({ actor: model.player, target: model.opponent, button: 'heavy' })).toBe('front_kick');
     model.opponent.state = 'staggered';
-    expect(situationalStrike(model.player, model.opponent, 'heavy')).toBe('high_kick');
+    expect(situationalStrike({ actor: model.player, target: model.opponent, button: 'heavy' })).toBe('high_kick');
   });
   it('J picks up a reachable weapon then swings it, but prioritizes an engaged opponent', () => {
     const model = bout(); const chair = model.props.find(p => p.kind === 'chair'); if (!chair) throw Error('Missing chair');

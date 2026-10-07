@@ -8,7 +8,8 @@ import { combatDirection, selectDirectionalStrike, type StrikeButton } from './m
 import { resolvePropAction } from './contextResolver';
 
 /** The same selection drives execution and every button label. */
-export function situationalStrike(actor: FighterRuntime, target: FighterRuntime, button: StrikeButton, direction: Vec2 = { x: 0, z: 0 }, running = false): string {
+export function situationalStrike(options: { actor: FighterRuntime, target: FighterRuntime, button: StrikeButton, direction?: Vec2, running?: boolean }): string {
+  const { actor, target, button, direction = { x: 0, z: 0 }, running = false } = options;
   if (button === 'quick' && actor.heldPropId) return 'prop';
   if (target.state === 'downed' && distance(actor.position, target.position) <= 1.8) return button === 'heavy' ? 'ground' : 'ground_punch';
   if (!actor.heldPropId && !running && actor.ropeRebound <= 0 && combatDirection(direction) === 'neutral') {
