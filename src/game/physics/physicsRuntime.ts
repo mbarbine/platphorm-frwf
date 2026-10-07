@@ -1409,9 +1409,6 @@ export class BodyWorksRuntime {
       if (model.grapple && [model.grapple.attacker, model.grapple.defender].includes(firstKey) && [model.grapple.attacker, model.grapple.defender].includes(secondKey)) continue;
       if (!GROUNDED_POSE_STATES.has(model[firstKey].state) || !GROUNDED_POSE_STATES.has(model[secondKey].state)) continue;
       const player = this.rigs.get(firstKey)?.bodies.pelvis; const opponent = this.rigs.get(secondKey)?.bodies.pelvis; if (!player || !opponent) continue;
-      // Core colliders already prevent body overlap. This smaller comfort gap
-      // lets real hands reach real targets; the old 1.08 m force field made a
-      // clean jab geometrically impossible despite accepting the input.
       const a = player.translation(); const b = opponent.translation(); const playerVelocity = player.linvel(); const opponentVelocity = opponent.linvel();
       const solution = solveCloseRangeSeparation(
         { position: { x: a.x, z: a.z }, velocity: { x: playerVelocity.x, z: playerVelocity.z }, mass: player.mass() },
