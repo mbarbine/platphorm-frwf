@@ -1,0 +1,13 @@
+--- src/tests/locomotion.test.ts
++++ src/tests/locomotion.test.ts
+@@ -193,8 +193,8 @@
+   it('uses each wrestler’s authored footwork profile in the live procedural pose', () => {
+     const input = { x: .55, z: 2.1 };
+-    const signatures = FIGHTERS.map(({ id }) => JSON.stringify(locomotionPose(input, 0, Math.PI / 3, true, id)));
++    const signatures = FIGHTERS.map(({ id }) => JSON.stringify(locomotionPose({ velocity: input, facing: 0, phase: Math.PI / 3, combat: true, fighterId: id })));
+     expect(new Set(signatures).size).toBeGreaterThan(12);
+
+     const women = ['nova', 'gil', 'chelsea', 'britt'] as const;
+-    const characterGaits = women.map(id => JSON.stringify(locomotionPose(input, 0, Math.PI / 3, true, id)));
++    const characterGaits = women.map(id => JSON.stringify(locomotionPose({ velocity: input, facing: 0, phase: Math.PI / 3, combat: true, fighterId: id })));
+     expect(new Set(characterGaits).size).toBe(women.length);

@@ -1,0 +1,17 @@
+--- src/tests/gaitCycle.test.ts
++++ src/tests/gaitCycle.test.ts
+@@ -32,3 +32,3 @@
+     const knee = (speed: number) => Math.max(...Array.from({ length: 120 }, (_, i) =>
+-      Math.abs(locomotionPose({ x: 0, z: speed }, 0, i / 120 * Math.PI * 2).leftShin[0])));
++      Math.abs(locomotionPose({ velocity: { x: 0, z: speed }, facing: 0, phase: i / 120 * Math.PI * 2 }).leftShin[0])));
+     expect(knee(4.8)).toBeGreaterThan(knee(2.2) * 1.05);
+@@ -41,3 +41,3 @@
+     const poses = Array.from({ length: 120 }, (_, i) =>
+-      locomotionPose({ x: 0, z: 2.1 }, 0, i / 120 * Math.PI * 2, true, 'atlas'));
++      locomotionPose({ velocity: { x: 0, z: 2.1 }, facing: 0, phase: i / 120 * Math.PI * 2, combat: true, fighterId: 'atlas' }));
+     const peak = (selector: (pose: (typeof poses)[number]) => number) =>
+@@ -61,3 +61,3 @@
+     // by previews; a captured-motion source can replace the runtime provider.
+-    expect(proceduralLocomotionSource.pose(input)).toEqual(locomotionPose(input.velocity, input.facing, input.phase, true, input.fighterId));
++    expect(proceduralLocomotionSource.pose(input)).toEqual(locomotionPose(input));
+   });

@@ -1,0 +1,10 @@
+--- src/game/animation/locomotion.ts
++++ src/game/animation/locomotion.ts
+@@ -104,4 +104,4 @@
+
+ /** Backward-compatible pure helper for tests and non-physics preview actors. */
+-export function locomotionPose(velocity: Vec2, facing: number, phase: number, combat = true, fighterId?: FighterId, massKg = 90): Pose {
+-  return proceduralLocomotionSource.pose({ velocity, facing, phase, combat, fighterId, massKg });
++export function locomotionPose(input: LocomotionPoseInput): Pose {
++  return proceduralLocomotionSource.pose(input);
+ }

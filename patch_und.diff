@@ -1,0 +1,7 @@
+--- src/tests/undergroundUpgrade.test.ts
++++ src/tests/undergroundUpgrade.test.ts
+@@ -46,3 +46,3 @@
+     for (const fighter of FIGHTERS) {
+-      gait.add(JSON.stringify(locomotionPose({ x: 0, z: 3.5 }, 0, .9, true, fighter.id)));
++      gait.add(JSON.stringify(locomotionPose({ velocity: { x: 0, z: 3.5 }, facing: 0, phase: .9, combat: true, fighterId: fighter.id })));
+       const move = getMove(signatureMoveId(fighter.id));

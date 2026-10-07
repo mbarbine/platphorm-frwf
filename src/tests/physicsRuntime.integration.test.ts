@@ -134,7 +134,7 @@ describe('Rapier-backed Bodyworks integration', () => {
     const source: LocomotionPoseSource = {
       pose: (input) => {
         samples.push({ ...input, velocity: { ...input.velocity } });
-        return locomotionPose(input.velocity, input.facing, input.phase, input.combat, input.fighterId, input.massKg);
+        return locomotionPose(input);
       },
     };
     const { world, runtime, model } = makeHarness('atlas', source);

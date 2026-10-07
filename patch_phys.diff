@@ -1,0 +1,7 @@
+--- src/tests/physicsRuntime.integration.test.ts
++++ src/tests/physicsRuntime.integration.test.ts
+@@ -136,3 +136,3 @@
+         samples.push({ ...input, velocity: { ...input.velocity } });
+-        return locomotionPose(input.velocity, input.facing, input.phase, input.combat, input.fighterId, input.massKg);
++        return locomotionPose(input);
+       },
