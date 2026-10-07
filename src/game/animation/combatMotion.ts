@@ -11,7 +11,7 @@ const SIDES = ['left', 'right'] as const;
 const qa = new Quaternion(); const qb = new Quaternion(); const ea = new Euler(); const eb = new Euler();
 
 /** OPTIMIZATION: Helper function for shortest-arc quaternion slerp on 3D Euler joints. */
-function slerpJoint(ak: readonly [number, number, number], bk: readonly [number, number, number], amount: number): [number, number, number] {
+function slerpJoint({ ak, bk, amount }: { ak: readonly [number, number, number]; bk: readonly [number, number, number]; amount: number }): [number, number, number] {
   qa.setFromEuler(ea.set(ak[0], ak[1], ak[2]));
   qb.setFromEuler(eb.set(bk[0], bk[1], bk[2]));
   ea.setFromQuaternion(qa.slerp(qb, amount));
@@ -27,13 +27,13 @@ function blend(a: Pose, b: Pose, amount: number): Pose {
   const als = a.leftShin; const bls = b.leftShin;
   const ars = a.rightShin; const brs = b.rightShin;
   return {
-    torso: slerpJoint(a.torso, b.torso, amount),
-    leftArm: slerpJoint(a.leftArm, b.leftArm, amount),
-    rightArm: slerpJoint(a.rightArm, b.rightArm, amount),
+    torso: slerpJoint({ ak: a.torso, bk: b.torso, amount }),
+    leftArm: slerpJoint({ ak: a.leftArm, bk: b.leftArm, amount }),
+    rightArm: slerpJoint({ ak: a.rightArm, bk: b.rightArm, amount }),
     leftForearm: [alf[0] + (blf[0] - alf[0]) * amount, 0, 0],
     rightForearm: [arf[0] + (brf[0] - arf[0]) * amount, 0, 0],
-    leftLeg: slerpJoint(a.leftLeg, b.leftLeg, amount),
-    rightLeg: slerpJoint(a.rightLeg, b.rightLeg, amount),
+    leftLeg: slerpJoint({ ak: a.leftLeg, bk: b.leftLeg, amount }),
+    rightLeg: slerpJoint({ ak: a.rightLeg, bk: b.rightLeg, amount }),
     leftShin: [als[0] + (bls[0] - als[0]) * amount, 0, 0],
     rightShin: [ars[0] + (brs[0] - ars[0]) * amount, 0, 0],
     rootX: a.rootX + (b.rootX - a.rootX) * amount,
@@ -117,8 +117,8 @@ export function authoredIdlePose(base: Pose, elapsed: number): Pose {
   const armBlend = blendIn * (1 - .58 * armSettle);
   const elbowBlend = armBlend * .65;
   const result = blend(base, captured, blendIn);
-  result.leftArm = slerpJoint(base.leftArm, captured.leftArm, armBlend);
-  result.rightArm = slerpJoint(base.rightArm, captured.rightArm, armBlend);
+  result.leftArm = slerpJoint({ ak: base.leftArm, bk: captured.leftArm, amount: armBlend });
+  result.rightArm = slerpJoint({ ak: base.rightArm, bk: captured.rightArm, amount: armBlend });
   result.leftForearm = [base.leftForearm[0] + (captured.leftForearm[0] - base.leftForearm[0]) * elbowBlend, 0, 0];
   result.rightForearm = [base.rightForearm[0] + (captured.rightForearm[0] - base.rightForearm[0]) * elbowBlend, 0, 0];
   result.leftLeg = base.leftLeg; result.rightLeg = base.rightLeg; result.leftShin = base.leftShin; result.rightShin = base.rightShin;
