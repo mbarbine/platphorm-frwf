@@ -55,6 +55,17 @@ describe('device-local world continuity', () => {
     expect(parsed.position).toEqual(WORLD_START); expect(parsed.results).toEqual({}); expect(parsed.fighter).toBe('chad');
     expect(parseWorldSave(JSON.stringify({ ...bad, version: 200 }))).toEqual(freshWorld());
   });
+
+  it('sets saveStatus to unavailable when checkpoint fails, and saved when successful', () => {
+    const session = useWorldSession.getState();
+    session.checkpoint();
+    expect(useWorldSession.getState().saveStatus).toBe('saved');
+
+    vi.spyOn(localStorage, 'setItem').mockImplementationOnce(() => { throw new Error('Storage full'); });
+    session.checkpoint();
+    expect(useWorldSession.getState().saveStatus).toBe('unavailable');
+  });
+
   it('keeps exploration usable when browser storage is unavailable', () => {
     vi.spyOn(localStorage, 'setItem').mockImplementation(() => { throw new Error('Storage denied'); });
     const session = useWorldSession.getState(); session.enter('nova'); session.move({ x: 0, z: 12 }, 0); session.checkpoint();
