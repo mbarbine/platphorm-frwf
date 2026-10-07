@@ -1,0 +1,8 @@
+🎯 What: The vulnerability fixed
+Exposure of detailed unhandled error information, including full stack traces, to standard logging channels.
+
+⚠️ Risk: The potential impact if left unfixed
+Clear logging of full error objects to standard output channels can lead to information exposure (such as stack traces, database strings, or internal application environments details) in application environments.
+
+🛡️ Solution: How the fix addresses the vulnerability
+Sanitized error logging by extracting `err.message` if available instead of logging the entire raw error object. This ensures stack traces and other potentially sensitive internal context details are no longer printed into application logs for uncaught exceptions, unhandled rejections, application startup catch blocks, and the secure Express error handling middleware.

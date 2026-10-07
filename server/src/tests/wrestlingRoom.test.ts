@@ -44,7 +44,7 @@ class TestWrestlingRoom extends WrestlingRoom {
     this.broadcasts.push({ type: type.toString(), payload: message });
   }
 
-  override allowReconnection(client: unknown, seconds?: number): Promise<unknown> {
+  override allowReconnection(client: any, seconds?: number | "manual"): any {
     return this.allowReconnectionMock(client, seconds);
   }
 

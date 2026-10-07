@@ -99,8 +99,8 @@ async function bootstrap(): Promise<void> {
 
   process.on('SIGTERM', () => void shutdown('SIGTERM'));
   process.on('SIGINT', () => void shutdown('SIGINT'));
-  process.on('uncaughtException', (err) => { console.error('Uncaught exception:', err); });
-  process.on('unhandledRejection', (reason) => { console.error('Unhandled rejection:', reason); });
+  process.on('uncaughtException', (err) => { const safeMsg = err instanceof Error ? err.message : String(err); console.error(`Uncaught exception: ${safeMsg}`); });
+  process.on('unhandledRejection', (reason) => { const safeMsg = reason instanceof Error ? reason.message : String(reason); console.error(`Unhandled rejection: ${safeMsg}`); });
 
   // ── Listen ─────────────────────────────────────────────────────────────────
   await gameServer.listen(SERVER_CONFIG.PORT, SERVER_CONFIG.HOSTNAME);
@@ -112,14 +112,15 @@ async function bootstrap(): Promise<void> {
 }
 
 if (process.env.NODE_ENV !== 'test' && !process.env.VITEST) {
-  void bootstrap().catch((err) => { console.error('Server failed to start:', err); process.exit(1); });
+  void bootstrap().catch((err) => { const safeMsg = err instanceof Error ? err.message : String(err); console.error(`Server failed to start: ${safeMsg}`); process.exit(1); });
 }
 
 /**
  * Custom error handling middleware to catch any unhandled errors and return a standardized secure JSON response, preventing stack trace disclosure (CWE-209).
  */
 export function secureErrorHandler(err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction): void {
-  console.error('Unhandled server error:', err);
+  const safeMsg = err instanceof Error ? err.message : String(err);
+  console.error(`Unhandled server error: ${safeMsg}`);
   res.status(500).json({
     error: {
       code: 'internal_server_error',
