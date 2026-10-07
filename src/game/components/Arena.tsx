@@ -358,7 +358,15 @@ function EntranceLane() {
   </RigidBody>;
 }
 
-function FlexBarricadePanel({ axis, position, length, accent }: { axis: 'x' | 'z'; position: [number, number, number]; length: number; accent: string }) {
+interface FlexBarricadePanelProps {
+  axis: 'x' | 'z';
+  position: [number, number, number];
+  length: number;
+  accent: string;
+}
+
+function FlexBarricadePanel(props: FlexBarricadePanelProps) {
+  const { axis, position, length, accent } = props;
   const body = useRef<RapierRigidBody | null>(null); const anchor = useRef({ x: position[0], y: position[1], z: position[2] });
   const userData = useMemo(() => ({ surface: true, kind: 'barricade-flex' }), []);
   useFrame(() => {
