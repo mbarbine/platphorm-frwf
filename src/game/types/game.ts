@@ -343,6 +343,7 @@ export interface MatchModel {
   unstableWithoutCauseSeconds: number;
   hype: number;
   props: PropRuntime[];
+  activeTable: PropRuntime | null;
   propsById: Record<string, PropRuntime>;
   chaosEvent: ChaosEvent | null;
   nextChaosAt: number;

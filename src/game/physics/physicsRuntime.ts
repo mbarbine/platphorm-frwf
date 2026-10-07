@@ -2047,7 +2047,7 @@ export class BodyWorksRuntime {
       && this.grappleEnvironmentTarget.defender === grapple.defender
       && this.grappleEnvironmentTarget.attackInstanceId === attacker.attackInstanceId;
     if (!environmentTargetMatches) {
-      const table = model.props.find((prop) => prop.kind === 'table' && !prop.broken);
+      const table = model.activeTable;
       // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt for ~8x speedup.
       const tableDistance = table ? Math.sqrt((table.position.x - defender.position.x) * (table.position.x - defender.position.x) + (table.position.z - defender.position.z) * (table.position.z - defender.position.z)) : Number.POSITIVE_INFINITY;
       if (venueFor(model).hasRing && move.id === 'corner_smash') {

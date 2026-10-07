@@ -48,7 +48,7 @@ export const isActionLegal = (model: MatchModel, command: GameCommand, actorKey:
     const cornerX = Math.sign(target.position.x || actor.position.x || 1) * 5.35; const cornerZ = Math.sign(target.position.z || actor.position.z || 1) * 3.85;
     const dx = target.position.x - cornerX; const dz = target.position.z - cornerZ;
     // OPTIMIZATION: Replacing slow Math.hypot with zero-allocation squared-magnitude comparison (<= 9.9225 equivalent to <= 3.15).
-    return (venueFor(model).hasRing && dx * dx + dz * dz <= 9.9225) || model.props.some(p => p.kind === 'table' && !p.broken && distance(p.position, target.position) <= 2.6);
+    return (venueFor(model).hasRing && dx * dx + dz * dz <= 9.9225) || (model.activeTable ? distance(model.activeTable.position, target.position) <= 2.6 : false);
   }
   if (actor.state === 'climbing' && actor.climbStage === 3 && (command === 'quick' || command === 'heavy')) {
     const move = command === 'quick' ? MOVES.aerial_elbow : MOVES.aerial_kick;
