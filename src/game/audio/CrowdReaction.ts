@@ -21,12 +21,16 @@ export class CrowdReaction {
 
   play(): boolean {
     if (!this.buffer || this.voice || this.context.state !== 'running' || this.context.currentTime - this.lastPlayed < 7) return false;
-    const voice = this.context.createBufferSource();
-    voice.buffer = this.buffer; voice.connect(this.output);
-    this.voice = voice; this.lastPlayed = this.context.currentTime;
-    voice.onended = () => { voice.disconnect(); if (this.voice === voice) this.voice = null; };
-    voice.start();
-    return true;
+    try {
+      const voice = this.context.createBufferSource();
+      voice.buffer = this.buffer; voice.connect(this.output);
+      this.voice = voice; this.lastPlayed = this.context.currentTime;
+      voice.onended = () => { voice.disconnect(); if (this.voice === voice) this.voice = null; };
+      voice.start();
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   stop(): void {
