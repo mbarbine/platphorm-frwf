@@ -44,7 +44,7 @@ describe('underground wrestling upgrade', () => {
   it('gives every wrestler a distinct gait and an executable named paired signature', () => {
     const gait = new Set<string>();
     for (const fighter of FIGHTERS) {
-      gait.add(JSON.stringify(locomotionPose({ x: 0, z: 3.5 }, 0, .9, true, fighter.id)));
+      gait.add(JSON.stringify(locomotionPose({ velocity: { x: 0, z: 3.5 }, facing: 0, phase: 0.9, combat: true, fighterId: fighter.id })));
       const move = getMove(signatureMoveId(fighter.id));
       expect(move.displayName).toBe(fighter.signature);
       expect(move.signatureBase).toBe(WRESTLING_STYLES[fighter.id].signatureBase);

@@ -1,0 +1,9 @@
+🧹 Refactor locomotionPose to use LocomotionPoseInput object
+
+🎯 **What:** The `locomotionPose` function in `src/game/animation/locomotion.ts` previously accepted up to 6 positional arguments. It has been refactored to accept a single configuration object `input: LocomotionPoseInput`.
+
+💡 **Why:** Positional arguments scaling beyond 3 items become tedious to maintain, prone to parameter order mistakes by consumers, and require passing `undefined` just to reach the trailing options. Changing the API to receive a typed config object aligns it nicely with `proceduralLocomotionPose`, modernizing the interface and improving readability and developer ergonomics across the codebase.
+
+✅ **Verification:** Updated every caller globally via automated scripting, then ran `pnpm test` (all 943 tests pass successfully) and `pnpm tsc --noEmit` (no compilation errors).
+
+✨ **Result:** A cleaner, object-parameter API mapping precisely to `LocomotionPoseInput`, ensuring strong type safety and eliminating positional parameter boilerplate.

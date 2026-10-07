@@ -7,27 +7,27 @@ import { buildControlReadout } from '../ui/ControlDeck';
 
 describe('readable wrestling motion', () => {
   it('backs up and side steps in facing space instead of walking forward in every direction', () => {
-    const forward = locomotionPose({ x: 0, z: 3 }, 0, Math.PI / 2);
-    const back = locomotionPose({ x: 0, z: -3 }, 0, Math.PI / 2);
+    const forward = locomotionPose({ velocity: { x: 0, z: 3 }, facing: 0, phase: Math.PI / 2 });
+    const back = locomotionPose({ velocity: { x: 0, z: -3 }, facing: 0, phase: Math.PI / 2 });
     expect(back.leftLeg[0]).toBeLessThan(0);
     expect(Math.abs(back.leftLeg[0])).toBeLessThan(forward.leftLeg[0]);
-    const lateral = locomotionPose({ x: 3, z: 0 }, 0, Math.PI / 2);
+    const lateral = locomotionPose({ velocity: { x: 3, z: 0 }, facing: 0, phase: Math.PI / 2 });
     expect(lateral.leftLeg[0]).toBeCloseTo(0);
     // Side shuffles must keep each boot on its side of the pelvis.
     expect(lateral.leftLeg[2]).toBeLessThanOrEqual(.035);
-    const outward = locomotionPose({ x: 3, z: 0 }, 0, -Math.PI / 2);
+    const outward = locomotionPose({ velocity: { x: 3, z: 0 }, facing: 0, phase: -Math.PI / 2 });
     expect(outward.leftLeg[2]).toBeLessThan(-.1);
     expect(outward.rightLeg[2]).toBeGreaterThan(.1);
     expect(lateral.leftLeg[2]).toBeCloseTo(-lateral.rightLeg[2]);
-    const turned = locomotionPose({ x: 3, z: 0 }, Math.PI / 2, Math.PI / 2);
+    const turned = locomotionPose({ velocity: { x: 3, z: 0 }, facing: Math.PI / 2, phase: Math.PI / 2 });
     expect(turned.leftLeg[0]).toBeCloseTo(forward.leftLeg[0]);
     expect(turned.leftLeg[2]).toBeCloseTo(0);
   });
   it('fades to stillness and keeps sprint stride and knee bends compact', () => {
-    const still = locomotionPose({ x: 0, z: 0 }, 0, 2);
+    const still = locomotionPose({ velocity: { x: 0, z: 0 }, facing: 0, phase: 2 });
     expect(still.leftLeg).toEqual([0, 0, 0]); expect(still.rootY).toBe(0);
     for (let phase = 0; phase < 7; phase += .1) {
-      const pose = locomotionPose({ x: 4, z: 4 }, 0, phase);
+      const pose = locomotionPose({ velocity: { x: 4, z: 4 }, facing: 0, phase });
       expect(Math.abs(pose.leftLeg[0])).toBeLessThan(.55);
       expect(Math.abs(pose.leftLeg[2])).toBeLessThan(.36);
       expect(pose.leftShin[0]).toBeLessThanOrEqual(0);

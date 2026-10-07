@@ -102,6 +102,6 @@ export const proceduralLocomotionSource: LocomotionPoseSource = {
 };
 
 /** Backward-compatible pure helper for tests and non-physics preview actors. */
-export function locomotionPose(velocity: Vec2, facing: number, phase: number, combat = true, fighterId?: FighterId, massKg = 90): Pose {
-  return proceduralLocomotionSource.pose({ velocity, facing, phase, combat, fighterId, massKg });
+export function locomotionPose(input: LocomotionPoseInput): Pose {
+  return proceduralLocomotionSource.pose(input);
 }
