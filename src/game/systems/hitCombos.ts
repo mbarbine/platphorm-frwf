@@ -22,6 +22,8 @@ export const HIT_COMBOS = [
   { inputs: 'KKKP', name: 'HALO OVERHEAD', finish: 'overhead_kick' },
 ] as const;
 
+const HIT_COMBO_MAP = new Map(HIT_COMBOS.map(combo => [combo.inputs, combo]));
+
 export function comboCode(inputs: readonly StrikeInput[]): string {
   return inputs.map(input => input === 'quick' ? 'P' : 'K').join('');
 }
@@ -38,7 +40,7 @@ export function expireHitCombo(actor: FighterRuntime, now: number, target: Fight
 export function comboStrike(actor: FighterRuntime, input: StrikeInput): string | null {
   const inputs = actor.comboStep >= COMBO_MAX_HITS || actor.comboName ? [] : actor.comboInputs;
   const code = comboCode([...inputs, input]);
-  const recipe = HIT_COMBOS.find(combo => combo.inputs === code);
+  const recipe = HIT_COMBO_MAP.get(code);
   if (recipe) return recipe.finish;
   if (input === 'heavy') return inputs.length ? 'low_kick' : null;
   // Build a readable boxing cadence from distinct authored moves. A clean
@@ -61,7 +63,7 @@ export function confirmComboHit(actor: FighterRuntime, target: FighterSlot, now:
   actor.comboStep = actor.comboInputs.length;
   actor.comboTarget = target; actor.comboExpiresAt = now + COMBO_LINK_SECONDS;
   actor.comboAttackId = actor.attackInstanceId;
-  actor.comboName = HIT_COMBOS.find(combo => combo.inputs === comboCode(actor.comboInputs))?.name ?? null;
+  actor.comboName = HIT_COMBO_MAP.get(comboCode(actor.comboInputs))?.name ?? null;
 }
 
 /** Only a clean hit can shorten recovery; whiffs, blocks and finishers commit. */
