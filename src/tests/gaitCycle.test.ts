@@ -30,7 +30,7 @@ describe('grounded walking and running', () => {
 
   it('raises the running recovery knee without turning backsteps into a sprint', () => {
     const knee = (speed: number) => Math.max(...Array.from({ length: 120 }, (_, i) =>
-      Math.abs(locomotionPose({ x: 0, z: speed }, 0, i / 120 * Math.PI * 2).leftShin[0])));
+      Math.abs(locomotionPose({ velocity: { x: 0, z: speed }, facing: 0, phase: i / 120 * Math.PI * 2 }).leftShin[0])));
     expect(knee(4.8)).toBeGreaterThan(knee(2.2) * 1.05);
     expect(knee(-4.8)).toBeLessThan(.31);
     expect(gaitRunBlend(2.2)).toBe(0);
@@ -39,7 +39,7 @@ describe('grounded walking and running', () => {
 
   it('keeps the live walk readable without exaggerating the limb swing', () => {
     const poses = Array.from({ length: 120 }, (_, i) =>
-      locomotionPose({ x: 0, z: 2.1 }, 0, i / 120 * Math.PI * 2, true, 'atlas'));
+      locomotionPose({ velocity: { x: 0, z: 2.1 }, facing: 0, phase: i / 120 * Math.PI * 2, combat: true, fighterId: 'atlas' }));
     const peak = (selector: (pose: (typeof poses)[number]) => number) =>
       Math.max(...poses.map((pose) => Math.abs(selector(pose))));
 
@@ -59,7 +59,7 @@ describe('grounded walking and running', () => {
     expect(Math.abs(heavy.rootY)).toBeLessThan(Math.abs(light.rootY));
     // The same source input remains consumable through the legacy helper used
     // by previews; a captured-motion source can replace the runtime provider.
-    expect(proceduralLocomotionSource.pose(input)).toEqual(locomotionPose(input.velocity, input.facing, input.phase, true, input.fighterId));
+    expect(proceduralLocomotionSource.pose(input)).toEqual(locomotionPose({ velocity: input.velocity, facing: input.facing, phase: input.phase, combat: true, fighterId: input.fighterId }));
   });
 
   it('provides distinct broad gait presets and character-authored motion profiles', () => {

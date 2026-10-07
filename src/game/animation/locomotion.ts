@@ -41,7 +41,8 @@ export interface LocomotionPoseSource {
 }
 
 /** Gait follows solved travel in the wrestler's facing space, including backsteps. */
-function proceduralLocomotionPose({ velocity, facing, phase, combat = true, fighterId, styleId = 'baseline', massKg = 90 }: LocomotionPoseInput): Pose {
+function proceduralLocomotionPose(input: LocomotionPoseInput): Pose {
+  const { velocity, facing, phase, combat = true, fighterId, styleId = 'baseline', massKg = 90 } = input;
   // OPTIMIZATION: Replacing slow Math.hypot with standard Math.sqrt for ~8x speedup in 2D speed calculations on hot animation tick paths.
   // Character-authored footwork is the primary source. The broad style remains
   // a useful fallback for previews and future imported/mocap performers.
@@ -102,6 +103,6 @@ export const proceduralLocomotionSource: LocomotionPoseSource = {
 };
 
 /** Backward-compatible pure helper for tests and non-physics preview actors. */
-export function locomotionPose(velocity: Vec2, facing: number, phase: number, combat = true, fighterId?: FighterId, massKg = 90): Pose {
-  return proceduralLocomotionSource.pose({ velocity, facing, phase, combat, fighterId, massKg });
+export function locomotionPose(input: LocomotionPoseInput): Pose {
+  return proceduralLocomotionSource.pose(input);
 }
