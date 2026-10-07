@@ -1,4 +1,14 @@
 /** A deployed page must never try to host multiplayer on the player's device. */
+
+export function parseServerEndpoint(envUrl: string | undefined): string {
+  try {
+    const url = new URL(envUrl || '');
+    return url.hostname;
+  } catch {
+    return 'localhost';
+  }
+}
+
 export function resolveGameServer(configured: string | undefined, location?: { hostname: string; protocol: string }): string | null {
   const value = configured?.trim();
   if (!value) return location && ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname)
