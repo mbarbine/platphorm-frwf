@@ -98,8 +98,8 @@ describe('arcade locomotion feel', () => {
 
 it('backsteps keep a short low shuffle and a guard instead of reversing a sprint', () => {
   for (const speed of [1.8, 4.8]) {
-    const poses = Array.from({ length: 32 }, (_, index) => locomotionPose({ x: 0, z: -speed }, 0, index / 32 * Math.PI * 2));
-    const forward = Array.from({ length: 32 }, (_, index) => locomotionPose({ x: 0, z: speed }, 0, index / 32 * Math.PI * 2));
+    const poses = Array.from({ length: 32 }, (_, index) => locomotionPose({ velocity: { x: 0, z: -speed }, facing: 0, phase: index / 32 * Math.PI * 2 }));
+    const forward = Array.from({ length: 32 }, (_, index) => locomotionPose({ velocity: { x: 0, z: speed }, facing: 0, phase: index / 32 * Math.PI * 2 }));
     const excursion = (samples: typeof poses, limb: 'leftLeg' | 'leftShin') => Math.max(...samples.map(pose => Math.abs(pose[limb][0])));
     expect(excursion(poses, 'leftLeg')).toBeLessThan(excursion(forward, 'leftLeg') * .7);
     expect(excursion(poses, 'leftShin')).toBeLessThan(.31);
@@ -192,11 +192,11 @@ describe("LOCOMOTION_STYLES", () => {
 
   it('uses each wrestler’s authored footwork profile in the live procedural pose', () => {
     const input = { x: .55, z: 2.1 };
-    const signatures = FIGHTERS.map(({ id }) => JSON.stringify(locomotionPose(input, 0, Math.PI / 3, true, id)));
+    const signatures = FIGHTERS.map(({ id }) => JSON.stringify(locomotionPose({ velocity: input, facing: 0, phase: Math.PI / 3, combat: true, fighterId: id })));
     expect(new Set(signatures).size).toBeGreaterThan(12);
 
     const women = ['nova', 'gil', 'chelsea', 'britt'] as const;
-    const characterGaits = women.map(id => JSON.stringify(locomotionPose(input, 0, Math.PI / 3, true, id)));
+    const characterGaits = women.map(id => JSON.stringify(locomotionPose({ velocity: input, facing: 0, phase: Math.PI / 3, combat: true, fighterId: id })));
     expect(new Set(characterGaits).size).toBe(women.length);
   });
 });

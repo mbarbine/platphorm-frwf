@@ -36,7 +36,7 @@ export function WorldWrestler({ fighter, motion }: { fighter: FighterId; motion?
   useFrame(() => {
     const speed = motion?.current.speed ?? 0;
     const phase = (motion?.current.distance ?? 0) * 4.2;
-    const gait = locomotionPose({ x: 0, z: speed }, 0, phase, false, fighter);
+    const gait = locomotionPose({ velocity: { x: 0, z: speed }, facing: 0, phase, combat: false, fighterId: fighter });
     for (const [id, bone] of bones) { const p = rest.get(id); if (p) bone.position.copy(p); bone.quaternion.identity(); }
     const chain = (ids: readonly BodySegmentId[], anchor: Vector3, angles: readonly number[]) => {
       jointVec.copy(anchor);

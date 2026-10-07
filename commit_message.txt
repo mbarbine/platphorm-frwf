@@ -1,0 +1,14 @@
+🧹 Refactor locomotionPose to use a single options object
+
+🎯 What:
+Refactored `locomotionPose` and `proceduralLocomotionPose` to accept a single `LocomotionPoseInput` options object instead of multiple positional arguments. Updated all call sites in tests and components to match the new signature.
+
+💡 Why:
+The original functions had 6 or 7 positional parameters. This made the function signature hard to read and required passing empty or default values when only trailing parameters needed overriding. Converting it to a single object parameter solves the "Function with Too Many Parameters" code health issue, making calls explicit, self-documenting (due to named properties), and robust against future changes.
+
+✅ Verification:
+- All types compile cleanly with `pnpm tsc --noEmit`.
+- The full test suite (`pnpm test`) passes successfully, confirming no regressions in gait generation.
+
+✨ Result:
+Cleaner, more maintainable code with improved readability and ease of extension.
