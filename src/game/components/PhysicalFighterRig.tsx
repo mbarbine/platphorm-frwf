@@ -73,17 +73,22 @@ function Headwear({ fighterId }: { fighterId: FighterRuntime['definitionId'] }) 
   return <mesh position={[0, .19, 0]} rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[.18, .035, 5, 14]} /><meshStandardMaterial color={color} emissive={color} emissiveIntensity={.5} /></mesh>;
 }
 
-interface SegmentBodyProps {
-  schema: BodySegmentSchema;
+interface RigSharedContext {
   fighterId: FighterRuntime['definitionId'];
   side: FighterKey;
   base: readonly [number, number, number];
-  bodyRef: RefObject<RapierRigidBody | null>;
   onContactForce: (segment: BodySegmentSchema, bodyRef: RefObject<RapierRigidBody | null>, payload: ContactForcePayload) => void;
   showVisuals: boolean;
 }
 
-function SegmentBody({ schema, fighterId, side, base, bodyRef, onContactForce, showVisuals }: SegmentBodyProps) {
+interface SegmentBodyProps {
+  schema: BodySegmentSchema;
+  bodyRef: RefObject<RapierRigidBody | null>;
+  context: RigSharedContext;
+}
+
+function SegmentBody({ schema, bodyRef, context }: SegmentBodyProps) {
+  const { fighterId, side, base, onContactForce, showVisuals } = context;
   const position: [number, number, number] = [base[0] + schema.localPosition[0], base[1] + schema.localPosition[1], base[2] + schema.localPosition[2]];
   // Rapier reapplies mutable body options when userData changes identity.
   // Keep this stable so UI updates cannot relock the motor-controlled joints.
@@ -192,5 +197,13 @@ export function PhysicalFighterRig({ runtime, side, showVisuals = true }: Props)
   // position to React must not teleport every limb back into a standing stack.
   // The enclosing runtime key remounts the rig for a new match.
   const base = useRef([runtime.position.x, 1.8, runtime.position.z] as const).current;
-  return <group>{schema.map((entry) => <SegmentBody key={entry.id} schema={entry} fighterId={runtime.definitionId} side={side} base={base} bodyRef={refs[entry.id]} onContactForce={onContactForce} showVisuals={showVisuals} />)}</group>;
+  const sharedContext = useMemo<RigSharedContext>(() => ({
+    fighterId: runtime.definitionId,
+    side,
+    base,
+    onContactForce,
+    showVisuals
+  }), [runtime.definitionId, side, base, onContactForce, showVisuals]);
+
+  return <group>{schema.map((entry) => <SegmentBody key={entry.id} schema={entry} bodyRef={refs[entry.id]} context={sharedContext} />)}</group>;
 }
