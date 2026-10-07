@@ -14,6 +14,24 @@ export interface ControlDefinition {
   key: string;
 }
 
+
+export interface BuildControlLabelsOptions {
+  player: FighterRuntime;
+  opponent: FighterRuntime;
+  speed: number;
+  distance: number;
+  direction?: Vec2;
+  running?: boolean;
+  controlStyle?: ControlStyle;
+  hasRing?: boolean;
+}
+
+export interface BuildControlReadoutOptions extends BuildControlLabelsOptions {
+  paused: boolean;
+  device?: ControlDevice;
+  grapplePhase?: GrappleRuntime['phase'] | null;
+}
+
 export interface ControlReadout {
   active: ReadonlySet<ControlId>;
   callout: string;
@@ -38,7 +56,7 @@ const COMPACT_CONTROL_IDS: readonly ControlId[] = ['quick', 'heavy', 'grapple', 
 
 const moveLabel = (moveId: string): string => getMove(moveId).displayName.toUpperCase();
 
-export function buildControlLabels(player: FighterRuntime, opponent: FighterRuntime, speed: number, distance: number, direction: Vec2 = { x: 0, z: 0 }, running = false, controlStyle: ControlStyle = 'technical', hasRing = true): Readonly<Record<ControlId, string>> {
+export function buildControlLabels({ player, opponent, speed, distance, direction = { x: 0, z: 0 }, running = false, controlStyle = 'technical', hasRing = true }: BuildControlLabelsOptions): Readonly<Record<ControlId, string>> {
   const labels: Record<ControlId, string> = { ...BASE_LABELS };
   const nearCorner = hasRing && Math.abs(player.position.x) > 4.35 && Math.abs(player.position.z) > 2.95;
   const ringside = Math.abs(player.position.x) > 5.82 || Math.abs(player.position.z) > 4.32;
@@ -87,14 +105,14 @@ export function buildControlLabels(player: FighterRuntime, opponent: FighterRunt
   return labels;
 }
 
-export function buildControlReadout(player: FighterRuntime, opponent: FighterRuntime, speed: number, distance: number, paused: boolean, device: ControlDevice = 'keyboard', direction: Vec2 = { x: 0, z: 0 }, runHeld = false, controlStyle: ControlStyle = 'technical', hasRing = true, grapplePhase: GrappleRuntime['phase'] | null = null): ControlReadout {
+export function buildControlReadout({ player, opponent, speed, distance, paused, device = 'keyboard', direction = { x: 0, z: 0 }, running = false, controlStyle = 'technical', hasRing = true, grapplePhase = null }: BuildControlReadoutOptions): ControlReadout {
   const active = new Set<ControlId>();
-  const labels = { ...buildControlLabels(player, opponent, speed, distance, direction, runHeld, controlStyle, hasRing) };
+  const labels = { ...buildControlLabels({ player, opponent, speed, distance, direction, running, controlStyle, hasRing }) };
   const isInLift = player.state === 'grappling' && grapplePhase === 'lift' && player.attackPhase === 'anticipation';
   if (isInLift) labels.quick = 'RELEASE THROW';
   // OPTIMIZATION: Replacing slow Math.hypot with zero-allocation squared-magnitude check (> 0.0064 equivalent to > 0.08)
   const movementHeld = direction.x * direction.x + direction.z * direction.z > 0.0064;
-  if (player.state === 'locomotion' || movementHeld) active.add(runHeld || speed > 3.75 ? 'run' : 'move');
+  if (player.state === 'locomotion' || movementHeld) active.add(running || speed > 3.75 ? 'run' : 'move');
   if (player.state === 'jumping' || player.state === 'airborne') active.add('jump');
   if (player.state === 'blocking') active.add('block');
   if (player.state === 'grappling') active.add('grapple');
@@ -124,8 +142,8 @@ export function buildControlReadout(player: FighterRuntime, opponent: FighterRun
   else if (!paused && player.ropeRebound > 0) state = 'ROPES LOADED · REBOUND WINDOW OPEN';
   else if (!paused && player.state === 'jumping') state = 'AIRBORNE · BODY UNDER CONTROL';
   else if (!paused && player.state === 'blocking') state = 'GUARD UP · REVERSAL READY';
-  else if (!paused && (runHeld || speed > 3.75) && movementHeld) state = 'SPRINTING · RUNNING ATTACK READY';
-  else if (!paused && (movementHeld || speed > .08)) state = distance < 4.8 && !runHeld ? `${combatDirection(direction).toUpperCase()} STRAFE · OPPONENT LOCKED` : `${combatDirection(direction).toUpperCase()} MOVEMENT · CAMERA-RELATIVE`;
+  else if (!paused && (running || speed > 3.75) && movementHeld) state = 'SPRINTING · RUNNING ATTACK READY';
+  else if (!paused && (movementHeld || speed > .08)) state = distance < 4.8 && !running ? `${combatDirection(direction).toUpperCase()} STRAFE · OPPONENT LOCKED` : `${combatDirection(direction).toUpperCase()} MOVEMENT · CAMERA-RELATIVE`;
 
   const keys = DEVICE_KEYS[device]; const actionKey = keys.context; const directionId = combatDirection(direction).toUpperCase();
   const nearCorner = hasRing && Math.abs(player.position.x) > 4.35 && Math.abs(player.position.z) > 2.95;
@@ -160,7 +178,7 @@ export function buildControlReadout(player: FighterRuntime, opponent: FighterRun
   else if (player.counterWindow > 0) callout = `${keys.counter} NOW · REVERSE THE ATTACK`;
   else if (distance <= GRAPPLE_ACQUISITION_RANGE && controlStyle === 'arcade') callout = `${keys.quick} JAB → COMBO → UPPERCUT · ${keys.heavy} KICK · ${keys.grapple} CLINCH`;
   else if (distance <= GRAPPLE_ACQUISITION_RANGE) callout = `${keys.grapple} BODY SLAM · BACK/DOWN + ${keys.grapple} PILEDRIVER · CONTACT MUST LAND · ${keys.quick} RAPID COMBO`;
-  else if (distance < 4.8 && movementHeld && !runHeld) callout = `IN RANGE · RAPID ${keys.quick}=JAB→ONE-TWO · ${keys.heavy}=KICK · HOLD WASD+${keys.quick}/${keys.heavy} FOR DIRECTIONAL STRIKES`;
+  else if (distance < 4.8 && movementHeld && !running) callout = `IN RANGE · RAPID ${keys.quick}=JAB→ONE-TWO · ${keys.heavy}=KICK · HOLD WASD+${keys.quick}/${keys.heavy} FOR DIRECTIONAL STRIKES`;
 
   if (controlStyle === 'arcade' && !paused && ['idle', 'locomotion'].includes(player.state)) {
     if (opponent.state === 'downed' && distance <= 3.8) callout = `${actionKey} ${labels.context} · ${keys.quick} GROUND STRIKE`;
@@ -179,8 +197,8 @@ export const buildVisibleControls = (readout: ControlReadout, device: ControlDev
   }));
 };
 
-export function ControlDeck({ device, player, opponent, speed, distance, paused, mode = 'full', direction = { x: 0, z: 0 }, runHeld = false, contextPreview, propPreview, controlStyle = 'technical', hasRing = true, grapplePhase = null }: { device: ControlDevice; player: FighterRuntime; opponent: FighterRuntime; speed: number; distance: number; paused: boolean; mode?: Extract<ControlDeckMode, 'full' | 'compact'>; direction?: Vec2; runHeld?: boolean; contextPreview?: string; propPreview?: string; controlStyle?: ControlStyle; hasRing?: boolean; grapplePhase?: GrappleRuntime['phase'] | null }) {
-  const readout = buildControlReadout(player, opponent, speed, distance, paused, device, direction, runHeld, controlStyle, hasRing, grapplePhase);
+export function ControlDeck({ device, player, opponent, speed, distance, paused, mode = 'full', direction = { x: 0, z: 0 }, running = false, contextPreview, propPreview, controlStyle = 'technical', hasRing = true, grapplePhase = null }: { device: ControlDevice; player: FighterRuntime; opponent: FighterRuntime; speed: number; distance: number; paused: boolean; mode?: Extract<ControlDeckMode, 'full' | 'compact'>; direction?: Vec2; running?: boolean; contextPreview?: string; propPreview?: string; controlStyle?: ControlStyle; hasRing?: boolean; grapplePhase?: GrappleRuntime['phase'] | null }) {
+  const readout = buildControlReadout({ player, opponent, speed, distance, paused, device, direction, running, controlStyle, hasRing, grapplePhase });
   const controls = buildVisibleControls(readout, device, mode, contextPreview, propPreview);
   const keys = DEVICE_KEYS[device];
 
