@@ -36,4 +36,12 @@ describe('real crowd reactions', () => {
     await expect(reaction.load()).resolves.toBeUndefined();
     expect(reaction.play()).toBe(false);
   });
+  it('fails gracefully when createBufferSource throws an error', async () => {
+    const { reaction, context } = fixture();
+    await reaction.load();
+    context.createBufferSource = () => {
+      throw new Error('Failed to create buffer source');
+    };
+    expect(reaction.play()).toBe(false);
+  });
 });
