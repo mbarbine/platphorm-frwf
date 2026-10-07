@@ -44,7 +44,8 @@ class TestWrestlingRoom extends WrestlingRoom {
     this.broadcasts.push({ type: type.toString(), payload: message });
   }
 
-  override allowReconnection(client: unknown, seconds?: number): Promise<unknown> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  override allowReconnection(client: any, seconds?: number | "manual"): any {
     return this.allowReconnectionMock(client, seconds);
   }
 

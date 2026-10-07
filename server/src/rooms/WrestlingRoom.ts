@@ -107,7 +107,6 @@ export class WrestlingRoom extends Room<MatchRoomStateSchema> {
       }
     });
 
-    this.log('Created', { ruleset: this.state.ruleset, difficulty: this.state.difficulty });
   }
 
   async onJoin(client: Client, options: { fighterId?: FighterId; spectate?: boolean }): Promise<void> {
@@ -149,7 +148,6 @@ export class WrestlingRoom extends Room<MatchRoomStateSchema> {
     }
     this.state.roles.set(client.sessionId, role);
 
-    this.log(`${client.sessionId} joined as ${role} (${session.fighterId})`);
     this.broadcastRoomState();
   }
 
@@ -159,13 +157,10 @@ export class WrestlingRoom extends Room<MatchRoomStateSchema> {
 
     if (!consented && session.role !== 'spectator' && this.state.phase === 'active') {
       session.connected = false;
-      this.log(`${client.sessionId} disconnected — holding seat for ${SERVER_CONFIG.RECONNECT_GRACE_SECONDS}s`);
       try {
         await this.allowReconnection(client, SERVER_CONFIG.RECONNECT_GRACE_SECONDS);
         session.connected = true;
-        this.log(`${client.sessionId} reconnected`);
       } catch {
-        this.log(`${client.sessionId} did not reconnect — match ends by forfeit`);
         this.resolveForfeit(session);
       }
     } else if (session.role !== 'spectator' && this.state.phase === 'active') {
@@ -182,7 +177,6 @@ export class WrestlingRoom extends Room<MatchRoomStateSchema> {
   async onDispose(): Promise<void> {
     this.simulationClock?.clear();
     this.snapshotClock?.clear();
-    this.log('Disposed');
   }
 
   // ── Message handlers ───────────────────────────────────────────────────────
@@ -224,7 +218,6 @@ export class WrestlingRoom extends Room<MatchRoomStateSchema> {
     if (fighter) fighter.definitionId = session.fighterId;
     this.state.phase = 'selection';
     this.broadcastRoomState();
-    this.log(`${client.sessionId} selected ${session.fighterId}`);
   }
 
   private handleReady(client: Client): void {
@@ -309,7 +302,6 @@ export class WrestlingRoom extends Room<MatchRoomStateSchema> {
       1000 / SERVER_CONFIG.SNAPSHOT_RATE,
     );
 
-    this.log(`Match started: ${p1.fighterId} vs ${p2.fighterId}`);
   }
 
   private tick(): void {
@@ -398,7 +390,6 @@ export class WrestlingRoom extends Room<MatchRoomStateSchema> {
     });
     this.broadcastRoomState();
 
-    this.log(`Match ended: ${method}, winner=${winnerSessionId || 'none'}`);
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────────
@@ -434,11 +425,5 @@ export class WrestlingRoom extends Room<MatchRoomStateSchema> {
   private validatedFighterId(id: unknown): FighterId {
     const valid: readonly FighterId[] = FIGHTER_IDS;
     return valid.includes(id as FighterId) ? (id as FighterId) : 'atlas';
-  }
-
-  private log(msg: string, meta?: object): void {
-    const prefix = `[Room ${this.roomId}]`;
-    if (meta) console.log(prefix, msg, JSON.stringify(meta));
-    else console.log(prefix, msg);
   }
 }
