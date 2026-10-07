@@ -2,7 +2,15 @@ import { useEffect, useMemo } from 'react';
 import { CanvasTexture, RepeatWrapping, SRGBColorSpace } from 'three';
 import { WORLD_OBSTACLES } from './showground';
 
-export function WorldSign({ text, position, width = 4, color = '#f2deac' }: { text: string; position: [number, number, number]; width?: number; color?: string }) {
+export interface WorldSignProps {
+  text: string;
+  position: [number, number, number];
+  width?: number;
+  color?: string;
+}
+
+export function WorldSign(props: WorldSignProps) {
+  const { text, position, width = 4, color = '#f2deac' } = props;
   const texture = useMemo(() => {
     const canvas = document.createElement('canvas'); canvas.width = 1024; canvas.height = 192;
     const ctx = canvas.getContext('2d');
@@ -12,7 +20,14 @@ export function WorldSign({ text, position, width = 4, color = '#f2deac' }: { te
   useEffect(() => () => texture.dispose(), [texture]);
   return <mesh position={position}><planeGeometry args={[width, width * .1875]} /><meshBasicMaterial map={texture} /></mesh>;
 }
-function Box({ position, size, color }: { position: [number, number, number]; size: [number, number, number]; color: string }) {
+interface BoxProps {
+  position: [number, number, number];
+  size: [number, number, number];
+  color: string;
+}
+
+function Box(props: BoxProps) {
+  const { position, size, color } = props;
   return <mesh position={position} castShadow receiveShadow><boxGeometry args={size} /><meshStandardMaterial color={color} roughness={.88} /></mesh>;
 }
 export function ShowgroundEnvironment() {
