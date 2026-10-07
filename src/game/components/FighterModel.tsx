@@ -100,7 +100,11 @@ const ClothMaterial = ({ fighter, profile, secondary = false }: PartProps & { se
   />
 );
 
-function JointCover({ fighter, profile, scale = 1 }: PartProps & { scale?: number }) {
+interface JointCoverProps extends PartProps {
+  scale?: number;
+}
+
+function JointCover({ fighter, profile, scale = 1 }: JointCoverProps) {
   return (
     <mesh scale={[.135 * scale, .125 * scale, .135 * scale]}>
       <sphereGeometry args={[1, 12, 8]} />
@@ -109,7 +113,12 @@ function JointCover({ fighter, profile, scale = 1 }: PartProps & { scale?: numbe
   );
 }
 
-function Hand({ fighter, profile, side, detailed }: PartProps & { side: -1 | 1; detailed: boolean }) {
+interface HandProps extends PartProps {
+  side: -1 | 1;
+  detailed: boolean;
+}
+
+function Hand({ fighter, profile, side, detailed }: HandProps) {
   const taped = profile.attire === 'brawler' || profile.attire === 'roughneck';
   return (
     <group position={[0, -.58, .035]}>
@@ -135,7 +144,14 @@ function Hand({ fighter, profile, side, detailed }: PartProps & { side: -1 | 1; 
   );
 }
 
-function Arm({ fighter, profile, side, armRef, forearmRef, detailed }: PartProps & { side: -1 | 1; armRef: GroupRef; forearmRef: GroupRef; detailed: boolean }) {
+interface ArmProps extends PartProps {
+  side: -1 | 1;
+  armRef: GroupRef;
+  forearmRef: GroupRef;
+  detailed: boolean;
+}
+
+function Arm({ fighter, profile, side, armRef, forearmRef, detailed }: ArmProps) {
   const shoulderX = side * fighter.physics.shoulderWidthM * .7;
   return (
     <group ref={armRef} position={[shoulderX, 1.83 * fighter.proportions.height, 0]}>
@@ -202,7 +218,13 @@ function Boot({ fighter, profile }: PartProps) {
   );
 }
 
-function Leg({ fighter, profile, side, legRef, shinRef }: PartProps & { side: -1 | 1; legRef: GroupRef; shinRef: GroupRef }) {
+interface LegProps extends PartProps {
+  side: -1 | 1;
+  legRef: GroupRef;
+  shinRef: GroupRef;
+}
+
+function Leg({ fighter, profile, side, legRef, shinRef }: LegProps) {
   const x = side * fighter.physics.hipWidthM * .56;
   const trunks = profile.attire === 'technician' || profile.attire === 'striker';
   return (
@@ -334,7 +356,13 @@ function Headwear({ fighter, profile }: PartProps) {
   );
 }
 
-function Face({ fighter, profile, browLeft, browRight, mouth }: PartProps & { browLeft: GroupRef; browRight: GroupRef; mouth: GroupRef }) {
+interface FaceProps extends PartProps {
+  browLeft: GroupRef;
+  browRight: GroupRef;
+  mouth: GroupRef;
+}
+
+function Face({ fighter, profile, browLeft, browRight, mouth }: FaceProps) {
   return (
     <group position={[0, .02, .31]}>
       {[-1, 1].map((side) => (
@@ -373,7 +401,15 @@ function Face({ fighter, profile, browLeft, browRight, mouth }: PartProps & { br
   );
 }
 
-function Head({ fighter, profile, headRef, browLeft, browRight, mouth, detailed }: PartProps & { headRef: GroupRef; browLeft: GroupRef; browRight: GroupRef; mouth: GroupRef; detailed: boolean }) {
+interface HeadProps extends PartProps {
+  headRef: GroupRef;
+  browLeft: GroupRef;
+  browRight: GroupRef;
+  mouth: GroupRef;
+  detailed: boolean;
+}
+
+function Head({ fighter, profile, headRef, browLeft, browRight, mouth, detailed }: HeadProps) {
   return (
     <group ref={headRef} position={[0, 2.25 * fighter.proportions.height, 0]}>
       <mesh position={[0, -.31, 0]} scale={[.15 * fighter.proportions.width, .22, .15 * fighter.proportions.width]}>
@@ -438,7 +474,11 @@ function TorsoGear({ fighter, profile }: PartProps) {
   );
 }
 
-function Body({ fighter, profile, torsoRef }: PartProps & { torsoRef: GroupRef }) {
+interface BodyProps extends PartProps {
+  torsoRef: GroupRef;
+}
+
+function Body({ fighter, profile, torsoRef }: BodyProps) {
   const width = fighter.proportions.width;
   const height = fighter.proportions.height;
   const shoulderWidth = fighter.physics.shoulderWidthM;
