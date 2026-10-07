@@ -2,18 +2,59 @@ import { useEffect, useMemo } from 'react';
 import { CanvasTexture, RepeatWrapping, SRGBColorSpace } from 'three';
 import { WORLD_OBSTACLES } from './showground';
 
-export function WorldSign({ text, position, width = 4, color = '#f2deac' }: { text: string; position: [number, number, number]; width?: number; color?: string }) {
+interface WorldSignProps {
+  text: string;
+  position: [number, number, number];
+  width?: number;
+  color?: string;
+}
+
+export function WorldSign(props: WorldSignProps) {
+  const { text, position, width = 4, color = '#f2deac' } = props;
   const texture = useMemo(() => {
-    const canvas = document.createElement('canvas'); canvas.width = 1024; canvas.height = 192;
+    const canvas = document.createElement('canvas');
+    canvas.width = 1024;
+    canvas.height = 192;
     const ctx = canvas.getContext('2d');
-    if (ctx) { ctx.fillStyle = '#242c27'; ctx.fillRect(0, 0, 1024, 192); ctx.strokeStyle = color; ctx.lineWidth = 8; ctx.strokeRect(8, 8, 1008, 176); ctx.fillStyle = color; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = '900 66px sans-serif'; ctx.fillText(text, 512, 100, 960); }
-    const result = new CanvasTexture(canvas); result.colorSpace = SRGBColorSpace; return result;
+    if (ctx) {
+      ctx.fillStyle = '#242c27';
+      ctx.fillRect(0, 0, 1024, 192);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 8;
+      ctx.strokeRect(8, 8, 1008, 176);
+      ctx.fillStyle = color;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.font = '900 66px sans-serif';
+      ctx.fillText(text, 512, 100, 960);
+    }
+    const result = new CanvasTexture(canvas);
+    result.colorSpace = SRGBColorSpace;
+    return result;
   }, [text, color]);
   useEffect(() => () => texture.dispose(), [texture]);
-  return <mesh position={position}><planeGeometry args={[width, width * .1875]} /><meshBasicMaterial map={texture} /></mesh>;
+  return (
+    <mesh position={position}>
+      <planeGeometry args={[width, width * 0.1875]} />
+      <meshBasicMaterial map={texture} />
+    </mesh>
+  );
 }
-function Box({ position, size, color }: { position: [number, number, number]; size: [number, number, number]; color: string }) {
-  return <mesh position={position} castShadow receiveShadow><boxGeometry args={size} /><meshStandardMaterial color={color} roughness={.88} /></mesh>;
+
+interface BoxProps {
+  position: [number, number, number];
+  size: [number, number, number];
+  color: string;
+}
+
+function Box(props: BoxProps) {
+  const { position, size, color } = props;
+  return (
+    <mesh position={position} castShadow receiveShadow>
+      <boxGeometry args={size} />
+      <meshStandardMaterial color={color} roughness={0.88} />
+    </mesh>
+  );
 }
 export function ShowgroundEnvironment() {
   const grass = useMemo(() => {
