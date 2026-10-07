@@ -12,7 +12,14 @@ import { PhysicalProp } from '../components/Arena';
 import { VenueAsset } from '../components/VenueAsset';
 import { WorldSign } from './ShowgroundEnvironment';
 
-function Block({ at, size, color, metal = 0 }: { at: [number, number, number]; size: [number, number, number]; color: string; metal?: number }) {
+interface BlockProps {
+  at: [number, number, number];
+  size: [number, number, number];
+  color: string;
+  metal?: number;
+}
+
+function Block({ at, size, color, metal = 0 }: BlockProps) {
   return <mesh position={at} castShadow receiveShadow><boxGeometry args={size} /><meshStandardMaterial color={color} roughness={.85} metalness={metal} /></mesh>;
 }
 function WoodenTable({ prop, floor }: { prop: PropRuntime; floor: number }) {
