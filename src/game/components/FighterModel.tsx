@@ -509,7 +509,8 @@ function animationFor(runtime: FighterRuntime | undefined, preview: boolean): An
   return 'combatIdle';
 }
 
-export function FighterModel({ runtime, counterpart, fighterId, preview = false, side = 'player', reportAlignment = true, detail = 'full' }: Props) {
+export function FighterModel(props: Props) {
+  const { runtime, counterpart, fighterId, preview = false, side = 'player', reportAlignment = true, detail = 'full' } = props;
   const id = runtime?.definitionId ?? fighterId ?? 'atlas';
   const fighter = fighterById(id);
   const profile = fighterVisual(id);
