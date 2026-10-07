@@ -174,4 +174,22 @@ describe('Settings Store', () => {
     expect(() => useSettings.getState().reset()).not.toThrow();
     expect(useSettings.getState().masterVolume).toBe(0.72);
   });
+
+  it('handles errors gracefully when Storage.prototype.setItem throws during persist', async () => {
+    const { useSettings } = await setupTest('{}');
+    const originalSetItem = Storage.prototype.setItem;
+    Storage.prototype.setItem = vi.fn().mockImplementation(() => {
+      throw new Error('QuotaExceededError');
+    });
+
+    try {
+      expect(() => useSettings.getState().update({ masterVolume: 0.4 })).not.toThrow();
+      expect(useSettings.getState().masterVolume).toBe(0.4);
+
+      expect(() => useSettings.getState().reset()).not.toThrow();
+      expect(useSettings.getState().masterVolume).toBe(0.72);
+    } finally {
+      Storage.prototype.setItem = originalSetItem;
+    }
+  });
 });
