@@ -23,7 +23,7 @@ describe('underground wrestling upgrade', () => {
     expect(resolveContextAction(model, 'player').actionId).toBe('object_climb');
     expect(requestCommand(model, 'player', 'context')).toBe(true);
     expect(model.player.climbObjectId).toBe('table-1');
-    model.player.state = 'idle'; const table = model.propsById['table-1']; if (!table) throw new Error('Missing table'); table.broken = true;
+    model.player.state = 'idle'; const table = model.propsById['table-1']; if (!table) throw new Error('Missing table'); table.broken = true; model.activeTable = null;
     expect(resolveContextAction(model, 'player').legalState).toBe(false);
   });
   it('does not offer remote corner climbs or pickups through the ring apron', () => {

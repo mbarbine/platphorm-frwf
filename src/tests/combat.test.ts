@@ -636,7 +636,7 @@ describe('deterministic combat rules', () => {
     const model = createMatch('atlas', 'vex', 'chaos', 'normal'); model.player.position = { x: 0, z: -7.1 }; model.opponent.position = { x: .8, z: -7.1 };
     startMove(model.player, model.opponent, getMove('skyhook')); model.player.attackPhase = 'active';
     expect(applyMoveHit(model, 'player', 'opponent', getMove('skyhook'))).toBe(true);
-    expect(model.props.find((prop) => prop.kind === 'table')?.failureStage).toBe('intact');
+    expect((model.activeTable ?? model.props.find((prop) => prop.kind === 'table'))?.failureStage).toBe('intact');
   });
 
   it('progressively fails the table only from a measured physical landing contact', () => {
@@ -644,7 +644,7 @@ describe('deterministic combat rules', () => {
     startMove(model.player, model.opponent, getMove('skyhook')); model.player.attackPhase = 'recovery';
     const contact = { id: 1, time: model.elapsed, sourceFighter: 'player' as const, sourceSegment: 'chest' as const, targetFighter: 'opponent' as const, targetSegment: 'chest' as const, targetRegion: 'chest' as const, totalForce: 330, maximumForce: 250, forceDirection: [0, -1, 0] as const, relativeSpeed: 4.8, attackInstanceId: model.player.attackInstanceId, moveId: 'skyhook', attackPhaseAtContact: null, sourceObjectId: null, targetSurface: 'table', isLanding: true };
     expect(applyPhysicalContact(model, contact)).toBe(true);
-    expect(model.props.find((prop) => prop.kind === 'table')).toMatchObject({ failureStage: 'failed', broken: true });
+    expect((model.activeTable ?? model.props.find((prop) => prop.kind === 'table'))).toMatchObject({ failureStage: 'failed', broken: true });
     expect(model.highlights.some((moment) => moment.kind === 'table')).toBe(true);
   });
 

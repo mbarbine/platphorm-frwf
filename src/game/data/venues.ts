@@ -17,5 +17,6 @@ export function configureCombatVenue(model: MatchModel, venue: CombatVenue): voi
   model.props = [prop('table-1', 'table', 0, -3.6, 1)];
   if (model.ruleset === 'chaos') model.props.push(prop('chair-1', 'chair', -3.6, 1.8, 3), prop('trash-1', 'trash', 3.6, 2, 4), prop('chair-2', 'chair', 2.6, -.8, 3));
   model.propsById = Object.fromEntries(model.props.map(p => [p.id, p]));
+  model.activeTable = model.props.find(p => p.kind === 'table' && !p.broken) ?? null;
   model.announcement = `${VENUES[venue].name.toUpperCase()} — WRESTLE!`;
 }

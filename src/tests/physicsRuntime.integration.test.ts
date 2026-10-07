@@ -608,7 +608,7 @@ describe('outdoor venue physical locomotion', () => {
 it('lands an outdoor table spot on the registered wooden surface before breaking it', () => {
   const { world, runtime, model } = makeGrappleHarness('yard');
   try {
-    const table = model.props.find(p => p.kind === 'table'); if (!table) throw new Error('Missing venue table');
+    const table = model.activeTable ?? model.props.find(p => p.kind === 'table'); if (!table) throw new Error('Missing venue table');
     const body = world.createRigidBody(RigidBodyDesc.fixed().setTranslation(table.position.x, VENUES.yard.floorY + .9, table.position.z));
     world.createCollider(ColliderDesc.cuboid(1.5, .065, .65).setCollisionGroups(arenaCollisionGroups), body);
     runtime.registerLandingSurface(table.id, 'table', body);

@@ -81,7 +81,7 @@ export const resolveContextAction = (model: MatchModel, actorKey: FighterSlot, d
     return resolved('corner_move', getMove('corner_smash').displayName.toUpperCase(), targetKey, 'Secured clinch is inside the corner-call lane', 5);
   }
 
-  const table = model.props.find((prop) => prop.kind === 'table' && !prop.broken);
+  const table = model.activeTable;
   const tableDistance = table ? distance(target.position, table.position) : Number.POSITIVE_INFINITY;
   if (actor.state === 'grappling' && actor.attackPhase === 'anticipation' && model.grapple?.attacker === actorKey && table && tableDistance <= 2.6) {
     return resolved('environmental_wrestling_move', venueFor(model).hasRing ? 'COMMENTARY DESK SPOT' : 'WOODEN TABLE SPOT', table.id, 'Secured clinch is aligned with the table', 6);

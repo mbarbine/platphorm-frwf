@@ -91,7 +91,7 @@ export const createMatch = (playerId: FighterId, opponentId: FighterId, ruleset:
     player: createFighterRuntime(playerId, { x: matchMode === 'singles' ? -1.8 : -3.25, z: 0 }, playerBeers), opponent: createFighterRuntime(resolvedOpponentId, { x: matchMode === 'singles' ? 1.8 : 3.25, z: 0 }, opponentBeers),
     rival1: createFighterRuntime(rivalIds[0], { x: 0, z: -2.45 }), rival2: createFighterRuntime(rivalIds[1], { x: -1.85, z: 2.35 }), rival3: createFighterRuntime(rivalIds[2], { x: 1.85, z: 2.35 }),
     targets: { player: 'opponent', opponent: 'player', rival1: 'rival3', rival2: 'rival1', rival3: 'rival2' }, playerTargetLock: 0, eliminations: [], falls: [], fallSequence: 0, unstableWithoutCauseSeconds: 0,
-    hype: 8, props, propsById, chaosEvent: null, nextChaosAt: 38, lastImpact: null, impactSequence: 0,
+    hype: 8, props, propsById, activeTable: props.find((p) => p.kind === 'table' && !p.broken) ?? null, chaosEvent: null, nextChaosAt: 38, lastImpact: null, impactSequence: 0,
     announcement: matchMode === 'battle_royale' ? 'BATTLE ROYALE — TOTAL FREE FOR ALL!' : 'ROUND ONE — FIGHT!', announcementTimer: 2.2, hitStop: 0, slowMotion: 0, result: null,
     playerStats, opponentStats, fighterStats, aiThinkTimer: .35, aiIntent: null, aiMovement: { x: 0, z: 0 }, aiRunning: false, aiBlockTimer: 0,
     aiControllers: Object.fromEntries(AI_FIGHTER_SLOTS.map((slot, index) => [slot, { thinkTimer: .24 + index * .07, intent: null, movement: { x: 0, z: 0 }, running: false, blockTimer: 0 }])) as MatchModel['aiControllers'],
@@ -1221,7 +1221,7 @@ const expectedContactSegment = (move: MoveDefinition, segment: string): boolean 
 
 const applyPhysicalTableStress = (model: MatchModel, contact: BodyWorksContact, move: MoveDefinition): void => {
   if (!contact.isLanding || contact.targetSurface !== 'table') return;
-  const table = model.props.find((prop) => prop.kind === 'table' && !prop.broken); if (!table) return;
+  const table = model.activeTable; if (!table) return;
   // A committed human landing is the table-collapse trigger. The physical
   // force still grades lighter bumps, while a completed slam/finisher supplies
   // the structural impulse needed to break a wrestling table. Lightweight
@@ -1235,7 +1235,7 @@ const applyPhysicalTableStress = (model: MatchModel, contact: BodyWorksContact, 
   if (nextStage === table.failureStage) return;
   table.failureStage = nextStage;
   if (nextStage === 'failed') {
-    table.broken = true; model.hype = clamp(model.hype + 28, 0, 100);
+    table.broken = true; model.activeTable = null; model.hype = clamp(model.hype + 28, 0, 100);
     addImpact(model, table.position, 'table', 2.1, { contactPoint: contact.point, force: contact.maximumForce, outcome: 'fall', highlight: { label: venueFor(model).hasRing ? 'Commentary Desk Collapse' : 'Wooden Table Crash', score: Math.round(table.stress + move.hypeValue + 24), kind: 'table' } });
     model.announcement = venueFor(model).hasRing ? 'COMMENTARY DESK — WRECKED!' : 'WOODEN TABLE — SHATTERED!'; model.announcementTimer = 2;
   } else {

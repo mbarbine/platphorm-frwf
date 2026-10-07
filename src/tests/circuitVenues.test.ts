@@ -22,7 +22,7 @@ describe('location-specific physical wrestling rules', () => {
   });
   it.each(['yard', 'backstage'] as const)('rematches in %s with fresh usable props and the same bounds', venue => {
     const model = createMatch('atlas', 'nova', 'chaos', 'normal'); configureCombatVenue(model, venue);
-    const table = model.props[0]; if (!table) throw new Error('Table missing'); table.broken = true;
+    const table = model.props[0]; if (!table) throw new Error('Table missing'); table.broken = true; model.activeTable = null;
     const next = resetTransientState(model);
     expect(next.venue).toBe(venue); expect(next.props.every(p => !p.broken && Math.abs(p.position.x) < venueFor(next).halfWidth && Math.abs(p.position.z) < venueFor(next).halfDepth)).toBe(true);
     expect(next.propsById['table-1']).toBe(next.props[0]); expect(next.runtimeId).not.toBe(model.runtimeId);
