@@ -334,7 +334,8 @@ function Headwear({ fighter, profile }: PartProps) {
   );
 }
 
-function Face({ fighter, profile, browLeft, browRight, mouth }: PartProps & { browLeft: GroupRef; browRight: GroupRef; mouth: GroupRef }) {
+function Face({ fighter, profile, faceRefs }: PartProps & { faceRefs: { browLeft: GroupRef; browRight: GroupRef; mouth: GroupRef } }) {
+  const { browLeft, browRight, mouth } = faceRefs;
   return (
     <group position={[0, .02, .31]}>
       {[-1, 1].map((side) => (
@@ -373,7 +374,7 @@ function Face({ fighter, profile, browLeft, browRight, mouth }: PartProps & { br
   );
 }
 
-function Head({ fighter, profile, headRef, browLeft, browRight, mouth, detailed }: PartProps & { headRef: GroupRef; browLeft: GroupRef; browRight: GroupRef; mouth: GroupRef; detailed: boolean }) {
+function Head({ fighter, profile, headRef, faceRefs, detailed }: PartProps & { headRef: GroupRef; faceRefs: { browLeft: GroupRef; browRight: GroupRef; mouth: GroupRef }; detailed: boolean }) {
   return (
     <group ref={headRef} position={[0, 2.25 * fighter.proportions.height, 0]}>
       <mesh position={[0, -.31, 0]} scale={[.15 * fighter.proportions.width, .22, .15 * fighter.proportions.width]}>
@@ -389,7 +390,7 @@ function Head({ fighter, profile, headRef, browLeft, browRight, mouth, detailed 
         <SkinMaterial fighter={fighter} profile={profile} />
       </mesh>
       {detailed && [-1, 1].map((earSide) => <mesh key={earSide} position={[earSide * .335 * profile.headScale[0], .015, 0]} scale={[.055, .09, .045]}><sphereGeometry args={[1, 10, 7]} /><SkinMaterial fighter={fighter} profile={profile} /></mesh>)}
-      <Face fighter={fighter} profile={profile} browLeft={browLeft} browRight={browRight} mouth={mouth} />
+      <Face fighter={fighter} profile={profile} faceRefs={faceRefs} />
       <Headwear fighter={fighter} profile={profile} />
     </group>
   );
@@ -910,7 +911,7 @@ export function FighterModel({ runtime, counterpart, fighterId, preview = false,
     <group ref={shell}>
       <group ref={root} scale={preview ? 1.05 : .75}>
         <Body fighter={fighter} profile={profile} torsoRef={torso} />
-        <Head fighter={fighter} profile={profile} headRef={head} browLeft={browLeft} browRight={browRight} mouth={mouth} detailed={detail === 'full'} />
+        <Head fighter={fighter} profile={profile} headRef={head} faceRefs={{ browLeft, browRight, mouth }} detailed={detail === 'full'} />
         <Arm fighter={fighter} profile={profile} side={-1} armRef={leftArm} forearmRef={leftForearm} detailed={detail !== 'reduced'} />
         <Arm fighter={fighter} profile={profile} side={1} armRef={rightArm} forearmRef={rightForearm} detailed={detail !== 'reduced'} />
         <Leg fighter={fighter} profile={profile} side={-1} legRef={leftLeg} shinRef={leftShin} />
