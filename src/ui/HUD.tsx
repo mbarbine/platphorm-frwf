@@ -105,7 +105,7 @@ export function HUD({ device, paused }: { device: ControlDevice; paused: boolean
   const preferredStyle = useSettings((state) => state.controlStyle);
   const controlStyle = model.labMode || model.networkAuthority ? 'technical' : preferredStyle;
   const combatDirectionInput = combatInputDirection(playerIntent.move, controlStyle);
-  const controlReadout = buildControlReadout(model.player, target, playerPhysics.speed, distance, paused, activeDevice, combatDirectionInput, playerIntent.run, controlStyle, venueFor(model).hasRing, model.grapple?.attacker === 'player' ? model.grapple.phase : null);
+  const controlReadout = buildControlReadout({ player: model.player, opponent: target, speed: playerPhysics.speed, distance, paused, device: activeDevice, direction: combatDirectionInput, runHeld: playerIntent.run, controlStyle, hasRing: venueFor(model).hasRing, grapplePhase: model.grapple?.attacker === 'player' ? model.grapple.phase : null });
   const quickContext = reversalAvailable(model.player, target, true) ? 'REVERSE CHARGE' : quickPickup(model, 'player');
   if (quickContext) controlReadout.labels = { ...controlReadout.labels, quick: quickContext };
   const hint = controlReadout.callout;

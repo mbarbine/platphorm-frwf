@@ -14,6 +14,56 @@ export interface ControlDefinition {
   key: string;
 }
 
+export interface BuildControlLabelsOptions {
+  player: FighterRuntime;
+  opponent: FighterRuntime;
+  speed: number;
+  distance: number;
+  direction?: Vec2;
+  running?: boolean;
+  controlStyle?: ControlStyle;
+  hasRing?: boolean;
+}
+
+export interface BuildControlReadoutOptions {
+  player: FighterRuntime;
+  opponent: FighterRuntime;
+  speed: number;
+  distance: number;
+  paused: boolean;
+  device?: ControlDevice;
+  direction?: Vec2;
+  runHeld?: boolean;
+  controlStyle?: ControlStyle;
+  hasRing?: boolean;
+  grapplePhase?: GrappleRuntime['phase'] | null;
+}
+
+export interface BuildVisibleControlsOptions {
+  readout: ControlReadout;
+  device: ControlDevice;
+  mode: Extract<ControlDeckMode, 'full' | 'compact'>;
+  contextPreview?: string;
+  propPreview?: string;
+}
+
+export interface ControlDeckProps {
+  device: ControlDevice;
+  player: FighterRuntime;
+  opponent: FighterRuntime;
+  speed: number;
+  distance: number;
+  paused: boolean;
+  mode?: Extract<ControlDeckMode, 'full' | 'compact'>;
+  direction?: Vec2;
+  runHeld?: boolean;
+  contextPreview?: string;
+  propPreview?: string;
+  controlStyle?: ControlStyle;
+  hasRing?: boolean;
+  grapplePhase?: GrappleRuntime['phase'] | null;
+}
+
 export interface ControlReadout {
   active: ReadonlySet<ControlId>;
   callout: string;
@@ -38,7 +88,7 @@ const COMPACT_CONTROL_IDS: readonly ControlId[] = ['quick', 'heavy', 'grapple', 
 
 const moveLabel = (moveId: string): string => getMove(moveId).displayName.toUpperCase();
 
-export function buildControlLabels(player: FighterRuntime, opponent: FighterRuntime, speed: number, distance: number, direction: Vec2 = { x: 0, z: 0 }, running = false, controlStyle: ControlStyle = 'technical', hasRing = true): Readonly<Record<ControlId, string>> {
+export function buildControlLabels({ player, opponent, speed, distance, direction = { x: 0, z: 0 }, running = false, controlStyle = 'technical', hasRing = true }: BuildControlLabelsOptions): Readonly<Record<ControlId, string>> {
   const labels: Record<ControlId, string> = { ...BASE_LABELS };
   const nearCorner = hasRing && Math.abs(player.position.x) > 4.35 && Math.abs(player.position.z) > 2.95;
   const ringside = Math.abs(player.position.x) > 5.82 || Math.abs(player.position.z) > 4.32;
@@ -87,9 +137,9 @@ export function buildControlLabels(player: FighterRuntime, opponent: FighterRunt
   return labels;
 }
 
-export function buildControlReadout(player: FighterRuntime, opponent: FighterRuntime, speed: number, distance: number, paused: boolean, device: ControlDevice = 'keyboard', direction: Vec2 = { x: 0, z: 0 }, runHeld = false, controlStyle: ControlStyle = 'technical', hasRing = true, grapplePhase: GrappleRuntime['phase'] | null = null): ControlReadout {
+export function buildControlReadout({ player, opponent, speed, distance, paused, device = 'keyboard', direction = { x: 0, z: 0 }, runHeld = false, controlStyle = 'technical', hasRing = true, grapplePhase = null }: BuildControlReadoutOptions): ControlReadout {
   const active = new Set<ControlId>();
-  const labels = { ...buildControlLabels(player, opponent, speed, distance, direction, runHeld, controlStyle, hasRing) };
+  const labels = { ...buildControlLabels({ player, opponent, speed, distance, direction, running: runHeld, controlStyle, hasRing }) };
   const isInLift = player.state === 'grappling' && grapplePhase === 'lift' && player.attackPhase === 'anticipation';
   if (isInLift) labels.quick = 'RELEASE THROW';
   // OPTIMIZATION: Replacing slow Math.hypot with zero-allocation squared-magnitude check (> 0.0064 equivalent to > 0.08)
@@ -170,7 +220,7 @@ export function buildControlReadout(player: FighterRuntime, opponent: FighterRun
   return { active, callout, labels, state };
 }
 
-export const buildVisibleControls = (readout: ControlReadout, device: ControlDevice, mode: Extract<ControlDeckMode, 'full' | 'compact'>, contextPreview?: string, propPreview?: string): readonly ControlDefinition[] => {
+export const buildVisibleControls = ({ readout, device, mode, contextPreview, propPreview }: BuildVisibleControlsOptions): readonly ControlDefinition[] => {
   const ids = mode === 'compact' ? COMPACT_CONTROL_IDS : FULL_CONTROL_IDS;
   return ids.map((id) => ({
     id,
@@ -179,9 +229,9 @@ export const buildVisibleControls = (readout: ControlReadout, device: ControlDev
   }));
 };
 
-export function ControlDeck({ device, player, opponent, speed, distance, paused, mode = 'full', direction = { x: 0, z: 0 }, runHeld = false, contextPreview, propPreview, controlStyle = 'technical', hasRing = true, grapplePhase = null }: { device: ControlDevice; player: FighterRuntime; opponent: FighterRuntime; speed: number; distance: number; paused: boolean; mode?: Extract<ControlDeckMode, 'full' | 'compact'>; direction?: Vec2; runHeld?: boolean; contextPreview?: string; propPreview?: string; controlStyle?: ControlStyle; hasRing?: boolean; grapplePhase?: GrappleRuntime['phase'] | null }) {
-  const readout = buildControlReadout(player, opponent, speed, distance, paused, device, direction, runHeld, controlStyle, hasRing, grapplePhase);
-  const controls = buildVisibleControls(readout, device, mode, contextPreview, propPreview);
+export function ControlDeck({ device, player, opponent, speed, distance, paused, mode = 'full', direction = { x: 0, z: 0 }, runHeld = false, contextPreview, propPreview, controlStyle = 'technical', hasRing = true, grapplePhase = null }: ControlDeckProps) {
+  const readout = buildControlReadout({ player, opponent, speed, distance, paused, device, direction, runHeld, controlStyle, hasRing, grapplePhase });
+  const controls = buildVisibleControls({ readout, device, mode, contextPreview, propPreview });
   const keys = DEVICE_KEYS[device];
 
   return <aside className={`control-deck control-deck--${mode}${paused ? ' control-deck--paused' : ''}`} aria-label="Live wrestling controls" data-testid="control-deck" data-control-mode={mode} data-control-state={readout.state} data-control-direction={combatDirection(direction)} data-context-preview={contextPreview ?? ''} data-prop-preview={propPreview ?? ''}>
