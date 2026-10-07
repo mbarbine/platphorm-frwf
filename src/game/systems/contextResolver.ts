@@ -126,11 +126,34 @@ export const resolvePropAction = (model: MatchModel, actorKey: FighterSlot, dire
     }
     return resolved('drop_held_prop', 'DROP PROP', actor.heldPropId, 'Held prop has no legal swing target or throw modifier', 3);
   }
-  const prop = model.props
-    .filter((candidate) => !candidate.broken && !candidate.heldBy && candidate.kind !== 'table' && (!venueFor(model).hasRing || isRingside(actor.position) === isRingside(candidate.position)))
-    .sort((left, right) => distance(actor.position, left.position) - distance(actor.position, right.position))[0];
-  if (prop && distance(actor.position, prop.position) <= 2.2) return resolved('pick_up_prop', `PICK UP ${prop.kind.toUpperCase()}`, prop.id, 'Nearest eligible prop is in pickup range', 4);
-  const supported = model.props.find((candidate) => candidate.kind === 'table' && !candidate.broken && distance(actor.position, candidate.position) <= 1.8);
-  if (supported) return rejected('reposition_prop', 'REPOSITION TABLE', 'Supported prop repositioning is not implemented yet', 5);
+  const hasRing = venueFor(model).hasRing;
+  const actorIsRingside = isRingside(actor.position);
+  let bestProp = null;
+  let bestDist = Number.POSITIVE_INFINITY;
+  let supportedTable = null;
+
+  // OPTIMIZATION: Replaced .filter, .sort, and .find array iterations with a single indexed for loop
+  for (let i = 0; i < model.props.length; i++) {
+    const candidate = model.props[i];
+    if (candidate.broken) continue;
+
+    const dist = distance(actor.position, candidate.position);
+
+    if (candidate.kind === 'table') {
+      if (!supportedTable && dist <= 1.8) {
+        supportedTable = candidate;
+      }
+    } else if (!candidate.heldBy) {
+      if (!hasRing || actorIsRingside === isRingside(candidate.position)) {
+        if (dist < bestDist) {
+          bestProp = candidate;
+          bestDist = dist;
+        }
+      }
+    }
+  }
+
+  if (bestProp && bestDist <= 2.2) return resolved('pick_up_prop', `PICK UP ${bestProp.kind.toUpperCase()}`, bestProp.id, 'Nearest eligible prop is in pickup range', 4);
+  if (supportedTable) return rejected('reposition_prop', 'REPOSITION TABLE', 'Supported prop repositioning is not implemented yet', 5);
   return rejected('pick_up_prop', 'NO PROP IN RANGE', 'No eligible prop is within pickup range', 4);
 };
