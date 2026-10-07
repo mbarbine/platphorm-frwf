@@ -66,7 +66,19 @@ describe('readable wrestling motion', () => {
   it('only offers release after the physical lift, not when the animation clock predicts it', () => {
     const model = createMatch('atlas', 'vex', 'standard', 'easy');
     model.player.state = 'grappling'; model.player.moveId = 'slam'; model.player.attackPhase = 'anticipation'; model.player.phaseElapsed = .95;
-    const read = (phase: 'acquire' | 'lift') => buildControlReadout(model.player, model.opponent, 0, 1, false, 'keyboard', { x: 0, z: 0 }, false, 'arcade', true, phase);
+    const read = (phase: 'acquire' | 'lift') => buildControlReadout({
+      player: model.player,
+      opponent: model.opponent,
+      speed: 0,
+      distance: 1,
+      paused: false,
+      device: 'keyboard',
+      direction: { x: 0, z: 0 },
+      runHeld: false,
+      controlStyle: 'arcade',
+      hasRing: true,
+      grapplePhase: phase
+    });
     expect(read('acquire').labels.quick).not.toBe('RELEASE THROW');
     expect(read('lift').labels.quick).toBe('RELEASE THROW');
     expect(read('lift').callout).toContain('J RELEASE');
