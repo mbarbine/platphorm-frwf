@@ -135,7 +135,7 @@ export const resolvePropAction = (model: MatchModel, actorKey: FighterSlot, dire
   // OPTIMIZATION: Replaced .filter, .sort, and .find array iterations with a single indexed for loop
   for (let i = 0; i < model.props.length; i++) {
     const candidate = model.props[i];
-    if (candidate.broken) continue;
+    if (!candidate || candidate.broken) continue;
 
     const dist = distance(actor.position, candidate.position);
 

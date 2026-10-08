@@ -64,6 +64,7 @@ describe('audioEngine', () => {
     // Make the oldest voice (which should be at index 0 now) have a throwing stop method
     // @ts-expect-error Testing private property
     const oldest = audioEngine.activeVoices[0];
+    if (!oldest) throw new Error('Expected at least one active voice');
 
     const targetStopMock = vi.fn().mockImplementation(() => {
       throw new Error('Already completed error');
