@@ -46,12 +46,12 @@ export function Tutorial({ device }: { device: ControlDevice }) {
       onFocus={() => setIsPaused(true)}
       onBlur={() => setIsPaused(false)}
     >
-      <div aria-live="polite" style={{ position: 'absolute', width: '1px', height: '1px', padding: 0, margin: '-1px', overflow: 'hidden', clip: 'rect(0, 0, 0, 0)', border: 0 }}>
+      <p className="sr-only" role="status" aria-live="polite">
         Core controls overlay displayed. Press Escape or click close to dismiss.
-      </div>
+      </p>
       <div>
         <span>CORE CONTROLS</span>
-        <button aria-label="Close tutorial" onClick={close}>×</button>
+        <button type="button" aria-label="Close tutorial" title="Close tutorial (Escape key)" onClick={close}>×</button>
       </div>
       <ul>
         <li><kbd>WASD</kbd><span>MOVE</span></li>
