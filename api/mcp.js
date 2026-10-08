@@ -42,13 +42,15 @@ function dispatch(message) {
 
 export default function handler(request, response) {
   try {
-    // SECURITY ENHANCEMENT: Set security headers to prevent MIME sniffing, clickjacking, protocol downgrade, and response caching (CWE-79 / CWE-524 / CWE-1021 / CWE-523)
+    // SECURITY ENHANCEMENT: Set security headers to prevent MIME sniffing, clickjacking, protocol downgrade, response caching, and referrer/permissions leakage (CWE-79 / CWE-200 / CWE-524 / CWE-693 / CWE-1021 / CWE-523)
     if (typeof response?.setHeader === "function") {
       response.setHeader("X-Content-Type-Options", "nosniff")
       response.setHeader("X-Frame-Options", "DENY")
       response.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
       response.setHeader("Cache-Control", "no-store, max-age=0")
       response.setHeader("X-Permitted-Cross-Domain-Policies", "none")
+      response.setHeader("Referrer-Policy", "strict-origin-when-cross-origin")
+      response.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
     }
 
     if (request.method === "GET") {
