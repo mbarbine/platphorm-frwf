@@ -320,6 +320,9 @@ function SteelSteps() {
   </RigidBody>;
 }
 
+// OPTIMIZATION: Static phase offset array avoids per-frame scalar multiplication inside 60Hz useFrame loop
+const LANE_PHASE_OFFSETS = [0, 0.9, 1.8, 2.7, 3.6, 4.5, 5.4] as const;
+
 function EntranceLane() {
   const { x, z, width, depth } = FRWF_ARENA.entrance;
   const mats = useRef<(MeshStandardMaterial | null)[]>([]);
@@ -327,13 +330,14 @@ function EntranceLane() {
 
   useFrame((_, dt) => {
     elapsed.current += dt;
-    // OPTIMIZATION: Use indexed for loop instead of forEach to eliminate 60 closure allocations per second inside 60Hz useFrame
+    // OPTIMIZATION: Hoist loop-invariant base phase calculation outside loop and use static LANE_PHASE_OFFSETS
     const laneMats = mats.current;
+    const basePhase = elapsed.current * 4.5;
     for (let index = 0; index < laneMats.length; index++) {
       const mat = laneMats[index];
       if (!mat) continue;
-      // Runway light animation pattern with phase offset per lane
-      const wave = Math.sin(elapsed.current * 4.5 - index * 0.9) * 0.5 + 0.5;
+      // Runway light animation pattern with pre-calculated phase offset per lane
+      const wave = Math.sin(basePhase - (LANE_PHASE_OFFSETS[index] ?? (index * 0.9))) * 0.5 + 0.5;
       mat.emissiveIntensity = 0.8 + wave * 1.8;
     }
   });
