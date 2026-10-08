@@ -18,7 +18,7 @@ type RouteComplianceHandler = (req: MockRequest, res: MockResponse) => void;
 const handler = rawHandler as RouteComplianceHandler;
 
 describe('Route Compliance Serverless Handler', () => {
-  it('sets X-Content-Type-Options, X-Frame-Options, Strict-Transport-Security, and Cache-Control security headers on responses', () => {
+  it('sets X-Content-Type-Options, X-Frame-Options, Strict-Transport-Security, Cache-Control, Referrer-Policy, and Permissions-Policy security headers on responses', () => {
     const req: MockRequest = {
       method: 'GET',
       headers: {
@@ -39,6 +39,8 @@ describe('Route Compliance Serverless Handler', () => {
     expect(res.setHeader).toHaveBeenCalledWith('X-Frame-Options', 'DENY');
     expect(res.setHeader).toHaveBeenCalledWith('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
     expect(res.setHeader).toHaveBeenCalledWith('Cache-Control', 'no-store, max-age=0');
+    expect(res.setHeader).toHaveBeenCalledWith('Referrer-Policy', 'strict-origin-when-cross-origin');
+    expect(res.setHeader).toHaveBeenCalledWith('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
   });
 
   it('redirects to the base domain with sanitized/validated timeoutMs when input is valid', () => {

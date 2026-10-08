@@ -586,7 +586,7 @@ describe('authoritative server contract', () => {
     rateLimitMap.clear();
   });
 
-  it('sets X-Content-Type-Options, X-Frame-Options, Strict-Transport-Security, Cache-Control, and X-Permitted-Cross-Domain-Policies headers on api/mcp.js responses', async () => {
+  it('sets X-Content-Type-Options, X-Frame-Options, Strict-Transport-Security, Cache-Control, X-Permitted-Cross-Domain-Policies, Referrer-Policy, and Permissions-Policy headers on api/mcp.js responses', async () => {
     const mcpModule = await import('../../../api/mcp.js');
     const mcpHandler: McpHandler = mcpModule.default;
 
@@ -600,6 +600,8 @@ describe('authoritative server contract', () => {
     expect(res.setHeader).toHaveBeenCalledWith('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
     expect(res.setHeader).toHaveBeenCalledWith('Cache-Control', 'no-store, max-age=0');
     expect(res.setHeader).toHaveBeenCalledWith('X-Permitted-Cross-Domain-Policies', 'none');
+    expect(res.setHeader).toHaveBeenCalledWith('Referrer-Policy', 'strict-origin-when-cross-origin');
+    expect(res.setHeader).toHaveBeenCalledWith('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
   });
 
   it('sanitizes JSON-RPC id payloads in api/mcp.js to prevent object reflection or memory amplification DoS', async () => {
