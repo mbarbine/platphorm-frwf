@@ -22,7 +22,7 @@ export const HIT_COMBOS = [
   { inputs: 'KKKP', name: 'HALO OVERHEAD', finish: 'overhead_kick' },
 ] as const;
 
-const HIT_COMBO_MAP = new Map(HIT_COMBOS.map(combo => [combo.inputs, combo]));
+const HIT_COMBO_MAP = new Map<string, typeof HIT_COMBOS[number]>(HIT_COMBOS.map(combo => [combo.inputs, combo]));
 
 export function comboCode(inputs: readonly StrikeInput[]): string {
   return inputs.map(input => input === 'quick' ? 'P' : 'K').join('');
