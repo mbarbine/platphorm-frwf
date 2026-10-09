@@ -15,7 +15,7 @@ describe('SpectatorControls component', () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it('renders mode buttons with aria-label attributes and live region announcements when spectating', () => {
+  it('renders mode buttons with aria-label attributes, title tooltips, and live region announcements when spectating', () => {
     // Configure match state to Battle Royale and player defeated
     useMatchStore.getState().configure('atlas', 'nova', 'standard', 'normal', 0, 0, 'battle_royale');
     useMatchStore.setState((state) => ({
@@ -30,17 +30,21 @@ describe('SpectatorControls component', () => {
 
     render(React.createElement(SpectatorControls));
 
-    const fpBtn = screen.getByRole('button', { name: /FIRST PERSON: first person mode \(Key 1\)/i });
+    const fpBtn = screen.getByRole('button', { name: /First person: first person mode \(Key 1\)/i });
     expect(fpBtn).toBeTruthy();
+    expect(fpBtn.getAttribute('title')).toBe('Switch to first person mode (Key 1)');
 
-    const tpBtn = screen.getByRole('button', { name: /3RD PERSON: 3rd person mode \(Key 2\)/i });
+    const tpBtn = screen.getByRole('button', { name: /3rd person: 3rd person mode \(Key 2\)/i });
     expect(tpBtn).toBeTruthy();
+    expect(tpBtn.getAttribute('title')).toBe('Switch to 3rd person mode (Key 2)');
 
-    const freeBtn = screen.getByRole('button', { name: /FREESTYLE CAMERA: freestyle camera mode \(Key 3\)/i });
+    const freeBtn = screen.getByRole('button', { name: /Freestyle camera: freestyle camera mode \(Key 3\)/i });
     expect(freeBtn).toBeTruthy();
+    expect(freeBtn.getAttribute('title')).toBe('Switch to freestyle camera mode (Key 3)');
 
     const nextBtn = screen.getByRole('button', { name: /NEXT WRESTLER: spectate next active wrestler \(Tab key\)/i });
     expect(nextBtn).toBeTruthy();
+    expect(nextBtn.getAttribute('title')).toBe('Spectate next active wrestler (Tab key)');
 
     // Verify aria-live region content prefix
     const liveRegion = screen.getByText(/Spectating wrestler:/i);
@@ -62,7 +66,7 @@ describe('SpectatorControls component', () => {
 
     render(React.createElement(SpectatorControls));
 
-    const fpBtn = screen.getByRole('button', { name: /FIRST PERSON: first person mode \(Key 1\)/i });
+    const fpBtn = screen.getByRole('button', { name: /First person: first person mode \(Key 1\)/i });
     fireEvent.click(fpBtn);
 
     expect(useSpectatorStore.getState().cameraMode).toBe('first_person');
