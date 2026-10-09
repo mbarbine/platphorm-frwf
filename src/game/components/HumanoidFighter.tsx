@@ -50,7 +50,7 @@ export function HumanoidFighter({ runtime, side, replayFrame }: { runtime: Fight
       for (const material of skinMaterials) material.roughness = roughness;
     }
     scene.updateMatrixWorld(true);
-    if (!replayFrame && posedBones > 0) useRosterPresentation.getState().mark(useMatchStore.getState().model.runtimeId, side);
+    if (!replayFrame) useRosterPresentation.getState().mark(useMatchStore.getState().model.runtimeId, side);
     if (!replayFrame && side === 'player' && posedBones === BODY_SEGMENT_COUNT && runtime.moveId && runtime.attackPhase) {
       bodyWorksRuntime.recordPlayerAttackPose({ moveId: runtime.moveId, instanceId: runtime.attackInstanceId });
     }
