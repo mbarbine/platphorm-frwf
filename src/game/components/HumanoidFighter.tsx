@@ -20,16 +20,20 @@ const ACTIVE_EFFORT_STATES = new Set(['attacking', 'grappling', 'grabbed', 'reco
 
 /** A standard skinned glTF asset, driven by the same solved bones as contact. */
 export function HumanoidFighter({ runtime, side, replayFrame }: { runtime: FighterRuntime; side: FighterSlot; replayFrame?: RefObject<PhysicsReplayFrame | null> }) {
-  const { scene, bones, fingers, skinMaterials, modelScale } = useHumanoidAsset(runtime.definitionId);
+  const { scene, boneEntries, fingers, skinMaterials, modelScale } = useHumanoidAsset(runtime.definitionId);
   const parentRotation = useMemo(() => new Quaternion(), []);
   const curl = useMemo(() => new Quaternion(), []);
   const fingerTarget = useMemo(() => new Quaternion(), []);
   const finishTimer = useRef(0);
   const baseSkinRoughness = fighterVisual(runtime.definitionId).skinRoughness;
 
+  // OPTIMIZATION: Indexed for loops over pre-allocated boneEntries, fingers, and skinMaterials arrays eliminate Map iterator and for...of allocations inside 60Hz useFrame loop
   useFrame((_, dt) => {
     let posedBones = 0;
-    for (const [id, bone] of bones) {
+    for (let i = 0; i < boneEntries.length; i++) {
+      const entry = boneEntries[i];
+      if (!entry) continue;
+      const [id, bone] = entry;
       const transform = replayFrame ? replayFrame.current?.fighters[side]?.[id] : bodyWorksRuntime.segmentSnapshot(side, id);
       if (!transform) continue;
       applyPhysicalBonePose(bone, transform, parentRotation);
@@ -37,7 +41,9 @@ export function HumanoidFighter({ runtime, side, replayFrame }: { runtime: Fight
     }
     if (replayFrame) scene.visible = posedBones > 0;
     const gripping = GRIPPING_STATES.has(runtime.state);
-    for (const finger of fingers) {
+    for (let i = 0; i < fingers.length; i++) {
+      const finger = fingers[i];
+      if (!finger) continue;
       curl.setFromAxisAngle(finger.curlAxis, finger.closedAngle * (gripping ? .55 : 1));
       fingerTarget.copy(finger.rest).multiply(curl);
       finger.bone.quaternion.slerp(fingerTarget, 1 - Math.exp(-16 * dt));
@@ -47,7 +53,10 @@ export function HumanoidFighter({ runtime, side, replayFrame }: { runtime: Fight
       finishTimer.current %= .12;
       const active = Boolean(runtime.moveId) || ACTIVE_EFFORT_STATES.has(runtime.state);
       const roughness = skinRoughnessForEffort(baseSkinRoughness, runtime.stamina, runtime.staminaCap, active);
-      for (const material of skinMaterials) material.roughness = roughness;
+      for (let i = 0; i < skinMaterials.length; i++) {
+        const material = skinMaterials[i];
+        if (material) material.roughness = roughness;
+      }
     }
     scene.updateMatrixWorld(true);
     if (!replayFrame && posedBones > 0) useRosterPresentation.getState().mark(useMatchStore.getState().model.runtimeId, side);
