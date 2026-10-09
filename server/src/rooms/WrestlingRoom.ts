@@ -22,6 +22,8 @@ interface PlayerSession {
   connected: boolean;
   lastCommandSeq: number;
   reconnectToken?: string;
+  msgCountInWindow?: number;
+  msgWindowStart?: number;
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -96,6 +98,7 @@ export class WrestlingRoom extends Room<MatchRoomStateSchema> {
     this.registerHandlers();
 
     this.onMessage('version', (client, msg: VersionMsg) => {
+      if (!this.checkMessageRateLimit(client)) return;
       // Defensively check that payload is a valid object and string length is bounded (CWE-400)
       if (!msg || typeof msg !== 'object' || typeof msg.clientVersion !== 'string' || msg.clientVersion.length > 64) {
         client.leave(4001); // Invalid message payload
@@ -187,11 +190,13 @@ export class WrestlingRoom extends Room<MatchRoomStateSchema> {
     this.onMessage<CommandMsg>('command', (client, msg) => this.handleCommand(client, msg));
     this.onMessage('rematch', (client) => this.handleRematch(client));
     this.onMessage('syncState', (client) => {
+      if (!this.checkMessageRateLimit(client)) return;
       const session = this.sessions.get(client.sessionId);
       if (!session) return;
       client.send('roomState', this.roomStateMessage());
     });
     this.onMessage('pause', (client, msg: { paused: boolean }) => {
+      if (!this.checkMessageRateLimit(client)) return;
       // Pause is only respected in single-player practice mode
       if (this.singlePlayerMode()) {
         const session = this.sessions.get(client.sessionId);
@@ -206,6 +211,7 @@ export class WrestlingRoom extends Room<MatchRoomStateSchema> {
   }
 
   private handleSelectFighter(client: Client, msg: SelectFighterMsg): void {
+    if (!this.checkMessageRateLimit(client)) return;
     if (this.state.phase !== 'lobby' && this.state.phase !== 'selection') return;
     const session = this.sessions.get(client.sessionId);
     if (!session || session.role === 'spectator') return;
@@ -221,6 +227,7 @@ export class WrestlingRoom extends Room<MatchRoomStateSchema> {
   }
 
   private handleReady(client: Client): void {
+    if (!this.checkMessageRateLimit(client)) return;
     if (!['lobby', 'selection'].includes(this.state.phase)) return;
     const session = this.sessions.get(client.sessionId);
     if (!session || session.role === 'spectator') return;
@@ -232,6 +239,7 @@ export class WrestlingRoom extends Room<MatchRoomStateSchema> {
   }
 
   private handleCommand(client: Client, msg: CommandMsg): void {
+    if (!this.checkMessageRateLimit(client)) return;
     if (this.state.phase !== 'active') return;
     const session = this.sessions.get(client.sessionId);
     if (!session || session.role === 'spectator') return;
@@ -251,6 +259,7 @@ export class WrestlingRoom extends Room<MatchRoomStateSchema> {
   }
 
   private handleRematch(client: Client): void {
+    if (!this.checkMessageRateLimit(client)) return;
     if (this.state.phase !== 'result') return;
     const session = this.sessions.get(client.sessionId);
     // Authorization: Only active players can vote for a rematch
@@ -425,5 +434,25 @@ export class WrestlingRoom extends Room<MatchRoomStateSchema> {
   private validatedFighterId(id: unknown): FighterId {
     const valid: readonly FighterId[] = FIGHTER_IDS;
     return valid.includes(id as FighterId) ? (id as FighterId) : 'atlas';
+  }
+
+  /**
+   * Enforces per-client message rate limiting (max 120 msgs/sec) to prevent resource exhaustion DoS (CWE-400).
+   */
+  private checkMessageRateLimit(client: Client): boolean {
+    const session = this.sessions.get(client.sessionId);
+    if (!session) return true;
+    const now = Date.now();
+    if (!session.msgWindowStart || now - session.msgWindowStart >= 1000) {
+      session.msgWindowStart = now;
+      session.msgCountInWindow = 1;
+      return true;
+    }
+    session.msgCountInWindow = (session.msgCountInWindow || 0) + 1;
+    if (session.msgCountInWindow > 120) {
+      client.leave(4008); // Rate limit exceeded
+      return false;
+    }
+    return true;
   }
 }
