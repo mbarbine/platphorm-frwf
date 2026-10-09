@@ -641,4 +641,33 @@ describe('WrestlingRoom Unit Tests', () => {
       expect(room.intervals.size).toBe(0);
     });
   });
+
+  describe('Message Rate Limiting (CWE-400)', () => {
+    it('allows normal message rates within the limit', async () => {
+      const p1: MockClient = { sessionId: 'p1', send: vi.fn(), leave: vi.fn() };
+      await room.onJoin(p1 as never, {});
+
+      const handler = room.handlers.get('syncState');
+      for (let i = 0; i < 100; i++) {
+        handler?.(p1);
+      }
+      expect(p1.leave).not.toHaveBeenCalled();
+      expect(p1.send).toHaveBeenCalledTimes(100);
+    });
+
+    it('disconnects client with code 4008 when message rate exceeds 120 msgs/sec', async () => {
+      const p1: MockClient = { sessionId: 'p1', send: vi.fn(), leave: vi.fn() };
+      await room.onJoin(p1 as never, {});
+
+      const handler = room.handlers.get('syncState');
+      for (let i = 0; i < 120; i++) {
+        handler?.(p1);
+      }
+      expect(p1.leave).not.toHaveBeenCalled();
+
+      // 121st message in the same 1-second window exceeds rate limit
+      handler?.(p1);
+      expect(p1.leave).toHaveBeenCalledWith(4008);
+    });
+  });
 });
