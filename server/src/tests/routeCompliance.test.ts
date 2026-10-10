@@ -37,6 +37,7 @@ describe('Route Compliance Serverless Handler', () => {
 
     expect(res.setHeader).toHaveBeenCalledWith('X-Content-Type-Options', 'nosniff');
     expect(res.setHeader).toHaveBeenCalledWith('X-Frame-Options', 'DENY');
+    expect(res.setHeader).toHaveBeenCalledWith('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'");
     expect(res.setHeader).toHaveBeenCalledWith('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
     expect(res.setHeader).toHaveBeenCalledWith('Cache-Control', 'no-store, max-age=0');
     expect(res.setHeader).toHaveBeenCalledWith('Referrer-Policy', 'strict-origin-when-cross-origin');
