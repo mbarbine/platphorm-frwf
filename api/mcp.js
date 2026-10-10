@@ -46,6 +46,7 @@ export default function handler(request, response) {
     if (typeof response?.setHeader === "function") {
       response.setHeader("X-Content-Type-Options", "nosniff")
       response.setHeader("X-Frame-Options", "DENY")
+      response.setHeader("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'")
       response.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
       response.setHeader("Cache-Control", "no-store, max-age=0")
       response.setHeader("X-Permitted-Cross-Domain-Policies", "none")
