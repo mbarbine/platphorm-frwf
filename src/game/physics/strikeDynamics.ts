@@ -16,35 +16,35 @@ export interface StrikeDriveProfile {
 export const strikeApproachAcceleration = (separation: number, closingSpeed: number, optimum: number): number =>
   Math.max(0, Math.min(4.8, (separation - optimum) * 9 - closingSpeed * 7));
 
-const HAND_STRIKE: StrikeDriveProfile = { source: 'rightHand', target: 'chest', speed: 18, response: 32, maximumAcceleration: 600, pelvisAcceleration: 5.4 };
+const HAND_STRIKE: StrikeDriveProfile = { source: 'rightHand', target: 'chest', speed: 18.5, response: 34, maximumAcceleration: 600, pelvisAcceleration: 5.8 };
 
 export const strikeDriveProfile = (moveId: string): StrikeDriveProfile | null => {
   if (moveId === 'jab') return HAND_STRIKE;
-  if (moveId === 'combo') return { source: 'leftHand', target: 'chest', speed: 17, response: 28, maximumAcceleration: 460, pelvisAcceleration: 3.2 };
-  if (moveId === 'right_hook') return { source: 'rightHand', target: 'head', speed: 15.5, response: 25, maximumAcceleration: 360, pelvisAcceleration: 4.1 };
-  if (moveId === 'left_hook') return { source: 'leftHand', target: 'head', speed: 15.5, response: 25, maximumAcceleration: 360, pelvisAcceleration: 4.1 };
-  if (moveId === 'high_punch') return { source: 'rightHand', target: 'head', speed: 18, response: 28, maximumAcceleration: 440, pelvisAcceleration: 2.7 };
-  if (moveId === 'heavy') return { source: 'rightHand', target: 'head', speed: 17, response: 25, maximumAcceleration: 390, pelvisAcceleration: 3.4 };
-  if (moveId === 'uppercut') return { source: 'rightHand', target: 'head', speed: 13.5, response: 32, maximumAcceleration: 520, pelvisAcceleration: 4.2 };
-  if (moveId === 'headbutt') return { source: 'head', target: 'head', speed: 20, response: 32, maximumAcceleration: 560, pelvisAcceleration: 12.8 };
-  if (moveId === 'low_kick') return { source: 'rightFoot', target: 'leftShin', speed: 18.5, response: 26, maximumAcceleration: 370, pelvisAcceleration: 6.8 };
-  if (moveId === 'high_kick') return { source: 'rightFoot', target: 'head', speed: 17.2, response: 19, maximumAcceleration: 240, pelvisAcceleration: 3.9 };
-  if (moveId === 'roundhouse') return { source: 'rightFoot', target: 'abdomen', speed: 18.5, response: 24, maximumAcceleration: 340, pelvisAcceleration: 4.5 };
-  if (moveId === 'front_kick') return { source: 'rightFoot', target: 'chest', speed: 17.4, response: 21, maximumAcceleration: 275, pelvisAcceleration: 5.2 };
-  if (moveId === 'superkick') return { source: 'rightFoot', target: 'head', speed: 19.5, response: 28, maximumAcceleration: 480, pelvisAcceleration: 6.2 };
-  if (moveId === 'dropkick') return { source: 'rightFoot', target: 'chest', speed: 18.8, response: 26, maximumAcceleration: 440, pelvisAcceleration: 7.5 };
-  if (moveId === 'spinning_heel_kick') return { source: 'rightFoot', target: 'head', speed: 20.2, response: 30, maximumAcceleration: 520, pelvisAcceleration: 7.0 };
-  if (moveId === 'axe_kick') return { source: 'rightFoot', target: 'head', speed: 18.0, response: 25, maximumAcceleration: 410, pelvisAcceleration: 5.8 };
-  if (moveId === 'enzuigiri') return { source: 'rightFoot', target: 'head', speed: 21.0, response: 32, maximumAcceleration: 550, pelvisAcceleration: 8.2 };
-  if (moveId === 'bicycle_kick') return { source: 'rightFoot', target: 'head', speed: 20.5, response: 30, maximumAcceleration: 540, pelvisAcceleration: 7.5 };
-  if (moveId === 'side_kick') return { source: 'rightFoot', target: 'chest', speed: 18.2, response: 24, maximumAcceleration: 380, pelvisAcceleration: 5.5 };
-  if (moveId === 'calf_kick') return { source: 'rightFoot', target: 'leftShin', speed: 18.8, response: 26, maximumAcceleration: 390, pelvisAcceleration: 6.2 };
-  if (moveId === 'overhead_kick') return { source: 'rightFoot', target: 'head', speed: 21.5, response: 32, maximumAcceleration: 560, pelvisAcceleration: 8.0 };
-  if (moveId === 'spin_side_kick') return { source: 'rightFoot', target: 'chest', speed: 19.5, response: 28, maximumAcceleration: 480, pelvisAcceleration: 6.5 };
-  if (moveId === 'question_mark_kick') return { source: 'rightFoot', target: 'head', speed: 19.0, response: 28, maximumAcceleration: 460, pelvisAcceleration: 6.2 };
-  if (moveId === 'hook_kick') return { source: 'rightFoot', target: 'head', speed: 18.5, response: 26, maximumAcceleration: 420, pelvisAcceleration: 5.8 };
-  if (moveId === 'sweep_kick') return { source: 'rightFoot', target: 'leftShin', speed: 18.0, response: 26, maximumAcceleration: 380, pelvisAcceleration: 6.0 };
-  if (moveId === 'jumping_knee') return { source: 'rightShin', target: 'head', speed: 20.0, response: 30, maximumAcceleration: 520, pelvisAcceleration: 7.2 };
+  if (moveId === 'combo') return { source: 'leftHand', target: 'chest', speed: 18.0, response: 30, maximumAcceleration: 480, pelvisAcceleration: 4.5 };
+  if (moveId === 'right_hook') return { source: 'rightHand', target: 'head', speed: 16.5, response: 28, maximumAcceleration: 400, pelvisAcceleration: 4.8 };
+  if (moveId === 'left_hook') return { source: 'leftHand', target: 'head', speed: 16.5, response: 28, maximumAcceleration: 400, pelvisAcceleration: 4.8 };
+  if (moveId === 'high_punch') return { source: 'rightHand', target: 'head', speed: 18.5, response: 30, maximumAcceleration: 460, pelvisAcceleration: 4.2 };
+  if (moveId === 'heavy') return { source: 'rightHand', target: 'head', speed: 18.0, response: 28, maximumAcceleration: 420, pelvisAcceleration: 4.2 };
+  if (moveId === 'uppercut') return { source: 'rightHand', target: 'head', speed: 15.0, response: 34, maximumAcceleration: 560, pelvisAcceleration: 4.2 };
+  if (moveId === 'headbutt') return { source: 'head', target: 'head', speed: 21.5, response: 35, maximumAcceleration: 600, pelvisAcceleration: 12.8 };
+  if (moveId === 'low_kick') return { source: 'rightFoot', target: 'leftShin', speed: 19.8, response: 28, maximumAcceleration: 410, pelvisAcceleration: 6.8 };
+  if (moveId === 'high_kick') return { source: 'rightFoot', target: 'head', speed: 18.8, response: 22, maximumAcceleration: 280, pelvisAcceleration: 3.9 };
+  if (moveId === 'roundhouse') return { source: 'rightFoot', target: 'abdomen', speed: 19.8, response: 26, maximumAcceleration: 380, pelvisAcceleration: 4.5 };
+  if (moveId === 'front_kick') return { source: 'rightFoot', target: 'chest', speed: 18.8, response: 24, maximumAcceleration: 320, pelvisAcceleration: 5.2 };
+  if (moveId === 'superkick') return { source: 'rightFoot', target: 'head', speed: 21.0, response: 30, maximumAcceleration: 520, pelvisAcceleration: 6.2 };
+  if (moveId === 'dropkick') return { source: 'rightFoot', target: 'chest', speed: 20.2, response: 28, maximumAcceleration: 480, pelvisAcceleration: 7.5 };
+  if (moveId === 'spinning_heel_kick') return { source: 'rightFoot', target: 'head', speed: 21.5, response: 32, maximumAcceleration: 560, pelvisAcceleration: 7.0 };
+  if (moveId === 'axe_kick') return { source: 'rightFoot', target: 'head', speed: 19.5, response: 28, maximumAcceleration: 450, pelvisAcceleration: 5.8 };
+  if (moveId === 'enzuigiri') return { source: 'rightFoot', target: 'head', speed: 22.5, response: 34, maximumAcceleration: 590, pelvisAcceleration: 8.2 };
+  if (moveId === 'bicycle_kick') return { source: 'rightFoot', target: 'head', speed: 22.0, response: 32, maximumAcceleration: 580, pelvisAcceleration: 7.5 };
+  if (moveId === 'side_kick') return { source: 'rightFoot', target: 'chest', speed: 19.5, response: 26, maximumAcceleration: 420, pelvisAcceleration: 5.5 };
+  if (moveId === 'calf_kick') return { source: 'rightFoot', target: 'leftShin', speed: 20.0, response: 28, maximumAcceleration: 430, pelvisAcceleration: 6.2 };
+  if (moveId === 'overhead_kick') return { source: 'rightFoot', target: 'head', speed: 22.8, response: 34, maximumAcceleration: 600, pelvisAcceleration: 8.0 };
+  if (moveId === 'spin_side_kick') return { source: 'rightFoot', target: 'chest', speed: 20.8, response: 30, maximumAcceleration: 520, pelvisAcceleration: 6.5 };
+  if (moveId === 'question_mark_kick') return { source: 'rightFoot', target: 'head', speed: 20.2, response: 30, maximumAcceleration: 500, pelvisAcceleration: 6.2 };
+  if (moveId === 'hook_kick') return { source: 'rightFoot', target: 'head', speed: 19.8, response: 28, maximumAcceleration: 460, pelvisAcceleration: 5.8 };
+  if (moveId === 'sweep_kick') return { source: 'rightFoot', target: 'leftShin', speed: 19.2, response: 28, maximumAcceleration: 420, pelvisAcceleration: 6.0 };
+  if (moveId === 'jumping_knee') return { source: 'rightShin', target: 'head', speed: 21.2, response: 32, maximumAcceleration: 560, pelvisAcceleration: 7.2 };
   // A wrestling stiff-arm lands through the braced forearm/elbow line. The
   // rope rebound uses the opposite arm so the player can pick left or right.
   if (moveId === 'stiff_arm') return { source: 'rightForearm', target: 'chest', speed: 18.5, response: 24, maximumAcceleration: 340, pelvisAcceleration: 11 };

@@ -36,14 +36,14 @@ const MOVE_POSITIONS: Readonly<Record<string, GrapplePosition>> = {
 };
 
 const HOLD_OFFSETS: Readonly<Record<GrapplePosition, { forward: number; side: number }>> = {
-  collarTie: { forward: .78, side: 0 },
-  overhook: { forward: .68, side: .2 },
-  underhook: { forward: .65, side: 0 },
-  headlock: { forward: .48, side: .42 },
-  waistLock: { forward: .55, side: 0 },
-  rearWaistLock: { forward: -.5, side: 0 },
-  frontFacelock: { forward: .57, side: .1 },
-  armControl: { forward: .9, side: .28 },
+  collarTie: { forward: .72, side: 0 },
+  overhook: { forward: .62, side: .18 },
+  underhook: { forward: .58, side: 0 },
+  headlock: { forward: .44, side: .38 },
+  waistLock: { forward: .50, side: 0 },
+  rearWaistLock: { forward: -.45, side: 0 },
+  frontFacelock: { forward: .52, side: .08 },
+  armControl: { forward: .78, side: .24 },
 };
 
 const LIFT_HEIGHTS: Readonly<Record<string, number>> = {
@@ -160,9 +160,9 @@ export const stepGrappleDynamics = (model: MatchModel, dt: number, playerIntent:
   grapple.struggle = clamp(grapple.struggle + (defenderInput - attackerInput * .45) * dt - dt * .12, 0, 1);
 
   // Intense two-body stiffness with dynamic struggle strain vibration during heavy lifts
-  const struggleStrain = grapple.struggle > 0.2 ? Math.sin(grapple.age * 38) * grapple.struggle * 1.8 : 0;
-  const stiffness = (26 + technique * 12) * clamp(grapple.leverage, .65, 1.45);
-  const damping = 4.8 + technique * 2.2;
+  const struggleStrain = grapple.struggle > 0.15 ? Math.sin(grapple.age * 42) * grapple.struggle * 2.4 : 0;
+  const stiffness = (30 + technique * 14) * clamp(grapple.leverage, .7, 1.55);
+  const damping = 5.2 + technique * 2.5;
   const force = {
     x: clamp((error.x + right.x * struggleStrain * .015) * stiffness - relativeVelocity.x * damping, -36, 36),
     z: clamp((error.z + right.z * struggleStrain * .015) * stiffness - relativeVelocity.z * damping, -36, 36),
