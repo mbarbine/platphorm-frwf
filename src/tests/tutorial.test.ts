@@ -38,6 +38,13 @@ describe('Tutorial Component timed overlay with pause-on-hover/focus', () => {
     expect(container.firstChild).toBeNull();
   });
 
+  it('renders gamepad prompts when device is gamepad', () => {
+    render(React.createElement(Tutorial, { device: 'gamepad' }));
+    expect(screen.getByText('L STICK')).toBeTruthy();
+    expect(screen.getByText('X / □')).toBeTruthy();
+    expect(screen.getByText(/Hold RT to run, LT to guard, and use R3/i)).toBeTruthy();
+  });
+
   it('closes tutorial when the close button is clicked', () => {
     render(React.createElement(Tutorial, { device: 'keyboard' }));
     const closeBtn = screen.getByLabelText('Close tutorial');

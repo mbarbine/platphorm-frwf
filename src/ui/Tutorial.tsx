@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { ControlDevice } from '../game/types/game';
+import { controlPrompt } from './ControlDeck';
 
 const KEY = 'ringfall-tutorial-complete-v2';
 
@@ -37,6 +38,15 @@ export function Tutorial({ device }: { device: ControlDevice }) {
 
   if (!visible || device === 'touch') return null;
 
+  const moveKey = controlPrompt(device, 'move');
+  const strikeKey = controlPrompt(device, 'quick');
+  const powerKey = controlPrompt(device, 'heavy');
+  const grappleKey = controlPrompt(device, 'grapple');
+  const dodgeKey = controlPrompt(device, 'counter');
+  const runKey = controlPrompt(device, 'run');
+  const guardKey = controlPrompt(device, 'block');
+  const actionKey = controlPrompt(device, 'context');
+
   return (
     <aside
       className="tutorial"
@@ -47,20 +57,20 @@ export function Tutorial({ device }: { device: ControlDevice }) {
       onBlur={() => setIsPaused(false)}
     >
       <p className="sr-only" role="status" aria-live="polite">
-        Core controls overlay displayed. Press Escape or click close to dismiss.
+        Core controls overlay displayed for {device}. Press Escape or click close to dismiss.
       </p>
       <div>
         <span>CORE CONTROLS</span>
         <button type="button" aria-label="Close tutorial" title="Close tutorial (Escape key)" onClick={close}>×</button>
       </div>
       <ul>
-        <li><kbd>WASD</kbd><span>MOVE</span></li>
-        <li><kbd>J</kbd><span>STRIKE</span></li>
-        <li><kbd>K</kbd><span>POWER</span></li>
-        <li><kbd>L</kbd><span>GRAPPLE</span></li>
-        <li><kbd>SPACE</kbd><span>DODGE</span></li>
+        <li><kbd>{moveKey}</kbd><span>MOVE</span></li>
+        <li><kbd>{strikeKey}</kbd><span>STRIKE</span></li>
+        <li><kbd>{powerKey}</kbd><span>POWER</span></li>
+        <li><kbd>{grappleKey}</kbd><span>GRAPPLE</span></li>
+        <li><kbd>{dodgeKey}</kbd><span>DODGE</span></li>
       </ul>
-      <small>Get close before attacking. Hold Shift to run, I to guard, and use F only when the action prompt appears.</small>
+      <small>Get close before attacking. Hold {runKey} to run, {guardKey} to guard, and use {actionKey} only when the action prompt appears.</small>
     </aside>
   );
 }
