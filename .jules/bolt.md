@@ -1,5 +1,9 @@
 # Bolt's Journal - Critical Learnings Only
 
+## 2026-09-27 - [Indexed Loop over Prop Slots in Spectator Render Loop]
+**Learning:** In 20Hz crowd spectator animation updates (`Spectators.tsx`), iterating over `props.current` (a `Map<number, InstancedMesh>`) using `for (const propMesh of props.current.values())` created a new `MapIterator` object 20 times per second during gameplay rendering. Replacing `.values()` iteration with an indexed loop over fixed prop slots (`0..8`) using `props.current.get(slot)` eliminated 20 `MapIterator` heap allocations per second in hot crowd animation ticks.
+**Action:** Use indexed loops over known integer slots or cached arrays instead of `Map.prototype.values()` or `Map.prototype.entries()` inside high-frequency `useFrame` callbacks to avoid iterator object heap churn.
+
 ## 2026-09-26 - [Pre-allocated Bone Entries and Indexed Loops in Humanoid Fighter Render Loop]
 **Learning:** In 60Hz React Three Fiber humanoid character render loops (`HumanoidFighter.tsx`), iterating over `bones` (a `Map<BodySegmentId, Bone>`) using `for (const [id, bone] of bones)` and iterating over `fingers`/`skinMaterials` using `for...of` allocated `Map` iterator objects, tuple arrays `[id, bone]`, and array iterators on every frame. Pre-allocating `boneEntries` (`[BodySegmentId, Bone][]`) in `useHumanoidAsset` and using indexed `for` loops in `HumanoidFighter.tsx` eliminated dynamic iterator and tuple heap allocations per wrestler per frame.
 **Action:** Pre-allocate tuple arrays (`boneEntries`) during asset loading and use indexed `for` loops instead of `Map` iterators or `for...of` loops inside 60Hz R3F render callbacks.

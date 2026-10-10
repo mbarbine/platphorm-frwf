@@ -114,8 +114,10 @@ function CrowdPopulation({ count }: { count: number }) {
       }
       mesh.instanceMatrix.needsUpdate = true; angles.needsUpdate = true;
     }
-    for (const propMesh of props.current.values()) {
-      propMesh.instanceMatrix.needsUpdate = true;
+    // OPTIMIZATION: Indexed loop over fixed prop slots (0..8) avoids MapIterator allocations 20 times per second in useFrame
+    for (let slot = 0; slot < 9; slot++) {
+      const propMesh = props.current.get(slot);
+      if (propMesh) propMesh.instanceMatrix.needsUpdate = true;
     }
   });
   const rows = Math.ceil(count/105);
