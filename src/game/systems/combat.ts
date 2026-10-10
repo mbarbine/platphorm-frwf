@@ -207,7 +207,7 @@ const addImpact = (model: MatchModel, position: Vec2, kind: ImpactEvent['kind'],
       ...metadata.highlight,
     }];
   }
-  model.hitStop = Math.max(model.hitStop, intensity * .09);
+  model.hitStop = Math.max(model.hitStop, intensity * .11);
 };
 
 const varietyMultiplier = (actor: FighterRuntime, moveId: string): number => {
@@ -571,7 +571,7 @@ export const requestCommand = (model: MatchModel, actorKey: FighterSlot, command
     return true;
   }
   if (actor.state === 'grappling' && actor.attackPhase === 'anticipation' && (command === 'quick' || command === 'heavy' || command === 'grapple')) {
-    const moveId = selectDirectionalGrapple(direction, command);
+    const moveId = selectDirectionalGrapple(direction, command, actor.definitionId);
     const selected = getMove(moveId);
     const current = actor.moveId ? getMove(actor.moveId) : selected;
     const extraCost = Math.max(0, selected.staminaCost - current.staminaCost);
@@ -694,7 +694,7 @@ export const requestCommand = (model: MatchModel, actorKey: FighterSlot, command
     target.state = 'staggered'; target.stateElapsed = -BALANCE.block.guardBreakStagger;
     model.announcement = 'GUARD BROKEN — GRAPPLE!'; model.announcementTimer = .9;
   }
-  const moveId = selectGrappleEntryMove(direction);
+  const moveId = selectGrappleEntryMove(direction, actor.definitionId);
   const started = startMove(actor, target, getMove(moveId));
   if (started) {
     clearHitCombo(actor); target.state = model.physicsAuthority ? 'staggered' : 'grabbed'; target.stateElapsed = 0; target.velocity = scale(target.velocity, .3);

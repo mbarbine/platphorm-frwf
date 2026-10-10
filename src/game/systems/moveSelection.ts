@@ -36,15 +36,13 @@ const STRIKE_GRID: Readonly<Record<CombatDirection, Readonly<Record<StrikeButton
   right: { quick: 'right_hook', heavy: 'high_kick' },
 };
 
-export const selectDirectionalGrapple = (direction: Vec2, button: GrappleButton): string => GRAPPLE_GRID[combatDirection(direction)][button];
+export const selectDirectionalGrapple = (direction: Vec2, button: GrappleButton, _fighterId?: FighterId): string =>
+  GRAPPLE_GRID[combatDirection(direction)][button];
 
 /** A directionless first L establishes the learner-friendly default slam. A
- * second L during the secured clinch still selects the preserved piledriver. */
-export const selectGrappleEntryMove = (direction: Vec2): string => {
+ * second L during the secured clinch selects the preserved piledriver. */
+export const selectGrappleEntryMove = (direction: Vec2, _fighterId?: FighterId): string => {
   const directionId = combatDirection(direction);
-  // The two moves players ask for most have one-step, visible workflows:
-  // neutral L/B is the body slam; back/down + L/B is the piledriver. Other
-  // directions retain the deeper grapple grid once those basics are learned.
   if (directionId === 'neutral') return 'slam';
   if (directionId === 'down') return 'piledriver';
   return selectDirectionalGrapple(direction, 'grapple');
@@ -66,11 +64,10 @@ export const selectDirectionalStrike = (direction: Vec2, button: StrikeButton, c
     }
     return 'jab';
   } else {
-    // K / heavy is strictly leg kicks or stiff-arms.
+    // K / heavy is strictly kicks or stiff-arms.
     if (directionId === 'neutral') {
       return 'front_kick';
     }
-    // ensure heavy button maps to leg kicks or stiff-arms (including new kicks)
     const raw = STRIKE_GRID[directionId].heavy;
     const validHeavyStrikes = new Set<string>([
       'front_kick', 'low_kick', 'high_kick', 'roundhouse', 'superkick', 'dropkick',

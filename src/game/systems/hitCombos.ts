@@ -1,9 +1,9 @@
 import type { FighterRuntime, FighterSlot, MoveDefinition } from '../types/game';
 
 export type StrikeInput = 'quick' | 'heavy';
-export const COMBO_LINK_SECONDS = 1.45;
+export const COMBO_LINK_SECONDS = 1.60;
 export const COMBO_MAX_HITS = 6;
-export const COMBO_RECOVERY_SECONDS = .075;
+export const COMBO_RECOVERY_SECONDS = .060;
 
 /** Recipes describe confirmed strikes, never buffered button presses. */
 export const HIT_COMBOS = [
